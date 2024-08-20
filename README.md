@@ -1,3 +1,3 @@
 # Immutablue
 
-Base Silverblue Image that can be easily layered on top of for custom implementations.
+An easy modular and customizable implementation of a base Fedora Silverblue Image.
