@@ -9,7 +9,7 @@ build-stable:
   stage: build
   image: quay.io/buildah/stable
   rules:
-    - if: $DAILY == null
+    - if: $DAILY == null && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
     - buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
     - buildah bud -t $FEDORA_VERSION .
