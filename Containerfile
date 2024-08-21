@@ -11,27 +11,25 @@ COPY --from=quay.io/zachpodbielniak/nautilusopenwithcode:${FEDORA_VERSION} \
 COPY . ${INSTALL_DIR}
 
 
-RUN \
+RUN set -x && \
     curl -Lo /etc/yum.repos.d/tailscale.repo https://pkgs.tailscale.com/stable/fedora/tailscale.repo && \
     ostree container commit
 
 
-#RUN pkg_urls=$(yq '.rpm_url[]' < ${INSTALL_DIR}/packages.yml) && \
-#    for pkg_url in $pkg_urls; do wget -P /tmp/ "$pkg_url"; done && \
-#    rpm-ostree install /tmp/*.rpm && \
-#    rm /tmp/*.rpm & \
-#    ostree container commit
-
-
-RUN pkgs=$(yq '.rpm[]' < ${INSTALL_DIR}/packages.yml) && \
+RUN set -x && \
+    pkgs=$(yq '.rpm[]' < ${INSTALL_DIR}/packages.yml) && \
     rpm-ostree install $(for pkg in $pkgs; do printf '%s ' $pkg; done) && \
     ostree container commit
 
-RUN pkgs=$(yq '.rpm_rm[]' < ${INSTALL_DIR}/packages.yml) && \
+
+RUN set -x && \
+    pkgs=$(yq '.rpm_rm[]' < ${INSTALL_DIR}/packages.yml) && \
     rpm-ostree uninstall $(for pkg in $pkgs; do printf '%s ' $pkg; done) && \
     ostree container commit
 
-RUN files=$(yq '.file_rm[]' < ${INSTALL_DIR}/packages.yml) && \
+
+RUN set -x && \
+    files=$(yq '.file_rm[]' < ${INSTALL_DIR}/packages.yml) && \
     for f in $files; do rm "$f"; done && \
     ostree container commit
 
