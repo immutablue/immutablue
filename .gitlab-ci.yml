@@ -3,7 +3,7 @@ stages:
 
 variables:
   FEDORA_VERSION: 40
-  BUILD_IMAGE: fedora-minimal:39
+  BUILD_IMAGE: quay.io/fedora/fedora-minimal:39
 
 
 build-stable:
