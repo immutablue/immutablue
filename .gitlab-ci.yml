@@ -31,4 +31,4 @@ build-feature:
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
   script:
     - microdnf install make buildah -y
-    - make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$CI_COMMIT_BRANCH" build
+    - make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$CI_COMMIT_SHORT_SHA" build
