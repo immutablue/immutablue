@@ -1,0 +1,34 @@
+stages:
+  - build
+
+variables:
+  FEDORA_VERSION: 40
+  BUILD_IMAGE: quay.io/fedora/fedora-minimal:39
+
+
+build-stable:
+  stage: build
+  image: $BUILD_IMAGE
+  rules:
+    - if: $DAILY == null && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - microdnf install make buildah -y
+    - make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION all
+
+build-daily:
+  stage: build
+  image: $BUILD_IMAGE
+  rules:
+    - if: $DAILY
+  script:
+    - microdnf install make buildah -y
+    - make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$(date +'%Y%m%d')" all
+
+build-feature:
+  stage: build
+  image: $BUILD_IMAGE
+  rules:
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+  script:
+    - microdnf install make buildah -y
+    - make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$CI_COMMIT_SHORT_SHA" build
