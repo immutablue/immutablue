@@ -3,34 +3,32 @@ stages:
 
 variables:
   FEDORA_VERSION: 40
+  BUILD_IMAGE: fedora-minimal:39
 
 
 build-stable:
   stage: build
-  image: quay.io/buildah/stable
+  image: $BUILD_IMAGE
   rules:
     - if: $DAILY == null && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
-    - buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
-    - buildah bud -t $FEDORA_VERSION .
-    - buildah push "$FEDORA_VERSION"
+    - microdnf install make -y
+    - make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION all
 
 build-daily:
   stage: build
-  image: quay.io/buildah/stable
+  image: $BUILD_IMAGE
   rules:
     - if: $DAILY
   script:
-    - buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
-    - buildah bud -t "$FEDORA_VERSION:latest" -t "$FEDORA_VERSION-$(date +'%Y%m%d')" .
-    - buildah push "$FEDORA_VERSION:latest"
-    - buildah push "$FEDORA_VERSION-$(date +'%Y%m%d')"
+    - microdnf install make -y
+    - make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$(date +'%Y%m%d')" all
 
 build-feature:
   stage: build
-  image: quay.io/buildah/stable
+  image: $BUILD_IMAGE
   rules:
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
   script:
-    - buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
-    - buildah bud -t "$CI_COMMIT_SHORT_SHA" .
+    - microdnf install make -y
+    - make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$CI_COMMIT_BRANCH" build
