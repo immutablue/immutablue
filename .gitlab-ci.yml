@@ -33,5 +33,4 @@ build-feature:
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
   script:
     - buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
-    - buildah bud -t "$FEDORA_VERSION-$CI_COMMIT_BRANCH" .
-    - buildah push "$FEDORA_VERSION-$CI_COMMIT_BRANCH"
+    - buildah bud -t "$CI_COMMIT_SHORT_SHA" .
