@@ -1,0 +1,37 @@
+stages:
+  - build
+
+variables:
+  FEDORA_VERSION: 40
+
+
+build-stable:
+  stage: build
+  image: quay.io/buildah/stable
+  rules:
+    - if: $DAILY == null
+  script:
+    - buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - buildah bud -t $FEDORA_VERSION .
+    - buildah push "$FEDORA_VERSION"
+
+build-daily:
+  stage: build
+  image: quay.io/buildah/stable
+  rules:
+    - if: $DAILY
+  script:
+    - buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - buildah bud -t "$FEDORA_VERSION:latest" -t "$FEDORA_VERSION-$(date +'%Y%m%d')" .
+    - buildah push "$FEDORA_VERSION:latest"
+    - buildah push "$FEDORA_VERSION-$(date +'%Y%m%d')"
+
+build-feature:
+  stage: build
+  image: quay.io/buildah/stable
+  rules:
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+  script:
+    - buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - buildah bud -t "$FEDORA_VERSION:$CI_COMMIT_BRANCH" .
+    - buildah push "$FEDORA_VERSION:$CI_COMMIT_BRANCH"
