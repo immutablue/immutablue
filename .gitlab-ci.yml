@@ -12,7 +12,7 @@ build-stable:
   rules:
     - if: $DAILY == null && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
-    - microdnf install make buildah -y
+    - dnf install make buildah -y
     - make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION all
 
 build-daily:
@@ -21,7 +21,7 @@ build-daily:
   rules:
     - if: $DAILY
   script:
-    - microdnf install make buildah -y
+    - dnf install make buildah -y
     - make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$(date +'%Y%m%d')" all
 
 build-feature:
@@ -30,5 +30,5 @@ build-feature:
   rules:
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
   script:
-    - microdnf install make buildah -y
+    - dnf install make buildah -y
     - make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$CI_COMMIT_SHORT_SHA" build
