@@ -13,7 +13,7 @@ endif
 
 FULL_TAG := $(IMAGE):$(TAG)
 
-.PHONY: all all_upgrade build push iso upgrade rebase clean
+.PHONY: all all_upgrade build push iso upgrade rebase clean install_distrobox
 
 
 all: build push
@@ -53,4 +53,7 @@ rebase:
 clean:
 	rm -rf ./iso
 
+
+install_distrobox: 
+	bash -c 'source ./src/packages.sh && dbox_install_all'
 
