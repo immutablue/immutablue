@@ -1,0 +1,177 @@
+immutablue: 
+  # RPM Packages to be installed
+  rpm:
+  - distrobox
+  - podman-compose
+  - fuse-sshfs
+  - qemu
+  - qemu-user-binfmt
+  - libvirt
+  - virt-manager
+  - virt-bootstrap
+  - lxc
+  - lxc-templates
+  - tmux
+  - xrdp
+  - gdb
+  - strace
+  - ltrace
+  - bpftrace
+  - neovim
+  - ripgrep
+  - zenity
+  - NetworkManager-tui
+  - firewall-config
+  - firewall-applet
+  - tailscale
+  - arm-image-installer
+  - cronie
+  - parallel
+  
+  
+  # RPM Packages to be removed
+  rpm_rm:
+  - firefox-langpacks
+  - firefox
+  
+  
+  # Temp files to be removed during build stage (errors out build)
+  file_rm:
+  - /var/spool/anacron/cron.daily
+  - /var/spool/anacron/cron.weekly
+  - /var/spool/anacron/cron.monthly
+  
+  
+  # Flatpaks to be installed
+  flatpaks:
+  - com.github.tchx84.Flatseal
+  - com.mattjakeman.ExtensionManager
+  - io.github.prateekmedia.appimagepool
+  - me.kozec.syncthingtk
+  - re.sonny.Junction
+  - nl.brixit.powersupply
+  - io.github.peazip.PeaZip 
+  - io.gitlab.librewolf-community
+  - org.mozilla.firefox
+  - org.chromium.Chromium
+  - io.github.ungoogled_software.ungoogled_chromium
+  - org.torproject.torbrowser-launcher
+  - org.libreoffice.LibreOffice
+  - org.pulseaudio.pavucontrol
+  - org.videolan.VLC
+  - com.github.rafostar.Clapper
+  - com.rafaelmardojai.Blanket
+
+distrobox:
+  - name: test_util
+    image: registry.fedoraproject.org/fedora:40
+    pkg_inst_cmd: dnf install -y
+    pkg_updt_cmd: dnf update -y
+    extra_commands:
+    packages:
+      - which
+      - calc 
+      - htop
+      - ncdu 
+      - neofetch
+      - ranger 
+      - glances 
+      - pandoc 
+      - stow
+    npm_packages:
+    pip_packages: 
+    bin_export: 
+      - calc 
+      - htop
+      - ncdu 
+      - neofetch
+      - ranger 
+      - glances 
+      - pandoc 
+      - stow
+    app_export: 
+    bin_symlink:
+      - podman 
+      - buildah 
+      - distrobox 
+      - strace 
+      - ltrace 
+      - bpftrace 
+      - nvim 
+      - rg
+        
+  - name: test_dev
+    image: registry.fedoraproject.org/fedora:40
+    pkg_inst_cmd: dnf install -y
+    pkg_updt_cmd: dnf update -y
+
+    # Setup VS Code Repo - https://code.visualstudio.com/docs/setup/linux
+    # Setup ffmpeg for supporting MTP - https://computingforgeeks.com/how-to-install-ffmpeg-on-fedora/
+    extra_commands: |
+      sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc && \
+      sudo sh -c 'echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo' && \
+      sudo dnf -y install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm && \
+      sudo dnf -y install https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+
+
+    packages:
+      - which
+      - gdb 
+      - python3-pip
+      - neovim 
+      - nodejs 
+      - R 
+      - clang 
+      - clang-tools-extra 
+      - bear
+      - code 
+      - json-glib-devel 
+      - nautilus-devel 
+      - nautilus-extensions 
+      - gtk4-devel 
+      - tig
+      - fira-code-fonts 
+      - bash-completion 
+      - kubernetes-client 
+      - helm 
+      - ffmpeg 
+      - bpftool 
+      - libbpf 
+      - libbpf-devel 
+      - libbpf-tools 
+      - bcc-tools 
+      - home-assistant-cli
+    npm_packages:
+      - bash-language-server
+      - dockerfile-language-server-nodejs
+      - pyright
+    pip_packages: 
+      # See https://github.com/Freed-Wu/autotools-language-server/issues/9
+      - tree-sitter==0.21.3
+      - autotools-language-server
+    bin_export: 
+      - code 
+      - bear 
+      - tig 
+      - kubectl
+      - helm 
+      - hass-cli 
+      - autotools-language-server 
+      - bash-language-server
+      - docker-langserver 
+      - pyright-langserver 
+      - clangd 
+      - R 
+      - Rscript
+    app_export: 
+      - code
+    bin_symlink:
+      - podman 
+      - buildah 
+      - distrobox 
+      - strace 
+      - ltrace 
+      - bpftrace 
+      - nvim 
+      - rg
+

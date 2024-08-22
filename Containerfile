@@ -17,19 +17,19 @@ RUN set -x && \
 
 
 RUN set -x && \
-    pkgs=$(yq '.rpm[]' < ${INSTALL_DIR}/packages.yml) && \
+    pkgs=$(yq '.immutablue.rpm[]' < ${INSTALL_DIR}/packages.yaml) && \
     rpm-ostree install $(for pkg in $pkgs; do printf '%s ' $pkg; done) && \
     ostree container commit
 
 
 RUN set -x && \
-    pkgs=$(yq '.rpm_rm[]' < ${INSTALL_DIR}/packages.yml) && \
+    pkgs=$(yq '.immutablue.rpm_rm[]' < ${INSTALL_DIR}/packages.yaml) && \
     rpm-ostree uninstall $(for pkg in $pkgs; do printf '%s ' $pkg; done) && \
     ostree container commit
 
 
 RUN set -x && \
-    files=$(yq '.file_rm[]' < ${INSTALL_DIR}/packages.yml) && \
+    files=$(yq '.immutablue.file_rm[]' < ${INSTALL_DIR}/packages.yaml) && \
     for f in $files; do rm "$f"; done && \
     ostree container commit
 
