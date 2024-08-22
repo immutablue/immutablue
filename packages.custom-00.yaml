@@ -1,0 +1,15 @@
+distrobox:
+  - name: test_dev
+    image: 
+    pkg_inst_cmd: dnf install -y
+    pkg_updt_cmd: dnf update -y
+    extra_commands: |
+      echo "Hello from " && \
+      cat /run/.containerenv
+    packages:
+      - emacs
+    npm_packages:
+    pip_packages: 
+    bin_export: 
+    app_export: 
+    bin_symlink:
