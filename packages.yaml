@@ -1,4 +1,10 @@
 immutablue: 
+  # Repo URLs to add in the build (they are curled)
+  repo_urls:
+  - name: tailscale.repo 
+    url: https://pkgs.tailscale.com/stable/fedora/tailscale.repo
+
+
   # RPM Packages to be installed
   rpm:
   - distrobox
@@ -27,7 +33,9 @@ immutablue:
   - arm-image-installer
   - cronie
   - parallel
-  
+ 
+  # Urls to RPMs to download (they are curled)
+  rpm_url:
   
   # RPM Packages to be removed
   rpm_rm:
