@@ -11,6 +11,11 @@ ifndef $(TAG)
 	TAG = $(CURRENT)
 endif
 
+ifndef $(SET_AS_LATEST)
+	SET_AS_LATEST = 0
+endif
+	
+
 FULL_TAG := $(IMAGE):$(TAG)
 
 .PHONY: all all_upgrade build push iso upgrade rebase clean install_distrobox
@@ -21,10 +26,20 @@ all_upgrade: all update
 
 
 build:
+ifeq ($(SET_AS_LATEST), 1)
+	buildah build --ignorefile ./.containerignore --no-cache -t $(IMAGE):latest -t $(IMAGE):$(TAG) -f ./Containerfile --build-arg=FEDORA_VERSION=$(VERSION)
+else
 	buildah build --ignorefile ./.containerignore --no-cache -t $(IMAGE):$(TAG) -f ./Containerfile --build-arg=FEDORA_VERSION=$(VERSION)
+endif
+		
 
 push:
+ifeq ($(SET_AS_LATEST), 1)
 	buildah push $(IMAGE):$(TAG)
+	buildah push $(IMAGE):latest
+else
+	buildah push $(IMAGE):$(TAG)
+endif
 
 iso: 
 	mkdir -p ./iso
