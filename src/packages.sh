@@ -98,10 +98,13 @@ dbox_install_all_from_yaml() {
             [ 0 -ne $? ] && echo "distrobox create --yes -i ${image} ${name} failed" && exit 1
         fi
 
-        # Run the single installer in the new dbox
-        distrobox enter "${name}" -- bash -c "source ./src/packages.sh && dbox_install_single ${packages_yaml} $i"
+        # Submit and run the single installer in the new dbox as a background job
+        distrobox enter "${name}" -- bash -c "source ./src/packages.sh && dbox_install_single ${packages_yaml} $i" &
         (( i++ ))
     done
+
+    # Wait for all background jobs of distrobox-enter to finish
+    wait
 }
 
 
