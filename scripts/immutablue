@@ -1,0 +1,9 @@
+#!/bin/bash 
+# Install dir for Immutablue 
+INSTALL_DIR=/opt/immutablue
+# Drop first arg
+shift
+cd $INSTALL_DIR
+# exec make directly
+exec make $@
+

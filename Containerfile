@@ -9,6 +9,7 @@ COPY --from=quay.io/zachpodbielniak/nautilusopenwithcode:${FEDORA_VERSION} \
 	/usr/lib64/nautilus/extensions-4/libnautilus-open-with-code.so \
 	/usr/lib64/nautilus/extensions-4/libnautilus-open-with-code.so
 COPY . ${INSTALL_DIR}
+COPY ./scripts/immutablue /usr/bin/immutablue
 
 
 # Handle .immutablue.repo_urls[]

@@ -70,5 +70,5 @@ clean:
 
 
 install_distrobox: 
-	bash -c 'source ./src/packages.sh && dbox_install_all'
+	bash -c 'source ./scripts/packages.sh && dbox_install_all'
 
