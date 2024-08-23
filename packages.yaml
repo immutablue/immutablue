@@ -27,6 +27,7 @@ immutablue:
   - arm-image-installer
   - cronie
   - parallel
+  - moreutils
   
   
   # RPM Packages to be removed
