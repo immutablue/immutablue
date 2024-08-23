@@ -35,6 +35,10 @@ immutablue:
   - parallel
   - moreutils
   
+ 
+  # Urls to RPMs to download (they are curled)
+  rpm_url:
+  
   
   # RPM Packages to be removed
   rpm_rm:
