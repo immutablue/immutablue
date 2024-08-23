@@ -33,9 +33,8 @@ immutablue:
   - arm-image-installer
   - cronie
   - parallel
- 
-  # Urls to RPMs to download (they are curled)
-  rpm_url:
+  - moreutils
+  
   
   # RPM Packages to be removed
   rpm_rm:
