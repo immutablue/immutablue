@@ -75,6 +75,21 @@ iso: flatpak_refs/flatpaks
 		VARIANT=Silverblue \
 		ISO_NAME="build/immutablue-$(TAG).iso"
 
+push_iso:
+	s3cmd \
+		--access_key=$(S3_ACCESS_KEY) \
+		--secret_key=$(S3_SECRET_KEY) \
+		--host=us-east-1.linodeobjects.com \
+		--host-bucket='%(bucket)s.us-east-1.linodeobjects.com' \
+		put ./iso/immutablue-$(TAG).iso s3://immutablue/immutablue-$(TAG).iso
+	
+	s3cmd \
+		--access_key=$(S3_ACCESS_KEY) \
+		--secret_key=$(S3_SECRET_KEY) \
+		--host=us-east-1.linodeobjects.com \
+		--host-bucket='%(bucket)s.us-east-1.linodeobjects.com' \
+		put ./iso/immutablue-$(TAG).iso-CHECKSUM s3://immutablue/immutablue-$(TAG).iso-CHECKSUM
+
 
 
 upgrade:
