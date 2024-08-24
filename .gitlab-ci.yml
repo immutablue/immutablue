@@ -42,8 +42,9 @@ build-iso:
   stage: build 
   image: $BUILD_IMAGE 
   rules:
-    - if: $WEEKLY
+    - if: $WEEKLY && $ISO
   script:
-    - dnf install make podman fuse-overlayfs yq -y
-    - make iso
+    - dnf install make podman fuse-overlayfs yq s3cmd -y
+    - make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION iso
+    - make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION S3_ACCESS_KEY=$S3_ACCESS_KEY S3_SECRET_KEY=$S3_SECRET_KEY push_iso
 
