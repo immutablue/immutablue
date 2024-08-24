@@ -44,6 +44,6 @@ build-iso:
   rules:
     - if: $WEEKLY
   script:
-    - dnf install make podman fuse-overlayfs -y
+    - dnf install make podman fuse-overlayfs yq -y
     - make iso
 

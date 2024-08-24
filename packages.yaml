@@ -35,6 +35,10 @@ immutablue:
   - parallel
   - moreutils
   
+ 
+  # Urls to RPMs to download (they are curled)
+  rpm_url:
+  
   
   # RPM Packages to be removed
   rpm_rm:
@@ -47,6 +51,16 @@ immutablue:
   - /var/spool/anacron/cron.daily
   - /var/spool/anacron/cron.weekly
   - /var/spool/anacron/cron.monthly
+  
+
+  # Runtimes for Flatpaks
+  # (Can query with `flatpak list --app --columns=application,runtime`)
+  flatpaks_runtime:
+  - org.gnome.Platform/x86_64/46 
+  - org.gnome.Platform/x86_64/45 
+  - org.freedesktop.Platform/x86_64/23.08 
+  - org.freedesktop.Platform/x86_64/22.08 
+  - org.kde.Platform/x86_64/5.15-23.08 
   
   
   # Flatpaks to be installed
@@ -68,6 +82,10 @@ immutablue:
   - org.videolan.VLC
   - com.github.rafostar.Clapper
   - com.rafaelmardojai.Blanket
+
+  #Flatpaks to be uninstalled 
+  flatpaks_rm:
+
 
 distrobox:
   - name: test_util
