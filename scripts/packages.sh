@@ -5,6 +5,9 @@
 PACKAGES_FILE="./packages.yaml"
 # Custom Pattern
 PACKAGES_CUSTOM_FMT="./packages.custom-*.yaml"
+FLATPAK_REFS_FILE="./flatpak_refs/flatpaks"
+
+# Source the common stuff
 source ./scripts/common.sh
 
 
@@ -99,7 +102,7 @@ dbox_install_all_from_yaml() {
         fi
 
         # Submit and run the single installer in the new dbox as a background job
-        distrobox enter "${name}" -- bash -c "source ./src/packages.sh && dbox_install_single ${packages_yaml} $i" &
+        distrobox enter "${name}" -- bash -c "source ./scripts/packages.sh && dbox_install_single ${packages_yaml} $i" &
         (( i++ ))
     done
 
@@ -113,3 +116,61 @@ dbox_install_all() {
     for f in $PACKAGES_CUSTOM_FMT; do dbox_install_all_from_yaml $f; done
 }
 
+
+flatpak_config() {
+	# Remove flathub if its configured
+	flatpak remote-delete flathub --force
+
+	# Enabling flathub (unfiltered) for --user
+	flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+	# Replace Fedora flatpaks with flathub ones
+	flatpak install --user --noninteractive org.gnome.Platform//46
+	flatpak install --user --noninteractive --reinstall flathub $(flatpak list --app-runtime=org.fedoraproject.Platform --columns=application | tail -n +1 )
+
+	# Remove system flatpaks (pre-installed)
+	#flatpak remove --system --noninteractive --all
+
+	# Remove Fedora flatpak repo
+	flatpak remote-delete fedora --force
+}
+
+
+# Arg is yaml file
+flatpak_install_all_from_yaml() {
+    [ $# -ne 1 ] && echo "echo flatpak_install_all_from_yaml <packages.yaml>" && exit 1
+    local flatpaks_yaml="$1"
+
+    flatpaks_add=$(yq '.immutablue.flatpaks[]' < $flatpaks_yaml)
+    flatpaks_rm=$(yq '.immutablue.flatpaks_rm[]' < $flatpaks_yaml)
+
+    for flatpak in $flatpaks_add; do flatpak --noninteractive --user install $flatpak; done
+    for flatpak in $flatpaks_rm; do flatpak --noninteractive --user uninstall $flatpak; done
+    
+}
+
+
+flatpak_install_all() {
+    if [ ! -f /etc/immutablue/did_initial_flatpak_install ]
+    then 
+        echo "Doing initial flatpak config"
+        flatpak_config
+        sudo mkdir -p /etc/immutablue
+        sudo touch /etc/immutablue/did_initial_flatpak_install
+    fi
+
+    flatpak_install_all_from_yaml $PACKAGES_FILE 
+    for f in $PACKAGES_CUSTOM_FMT; do flatpak_install_all_from_yaml $f; done
+}
+
+
+# Used to make flatpak_refs/flatpak file for iso building
+flatpak_make_refs() {
+    [ -f $FLATPAK_REFS_FILE ] && rm $FLATPAK_REFS_FILE
+
+    apps=$(yq '.immutablue.flatpaks[]' < $PACKAGES_FILE)
+    runtimes=$(yq '.immutablue.flatpaks_runtime[]' < $PACKAGES_FILE)
+
+    for app in $apps; do printf "app/%s/%s/stable\n" $app $(uname -m) >> $FLATPAK_REFS_FILE; done
+    for runtime in $runtimes; do printf "runtime/%s\n" $runtime >> $FLATPAK_REFS_FILE; done
+}
