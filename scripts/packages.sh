@@ -5,7 +5,7 @@
 PACKAGES_FILE="./packages.yaml"
 # Custom Pattern
 PACKAGES_CUSTOM_FMT="./packages.custom-*.yaml"
-source ./src/common.sh
+source ./scripts/common.sh
 
 
 # Arg 1 is path to packages.yaml
