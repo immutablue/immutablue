@@ -81,6 +81,7 @@ push_iso:
 		--secret_key=$(S3_SECRET_KEY) \
 		--host=us-east-1.linodeobjects.com \
 		--host-bucket='%(bucket)s.us-east-1.linodeobjects.com' \
+		--acl-public
 		put ./iso/immutablue-$(TAG).iso s3://immutablue/immutablue-$(TAG).iso
 	
 	s3cmd \
@@ -88,6 +89,7 @@ push_iso:
 		--secret_key=$(S3_SECRET_KEY) \
 		--host=us-east-1.linodeobjects.com \
 		--host-bucket='%(bucket)s.us-east-1.linodeobjects.com' \
+		--acl-public
 		put ./iso/immutablue-$(TAG).iso-CHECKSUM s3://immutablue/immutablue-$(TAG).iso-CHECKSUM
 
 
