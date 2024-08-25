@@ -1,6 +1,6 @@
 #!/bin/bash 
 # Install dir for Immutablue 
-INSTALL_DIR=/opt/immutablue
+INSTALL_DIR=/etc/immutablue
 # Drop first arg
 shift
 cd $INSTALL_DIR

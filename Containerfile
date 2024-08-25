@@ -1,7 +1,7 @@
 ARG FEDORA_VERSION=40
 FROM quay.io/fedora-ostree-desktops/silverblue:${FEDORA_VERSION}
 ARG FEDORA_VERSION=40
-ARG INSTALL_DIR=/opt/immutablue
+ARG INSTALL_DIR=/etc/immutablue
 
 
 COPY --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/yq
