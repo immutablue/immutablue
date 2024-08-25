@@ -104,7 +104,11 @@ dbox_install_all_from_yaml() {
         # Check for an empty line (new-line). If no image is specified
         if [ 0 -eq $(container_exists "${name}") ]
         then 
-            add_flag="--additional-flags \"$add_flag\""
+            if [ "$add_flag" != "" ]
+            then 
+                add_flag="--additional-flags \"$add_flag\""
+            fi 
+
             if [ "true" == "$root_mode" ]
             then
                 distrobox create --yes --root $add_flag -i "${image}" "${name}"
@@ -116,19 +120,16 @@ dbox_install_all_from_yaml() {
             [ 0 -ne $? ] && echo "distrobox create --yes -i ${image} ${name} failed" && exit 1
         fi
 
-        # Submit and run the single installer in the new dbox as a background job
-        distrobox enter "${name}" -- bash -c "source ./scripts/packages.sh && dbox_install_single ${packages_yaml} $i" &
+        distrobox enter "${name}" -- bash -c "source ./scripts/packages.sh && dbox_install_single ${packages_yaml} $i" 
         (( i++ ))
     done
 
-    # Wait for all background jobs of distrobox-enter to finish
-    wait
 }
 
 
 dbox_install_all() {
     dbox_install_all_from_yaml $PACKAGES_FILE
-    for f in $PACKAGES_CUSTOM_FMT; do dbox_install_all_from_yaml $f; done
+    for f in $PACKAGES_CUSTOM_FMT; do if [ "$f" != "$PACKAGES_CUSTOM_FMT" ]; then dbox_install_all_from_yaml $f; fi; done
 }
 
 
