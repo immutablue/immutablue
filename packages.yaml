@@ -127,6 +127,7 @@ distrobox:
   - bpftrace 
   - nvim 
   - rg
+  - git
       
 - name: dev
   image: registry.fedoraproject.org/fedora:40
