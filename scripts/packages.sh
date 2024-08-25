@@ -192,12 +192,6 @@ flatpak_make_refs() {
 }
 
 run_all_post_upgrade_scripts() {
-    for immutable_dir in /etc/immutablue-build-*
-    do 
-        cd $immutablue_dir 
-        ./post_install.sh
-        cd ..
-    done
-    cd /opt/immutablue
+    bash -c 'cd /etc && ./immutablue-build*/post_install.sh'
 }
 
