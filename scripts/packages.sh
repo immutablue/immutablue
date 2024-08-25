@@ -98,11 +98,19 @@ dbox_install_all_from_yaml() {
         local key=".distrobox[${i}]"
         local name=$(yq "${key}.name" < $packages_yaml)
         local image=$(yq "${key}.image" < $packages_yaml)
+        local root_mode=$(yq "${key}.root" < $packages_yaml)
+        local add_flag=$(yq "${key}.additional_flags" < $packages_yaml)
 
         # Check for an empty line (new-line). If no image is specified
         if [ 0 -eq $(container_exists "${name}") ]
         then 
-            distrobox create --yes -i "${image}" "${name}"
+            add_flag="--additional-flags \"$add_flag\""
+            if [ "true" == "$root_mode" ]
+            then
+                distrobox create --yes --root $add_flag -i "${image}" "${name}"
+            else 
+                distrobox create --yes -i $add_flag "${image}" "${name}"
+            fi
 
             # If it failed to create, critically fail
             [ 0 -ne $? ] && echo "distrobox create --yes -i ${image} ${name} failed" && exit 1
@@ -183,8 +191,7 @@ flatpak_make_refs() {
 }
 
 run_all_post_upgrade_scripts() {
-    cd ..
-    for immutable_dir in './immutablue-build-'*
+    for immutable_dir in /etc/immutablue-build-*
     do 
         cd $immutablue_dir 
         ./post_install.sh

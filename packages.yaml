@@ -91,6 +91,8 @@ immutablue:
 distrobox:
 - name: util
   image: registry.fedoraproject.org/fedora:40
+  root: false 
+  additional_flags: 
   pkg_inst_cmd: dnf install -y
   pkg_updt_cmd: dnf update -y
   extra_commands:
@@ -128,6 +130,8 @@ distrobox:
       
 - name: dev
   image: registry.fedoraproject.org/fedora:40
+  root: false 
+  additional_flags: 
   pkg_inst_cmd: dnf install -y
   pkg_updt_cmd: dnf update -y
 
