@@ -166,8 +166,17 @@ flatpak_install_all_from_yaml() {
     flatpaks_add=$(yq '.immutablue.flatpaks[]' < $flatpaks_yaml)
     flatpaks_rm=$(yq '.immutablue.flatpaks_rm[]' < $flatpaks_yaml)
     
-    [ "" != "$flatpaks_add" ] && flatpak --noninteractive --user install $(for flatpak in $flatpaks_add; do printf '%s ' $flatpak; done)
-    [ "" != "$flatpaks_rm" ] && flatpak --noninteractive --user uninstall $(for flatpak in $flatpaks_rm; do printf '%s ' $flatpak; done)
+    if [ "" != "$flatpaks_add" ]
+    then 
+        flatpak --noninteractive --user install $(for flatpak in $flatpaks_add; do printf '%s ' $flatpak; done)
+    fi
+
+    if [ "" != "$flatpaks_rm" ] 
+    then 
+        flatpak --noninteractive --user uninstall $(for flatpak in $flatpaks_rm; do printf '%s ' $flatpak; done)
+    fi
+
+
     
 }
 
