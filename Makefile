@@ -111,11 +111,11 @@ clean:
 
 
 install_distrobox: 
-	bash -c 'source ./scripts/packages.sh && dbox_install_all'
+	bash -x -c 'source ./scripts/packages.sh && dbox_install_all'
 
 install_flatpak:
-	bash -c 'source ./scripts/packages.sh && flatpak_install_all'
+	bash -x -c 'source ./scripts/packages.sh && flatpak_install_all'
 
 post_install:
-	bash -c 'source ./scripts/packages.sh && run_all_post_upgrade_scripts'
+	bash -x -c 'source ./scripts/packages.sh && run_all_post_upgrade_scripts'
 
