@@ -141,7 +141,7 @@ dbox_install_all() {
 
 flatpak_config() {
 	# Remove flathub if its configured
-	flatpak remote-delete flathub --force
+	sudo flatpak remote-delete flathub --force
 
 	# Enabling flathub (unfiltered) for --user
 	flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -154,7 +154,7 @@ flatpak_config() {
 	#flatpak remove --system --noninteractive --all
 
 	# Remove Fedora flatpak repo
-	flatpak remote-delete fedora --force
+	sudo flatpak remote-delete fedora --force
 }
 
 
@@ -173,12 +173,12 @@ flatpak_install_all_from_yaml() {
 
 
 flatpak_install_all() {
-    if [ ! -f /etc/immutablue/did_initial_flatpak_install ]
+    if [ ! -f /opt/immutablue/did_initial_flatpak_install ]
     then 
         echo "Doing initial flatpak config"
         flatpak_config
-        sudo mkdir -p /etc/immutablue
-        sudo touch /etc/immutablue/did_initial_flatpak_install
+        sudo mkdir -p /opt/immutablue
+        sudo touch /opt/immutablue/did_initial_flatpak_install
     fi
 
     flatpak_install_all_from_yaml $PACKAGES_FILE 
