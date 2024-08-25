@@ -99,7 +99,7 @@ dbox_install_all_from_yaml() {
         local name=$(yq "${key}.name" < $packages_yaml)
         local image=$(yq "${key}.image" < $packages_yaml)
         local root_mode=$(yq "${key}.root" < $packages_yaml)
-        local add_flag=$(yq "${key}.additional_flags" < $packages_yaml)
+        local add_flag=$(yq "${key}.additional_flags[]" < $packages_yaml)
 
         # Check for an empty line (new-line). If no image is specified
         if [ 0 -eq $(container_exists "${name}") ]
