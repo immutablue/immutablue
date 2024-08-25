@@ -174,3 +174,16 @@ flatpak_make_refs() {
     for app in $apps; do printf "app/%s/%s/stable\n" $app $(uname -m) >> $FLATPAK_REFS_FILE; done
     for runtime in $runtimes; do printf "runtime/%s\n" $runtime >> $FLATPAK_REFS_FILE; done
 }
+
+run_all_post_upgrade_scripts() {
+    cd ..
+    immutablue_dirs=$(for dir in ./immutablue-build-*)
+    for immutablue_dir in $immutablue_dirs
+    do 
+        cd $immutablue_dir 
+        ./post_install.sh
+        cd ..
+    done
+    cd /opt/immutablue
+}
+
