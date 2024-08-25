@@ -177,8 +177,7 @@ flatpak_make_refs() {
 
 run_all_post_upgrade_scripts() {
     cd ..
-    immutablue_dirs=$(for dir in ./immutablue-build-*)
-    for immutablue_dir in $immutablue_dirs
+    for immutable_dir in './immutablue-build-'*
     do 
         cd $immutablue_dir 
         ./post_install.sh
