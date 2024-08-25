@@ -27,7 +27,7 @@ FULL_TAG := $(IMAGE):$(TAG)
 all: build push
 all_upgrade: all update
 
-install_targets := install_distrobox install_flatpak upgrade
+install_targets := rpmostree_upgrade install_distrobox install_flatpak post_install 
 install_or_update :$(install_targets)
 install: install_or_update
 update: install_or_update
@@ -92,7 +92,7 @@ push_iso:
 
 
 
-upgrade:
+rpmostree_upgrade:
 	sudo rpm-ostree update
 
 
@@ -110,4 +110,7 @@ install_distrobox:
 
 install_flatpak:
 	bash -c 'source ./scripts/packages.sh && flatpak_install_all'
+
+post_install:
+	bash -c 'source ./scripts/packages.sh && run_all_post_upgrade_scripts'
 
