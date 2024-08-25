@@ -26,6 +26,13 @@ dbox_install_single() {
     [ ! -f /run/.containerenv ] && echo "This is not a container!" && exit 1
     [ $# -ne 2 ] && echo "$0 <packages.yaml> <index>" && exit 1
 
+    # First things firt, we need to `ln` in yq since we use it...
+    type yq 2>/dev/null 
+    if [ 0 -ne $? ]
+    then 
+        sudo ln -s /usr/bin/distrobox-host-exec /usr/local/bin/yq
+    fi
+
     local packages_yaml="$1"
     local index="$2"
     local key=".distrobox[${index}]"
