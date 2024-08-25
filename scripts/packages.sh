@@ -120,7 +120,13 @@ dbox_install_all_from_yaml() {
             [ 0 -ne $? ] && echo "distrobox create --yes -i ${image} ${name} failed" && exit 1
         fi
 
-        distrobox enter "${name}" -- bash -c "source ./scripts/packages.sh && dbox_install_single ${packages_yaml} $i" 
+        if [ "true" == "$root_mode" ]
+        then
+            distrobox enter --root "${name}" -- bash -c "source ./scripts/packages.sh && dbox_install_single ${packages_yaml} $i" 
+        else
+            distrobox enter "${name}" -- bash -c "source ./scripts/packages.sh && dbox_install_single ${packages_yaml} $i" 
+        fi
+
         (( i++ ))
     done
 
