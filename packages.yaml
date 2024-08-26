@@ -15,26 +15,19 @@ immutablue:
   - libvirt
   - virt-manager
   - virt-bootstrap
-  - lxc
-  - lxc-templates
-  - tmux
   - xrdp
-  - gdb
-  - strace
-  - ltrace
-  - bpftrace
-  - neovim
-  - ripgrep
-  - zenity
   - NetworkManager-tui
   - firewall-config
   - firewall-applet
   - tailscale
-  - arm-image-installer
   - cronie
-  - parallel
   - moreutils
+  - parallel
   - ptyxis
+  - neovim
+  - tmux
+  - ripgrep
+  - zenity
   
  
   # Urls to RPMs to download (they are curled)
@@ -66,6 +59,17 @@ immutablue:
   
   # Flatpaks to be installed
   flatpaks:
+  - org.gnome.Calculator
+  - org.gnome.Calendar
+  - org.gnome.Contacts
+  - org.gnome.Evolution
+  - org.gnome.Logs
+  - org.gnome.Maps
+  - org.gnome.NautilusPreviewer
+  - org.gnome.Weather
+  - org.gnome.World.PikaBackup
+  - org.gnome.clocks
+  - org.gnome.dspy
   - com.github.tchx84.Flatseal
   - com.mattjakeman.ExtensionManager
   - io.github.prateekmedia.appimagepool
@@ -102,7 +106,6 @@ distrobox:
   - calc 
   - htop
   - ncdu 
-  - neofetch
   - ranger 
   - glances 
   - pandoc 
@@ -113,7 +116,6 @@ distrobox:
   - calc 
   - htop
   - ncdu 
-  - neofetch
   - ranger 
   - glances 
   - pandoc 
@@ -123,9 +125,6 @@ distrobox:
   - podman 
   - buildah 
   - distrobox 
-  - strace 
-  - ltrace 
-  - bpftrace 
   - nvim 
   - rg
   - git
@@ -150,61 +149,25 @@ distrobox:
   packages:
   - which
   - gdb 
+  - "@development-tools"
   - python3-pip
-  - neovim 
   - nodejs 
-  - R 
-  - clang 
-  - clang-tools-extra 
-  - bear
+  - cargo
   - code 
-  - json-glib-devel 
-  - nautilus-devel 
-  - nautilus-extensions 
-  - gtk4-devel 
   - tig
-  - fira-code-fonts 
-  - bash-completion 
-  - kubernetes-client 
-  - helm 
-  - ffmpeg 
-  - bpftool 
-  - libbpf 
-  - libbpf-devel 
-  - libbpf-tools 
-  - bcc-tools 
-  - home-assistant-cli
   npm_packages:
-  - bash-language-server
-  - dockerfile-language-server-nodejs
-  - pyright
   pip_packages: 
-  # See https://github.com/Freed-Wu/autotools-language-server/issues/9
-  - tree-sitter==0.21.3
-  - autotools-language-server
   bin_export: 
   - code 
-  - bear 
   - tig 
-  - kubectl
-  - helm 
-  - hass-cli 
-  - autotools-language-server 
-  - bash-language-server
-  - docker-langserver 
-  - pyright-langserver 
-  - clangd 
-  - R 
-  - Rscript
+  # Needed for nvim support
+  - ld 
   app_export: 
   - code
   bin_symlink:
   - podman 
   - buildah 
   - distrobox 
-  - strace 
-  - ltrace 
-  - bpftrace 
   - nvim 
   - rg
 
