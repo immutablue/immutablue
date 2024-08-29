@@ -96,6 +96,20 @@ push_iso:
 		--acl-public
 		put ./iso/immutablue-$(TAG).iso-CHECKSUM s3://immutablue/immutablue-$(TAG).iso-CHECKSUM
 
+run_iso:
+	podman \
+		run \
+		--rm \
+		--cap-add NET_ADMIN \
+		-p 127.0.0.1:8006:8006 \
+		--env CPU_CORES=8 \
+		--env RAM_SIZE=8G \
+		--env DISK_SIZE=64G \
+		--env BOOT_MODE=uefi \
+		--device=/dev/kvm \
+		-v ./iso/immutablue-$(TAG).iso:/boot.iso \
+		docker.io/qemux/qemu-docker
+
 
 
 rpmostree_upgrade:
