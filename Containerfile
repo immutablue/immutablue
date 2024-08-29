@@ -11,6 +11,8 @@ COPY --from=quay.io/zachpodbielniak/nautilusopenwithcode:${FEDORA_VERSION} \
 COPY . ${INSTALL_DIR}
 COPY ./scripts/immutablue /usr/bin/immutablue
 
+# Install branding and backup existing branding
+COPY ./artifacts/branding/* /usr/share/pixmaps/
 
 # Handle .immutablue.repo_urls[]
 RUN set -x && \
