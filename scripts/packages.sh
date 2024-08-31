@@ -10,6 +10,17 @@ FLATPAK_REFS_FILE="./flatpak_refs/flatpaks"
 # Source the common stuff
 source ./scripts/common.sh
 
+
+post_install_notes() {
+    type brew 2>/dev/null >/dev/null
+    if [ $? -ne 0 ]
+    then 
+        echo -e "brew is not part of your path. Add the following to your .bashrc"
+        echo -e '\texport PATH="$HOME/../linuxbrew/.linuxbrew/bin:$PATH"'
+    fi
+}
+
+
 check_plymouth_watermark() {
   echo "$(sha256sum /usr/share/pixmaps/fedora-logo.png | gawk '{ print $1 }') /usr/share/plymouth/themes/spinner/watermark.png" | sha256sum --check
 }
@@ -220,4 +231,40 @@ flatpak_make_refs() {
 run_all_post_upgrade_scripts() {
     bash -c 'cd /etc && ./immutablue-build*/post_install.sh'
 }
+
+
+
+brew_install_all_from_yaml() {
+    [ $# -ne 1 ] && echo "echo brew_install_all_from_yaml <packages.yaml>" && exit 1
+    local brew_yaml="$1"
+
+    brew_add=$(yq '.brew.install[]' < $brew_yaml)
+    brew_rm=$(yq '.brew.uninstall[]' < $brew_yaml)
+    
+    # Assume `brew` is not in $PATH yet
+    export PATH="$HOME/../linuxbrew/.linuxbrew/bin:$PATH"
+
+    if [ "" != "$brew_add" ]
+    then 
+        brew install $(for pkg in $brew_add; do printf '%s ' $pkg; done)
+    fi
+
+    if [ "" != "$brew_rm" ] 
+    then 
+        brew uninstall $(for pkg in $brew_rm; do printf '%s ' $pkg; done)
+    fi
+}
+
+
+brew_install() {
+    CI=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+}
+
+
+brew_install_all_packages() {
+    brew_install 
+    brew_install_all_from_yaml $PACKAGES_FILE
+    for f in $PACKAGES_CUSTOM_FMT; do brew_install_all_from_yaml $f; done
+}
+
 

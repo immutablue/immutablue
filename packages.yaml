@@ -104,7 +104,6 @@ distrobox:
   packages:
   - which
   - calc 
-  - htop
   - ncdu 
   - ranger 
   - glances 
@@ -114,7 +113,6 @@ distrobox:
   pip_packages: 
   bin_export: 
   - calc 
-  - htop
   - ncdu 
   - ranger 
   - glances 
@@ -170,4 +168,11 @@ distrobox:
   - distrobox 
   - nvim 
   - rg
+
+brew: 
+  install:
+  - dysk 
+  - htop 
+  uninstall:
+
 

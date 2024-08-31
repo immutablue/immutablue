@@ -23,15 +23,16 @@ FULL_TAG := $(IMAGE):$(TAG)
 
 .PHONY: all all_upgrade install update install_or_update \
 	build push iso upgrade rebase clean \
-	install_distrobox install_flatpak \
-	update_initramfs
+	install_distrobox install_flatpak install_brew \
+	update_initramfs \
+	post_install_notes
 
 
 
 all: build push
 all_upgrade: all update
 
-install_targets := rpmostree_upgrade install_distrobox install_flatpak post_install update_initramfs
+install_targets := rpmostree_upgrade install_distrobox install_flatpak install_brew post_install update_initramfs post_install_notes
 install_or_update :$(install_targets)
 install: install_or_update
 update: install_or_update
@@ -129,8 +130,14 @@ install_distrobox:
 install_flatpak:
 	bash -x -c 'source ./scripts/packages.sh && flatpak_install_all'
 
+install_brew:
+	bash -x -c 'source ./scripts/packages.sh && brew_install_all_packages'
+
 post_install:
 	bash -x -c 'source ./scripts/packages.sh && run_all_post_upgrade_scripts'
 
 update_initramfs:
 	bash -x -c 'source ./scripts/packages.sh && update_initramfs_if_bad_watermark'
+
+post_install_notes:
+	bash -x -c 'source ./scripts/packages.sh && post_install_notes'
