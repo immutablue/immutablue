@@ -14,6 +14,13 @@ COPY ./scripts/immutablue /usr/bin/immutablue
 # Install branding and backup existing branding
 COPY ./artifacts/branding/* /usr/share/pixmaps/
 
+# Copy custom rules.d and install ublue rules.d
+COPY ./artifacts/config/udev/rules.d/ /usr/lib/udev/rules.d
+COPY --from=ghcr.io/ublue-os/config:latest /rpms/ublue-os-udev-rules.noarch.rpm /tmp
+RUN set -x && \
+    rpm-ostree install /tmp/ublue-os-udev-rules.noarch.rpm && \
+    ostree container commit
+
 # Handle .immutablue.repo_urls[]
 RUN set -x && \
     repos=$(yq '.immutablue.repo_urls[].name' < ${INSTALL_DIR}/packages.yaml) && \
