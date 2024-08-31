@@ -1,6 +1,6 @@
 #!/bin/bash 
 # Install dir for Immutablue 
-INSTALL_DIR=/etc/immutablue
+INSTALL_DIR=/usr/local/immutablue
 cd $INSTALL_DIR
 # exec make directly
 exec make $@
