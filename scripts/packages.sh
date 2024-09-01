@@ -66,6 +66,7 @@ dbox_install_single() {
     local packages=$(yq "${key}.packages[]" < $packages_yaml)
     local npm_packages=$(yq "${key}.npm_packages[]" < $packages_yaml)
     local pip_packages=$(yq "${key}.pip_packages[]" < $packages_yaml)
+    local cargo_packages=$(yq "{key}.cargo_packages[]" < $packages_yaml)
     local bin_export=$(yq "${key}.bin_export[]" < $packages_yaml)
     local app_export=$(yq "${key}.app_export[]" < $packages_yaml)
     local bin_symlink=$(yq "${key}.bin_symlink[]" < $packages_yaml)
@@ -88,6 +89,14 @@ dbox_install_single() {
     then 
         [ "" != "$pip_packages" ] && sudo pip3 install $(for pkg in $pip_packages; do printf ' %s' $pkg; done)
     fi 
+
+    type cargo 2>/dev/null
+    if [ 0 -eq $? ]
+    then
+        [ "" != "$cargo_packages" ] && sudo cargo -t default install $(for cargo in $cargo_packages; do printf ' %s' $pkg; done)
+    fi
+
+    
 
     for bin in $bin_export 
     do 
