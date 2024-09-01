@@ -91,7 +91,6 @@ immutablue:
   #Flatpaks to be uninstalled 
   flatpaks_rm:
 
-
 distrobox:
 - name: util
   image: registry.fedoraproject.org/fedora:40
@@ -148,10 +147,12 @@ distrobox:
 
   npm_packages:
   pip_packages: 
+  cargo_packages:
   bin_export: 
   - code 
   # Needed for nvim support
   - ld 
+  - cargo
   app_export: 
   - code
   bin_symlink:
