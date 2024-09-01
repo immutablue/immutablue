@@ -3,9 +3,11 @@
 
 make_export () {
     [ "$#" != 1 ] && echo "$0 <bin>" && exit 1
-    mkdir -p ~/bin/export
-    [ -f "~/bin/export/$1" ] && rm "~/bin/export/$1" 
-    distrobox-export --bin $(which "$1") --export-path ~/bin/export/
+    local export_dir="$HOME/bin/export"
+    local bin_to_export="$1"
+    mkdir -p "${export_dir}"
+    if [ -f "${export_dir}/${bin_to_export}" ]; then rm "${export_dir}/${bin_to_export}"; fi
+    distrobox-export --bin $(which "${bin_to_export}") --export-path "${export_dir}/"
 }
 
 
