@@ -239,7 +239,7 @@ flatpak_make_refs() {
 }
 
 run_all_post_upgrade_scripts() {
-    bash -c 'cd /usr && ./immutablue-build*/post_install.sh'
+    bash -c 'cd /usr && find ./immutablue-build*/post_install.sh -exec {} \;' || true
 }
 
 
