@@ -109,6 +109,7 @@ distrobox:
   - glances 
   - pandoc 
   - stow
+  - wl-clipboard
   npm_packages:
   pip_packages: 
   bin_export: 
@@ -118,6 +119,8 @@ distrobox:
   - glances 
   - pandoc 
   - stow
+  - wl-copy 
+  - wl-paste
   app_export: 
   bin_symlink:
   - podman 
