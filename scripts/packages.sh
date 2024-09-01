@@ -91,6 +91,7 @@ dbox_install_single() {
 
     for bin in $bin_export 
     do 
+        if [ -f "$HOME/bin/export/${bin}" ]; then rm "$HOME/bin/export/${bin}"; fi
         make_export "${bin}"
     done
 
