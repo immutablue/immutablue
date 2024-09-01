@@ -103,22 +103,10 @@ distrobox:
     [ "" == "$(grep max_parallel_downloads /etc/dnf/dnf.conf)" ] && sudo bash -c 'echo "max_parallel_downloads=10" >> /etc/dnf/dnf.conf';
   packages:
   - which
-  - calc 
-  - ncdu 
-  - ranger 
-  - glances 
-  - pandoc 
-  - stow
   - wl-clipboard
   npm_packages:
   pip_packages: 
   bin_export: 
-  - calc 
-  - ncdu 
-  - ranger 
-  - glances 
-  - pandoc 
-  - stow
   - wl-copy 
   - wl-paste
   app_export: 
@@ -156,11 +144,12 @@ distrobox:
   - cargo
   - code 
   - tig
+  - nvim
+
   npm_packages:
   pip_packages: 
   bin_export: 
   - code 
-  - tig 
   # Needed for nvim support
   - ld 
   app_export: 
@@ -169,13 +158,21 @@ distrobox:
   - podman 
   - buildah 
   - distrobox 
-  - nvim 
   - rg
 
 brew: 
   install:
+  - calc
   - dysk 
+  - fastfetch
+  - fzf
+  - glances 
   - htop 
+  - ncdu
+  - pandoc
+  - ranger 
+  - stow
+  - tig
   uninstall:
 
 
