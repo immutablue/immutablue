@@ -138,7 +138,6 @@ distrobox:
   - nodejs 
   - cargo
   - code 
-  - nvim
 
   npm_packages:
   pip_packages: 
