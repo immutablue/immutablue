@@ -5,6 +5,9 @@ endif
 IMAGE_BASE_TAG := immutablue
 IMAGE := $(REGISTRY)/$(IMAGE_BASE_TAG)
 CURRENT := 40
+# PLATFORM := linux/amd64,linux/arm64
+PLATFORM := linux/amd64
+MANIFEST := $(IMAGE_BASE_TAG)
 
 ifndef $(VERSION)
 	VERSION = $(CURRENT)
@@ -39,20 +42,24 @@ update: install_or_update
 
 
 build:
-ifeq ($(SET_AS_LATEST), 1)
-	buildah build --ignorefile ./.containerignore --no-cache -t $(IMAGE):latest -t $(IMAGE):$(TAG) -f ./Containerfile --build-arg=FEDORA_VERSION=$(VERSION)
-else
-	buildah build --ignorefile ./.containerignore --no-cache -t $(IMAGE):$(TAG) -f ./Containerfile --build-arg=FEDORA_VERSION=$(VERSION)
-endif
+	buildah manifest rm $(MANIFEST) || true 
+	buildah manifest create $(MANIFEST)
+	buildah build \
+		--jobs=4 \
+		--platform=$(PLATFORM) \
+		--manifest $(MANIFEST) \
+		--ignorefile ./.containerignore \
+		--no-cache \
+		-t $(IMAGE):$(TAG) \
+		-f ./Containerfile \
+		--build-arg=FEDORA_VERSION=$(VERSION)
 		
 
 push:
 ifeq ($(SET_AS_LATEST), 1)
-	buildah push $(IMAGE):$(TAG)
-	buildah push $(IMAGE):latest
-else
-	buildah push $(IMAGE):$(TAG)
+	buildah manifest push --all $(MANIFEST) docker://$(IMAGE):latest
 endif
+	buildah manifest push --all $(MANIFEST) docker://$(IMAGE):$(TAG)
 
 
 flatpak_refs/flatpaks: packages.yaml
@@ -120,7 +127,7 @@ rpmostree_upgrade:
 rebase:
 	sudo rpm-ostree rebase ostree-unverified-registry:$(IMAGE):$(TAG)
 
-clean:
+clean: manifest_rm
 	rm -rf ./iso
 	rm -rf ./flatpak_refs
 
