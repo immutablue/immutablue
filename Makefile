@@ -24,12 +24,15 @@ endif
 
 FULL_TAG := $(IMAGE):$(TAG)
 
-.PHONY: all all_upgrade install update install_or_update \
+.PHONY: list all all_upgrade install update install_or_update \
 	build push iso upgrade rebase clean \
 	install_distrobox install_flatpak install_brew \
 	update_initramfs \
 	post_install_notes
 
+
+list:
+	@LC_ALL=C $(MAKE) -pRrq -f $(firstword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/(^|\n)# Files(\n|$$)/,/(^|\n)# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | grep -E -v -e '^[^[:alnum:]]' -e '^$@$$'
 
 
 all: build push
