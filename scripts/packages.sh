@@ -136,16 +136,18 @@ dbox_install_all_from_yaml() {
         # Check for an empty line (new-line). If no image is specified
         if [ 0 -eq $(container_exists "${name}") ]
         then 
-            if [ "$add_flag" != "" ]
+            # Set this to an empty space if its nothing
+            # so distrobox-create doesn't hang wanting more params.
+            if [ "$add_flag" == "" ]
             then 
-                add_flag="--additional-flags \"$add_flag\""
+                add_flag=" "
             fi 
 
             if [ "true" == "$root_mode" ]
             then
-                distrobox create --yes --root $add_flag -i "${image}" "${name}"
+                distrobox create --yes --root --additional-flags "$add_flag" -i "${image}" "${name}"
             else 
-                distrobox create --yes -i $add_flag "${image}" "${name}"
+                distrobox create --yes --additional-flags "$add_flag" -i "${image}" "${name}"
             fi
 
             # If it failed to create, critically fail
