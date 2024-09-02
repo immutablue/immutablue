@@ -66,7 +66,7 @@ dbox_install_single() {
     local packages=$(yq "${key}.packages[]" < $packages_yaml)
     local npm_packages=$(yq "${key}.npm_packages[]" < $packages_yaml)
     local pip_packages=$(yq "${key}.pip_packages[]" < $packages_yaml)
-    local cargo_packages=$(yq "{key}.cargo_packages[]" < $packages_yaml)
+    local cargo_packages=$(yq "${key}.cargo_packages[]" < $packages_yaml)
     local bin_export=$(yq "${key}.bin_export[]" < $packages_yaml)
     local app_export=$(yq "${key}.app_export[]" < $packages_yaml)
     local bin_symlink=$(yq "${key}.bin_symlink[]" < $packages_yaml)
