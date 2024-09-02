@@ -21,13 +21,7 @@ immutablue:
   - firewall-applet
   - tailscale
   - cronie
-  - moreutils
-  - parallel
   - ptyxis
-  - neovim
-  - tmux
-  - ripgrep
-  - zenity
   
  
   # Urls to RPMs to download (they are curled)
@@ -115,8 +109,6 @@ distrobox:
   - podman 
   - buildah 
   - distrobox 
-  - nvim 
-  - rg
   - git
       
 - name: dev
@@ -146,7 +138,6 @@ distrobox:
   - nodejs 
   - cargo
   - code 
-  - tig
   - nvim
 
   npm_packages:
@@ -163,21 +154,28 @@ distrobox:
   - podman 
   - buildah 
   - distrobox 
-  - rg
 
 brew: 
   install:
   - calc
+  - coreutils
   - dysk 
   - fastfetch
   - fzf
   - glances 
   - htop 
+  - moreutils
   - ncdu
+  - neovim
+  - nvimpager
   - pandoc
   - ranger 
+  - ripgrep
+  - rust-parallel
   - stow
   - tig
+  - tmux
+  - zenity
   uninstall:
 
 
