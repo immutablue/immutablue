@@ -38,7 +38,7 @@ list:
 all: build push
 all_upgrade: all update
 
-install_targets := rpmostree_upgrade install_distrobox install_flatpak install_brew post_install update_initramfs post_install_notes
+install_targets := rpmostree_upgrade install_brew install_distrobox install_flatpak post_install update_initramfs post_install_notes
 install_or_update :$(install_targets)
 install: install_or_update
 update: install_or_update
