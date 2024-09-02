@@ -96,6 +96,8 @@ distrobox:
   image: registry.fedoraproject.org/fedora:40
   root: false 
   additional_flags: 
+  - -v /var/home/linuxbrew:/var/home/linuxbrew
+  - -v /home/linuxbrew:/home/linuxbrew
   pkg_inst_cmd: dnf install -y
   pkg_updt_cmd: dnf update -y
   extra_commands: |
@@ -121,6 +123,8 @@ distrobox:
   image: registry.fedoraproject.org/fedora:40
   root: false 
   additional_flags: 
+  - -v /var/home/linuxbrew:/var/home/linuxbrew
+  - -v /home/linuxbrew:/home/linuxbrew
   pkg_inst_cmd: dnf install -y
   pkg_updt_cmd: dnf update -y
 
