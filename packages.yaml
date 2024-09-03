@@ -7,6 +7,7 @@ immutablue:
 
   # RPM Packages to be installed
   rpm:
+  - make
   - distrobox
   - podman-compose
   - fuse-sshfs
