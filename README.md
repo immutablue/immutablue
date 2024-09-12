@@ -19,6 +19,23 @@ We have taken care to make sure it is easy to modify and build upon, should you 
 
 Fork the custom repository if you want to make changes. You can find it [here](https://gitlab.com/immutablue/immutablue-custom).
 
+### immutablue commands
+    - install:
+        - Should be used after rebase to perform initial install.
+    - upgrade:
+        - Upgrades the system image. *Requires* system reboot to take affect.
+    - update:
+        - Updates system, by installing new brew packages, flatpaks, updates distroboxes and runs post_install.sh
+    - install_distrobox:
+        - Installs/update exisiting distroboxes. May be required to account for upstream changes.
+    - post_install:
+        - Runs post_install.sh
+
+### Reboot
+When running immutablue `install|upgrade|update` you can add the optional `REBOOT=1` flag. This will prompt a `systemctl reboot` call after all steps are executed for the respective targets.
+
+> By default `REBOOT=0`
+
 #### Examples
 
 We have some examples of custom builds of Immutablue. These are our actual daily driver workstations. Not just toy examples.

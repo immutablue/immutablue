@@ -9,6 +9,13 @@ CURRENT := 40
 PLATFORM := linux/amd64
 MANIFEST := $(IMAGE_BASE_TAG)
 
+
+
+# Reboot system after completion of install, upgrade, or update
+ifndef $(REBOOT)
+	REBOOT := 0
+endif
+
 ifndef $(VERSION)
 	VERSION = $(CURRENT)
 endif
@@ -24,7 +31,7 @@ endif
 
 FULL_TAG := $(IMAGE):$(TAG)
 
-.PHONY: list all all_upgrade install update install_or_update \
+.PHONY: list all all_upgrade install update upgrade install_or_update reboot \
 	build push iso upgrade rebase clean \
 	install_distrobox install_flatpak install_brew \
 	update_initramfs \
@@ -38,7 +45,14 @@ list:
 all: build push
 all_upgrade: all update
 
-install_targets := rpmostree_upgrade install_brew install_distrobox install_flatpak post_install update_initramfs post_install_notes
+ifeq ($(REBOOT),1)
+install_targets := install_brew install_distrobox install_flatpak post_install update_initramfs post_install_notes reboot
+upgrade: rpmostree_upgrade reboot
+else 
+install_targets := install_brew install_distrobox install_flatpak post_install update_initramfs post_install_notes
+upgrade: rpmostree_upgrade
+endif
+
 install_or_update :$(install_targets)
 install: install_or_update
 update: install_or_update
@@ -129,6 +143,9 @@ rpmostree_upgrade:
 
 rebase:
 	sudo rpm-ostree rebase ostree-unverified-registry:$(IMAGE):$(TAG)
+
+reboot:
+	sudo systemctl reboot
 
 clean: manifest_rm
 	rm -rf ./iso
