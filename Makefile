@@ -5,8 +5,7 @@ endif
 IMAGE_BASE_TAG := immutablue
 IMAGE := $(REGISTRY)/$(IMAGE_BASE_TAG)
 CURRENT := 40
-# PLATFORM := linux/amd64,linux/arm64
-PLATFORM := linux/amd64
+PLATFORM := linux/amd64,linux/arm64
 MANIFEST := $(IMAGE_BASE_TAG)
 
 
@@ -63,13 +62,13 @@ build:
 	buildah manifest create $(MANIFEST)
 	buildah build \
 		--jobs=4 \
-		--platform=$(PLATFORM) \
 		--manifest $(MANIFEST) \
 		--ignorefile ./.containerignore \
 		--no-cache \
 		-t $(IMAGE):$(TAG) \
 		-f ./Containerfile \
 		--build-arg=FEDORA_VERSION=$(VERSION)
+		# --platform=$(PLATFORM) \ ## Build pipeline is having problems with multiarch.
 		
 
 push:
