@@ -23,6 +23,30 @@ immutablue:
   - tailscale
   - cronie
   - ptyxis
+
+  # Since Brew doesn't exist on arm64 we should
+  # layer in these packages we would normally brew
+  # but as system RPMs. 
+  rpm_aarch64:
+  - stow 
+  - neovim 
+  - htop 
+  - tmux 
+  - just 
+  - fastfetch
+  - calc 
+  - coreutils 
+  - moreutils 
+  - fzf 
+  - glances 
+  - ncud 
+  - ranger 
+  - ripgrep 
+  - tig 
+  - zenity 
+  - pass
+
+  rpm_x86_64:
   
  
   # Urls to RPMs to download (they are curled)
@@ -67,21 +91,24 @@ immutablue:
   - org.gnome.dspy
   - com.github.tchx84.Flatseal
   - com.mattjakeman.ExtensionManager
-  - io.github.prateekmedia.appimagepool
   - me.kozec.syncthingtk
   - re.sonny.Junction
   - nl.brixit.powersupply
   - io.github.peazip.PeaZip 
   - io.gitlab.librewolf-community
-  - org.mozilla.firefox
   - org.chromium.Chromium
   - io.github.ungoogled_software.ungoogled_chromium
-  - org.torproject.torbrowser-launcher
   - org.libreoffice.LibreOffice
   - org.pulseaudio.pavucontrol
   - org.videolan.VLC
   - com.github.rafostar.Clapper
   - com.rafaelmardojai.Blanket
+
+  # Only have x86_64 builds
+  flatpaks_x86_64:
+  - org.mozilla.firefox
+  - io.github.prateekmedia.appimagepool
+  - org.torproject.torbrowser-launcher
 
   #Flatpaks to be uninstalled 
   flatpaks_rm:
@@ -90,7 +117,7 @@ distrobox:
 - name: util
   image: registry.fedoraproject.org/fedora:40
   root: false 
-  additional_flags: 
+  additional_flags_x86_64: 
   - -v /var/home/linuxbrew:/var/home/linuxbrew
   - -v /home/linuxbrew:/home/linuxbrew
   pkg_inst_cmd: dnf install -y
@@ -100,6 +127,8 @@ distrobox:
   packages:
   - which
   - wl-clipboard
+  packages_x86_64:
+  packages_aarch64:
   npm_packages:
   pip_packages: 
   bin_export: 
@@ -115,7 +144,7 @@ distrobox:
 - name: dev
   image: registry.fedoraproject.org/fedora:40
   root: false 
-  additional_flags: 
+  additional_flags_x86_64: 
   - -v /var/home/linuxbrew:/var/home/linuxbrew
   - -v /home/linuxbrew:/home/linuxbrew
   pkg_inst_cmd: dnf install -y
@@ -139,7 +168,10 @@ distrobox:
   - nodejs 
   - cargo
   - code 
-
+  
+  packages_x86_64:
+  packages_aarch64:
+  - pandoc
   npm_packages:
   pip_packages: 
   cargo_packages:
@@ -148,6 +180,8 @@ distrobox:
   # Needed for nvim support
   - ld 
   - cargo
+  bin_export_aarch64:
+  - pandoc
   app_export: 
   - code
   bin_symlink:
@@ -155,6 +189,7 @@ distrobox:
   - buildah 
   - distrobox 
 
+# These are x86_64 only 
 brew: 
   install:
   - calc
@@ -169,6 +204,7 @@ brew:
   - neovim
   - nvimpager
   - pandoc
+  - pass
   - ranger 
   - ripgrep
   - rust-parallel

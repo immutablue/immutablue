@@ -63,13 +63,13 @@ dbox_install_single() {
     local pkg_inst_cmd=$(yq "${key}.pkg_inst_cmd" < $packages_yaml)
     local pkg_updt_cmd=$(yq "${key}.pkg_updt_cmd" < $packages_yaml)
     local extra_commands=$(yq "${key}.extra_commands" < $packages_yaml)
-    local packages=$(yq "${key}.packages[]" < $packages_yaml)
-    local npm_packages=$(yq "${key}.npm_packages[]" < $packages_yaml)
-    local pip_packages=$(yq "${key}.pip_packages[]" < $packages_yaml)
-    local cargo_packages=$(yq "${key}.cargo_packages[]" < $packages_yaml)
-    local bin_export=$(yq "${key}.bin_export[]" < $packages_yaml)
-    local app_export=$(yq "${key}.app_export[]" < $packages_yaml)
-    local bin_symlink=$(yq "${key}.bin_symlink[]" < $packages_yaml)
+    local packages=$(cat <(yq "${key}.packages[]" < $packages_yaml) <(yq "${key}.packages_$(uname -m)[]" < $packages_yaml))
+    local npm_packages=$(cat <(yq "${key}.npm_packages[]" < $packages_yaml) <(yq "${key}.npm_packages_$(uname -m)[]" < $packages_yaml))
+    local pip_packages=$(cat <(yq "${key}.pip_packages[]" < $packages_yaml) <(yq "${key}.pip_packages_$(uname -m)[]" < $packages_yaml))
+    local cargo_packages=$(cat <(yq "${key}.cargo_packages[]" < $packages_yaml) <(yq "${key}.cargo_packages_$(uname -m)[]" < $packages_yaml))
+    local bin_export=$(cat <(yq "${key}.bin_export[]" < $packages_yaml) <(yq "${key}.bin_export_$(uname -m)[]" < $packages_yaml))
+    local app_export=$(cat <(yq "${key}.app_export[]" < $packages_yaml) <(yq "${key}.app_export_$(uname -m)[]" < $packages_yaml))
+    local bin_symlink=$(cat <(yq "${key}.bin_symlink[]" < $packages_yaml) <(yq "${key}.bin_symlink_$(uname -m)[]" < $packages_yaml))
 
 
     bash -c "$extra_commands"
@@ -131,7 +131,7 @@ dbox_install_all_from_yaml() {
         local name=$(yq "${key}.name" < $packages_yaml)
         local image=$(yq "${key}.image" < $packages_yaml)
         local root_mode=$(yq "${key}.root" < $packages_yaml)
-        local add_flag=$(yq "${key}.additional_flags[]" < $packages_yaml)
+        local add_flag=$(cat <(yq "${key}.additional_flags[]" < $packages_yaml) <(yq "${key}.additional_flags_$(uname -m)[]" < $packages_yaml))
 
         # Check for an empty line (new-line). If no image is specified
         if [ 0 -eq $(container_exists "${name}") ]
@@ -197,17 +197,17 @@ flatpak_install_all_from_yaml() {
     [ $# -ne 1 ] && echo "echo flatpak_install_all_from_yaml <packages.yaml>" && exit 1
     local flatpaks_yaml="$1"
 
-    flatpaks_add=$(yq '.immutablue.flatpaks[]' < $flatpaks_yaml)
-    flatpaks_rm=$(yq '.immutablue.flatpaks_rm[]' < $flatpaks_yaml)
+    flatpaks_add=$(cat <(yq '.immutablue.flatpaks[]' < $flatpaks_yaml) <(yq ".immutablue.flatpaks_$(uname -m)[]" < $flatpaks_yaml))
+    flatpaks_rm=$(cat <(yq '.immutablue.flatpaks_rm[]' < $flatpaks_yaml) <(yq ".immutablue.flatpaks_rm_$(uname -m)[]" < $flatpaks_yaml))
     
     if [ "" != "$flatpaks_add" ]
     then 
-        flatpak --noninteractive --user install $(for flatpak in $flatpaks_add; do printf '%s ' $flatpak; done)
+        for flatpak in $flatpaks_add; do flatpak --noninteractive --user install "$flatpak"; done
     fi
 
     if [ "" != "$flatpaks_rm" ] 
     then 
-        flatpak --noninteractive --user uninstall $(for flatpak in $flatpaks_rm; do printf '%s ' $flatpak; done)
+        for flatpak in $flatpaks_rm; do flatpak --noninteractive --user uninstall "$flatpak"; done
     fi
 
 
@@ -274,9 +274,17 @@ brew_install() {
 
 
 brew_install_all_packages() {
-    brew_install 
-    brew_install_all_from_yaml $PACKAGES_FILE
-    for f in $PACKAGES_CUSTOM_FMT; do brew_install_all_from_yaml $f; done
+    # Brew is currently only supported on x86_64 -- but we should make the directory
+    # for other architectures in case of confusion, or dependencies of other tools
+    if [ "$(uname -m)" == "x86_64" ]
+    then 
+        brew_install 
+        brew_install_all_from_yaml $PACKAGES_FILE
+        for f in $PACKAGES_CUSTOM_FMT; do brew_install_all_from_yaml $f; done
+    else 
+        sudo mkdir -p /var/home/linuxbrew/.linuxbrew/bin/
+        sudo bash -c "chown -R $USER:$USER /var/home/linuxbrew/"
+    fi
 }
 
 
