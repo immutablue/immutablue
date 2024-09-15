@@ -62,7 +62,6 @@ dbox_install_single() {
     local image=$(yq "${key}.image" < $packages_yaml)
     local pkg_inst_cmd=$(yq "${key}.pkg_inst_cmd" < $packages_yaml)
     local pkg_updt_cmd=$(yq "${key}.pkg_updt_cmd" < $packages_yaml)
-    local extra_commands=$(yq "${key}.extra_commands" < $packages_yaml)
     local packages=$(cat <(yq "${key}.packages[]" < $packages_yaml) <(yq "${key}.packages_$(uname -m)[]" < $packages_yaml))
     local npm_packages=$(cat <(yq "${key}.npm_packages[]" < $packages_yaml) <(yq "${key}.npm_packages_$(uname -m)[]" < $packages_yaml))
     local pip_packages=$(cat <(yq "${key}.pip_packages[]" < $packages_yaml) <(yq "${key}.pip_packages_$(uname -m)[]" < $packages_yaml))
@@ -72,7 +71,7 @@ dbox_install_single() {
     local bin_symlink=$(cat <(yq "${key}.bin_symlink[]" < $packages_yaml) <(yq "${key}.bin_symlink_$(uname -m)[]" < $packages_yaml))
 
 
-    bash -c "$extra_commands"
+    bash <(yq "${key}.extra_commands" < $packages_yaml)
 
     sudo $pkg_updt_cmd 
     sudo $pkg_inst_cmd $(for pkg in $packages; do printf ' %s' $pkg; done)

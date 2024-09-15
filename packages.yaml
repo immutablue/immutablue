@@ -123,7 +123,8 @@ distrobox:
   pkg_inst_cmd: dnf install -y
   pkg_updt_cmd: dnf update -y
   extra_commands: |
-    [ "" == "$(grep max_parallel_downloads /etc/dnf/dnf.conf)" ] && sudo bash -c 'echo "max_parallel_downloads=10" >> /etc/dnf/dnf.conf';
+    #!/bin/bash
+    [ "" == "$(grep max_parallel_downloads /etc/dnf/dnf.conf)" ] && sudo bash -c 'echo "max_parallel_downloads=10" >> /etc/dnf/dnf.conf'
   packages:
   - which
   - wl-clipboard
@@ -153,11 +154,12 @@ distrobox:
   # Setup VS Code Repo - https://code.visualstudio.com/docs/setup/linux
   # Setup ffmpeg for supporting MTP - https://computingforgeeks.com/how-to-install-ffmpeg-on-fedora/
   extra_commands: |
-    sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc && \
-    sudo sh -c 'echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo' && \
-    sudo dnf -y install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm && \
-    sudo dnf -y install https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm && \
-    [ "" == "$(grep max_parallel_downloads /etc/dnf/dnf.conf)" ] && sudo bash -c 'echo "max_parallel_downloads=10" >> /etc/dnf/dnf.conf';
+    #!/bin/bash
+    sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+    sudo sh -c 'echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo' 
+    sudo dnf -y install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm 
+    sudo dnf -y install https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm 
+    [ "" == "$(grep max_parallel_downloads /etc/dnf/dnf.conf)" ] && sudo bash -c 'echo "max_parallel_downloads=10" >> /etc/dnf/dnf.conf'
 
 
   packages:
