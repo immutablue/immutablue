@@ -5,9 +5,11 @@ endif
 IMAGE_BASE_TAG := immutablue
 IMAGE := $(REGISTRY)/$(IMAGE_BASE_TAG)
 CURRENT := 40
-PLATFORM := linux/amd64,linux/arm64
 MANIFEST := $(IMAGE_BASE_TAG)
 
+ifndef $(PLATFORM)
+	PLATFORM := linux/amd64 
+endif
 
 
 # Reboot system after completion of install, upgrade, or update
@@ -63,12 +65,12 @@ build:
 	buildah build \
 		--jobs=4 \
 		--manifest $(MANIFEST) \
+		--platform=$(PLATFORM) \
 		--ignorefile ./.containerignore \
 		--no-cache \
 		-t $(IMAGE):$(TAG) \
 		-f ./Containerfile \
 		--build-arg=FEDORA_VERSION=$(VERSION)
-		# --platform=$(PLATFORM) \ ## Build pipeline is having problems with multiarch.
 		
 
 IMAGE_COMPRESSION_FORMAT := zstd:chunked 
