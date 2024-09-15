@@ -39,7 +39,7 @@ immutablue:
   - moreutils 
   - fzf 
   - glances 
-  - ncud 
+  - ncdu
   - ranger 
   - ripgrep 
   - tig 
