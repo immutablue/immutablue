@@ -71,11 +71,27 @@ build:
 		# --platform=$(PLATFORM) \ ## Build pipeline is having problems with multiarch.
 		
 
+IMAGE_COMPRESSION_FORMAT := zstd:chunked 
+IMAGE_COMPRESSION_LEVEL := 12
 push:
 ifeq ($(SET_AS_LATEST), 1)
-	buildah manifest push --all $(MANIFEST) docker://$(IMAGE):latest
+	buildah \
+		manifest \
+		push \
+		--all \
+		--compression-format $(IMAGE_COMPRESSION_FORMAT) \
+		--compression-level $(IMAGE_COMPRESSION_LEVEL) \
+		$(MANIFEST) \
+		docker://$(IMAGE):latest
 endif
-	buildah manifest push --all $(MANIFEST) docker://$(IMAGE):$(TAG)
+	buildah \
+		manifest \
+		push \
+		--all \
+		--compression-format $(IMAGE_COMPRESSION_FORMAT) \
+		--compression-level $(IMAGE_COMPRESSION_LEVEL) \
+		$(MANIFEST) \
+		docker://$(IMAGE):$(TAG)
 
 
 flatpak_refs/flatpaks: packages.yaml
