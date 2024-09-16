@@ -95,9 +95,6 @@ dbox_install_single() {
         [ "" != "$cargo_packages" ] && sudo cargo -t default install $(for cargo in $cargo_packages; do printf ' %s' $pkg; done)
     fi
 
-    
-
-    if [ -d "$HOME/bin/export" ]; then rm "${HOME}"/bin/export/*; fi
     for bin in $bin_export 
     do 
         make_export "${bin}"
@@ -167,6 +164,7 @@ dbox_install_all_from_yaml() {
 
 
 dbox_install_all() {
+    if [ -d "$HOME/bin/export" ]; then rm "${HOME}"/bin/export/*; fi
     dbox_install_all_from_yaml $PACKAGES_FILE
     for f in $PACKAGES_CUSTOM_FMT; do if [ "$f" != "$PACKAGES_CUSTOM_FMT" ]; then dbox_install_all_from_yaml $f; fi; done
 }
