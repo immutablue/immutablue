@@ -6,45 +6,58 @@ variables:
   BUILD_IMAGE: quay.io/fedora/fedora:40
   DOCKER_PRIVILEGED: "true"
   DOCKER_DRIVER: "overlay"
+  SLEEP_TIME: 10
 
 
-build-stable:
+build-stable-amd64:
   stage: build
   image: $BUILD_IMAGE
+  tags: 
+    - amd64
   rules:
     - if: $DAILY == null && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  script:
-    - dnf install make buildah fuse-overlayfs qemu qemu-user-binfmt -y
-    - buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
-    - make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION all
+  script: |
+    until dnf install -y make buildah fuse-overlayfs; do sleep $SLEEP_TIME; done
+    until buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"; do sleep $SLEEP_TIME; done
+    until make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION build; do sleep $SLEEP_TIME; done
+    until make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION push; do sleep $SLEEP_TIME; done
 
-build-daily:
+
+build-daily-amd64:
   stage: build
   image: $BUILD_IMAGE
+  tags: 
+    - amd64
   rules:
     - if: $DAILY
-  script:
-    - dnf install make buildah fuse-overlayfs qemu qemu-user-binfmt -y
-    - buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
-    - make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$(date +'%Y%m%d')" SET_AS_LATEST=1 all
+  script: |
+    until dnf install -y make buildah fuse-overlayfs; do sleep $SLEEP_TIME; done
+    until buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"; do sleep $SLEEP_TIME; done
+    until make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$(date +'%Y%m%d')" SET_AS_LATEST=1 build; do sleep $SLEEP_TIME; done
+    until make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$(date +'%Y%m%d')" SET_AS_LATEST=1 push; do sleep $SLEEP_TIME; done
 
-build-feature:
+
+build-feature-amd64:
   stage: build
   image: $BUILD_IMAGE
+  tags: 
+    - amd64
   rules:
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
-  script:
-    - dnf install make buildah fuse-overlayfs qemu qemu-user-binfmt -y
-    - make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$CI_COMMIT_SHORT_SHA" build
+  script: |
+    until dnf install -y make buildah fuse-overlayfs; do sleep $SLEEP_TIME; done
+    until make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$CI_COMMIT_SHORT_SHA" build; do sleep $SLEEP_TIME; done
 
 
-build-iso:
+build-iso-amd64:
   stage: build 
   image: $BUILD_IMAGE 
+  tags: 
+    - amd64
   rules:
     - if: $WEEKLY && $ISO
-  script:
-    - dnf install make podman fuse-overlayfs yq s3cmd -y
-    - make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION iso
-    - make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION S3_ACCESS_KEY=$S3_ACCESS_KEY S3_SECRET_KEY=$S3_SECRET_KEY push_iso
+  script: |
+    until dnf install -y make podman fuse-overlayfs yq s3cmd; do sleep $SLEEP_TIME; done
+    until make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION iso; do sleep $SLEEP_TIME; done
+    until make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION S3_ACCESS_KEY=$S3_ACCESS_KEY S3_SECRET_KEY=$S3_SECRET_KEY push_iso; do sleep $SLEEP_TIME; done
 
