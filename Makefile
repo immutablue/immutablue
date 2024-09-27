@@ -96,6 +96,10 @@ endif
 		docker://$(IMAGE):$(TAG)
 
 
+retag:
+	buildah tag $(IMAGE):$(TAG) $(IMAGE):$(RETAG)
+
+
 flatpak_refs/flatpaks: packages.yaml
 	mkdir -p ./flatpak_refs
 	bash -c 'source ./scripts/packages.sh && flatpak_make_refs'
