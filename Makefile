@@ -97,7 +97,7 @@ endif
 
 
 retag:
-	podman tag $(IMAGE):$(TAG) $(IMAGE):$(RETAG)
+	buildah tag $(IMAGE):$(TAG) $(IMAGE):$(RETAG)
 
 
 flatpak_refs/flatpaks: packages.yaml
