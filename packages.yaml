@@ -23,6 +23,7 @@ immutablue:
   - tailscale
   - cronie
   - ptyxis
+  - gnome-terminal
 
   # Since Brew doesn't exist on arm64 we should
   # layer in these packages we would normally brew
