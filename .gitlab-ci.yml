@@ -31,7 +31,7 @@ build-daily-amd64:
   rules:
     - if: $DAILY
   script: |
-    until dnf install -y make buildah fuse-overlayfs; do sleep $SLEEP_TIME; done
+    until dnf install -y make buildah podman fuse-overlayfs; do sleep $SLEEP_TIME; done
     until buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"; do sleep $SLEEP_TIME; done
     until make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$(date +'%Y%m%d')" SET_AS_LATEST=1 build; do sleep $SLEEP_TIME; done
     until make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$(date +'%Y%m%d')" SET_AS_LATEST=1 push; do sleep $SLEEP_TIME; done
