@@ -3,6 +3,8 @@ immutablue:
   repo_urls:
   - name: tailscale.repo 
     url: https://pkgs.tailscale.com/stable/fedora/tailscale.repo
+  - name: ublue-os-staging.repo
+    url: https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-41/ublue-os-staging-fedora-41.repo
 
 
   # RPM Packages to be installed
@@ -23,6 +25,7 @@ immutablue:
   - tailscale
   - cronie
   - ptyxis
+  - nautilus-open-any-terminal
 
   # Since Brew doesn't exist on arm64 we should
   # layer in these packages we would normally brew
