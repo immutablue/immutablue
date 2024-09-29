@@ -113,6 +113,23 @@ immutablue:
   #Flatpaks to be uninstalled 
   flatpaks_rm:
 
+  # Services 
+  services_enable_sys:
+  - sshd.service
+  - tailscaled.service
+  - crond.service 
+
+  services_disable_sys:
+  services_mask_sys:
+  services_unmask_sys:
+
+  # User services 
+  # Handled in immutablue installer
+  services_enable_user:
+  services_disable_user:
+  services_mask_user:
+  services_unmask_user:
+
 distrobox:
 - name: util
   image: registry.fedoraproject.org/fedora:40
