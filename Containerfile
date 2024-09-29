@@ -9,7 +9,7 @@ COPY --from=quay.io/zachpodbielniak/nautilusopenwithcode:${FEDORA_VERSION} \
 	/usr/lib64/nautilus/extensions-4/libnautilus-open-with-code.so \
 	/usr/lib64/nautilus/extensions-4/libnautilus-open-with-code.so
 COPY . ${INSTALL_DIR}
-COPY ./scripts/immutablue /usr/bin/immutablue
+COPY ./artifacts/overrides/ /
 
 # Install branding and backup existing branding
 COPY ./artifacts/branding/* /usr/share/pixmaps/
