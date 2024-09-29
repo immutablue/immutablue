@@ -4,7 +4,7 @@ endif
 
 IMAGE_BASE_TAG := immutablue
 IMAGE := $(REGISTRY)/$(IMAGE_BASE_TAG)
-CURRENT := 40
+CURRENT := 41
 MANIFEST := $(IMAGE_BASE_TAG)
 
 ifndef $(PLATFORM)
