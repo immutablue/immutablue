@@ -47,10 +47,10 @@ all: build push
 all_upgrade: all update
 
 ifeq ($(REBOOT),1)
-install_targets := install_brew install_distrobox install_flatpak post_install update_initramfs post_install_notes reboot
+install_targets := install_brew install_distrobox install_flatpak install_services post_install update_initramfs post_install_notes reboot
 upgrade: rpmostree_upgrade reboot
 else 
-install_targets := install_brew install_distrobox install_flatpak post_install update_initramfs post_install_notes
+install_targets := install_brew install_distrobox install_flatpak install_services post_install update_initramfs post_install_notes
 upgrade: rpmostree_upgrade
 endif
 
@@ -180,6 +180,9 @@ install_flatpak:
 
 install_brew:
 	bash -x -c 'source ./scripts/packages.sh && brew_install_all_packages'
+
+install_services:
+	bash -x -c 'source ./scripts/packages.sh && services_unmask_disable_enable_mask_all'
 
 post_install:
 	bash -x -c 'source ./scripts/packages.sh && run_all_post_upgrade_scripts'
