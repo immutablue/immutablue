@@ -47,10 +47,10 @@ all: build push
 all_upgrade: all update
 
 ifeq ($(REBOOT),1)
-install_targets := ulimits install_brew install_distrobox install_flatpak install_services post_install update_initramfs post_install_notes reboot
+install_targets := install_brew install_distrobox install_flatpak install_services post_install update_initramfs post_install_notes reboot
 upgrade: rpmostree_upgrade reboot
 else 
-install_targets := ulimits install_brew install_distrobox install_flatpak install_services post_install update_initramfs post_install_notes
+install_targets := install_brew install_distrobox install_flatpak install_services post_install update_initramfs post_install_notes
 upgrade: rpmostree_upgrade
 endif
 
@@ -172,10 +172,6 @@ clean: manifest_rm
 	rm -rf ./iso
 	rm -rf ./flatpak_refs
 
-
-ULIMIT_MAX_FILENO := 65535
-ulimits:
-	ulimit -n $(ULIMIT_MAX_FILENO)
 
 install_distrobox: 
 	bash -x -c 'source ./scripts/packages.sh && dbox_install_all'
