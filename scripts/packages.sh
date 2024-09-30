@@ -21,18 +21,6 @@ post_install_notes() {
 }
 
 
-check_plymouth_watermark() {
-  echo "$(sha256sum /usr/share/pixmaps/fedora-logo.png | gawk '{ print $1 }') /usr/share/plymouth/themes/spinner/watermark.png" | sha256sum --check
-}
-
-update_initramfs_if_bad_watermark() {
-    if [[ $(check_plymouth_watermark | grep "FAILED") && \
-        $(rpm-ostree status -v | grep -i Initramfs | awk '{printf "%s\n", $2}') -eq "regenerate" ]]
-    then
-        bash -c "sudo rpm-ostree initramfs --enable"
-    fi
-}
-
 # Arg 1 is path to packages.yaml
 get_yaml_distrobox_length() {
     [ $# -ne 1 ] && echo "$0 <packages.yaml>" && exit 1
