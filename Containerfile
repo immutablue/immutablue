@@ -12,10 +12,10 @@ COPY . ${INSTALL_DIR}
 COPY ./artifacts/overrides/ /
 
 # Install branding and backup existing branding
-COPY ./artifacts/branding/* /usr/share/pixmaps/
+# COPY ./artifacts/branding/* /usr/share/pixmaps/
 
 # Copy custom rules.d and install ublue rules.d
-COPY ./artifacts/config/udev/rules.d/ /usr/lib/udev/rules.d
+# COPY ./artifacts/config/udev/rules.d/ /usr/lib/udev/rules.d
 COPY --from=ghcr.io/ublue-os/config:latest /rpms/ublue-os-udev-rules.noarch.rpm /tmp
 RUN set -x && \
     rpm-ostree install /tmp/ublue-os-udev-rules.noarch.rpm && \
