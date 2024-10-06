@@ -9,13 +9,13 @@ COPY --from=quay.io/zachpodbielniak/nautilusopenwithcode:${FEDORA_VERSION} \
 	/usr/lib64/nautilus/extensions-4/libnautilus-open-with-code.so \
 	/usr/lib64/nautilus/extensions-4/libnautilus-open-with-code.so
 COPY . ${INSTALL_DIR}
-COPY ./scripts/immutablue /usr/bin/immutablue
+COPY ./artifacts/overrides/ /
 
 # Install branding and backup existing branding
-COPY ./artifacts/branding/* /usr/share/pixmaps/
+# COPY ./artifacts/branding/* /usr/share/pixmaps/
 
 # Copy custom rules.d and install ublue rules.d
-COPY ./artifacts/config/udev/rules.d/ /usr/lib/udev/rules.d
+# COPY ./artifacts/config/udev/rules.d/ /usr/lib/udev/rules.d
 COPY --from=ghcr.io/ublue-os/config:latest /rpms/ublue-os-udev-rules.noarch.rpm /tmp
 RUN set -x && \
     rpm-ostree install /tmp/ublue-os-udev-rules.noarch.rpm && \
@@ -56,4 +56,19 @@ RUN set -x && \
     files=$(cat <(yq '.immutablue.file_rm[]' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.file_rm_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
     for f in $files; do rm -rf "$f"; done && \
     ostree container commit
+
+
+# Handle .immutablue.services_*[]
+RUN set -x && \
+    unmask=$(cat <(yq '.immutablue.services_unmask_sys[]' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.services_unmask_sys_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
+    disable=$(cat <(yq '.immutablue.services_disable_sys[]' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.services_disable_sys_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
+    enable=$(cat <(yq '.immutablue.services_enable_sys[]' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.services_enable_sys_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
+    mask=$(cat <(yq '.immutablue.services_mask_sys[]' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.services_mask_sys_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
+    for s in $unmask; do systemctl unmask "$s"; done && \
+    for s in $disable; do systemctl disable "$s"; done && \
+    for s in $enable; do systemctl enable "$s"; done && \
+    for s in $mask; do systemctl mask "$s"; done && \
+    ostree container commit
+
+
 

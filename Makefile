@@ -35,7 +35,6 @@ FULL_TAG := $(IMAGE):$(TAG)
 .PHONY: list all all_upgrade install update upgrade install_or_update reboot \
 	build push iso upgrade rebase clean \
 	install_distrobox install_flatpak install_brew \
-	update_initramfs \
 	post_install_notes
 
 
@@ -47,10 +46,10 @@ all: build push
 all_upgrade: all update
 
 ifeq ($(REBOOT),1)
-install_targets := install_brew install_distrobox install_flatpak post_install update_initramfs post_install_notes reboot
+install_targets := install_brew install_distrobox install_flatpak install_services post_install post_install_notes reboot
 upgrade: rpmostree_upgrade reboot
 else 
-install_targets := install_brew install_distrobox install_flatpak post_install update_initramfs post_install_notes
+install_targets := install_brew install_distrobox install_flatpak install_services post_install post_install_notes
 upgrade: rpmostree_upgrade
 endif
 
@@ -172,6 +171,7 @@ clean: manifest_rm
 	rm -rf ./iso
 	rm -rf ./flatpak_refs
 
+
 install_distrobox: 
 	bash -x -c 'source ./scripts/packages.sh && dbox_install_all'
 
@@ -181,11 +181,11 @@ install_flatpak:
 install_brew:
 	bash -x -c 'source ./scripts/packages.sh && brew_install_all_packages'
 
+install_services:
+	bash -x -c 'source ./scripts/packages.sh && services_unmask_disable_enable_mask_all'
+
 post_install:
 	bash -x -c 'source ./scripts/packages.sh && run_all_post_upgrade_scripts'
-
-update_initramfs:
-	bash -x -c 'source ./scripts/packages.sh && update_initramfs_if_bad_watermark'
 
 post_install_notes:
 	bash -x -c 'source ./scripts/packages.sh && post_install_notes'

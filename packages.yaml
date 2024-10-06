@@ -3,6 +3,8 @@ immutablue:
   repo_urls:
   - name: tailscale.repo 
     url: https://pkgs.tailscale.com/stable/fedora/tailscale.repo
+  - name: ublue-os-staging.repo
+    url: https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-41/ublue-os-staging-fedora-41.repo
 
 
   # RPM Packages to be installed
@@ -24,6 +26,7 @@ immutablue:
   - cronie
   - ptyxis
   - gnome-terminal
+  - nautilus-open-any-terminal
 
   # Since Brew doesn't exist on arm64 we should
   # layer in these packages we would normally brew
@@ -113,6 +116,23 @@ immutablue:
 
   #Flatpaks to be uninstalled 
   flatpaks_rm:
+
+  # Services 
+  services_enable_sys:
+  - sshd.service
+  - tailscaled.service
+  - crond.service 
+
+  services_disable_sys:
+  services_mask_sys:
+  services_unmask_sys:
+
+  # User services 
+  # Handled in immutablue installer
+  services_enable_user:
+  services_disable_user:
+  services_mask_user:
+  services_unmask_user:
 
 distrobox:
 - name: util

@@ -21,18 +21,6 @@ post_install_notes() {
 }
 
 
-check_plymouth_watermark() {
-  echo "$(sha256sum /usr/share/pixmaps/fedora-logo.png | gawk '{ print $1 }') /usr/share/plymouth/themes/spinner/watermark.png" | sha256sum --check
-}
-
-update_initramfs_if_bad_watermark() {
-    if [[ $(check_plymouth_watermark | grep "FAILED") && \
-        $(rpm-ostree status -v | grep -i Initramfs | awk '{printf "%s\n", $2}') -eq "regenerate" ]]
-    then
-        bash -c "sudo rpm-ostree initramfs --enable"
-    fi
-}
-
 # Arg 1 is path to packages.yaml
 get_yaml_distrobox_length() {
     [ $# -ne 1 ] && echo "$0 <packages.yaml>" && exit 1
@@ -282,6 +270,27 @@ brew_install_all_packages() {
         sudo mkdir -p /var/home/linuxbrew/.linuxbrew/bin/
         sudo bash -c "chown -R $USER:$USER /var/home/linuxbrew/"
     fi
+}
+
+
+services_unmask_disable_enable_mask_yaml() {
+    local svc_yaml="$1"
+    local enable=$(cat <(yq '.immutablue.services_enable_user[]' < "${svc_yaml}") <(yq ".immutablue.services_enable_user_$(uname -m)" < "${svc_yaml}"))
+    local disable=$(cat <(yq '.immutablue.services_disable_user[]' < "${svc_yaml}") <(yq ".immutablue.services_disable_user_$(uname -m)" < "${svc_yaml}"))
+    local mask=$(cat <(yq '.immutablue.services_mask_user[]' < "${svc_yaml}") <(yq ".immutablue.services_mask_user_$(uname -m)" < "${svc_yaml}"))
+    local unmask=$(cat <(yq '.immutablue.services_unmask_user[]' < "${svc_yaml}") <(yq ".immutablue.services_unmask_user_$(uname -m)" < "${svc_yaml}"))
+
+    systemctl --user daemon-reload
+    for s in $unmask; do systemctl --user unmask --now "$s"; done
+    for s in $disable; do systemctl --user disable --now "$s"; done
+    for s in $enable; do systemctl --user enable --now "$s"; done
+    for s in $mask; do systemctl --user mask --now "$s"; done
+}
+
+
+services_unmask_disable_enable_mask_all() {
+    services_unmask_disable_enable_mask_yaml "$PACKAGES_FILE"
+    for f in $PACKAGES_CUSTOM_FMT; do services_unmask_disable_enable_mask_yaml "$f"; done
 }
 
 
