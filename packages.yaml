@@ -26,7 +26,7 @@ immutablue:
   - cronie
   - ptyxis
   - gnome-terminal
-  - nautilus-open-any-terminal
+  # - nautilus-open-any-terminal
 
   # Since Brew doesn't exist on arm64 we should
   # layer in these packages we would normally brew
