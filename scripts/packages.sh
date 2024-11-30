@@ -159,11 +159,20 @@ dbox_install_all() {
 
 
 flatpak_config() {
+        local flatpaks_yaml="$1"
+        
 	# Remove flathub if its configured
 	sudo flatpak remote-delete flathub --force
 
 	# Enabling flathub (unfiltered) for --user
 	flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+        # Add custom Flatpak Repositories
+        repos=$(cat <(yq '.immutablue.flatpak_repos[].name' < $flatpaks_yaml))
+        if [ "" != "$repos" ]
+        then 
+            for repo in $repos; do  flatpak remote-add --user --if-not-exists $repo $(yq ".immutablue.flatpak_repos[] | select(.name == \"$repo\").url" < $flatpaks_yaml) || true; done
+        fi
 
 	# Replace Fedora flatpaks with flathub ones
 	flatpak install --user --noninteractive org.gnome.Platform//46
@@ -204,7 +213,7 @@ flatpak_install_all() {
     if [ ! -f /opt/immutablue/did_initial_flatpak_install ]
     then 
         echo "Doing initial flatpak config"
-        flatpak_config
+        flatpak_config $PACKAGES_FILE
         sudo mkdir -p /opt/immutablue
         sudo touch /opt/immutablue/did_initial_flatpak_install
     fi

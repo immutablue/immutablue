@@ -70,6 +70,10 @@ immutablue:
   - /var/spool/anacron/cron.monthly
   
 
+  # Repositories for Flatpaks
+  flatpak_repos:
+
+
   # Runtimes for Flatpaks
   # (Can query with `flatpak list --app --columns=application,runtime`)
   flatpaks_runtime:
