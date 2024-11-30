@@ -168,10 +168,10 @@ flatpak_config() {
 	flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
         # Add custom Flatpak Repositories
-        repos=$(cat <(yq '.immutablue.flatpak_repos[].name' < $flatpaks_yaml))
+        repos=$(cat <(yq '.immutablue.flatpak_repos[].name' < $flatpaks_yaml) <(yq ".immutablue.flatpak_repos_$(uname -m)[].name" < $flatpaks_yaml))
         if [ "" != "$repos" ]
         then 
-            for repo in $repos; do  flatpak remote-add --user --if-not-exists $repo $(yq ".immutablue.flatpak_repos[] | select(.name == \"$repo\").url" < $flatpaks_yaml) || true; done
+            for repo in $repos; do  flatpak remote-add --user --if-not-exists $repo $(cat <(yq ".immutablue.flatpak_repos[] | select(.name == \"$repo\").url" < $flatpaks_yaml) <(yq ".immutablue.flatpak_repos_$(uname -m)[] | select(.name == \"$repo\").url" < $flatpaks_yaml)) || true; done
         fi
 
 	# Replace Fedora flatpaks with flathub ones
@@ -214,6 +214,7 @@ flatpak_install_all() {
     then 
         echo "Doing initial flatpak config"
         flatpak_config $PACKAGES_FILE
+        for f in $PACKAGES_CUSTOM_FMT; do flatpak_config $f; done
         sudo mkdir -p /opt/immutablue
         sudo touch /opt/immutablue/did_initial_flatpak_install
     fi
