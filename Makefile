@@ -80,19 +80,20 @@ ifeq ($(SET_AS_LATEST), 1)
 		manifest \
 		push \
 		--all \
-		--compression-format $(IMAGE_COMPRESSION_FORMAT) \
-		--compression-level $(IMAGE_COMPRESSION_LEVEL) \
 		$(MANIFEST) \
 		docker://$(IMAGE):latest
+		# --compression-format $(IMAGE_COMPRESSION_FORMAT) \
+		# --compression-level $(IMAGE_COMPRESSION_LEVEL) \
+		
 endif
 	buildah \
 		manifest \
 		push \
 		--all \
-		--compression-format $(IMAGE_COMPRESSION_FORMAT) \
-		--compression-level $(IMAGE_COMPRESSION_LEVEL) \
 		$(MANIFEST) \
 		docker://$(IMAGE):$(TAG)
+		# --compression-format $(IMAGE_COMPRESSION_FORMAT) \
+		# --compression-level $(IMAGE_COMPRESSION_LEVEL) \
 
 
 retag:
