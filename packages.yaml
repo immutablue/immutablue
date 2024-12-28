@@ -55,12 +55,14 @@ immutablue:
  
   # Urls to RPMs to download (they are curled)
   rpm_url:
+  - https://zfsonlinux.org/fedora/zfs-release-2-6.fc41.noarch.rpm
   
   
   # RPM Packages to be removed
   rpm_rm:
   - firefox-langpacks
   - firefox
+  - zfs-fuse
   
   
   # Temp files to be removed during build stage (errors out build)
