@@ -29,6 +29,14 @@ ifndef $(SET_AS_LATEST)
 	SET_AS_LATEST = 0
 endif
 	
+# Default to non-LTS build
+ifndef $(LTS)
+	LTS := 0 
+endif
+
+ifeq ($(LTS), 1)
+	TAG := $(TAG)-lts
+endif
 
 FULL_TAG := $(IMAGE):$(TAG)
 
@@ -61,6 +69,18 @@ update: install_or_update
 build:
 	buildah manifest rm $(MANIFEST) || true 
 	buildah manifest create $(MANIFEST)
+ifeq ($(LTS), 1)
+	buildah build \
+		--jobs=4 \
+		--manifest $(MANIFEST) \
+		--platform=$(PLATFORM) \
+		--ignorefile ./.containerignore \
+		--no-cache \
+		-t $(IMAGE):$(TAG) \
+		-f ./Containerfile \
+		--build-arg=FEDORA_VERSION=$(VERSION) \
+		--build-arg=FLAVOR=LTS
+else
 	buildah build \
 		--jobs=4 \
 		--manifest $(MANIFEST) \
@@ -70,6 +90,7 @@ build:
 		-t $(IMAGE):$(TAG) \
 		-f ./Containerfile \
 		--build-arg=FEDORA_VERSION=$(VERSION)
+endif
 		
 
 IMAGE_COMPRESSION_FORMAT := zstd:chunked 
