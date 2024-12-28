@@ -80,7 +80,7 @@ dbox_install_single() {
     type cargo 2>/dev/null
     if [ 0 -eq $? ]
     then
-        [ "" != "$cargo_packages" ] && sudo cargo -t default install $(for cargo in $cargo_packages; do printf ' %s' $pkg; done)
+        [ "" != "$cargo_packages" ] && sudo cargo -t default --locked install $(for cargo in $cargo_packages; do printf ' %s' $pkg; done)
     fi
 
     for bin in $bin_export 
