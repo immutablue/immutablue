@@ -2,7 +2,7 @@ stages:
   - build
 
 variables:
-  FEDORA_VERSION: 40
+  FEDORA_VERSION: 41
   BUILD_IMAGE: quay.io/fedora/fedora:40
   DOCKER_PRIVILEGED: "true"
   DOCKER_DRIVER: "overlay"
