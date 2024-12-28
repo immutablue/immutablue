@@ -2,6 +2,7 @@ ARG FEDORA_VERSION=41
 FROM quay.io/fedora/fedora-silverblue:${FEDORA_VERSION}
 ARG FEDORA_VERSION=41
 ARG INSTALL_DIR=/usr/immutablue
+ARG FLAVOR=NORMAL
 
 
 COPY --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/yq
@@ -20,6 +21,16 @@ COPY --from=ghcr.io/ublue-os/config:latest /rpms/ublue-os-udev-rules.noarch.rpm 
 RUN set -x && \
     rpm-ostree install /tmp/ublue-os-udev-rules.noarch.rpm && \
     ostree container commit
+
+
+# LTS Logic 
+RUN set -x && \
+    if [[ "${FLAVOR}" == "LTS" ]]; then curl -Lo /etc/yum.repos.d/kwizart-kernel-longterm-6.6-fedora-41.repo "https://copr.fedorainfracloud.org/coprs/kwizart/kernel-longterm-6.6/repo/fedora-41/kwizart-kernel-longterm-6.6-fedora-41.repo" && \
+    rpm-ostree override remove kernel --install kernel-longterm --install kernel-longterm-core --install kernel-longterm-modules --install kernel-longterm-modules-extra --install kernel-longterm-devel && \
+    for f in $(ls /usr/lib/modules/ | grep -vP "6\.6\." | xargs -I {} echo {}); do rm -rf "/usr/lib/modules/$f"; done && \
+    ostree container commit; \
+    else echo "not LTS build"; fi
+    
 
 # Handle .immutablue.repo_urls[]
 RUN set -x && \
