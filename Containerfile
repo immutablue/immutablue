@@ -20,6 +20,17 @@ COPY ./artifacts/overrides/ /
 COPY --from=ghcr.io/ublue-os/config:latest /rpms/ublue-os-udev-rules.noarch.rpm /tmp
 RUN set -x && \
     rpm-ostree install /tmp/ublue-os-udev-rules.noarch.rpm && \
+    rm /tmp/ublue-os-udev-rules.noarch.rpm && \
+    ostree container commit
+
+# Copy akmods from ublue but only for x86_64
+COPY --from=ghcr.io/ublue-os/akmods:main-${FEDORA_VERSION} /rpms/ /tmp/rpms
+RUN set -x && \
+    if [[ "$(uname -m)" == "x86_64" ]]; then \
+    ls -R /tmp/rpms/ && \
+    rpm-ostree install /tmp/rpms/ublue-os/ublue-os-akmods*.rpm && \
+    rpm-ostree install /tmp/rpms/kmods/kmod-{framework,openrazer,xone}-*.rpm; fi && \
+    rm -rf /tmp/rpms/ && \
     ostree container commit
 
 
