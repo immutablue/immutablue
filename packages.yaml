@@ -27,6 +27,7 @@ immutablue:
   - ptyxis
   - gnome-terminal
   - python3-pip
+  - lm_sensors
   # - nautilus-open-any-terminal
 
   # Since Brew doesn't exist on arm64 we should
