@@ -58,6 +58,13 @@ RUN set -x && \
     ostree container commit
 
 
+# Handle .immutablue.pip_packages[]
+RUN set -x && \
+    pkgs=$(cat <(yq '.immutablue.pip_packages[]' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.pip_packages_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
+    pip3 install --prefix=/usr $(for pkg in $pkgs; do printf '%s ' $pkg; done) && \
+    ostree container commit
+
+
 # Handle .immutablue.services_*[]
 RUN set -x && \
     unmask=$(cat <(yq '.immutablue.services_unmask_sys[]' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.services_unmask_sys_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
