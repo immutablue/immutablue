@@ -23,9 +23,9 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     --mount=type=bind,from=yq,src=/usr/bin,dst=/mnt-yq \
     --mount=type=bind,from=ublue-config,src=/rpms,dst=/mnt-ublue-config \
     --mount=type=bind,from=ublue-akmods,src=/rpms,dst=/mnt-ublue-akmods \
-    set -x && \
+    set -eux && \
     ls -l ${INSTALL_DIR} && \
     chmod +x ${INSTALL_DIR}/build/*.sh && \
-    for script in ${INSTALL_DIR}/build/*.sh; do "$script"; done && \
+    for script in ${INSTALL_DIR}/build/*.sh; do "$script"; if [[ $? -ne 0 ]]; then echo "ERROR: $script failed" && exit 1; fi; done && \
     ostree container commit
 
