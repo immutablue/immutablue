@@ -77,12 +77,22 @@ update: install_or_update
 
 
 build:
-	buildah manifest rm $(MANIFEST) || true 
-	buildah manifest create $(MANIFEST)
-	buildah build \
-		--jobs=4 \
-		--manifest $(MANIFEST) \
-		--platform=$(PLATFORM) \
+	# buildah manifest rm $(MANIFEST) || true 
+	# buildah manifest create $(MANIFEST)
+	# buildah build \
+	# 	--jobs=4 \
+	# 	--manifest $(MANIFEST) \
+	# 	--platform=$(PLATFORM) \
+	# 	--ignorefile ./.containerignore \
+	# 	--no-cache \
+	# 	-t $(IMAGE):$(TAG) \
+	# 	-f ./Containerfile \
+	# 	--build-arg=FEDORA_VERSION=$(VERSION) \
+	# 	--build-arg=DO_INSTALL_LTS=$(DO_INSTALL_LTS) \
+	# 	--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
+	# 	--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_ZFS)
+	buildah \
+		build \
 		--ignorefile ./.containerignore \
 		--no-cache \
 		-t $(IMAGE):$(TAG) \
@@ -91,6 +101,7 @@ build:
 		--build-arg=DO_INSTALL_LTS=$(DO_INSTALL_LTS) \
 		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
 		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_ZFS)
+
 		
 
 IMAGE_COMPRESSION_FORMAT := zstd:chunked 
@@ -98,21 +109,15 @@ IMAGE_COMPRESSION_LEVEL := 12
 push:
 ifeq ($(SET_AS_LATEST), 1)
 	buildah \
-		manifest \
 		push \
-		--all \
-		$(MANIFEST) \
-		docker://$(IMAGE):latest
+		$(IMAGE):latest
 		# --compression-format $(IMAGE_COMPRESSION_FORMAT) \
 		# --compression-level $(IMAGE_COMPRESSION_LEVEL) \
 		
 endif
 	buildah \
-		manifest \
 		push \
-		--all \
-		$(MANIFEST) \
-		docker://$(IMAGE):$(TAG)
+		$(IMAGE):$(TAG)
 		# --compression-format $(IMAGE_COMPRESSION_FORMAT) \
 		# --compression-level $(IMAGE_COMPRESSION_LEVEL) \
 
