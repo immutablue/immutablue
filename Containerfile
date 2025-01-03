@@ -1,17 +1,19 @@
 ARG FEDORA_VERSION=41
 
+
 FROM quay.io/zachpodbielniak/nautilusopenwithcode:${FEDORA_VERSION} AS nautilusopenwithcode
 FROM docker.io/mikefarah/yq AS yq
 FROM ghcr.io/ublue-os/config:latest AS ublue-config
 FROM ghcr.io/ublue-os/akmods:main-${FEDORA_VERSION} AS ublue-akmods
-
-
 FROM quay.io/fedora/fedora-silverblue:${FEDORA_VERSION}
+
+
 ARG FEDORA_VERSION=41
 ARG INSTALL_DIR=/usr/immutablue
 ARG DO_INSTALL_AKMODS=false
 ARG DO_INSTALL_ZFS=false
 ARG DO_INSTALL_LTS=false
+
 
 # Copy in files for build
 COPY . ${INSTALL_DIR}
@@ -24,7 +26,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     --mount=type=bind,from=ublue-config,src=/rpms,dst=/mnt-ublue-config \
     --mount=type=bind,from=ublue-akmods,src=/rpms,dst=/mnt-ublue-akmods \
     set -eux && \
-    ls -l ${INSTALL_DIR} && \
+    ls -l ${INSTALL_DIR}/build && \
     chmod +x ${INSTALL_DIR}/build/*.sh && \
     for script in ${INSTALL_DIR}/build/*.sh; do "$script"; if [[ $? -ne 0 ]]; then echo "ERROR: $script failed" && exit 1; fi; done && \
     ostree container commit
