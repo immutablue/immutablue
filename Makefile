@@ -100,7 +100,7 @@ build:
 		--build-arg=FEDORA_VERSION=$(VERSION) \
 		--build-arg=DO_INSTALL_LTS=$(DO_INSTALL_LTS) \
 		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
-		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_ZFS)
+		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS)
 
 		
 
