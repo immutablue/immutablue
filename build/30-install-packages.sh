@@ -36,14 +36,21 @@ fi
 if [[ "$DO_INSTALL_LTS" == "true" ]]
 then 
     curl -Lo "/etc/yum.repos.d/kwizart-kernel-longterm-${LTS_VERSION}-fedora-41.repo" "${LTS_REPO_URL}"
-    rpm-ostree override replace \
-        --from repo="copr:copr.fedorainfracloud.org:kwizart:kernel-longterm-${LTS_VERSION}" \
-        --experimental \
-        --remove=kernel \
-        --remove=kernel-core \
-        --remove=kernel-modules \
-        --remove=kernel-modules-extra \
-        kernel-longterm{,-core,-modules,-modules-extra,-devel}
+    # ------------------------------------------------------------------------------|
+    # rpm-ostree override replace \
+    #     --from repo="copr:copr.fedorainfracloud.org:kwizart:kernel-longterm-${LTS_VERSION}" \
+    #     --experimental \
+    #     --remove=kernel \
+    #     --remove=kernel-core \
+    #     --remove=kernel-modules \
+    #     --remove=kernel-modules-extra \
+    #     kernel-longterm{,-core,-modules,-modules-extra,-devel}
+    # ------------------------------------------------------------------------------|
+    # Hacky -- but the above seems to sometimes fail because kernel-core gets
+    # flagged sometimes as protected but is not under /etc/dnf/protected.d/
+    # - https://github.com/rpm-software-management/dnf5/issues/1909
+    dnf5 remove -y --setopt protect_running_kernel=false kernel{,-core,-modules,-modules-extra}
+    rpm-ostree install kernel-longterm{,-core,-modules,-modules-extra,-devel}
 fi
 
 # ZFS handling
@@ -64,6 +71,7 @@ then
 
     # Since we replaced the kernel, force a rebuild of the zfs dkms
     dkms build -m zfs -v ${ZFS_VERSION:0:-1} -k ${KERNEL_VERSION} --force
+    dkms install -m zfs -v ${ZFS_VERSION:0:-1} -k ${KERNEL_VERSION} --force
     echo 'zfs' >> "${MODULES_CONF}"
 fi
 
