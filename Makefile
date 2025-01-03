@@ -32,10 +32,20 @@ endif
 # Default to non-LTS build
 ifndef $(LTS)
 	LTS := 0 
+    DO_INSTALL_LTS := false
 endif
 
 ifeq ($(LTS), 1)
 	TAG := $(TAG)-lts
+    DO_INSTALL_LTS := true
+endif
+
+ifndef $(DO_INSTALL_AKMODS)
+	DO_INSTALL_AKMODS := false
+endif 
+
+ifndef $(DO_INSTALL_ZFS)
+	DO_INSTALL_ZFS := false 
 endif
 
 FULL_TAG := $(IMAGE):$(TAG)
@@ -69,7 +79,6 @@ update: install_or_update
 build:
 	buildah manifest rm $(MANIFEST) || true 
 	buildah manifest create $(MANIFEST)
-ifeq ($(LTS), 1)
 	buildah build \
 		--jobs=4 \
 		--manifest $(MANIFEST) \
@@ -79,18 +88,9 @@ ifeq ($(LTS), 1)
 		-t $(IMAGE):$(TAG) \
 		-f ./Containerfile \
 		--build-arg=FEDORA_VERSION=$(VERSION) \
-		--build-arg=FLAVOR=LTS
-else
-	buildah build \
-		--jobs=4 \
-		--manifest $(MANIFEST) \
-		--platform=$(PLATFORM) \
-		--ignorefile ./.containerignore \
-		--no-cache \
-		-t $(IMAGE):$(TAG) \
-		-f ./Containerfile \
-		--build-arg=FEDORA_VERSION=$(VERSION)
-endif
+		--build-arg=DO_INSTALL_LTS=$(DO_INSTALL_LTS) \
+		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
+		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_ZFS)
 		
 
 IMAGE_COMPRESSION_FORMAT := zstd:chunked 

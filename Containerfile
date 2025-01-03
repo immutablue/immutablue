@@ -1,103 +1,31 @@
 ARG FEDORA_VERSION=41
+
+FROM quay.io/zachpodbielniak/nautilusopenwithcode:${FEDORA_VERSION} AS nautilusopenwithcode
+FROM docker.io/mikefarah/yq AS yq
+FROM ghcr.io/ublue-os/config:latest AS ublue-config
+FROM ghcr.io/ublue-os/akmods:main-${FEDORA_VERSION} AS ublue-akmods
+
+
 FROM quay.io/fedora/fedora-silverblue:${FEDORA_VERSION}
 ARG FEDORA_VERSION=41
 ARG INSTALL_DIR=/usr/immutablue
-ARG FLAVOR=NORMAL
+ARG DO_INSTALL_AKMODS=false
+ARG DO_INSTALL_ZFS=false
+ARG DO_INSTALL_LTS=false
 
-
-COPY --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/yq
-COPY --from=quay.io/zachpodbielniak/nautilusopenwithcode:${FEDORA_VERSION} \
-	/usr/lib64/nautilus/extensions-4/libnautilus-open-with-code.so \
-	/usr/lib64/nautilus/extensions-4/libnautilus-open-with-code.so
+# Copy in files for build
 COPY . ${INSTALL_DIR}
 COPY ./artifacts/overrides/ /
 
-# Install branding and backup existing branding
-# COPY ./artifacts/branding/* /usr/share/pixmaps/
 
-# Copy custom rules.d and install ublue rules.d
-# COPY ./artifacts/config/udev/rules.d/ /usr/lib/udev/rules.d
-COPY --from=ghcr.io/ublue-os/config:latest /rpms/ublue-os-udev-rules.noarch.rpm /tmp
-RUN set -x && \
-    rpm-ostree install /tmp/ublue-os-udev-rules.noarch.rpm && \
-    rm /tmp/ublue-os-udev-rules.noarch.rpm && \
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    --mount=type=bind,from=nautilusopenwithcode,src=/usr/lib64/nautilus/extensions-4,dst=/mnt-nautilusopenwithcode \
+    --mount=type=bind,from=yq,src=/usr/bin,dst=/mnt-yq \
+    --mount=type=bind,from=ublue-config,src=/rpms,dst=/mnt-ublue-config \
+    --mount=type=bind,from=ublue-akmods,src=/rpms,dst=/mnt-ublue-akmods \
+    set -x && \
+    ls -l ${INSTALL_DIR} && \
+    chmod +x ${INSTALL_DIR}/build/*.sh && \
+    for script in ${INSTALL_DIR}/build/*.sh; do "$script"; done && \
     ostree container commit
-
-# Copy akmods from ublue but only for x86_64
-COPY --from=ghcr.io/ublue-os/akmods:main-${FEDORA_VERSION} /rpms/ /tmp/rpms
-RUN set -x && \
-    if [[ "$(uname -m)" == "x86_64" ]]; then \
-    ls -R /tmp/rpms/ && \
-    rpm-ostree install /tmp/rpms/ublue-os/ublue-os-akmods*.rpm && \
-    rpm-ostree install /tmp/rpms/kmods/kmod-{framework,openrazer,xone}-*.rpm; fi && \
-    rm -rf /tmp/rpms/ && \
-    ostree container commit
-
-
-# LTS Logic 
-RUN set -x && \
-    if [[ "${FLAVOR}" == "LTS" ]]; then curl -Lo /etc/yum.repos.d/kwizart-kernel-longterm-6.6-fedora-41.repo "https://copr.fedorainfracloud.org/coprs/kwizart/kernel-longterm-6.6/repo/fedora-41/kwizart-kernel-longterm-6.6-fedora-41.repo" && \
-    rpm-ostree override remove kernel --install kernel-longterm --install kernel-longterm-core --install kernel-longterm-modules --install kernel-longterm-modules-extra --install kernel-longterm-devel && \
-    for f in $(ls /usr/lib/modules/ | grep -vP "6\.6\." | xargs -I {} echo {}); do rm -rf "/usr/lib/modules/$f"; done && \
-    ostree container commit; \
-    else echo "not LTS build"; fi
-    
-
-# Handle .immutablue.repo_urls[]
-RUN set -x && \
-    repos=$(cat <(yq '.immutablue.repo_urls[].name' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.repo_urls_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
-    for repo in $repos; do curl -Lo "/etc/yum.repos.d/$repo" $(yq ".immutablue.repo_urls[] | select(.name == \"$repo\").url" < ${INSTALL_DIR}/packages.yaml) || true; done && \
-    for repo in $repos; do curl -Lo "/etc/yum.repos.d/$repo" $(yq ".immutablue.repo_urls_$(uname -m)[] | select(.name == \"$repo\").url" < ${INSTALL_DIR}/packages.yaml) || true; done && \
-    ostree container commit
-
-
-# Handle .immutablue.rpm[]
-RUN set -x && \
-    pkgs=$(cat <(yq '.immutablue.rpm[]' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.rpm_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
-    rpm-ostree install $(for pkg in $pkgs; do printf '%s ' $pkg; done) && \
-    ostree container commit
-
-
-# Handle .immutablue.rpm_url[]
-RUN set -x && \
-    pkgs=$(cat <(yq '.immutablue.rpm_url[]' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.rpm_url_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
-    for pkg in $pkgs; do curl -Lo /tmp/$(basename "$pkg") "$pkg"; done && \
-    if [ "$pkgs" != "" ]; then rpm-ostree install $(for pkg in $pkgs; do printf '/tmp/%s ' $(basename "$pkg"); done); fi && \
-    ostree container commit
-
-
-# Handle .immutablue.rpm_rm[]
-RUN set -x && \
-    pkgs=$(cat <(yq '.immutablue.rpm_rm[]' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.rpm_rm_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
-    if [ "$pkgs" != "" ]; then rpm-ostree uninstall $(for pkg in $pkgs; do printf '%s ' $pkg; done); fi && \
-    ostree container commit
-
-
-# Handle .immutablue.file_rm[]
-RUN set -x && \
-    files=$(cat <(yq '.immutablue.file_rm[]' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.file_rm_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
-    for f in $files; do rm -rf "$f"; done && \
-    ostree container commit
-
-
-# Handle .immutablue.pip_packages[]
-RUN set -x && \
-    pkgs=$(cat <(yq '.immutablue.pip_packages[]' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.pip_packages_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
-    pip3 install --prefix=/usr $(for pkg in $pkgs; do printf '%s ' $pkg; done) && \
-    ostree container commit
-
-
-# Handle .immutablue.services_*[]
-RUN set -x && \
-    unmask=$(cat <(yq '.immutablue.services_unmask_sys[]' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.services_unmask_sys_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
-    disable=$(cat <(yq '.immutablue.services_disable_sys[]' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.services_disable_sys_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
-    enable=$(cat <(yq '.immutablue.services_enable_sys[]' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.services_enable_sys_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
-    mask=$(cat <(yq '.immutablue.services_mask_sys[]' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.services_mask_sys_$(uname -m)[]" < ${INSTALL_DIR}/packages.yaml)) && \
-    for s in $unmask; do systemctl unmask "$s"; done && \
-    for s in $disable; do systemctl disable "$s"; done && \
-    for s in $enable; do systemctl enable "$s"; done && \
-    for s in $mask; do systemctl mask "$s"; done && \
-    ostree container commit
-
-
 
