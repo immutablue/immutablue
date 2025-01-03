@@ -1,5 +1,5 @@
 ifndef $(REGISTRY)
-    REGISTRY := registry.gitlab.com/immutablue
+    REGISTRY := quay.io/immutablue
 endif
 
 IMAGE_BASE_TAG := immutablue
