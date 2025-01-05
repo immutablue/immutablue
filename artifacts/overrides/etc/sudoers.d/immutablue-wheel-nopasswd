@@ -1,0 +1,8 @@
+# Introduced via the immutablue project. 
+# - https://gitlab.com/immutablue/immutablue
+#
+# If you do not wish to use this, then simply remove it in your downstream build in the .immutablue.file_rm in yours packages.yaml
+#
+# No password for use of sudo for members of the wheel group
+%wheel  ALL=(ALL)       NOPASSWD: ALL
+
