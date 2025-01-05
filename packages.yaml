@@ -129,6 +129,11 @@ immutablue:
 
   # Services 
   services_enable_sys:
+  - immutablue-onboot.service
+  - immutablue-hourly.timer
+  - immutablue-daily.timer
+  - immutablue-weekly.timer
+  - immutablue-monthly.timer
   - sshd.service
   - tailscaled.service
   - crond.service 
@@ -140,6 +145,12 @@ immutablue:
   # User services 
   # Handled in immutablue installer
   services_enable_user:
+  - immutablue-onboot.service
+  - immutablue-hourly.timer
+  - immutablue-daily.timer
+  - immutablue-weekly.timer
+  - immutablue-monthly.timer
+
   services_disable_user:
   services_mask_user:
   services_unmask_user:

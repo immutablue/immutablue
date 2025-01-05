@@ -1,0 +1,12 @@
+[Unit]
+Description=Immutablue Hourly Scripts
+
+[Service]
+Type=simple
+RemainAfterExit=true
+StandardOutput=journal
+ExecStart=/usr/bin/immutablue-script-orchestrator hourly
+
+[Install]
+WantedBy=multi-user.target
+

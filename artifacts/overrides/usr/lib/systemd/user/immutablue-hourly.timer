@@ -1,0 +1,14 @@
+[Unit]
+Description=Immutablue Hourly Timer For Users
+
+[Timer]
+OnCalendar=*-*-* *:00:00
+AccuracySec=1us
+RandomizedDelaySec=0
+Persistent=false
+
+
+[Install]
+WantedBy=timers.target
+
+
