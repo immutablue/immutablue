@@ -1,0 +1,13 @@
+[Unit]
+Description=Immutablue Daily Timer For Users
+
+[Timer]
+OnCalendar=*-*-* 00:00:00
+AccuracySec=2h
+RandomizedDelaySec=1h
+Persistent=true
+
+
+[Install]
+WantedBy=timers.target
+

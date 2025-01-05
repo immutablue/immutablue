@@ -1,0 +1,12 @@
+[Unit]
+Description=Immutablue Monthly Scripts
+
+[Service]
+Type=simple
+RemainAfterExit=true
+StandardOutput=journal
+ExecStart=/usr/bin/immutablue-script-orchestrator monthly
+
+[Install]
+WantedBy=multi-user.target
+
