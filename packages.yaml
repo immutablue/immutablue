@@ -23,11 +23,12 @@ immutablue:
   - firewall-config
   - firewall-applet
   - tailscale
-  - cronie
   - ptyxis
   - gnome-terminal
   - python3-pip
   - lm_sensors
+  - syncthing
+  - syncthing-tools
   # - nautilus-open-any-terminal
 
   # Since Brew doesn't exist on arm64 we should
@@ -67,10 +68,7 @@ immutablue:
   
   # Temp files to be removed during build stage (errors out build)
   file_rm:
-  - /var/spool/anacron/cron.daily
-  - /var/spool/anacron/cron.weekly
-  - /var/spool/anacron/cron.monthly
-  
+
 
   # Repositories for Flatpaks
   flatpak_repos:
@@ -101,7 +99,7 @@ immutablue:
   - org.gnome.dspy
   - com.github.tchx84.Flatseal
   - com.mattjakeman.ExtensionManager
-  - me.kozec.syncthingtk
+  - io.github.martchus.syncthingtray
   - re.sonny.Junction
   - nl.brixit.powersupply
   - io.github.peazip.PeaZip 
@@ -136,7 +134,6 @@ immutablue:
   - immutablue-monthly.timer
   - sshd.service
   - tailscaled.service
-  - crond.service 
 
   services_disable_sys:
   services_mask_sys:
@@ -150,6 +147,7 @@ immutablue:
   - immutablue-daily.timer
   - immutablue-weekly.timer
   - immutablue-monthly.timer
+  - syncthing.service
 
   services_disable_user:
   services_mask_user:
