@@ -2,3 +2,4 @@
 set -euo pipefail
 
 echo "Immutablue is starting up"
+

@@ -64,10 +64,10 @@ all: build push
 all_upgrade: all update
 
 ifeq ($(REBOOT),1)
-install_targets := install_brew install_distrobox install_flatpak install_services post_install post_install_notes reboot
+install_targets := install_brew install_distrobox install_flatpak post_install post_install_notes reboot
 upgrade: rpmostree_upgrade reboot
 else 
-install_targets := install_brew install_distrobox install_flatpak install_services post_install post_install_notes
+install_targets := install_brew install_distrobox install_flatpak post_install post_install_notes
 upgrade: rpmostree_upgrade
 endif
 
@@ -138,18 +138,31 @@ iso: flatpak_refs/flatpaks
 		--rm \
 		--privileged \
 		--volume ./iso:/build-container-installer/build \
-		--volume ./flatpak_refs:/build-container-installer/flatpak_refs \
 		ghcr.io/jasonn3/build-container-installer:latest \
 		VERSION=$(VERSION) \
 		IMAGE_NAME=$(IMAGE_BASE_TAG) \
 		IMAGE_TAG=$(TAG) \
 		IMAGE_REPO=$(REGISTRY) \
 		IMAGE_SIGNED=false \
-		FLATPAK_REMOTE_NAME=flathub \
-		FLATPAK_REMOTE_URL=https://flathub.org/repo/flathub.flatpakrepo \
-		FLATPAK_REMOTE_REFS_DIR=/build-container-installer/flatpak_refs \
 		VARIANT=Silverblue \
 		ISO_NAME="build/immutablue-$(TAG).iso"
+	# sudo podman run \
+	# 	--name immutablue-build \
+	# 	--rm \
+	# 	--privileged \
+	# 	--volume ./iso:/build-container-installer/build \
+	# 	--volume ./flatpak_refs:/build-container-installer/flatpak_refs \
+	# 	ghcr.io/jasonn3/build-container-installer:latest \
+	# 	VERSION=$(VERSION) \
+	# 	IMAGE_NAME=$(IMAGE_BASE_TAG) \
+	# 	IMAGE_TAG=$(TAG) \
+	# 	IMAGE_REPO=$(REGISTRY) \
+	# 	IMAGE_SIGNED=false \
+	# 	FLATPAK_REMOTE_NAME=flathub \
+	# 	FLATPAK_REMOTE_URL=https://flathub.org/repo/flathub.flatpakrepo \
+	# 	FLATPAK_REMOTE_REFS_DIR=/build-container-installer/flatpak_refs \
+	# 	VARIANT=Silverblue \
+	# 	ISO_NAME="build/immutablue-$(TAG).iso"
 
 push_iso:
 	s3cmd \
@@ -209,7 +222,9 @@ install_brew:
 	bash -x -c 'source ./scripts/packages.sh && brew_install_all_packages'
 
 install_services:
-	bash -x -c 'source ./scripts/packages.sh && services_unmask_disable_enable_mask_all'
+	# handled via the containerfile now
+	#bash -x -c 'source ./scripts/packages.sh && services_unmask_disable_enable_mask_all'
+	true
 
 post_install:
 	bash -x -c 'source ./scripts/packages.sh && run_all_post_upgrade_scripts'
