@@ -14,3 +14,7 @@ then
     ln -s "${SYNCTHING_WRAPPED_FILE}" "${SYNCTHING_SVC_FILE}"
 fi
 
+
+# set /etc/immutablue/setup to world-writable
+chmod -R 777 /etc/immutablue/setup
+

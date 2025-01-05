@@ -1,0 +1,18 @@
+[Unit]
+Description=Immutablue First Login
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+StandardOutput=journal
+ExecCondition=/usr/bin/bash -c "[[ ! -e /home/$(whoami)/.config/.immutablue_did_first_login ]]"
+ExecStartPre=/usr/bin/sleep 15
+ExecStart=/usr/bin/bash /usr/libexec/immutablue/setup/first_login.sh
+ExecStartPost=/usr/bin/bash -c "touch /home/$(whoami)/.config/.immutablue_did_first_login"
+ExecStartPost=/usr/bin/systemctl --user mask immutablue-first-login.service
+
+[Install]
+# graphical target would be nice -- but we also support nucleus builds
+# WantedBy=graphical-session.target
+WantedBy=default.target
+

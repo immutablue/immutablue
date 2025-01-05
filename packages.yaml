@@ -127,6 +127,7 @@ immutablue:
 
   # Services 
   services_enable_sys:
+  - immutablue-first-boot.service
   - immutablue-onboot.service
   - immutablue-hourly.timer
   - immutablue-daily.timer
@@ -142,6 +143,7 @@ immutablue:
   # User services 
   # Handled in immutablue installer
   services_enable_user:
+  - immutablue-first-login.service
   - immutablue-onboot.service
   - immutablue-hourly.timer
   - immutablue-daily.timer
