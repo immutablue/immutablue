@@ -1,0 +1,16 @@
+[Unit]
+Description=Immutablue Docs Container (http://localhost:411)
+Wants=network-online.target
+After=network-online.target
+After=immutablue-docs.build
+
+[Container]
+Image=localhost/immutablue-docs:latest
+PublishPort=127.0.0.1:411:80
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
+

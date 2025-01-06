@@ -1,0 +1,5 @@
+baseURL = 'https://immutablue.io/'
+languageCode = 'en-us'
+title = 'Immutablue Docs'
+theme = 'hugo-book'
+

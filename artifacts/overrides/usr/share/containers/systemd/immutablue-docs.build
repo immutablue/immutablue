@@ -1,0 +1,13 @@
+[Unit]
+Description=Immutablue Docs Container Builder (http://localhost:411)
+Wants=network-online.target
+After=network-online.target
+
+[Build]
+ImageTag=localhost/immutablue-docs:latest
+SetWorkingDirectory=/usr/immutablue/docs
+File=/usr/immutablue/docs/Containerfile
+
+[Install]
+WantedBy=default.target
+
