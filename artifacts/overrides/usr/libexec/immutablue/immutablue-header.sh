@@ -150,3 +150,29 @@ immutablue_has_internet() {
     fi
 }
 
+
+immutablue_get_terminal_command() {
+    type kitty 2>/dev/null >/dev/null
+    if [[ $? -eq 0 ]] 
+    then 
+        echo "kitty"
+        return 0
+    fi
+
+    type ptyxis 2>/dev/null >/dev/null 
+    if [[ $? -eq 0 ]] 
+    then 
+        echo "ptyxis --"
+        return 0
+    fi
+    
+    type gnome-terminal 2>/dev/null >/dev/null 
+    if [[ $? -eq 0 ]] 
+    then 
+        echo "gnome-terminal --"
+        return 0
+    fi
+
+    echo "" 
+}
+
