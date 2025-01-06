@@ -1,2 +1,4 @@
 iso/
 flatpak_refs/
+docs/public/
+docs/.hugo_build.lock

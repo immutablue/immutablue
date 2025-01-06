@@ -82,3 +82,11 @@ then
     pip3 install --prefix=/usr $(for pkg in $pip_pkgs; do printf '%s ' $pkg; done)
 fi
 
+
+# Install modern build of hugo
+# (fedora has ancient version in its repos)
+curl -Lo /tmp/hugo.tar.gz "${HUGO_RELEASE_URL}"
+tar -xzf /tmp/hugo.tar.gz -C /usr/bin/ hugo
+rm /tmp/hugo.tar.gz
+hugo version
+

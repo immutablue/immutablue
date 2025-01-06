@@ -18,3 +18,6 @@ fi
 # set /etc/immutablue/setup to world-writable
 chmod -R 777 /etc/immutablue/setup
 
+# build hugo files
+bash -c "cd /usr/immutablue/docs && hugo build"
+
