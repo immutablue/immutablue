@@ -2,8 +2,7 @@
 Description=Immutablue Hourly Scripts For Users
 
 [Service]
-Type=simple
-RemainAfterExit=true
+Type=oneshot
 StandardOutput=journal
 ExecStart=/usr/bin/immutablue-script-orchestrator hourly
 

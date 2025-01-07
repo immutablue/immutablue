@@ -176,3 +176,55 @@ immutablue_get_terminal_command() {
     echo "" 
 }
 
+
+immutablue_services_enable_setup_for_next_boot() {
+    systemctl --user unmask immutablue-first-login.service
+    sudo systemctl unmask immutablue-first-boot.service
+    rm ${HOME}/.config/.immutablue_did_first_login
+    rm /etc/immutablue/setup/did_first_boot{,-graphical}
+}
+
+
+immutablue_services_force_setup_to_run_now() {
+    systemctl --user unmask immutablue-first-login.service
+    sudo systemctl unmask immutablue-first-boot.service
+    rm ${HOME}/.config/.immutablue_did_first_login
+    rm /etc/immutablue/setup/did_first_boot{,-graphical}
+    sudo systemctl start immutablue-first-boot.service
+    systemctl --user start immutablue-first-login.service
+}
+
+
+# Try a command, if it fails try it again after a delay 
+# arg1: delay 
+# arg2: command 
+# arg3+: args_to_command (can pass <n> number of args)
+immutablue_try_command_and_try_again_on_delay() {
+    local delay="$1"
+    local output=""
+    local ret_code=0
+    
+    shift
+
+    echo "$@"
+    output="$(${@})"
+    ret_code=$?
+    
+    if [[ "${output}" == "${FALSE}" ]] || [[ $ret_code -ne 0 ]]
+    then
+        sleep ${delay}
+
+        # Try again
+        echo "$@"
+        output="$(${@})"
+        ret_code=$?
+
+        if [[ "${output}" == "${FALSE}" ]] || [[ $ret_code -ne 0 ]]
+        then 
+            echo "${FALSE}"
+            return 1
+        fi
+    fi
+    
+    echo "${TRUE}"
+}
