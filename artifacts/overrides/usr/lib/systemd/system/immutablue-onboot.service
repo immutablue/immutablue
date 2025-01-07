@@ -2,7 +2,7 @@
 Description=Immutablue On Boot Scripts
 
 [Service]
-Type=simple
+Type=oneshot
 RemainAfterExit=true
 StandardOutput=journal
 ExecStart=/usr/bin/immutablue-script-orchestrator on_boot

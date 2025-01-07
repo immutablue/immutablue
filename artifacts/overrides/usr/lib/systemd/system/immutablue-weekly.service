@@ -2,8 +2,7 @@
 Description=Immutablue Weekly Scripts
 
 [Service]
-Type=simple
-RemainAfterExit=true
+Type=oneshot
 StandardOutput=journal
 ExecStart=/usr/bin/immutablue-script-orchestrator weekly
 

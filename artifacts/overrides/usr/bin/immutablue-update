@@ -1,0 +1,39 @@
+#!/bin/bash
+source /usr/libexec/immutablue/immutablue-header.sh
+
+
+# Validate there is internet
+internet_delay=60
+immutablue_try_command_and_try_again_on_delay ${internet_delay} immutablue_has_internet 2>/dev/null >/dev/null
+if [[ $? -ne 0 ]]
+then 
+    echo "Not upgrading as there is no internet connection. Was tried again after ${internet_delay} seconds"
+    exit 1
+fi
+
+
+# Helper function for error logging on failure
+error_info() {
+    local cmd="$1"
+    local ret_code="$2"
+
+    echo "${cmd} update returned non-zero status (${ret_code})"
+    exit ${ret_code}
+}
+
+sudo rpm-ostree update || error_info "rpm-ostree update" $?
+distrobox upgrade -a || error_info "distrobox upgrade" $?
+flatpak --user -y update || error_info "flatpak --user update" $?
+flatpak --system -y update || error_info "flatpak --system update" $?
+
+# Check for brew since it is not on non-x86_64 systems
+type brew 2>/dev/null >/dev/null
+if [[ $? -eq 0 ]]
+then
+    brew update || error_info "brew update" $?
+    brew upgrade || error_info "brew upgrade" $?
+fi
+
+# re-enable setup scripts to re-run
+immutablue_services_enable_setup_for_next_boot
+
