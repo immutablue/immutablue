@@ -9,10 +9,12 @@ FROM quay.io/fedora/fedora-silverblue:${FEDORA_VERSION}
 
 
 ARG FEDORA_VERSION=41
+ARG IMAGE_TAG=${FEDORA_VERSION}
 ARG INSTALL_DIR=/usr/immutablue
 ARG DO_INSTALL_AKMODS=false
 ARG DO_INSTALL_ZFS=false
 ARG DO_INSTALL_LTS=false
+ARG IMMUTABLUE_BUILD=true
 
 
 # Copy in files for build
