@@ -15,7 +15,14 @@ FALSE=0
 # quay.io/immutablue/immutablue:41-lts
 # returns: immutablue:41-lts
 immutablue_get_image_full() {
-    rpm-ostree status | grep -i quay | head -n 1 | awk -F/ '{ printf "%s\n", $3 }'
+    # if IMMUTABLUE_BUILD is set to anything assume build process
+    # (see Containerfile)
+    if [[ -z "${IMMUTABLUE_BUILD}" ]]
+    then 
+        rpm-ostree status | grep -i quay | head -n 1 | awk -F/ '{ printf "%s\n", $3 }'
+    else
+        echo "${IMAGE_TAG}"
+    fi
 }
 
 # quay.io/immutablue/immutablue:41-lts
