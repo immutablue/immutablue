@@ -83,6 +83,15 @@ immutablue_build_is_cyan() {
     fi
 }
 
+immutablue_build_is_asahi() {
+    if [[ "$(immutablue_get_image_tag)" =~ asahi ]] 
+    then 
+        echo ${TRUE}
+    else
+        echo ${FALSE}
+    fi
+}
+
 
 # takes two args:
 # arg1: regex of package 
