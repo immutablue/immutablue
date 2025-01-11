@@ -47,7 +47,7 @@ get_immutablue_package_urls() {
 
 
 get_immutablue_files_to_remove() {
-    get_yaml_array '.immutablue.rpm_rm'
+    get_yaml_array '.immutablue.file_rm'
 }
 
 
