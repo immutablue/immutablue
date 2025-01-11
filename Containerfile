@@ -15,6 +15,7 @@ ARG DO_INSTALL_AKMODS=false
 ARG DO_INSTALL_ZFS=false
 ARG DO_INSTALL_LTS=false
 ARG IMMUTABLUE_BUILD=true
+ARG IMMUTABLUE_IMAGE_TAG=immutablue
 
 
 # Copy in files for build
