@@ -98,7 +98,7 @@ build:
 		-t $(IMAGE):$(TAG) \
 		-f ./Containerfile \
 		--build-arg=FEDORA_VERSION=$(VERSION) \
-		--build-arg=IMAGE_TAG=$(IMAGE_BASE_TAG):$(TAG)
+		--build-arg=IMAGE_TAG=$(IMAGE_BASE_TAG):$(TAG) \
 		--build-arg=DO_INSTALL_LTS=$(DO_INSTALL_LTS) \
 		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
 		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS)
