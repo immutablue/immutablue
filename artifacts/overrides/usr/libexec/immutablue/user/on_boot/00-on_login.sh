@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+source /usr/libexec/immutablue/immutablue-header.sh
 
 echo "$USER has logged in"
 
@@ -7,4 +8,18 @@ echo "$USER has logged in"
 # then
 #     bash < /usr/libexec/immutablue/setup/first_login.sh &
 # fi
+
+if [[ "$(immutablue_build_has_package docker null)" == "${TRUE}" ]]
+then
+    has_docker_group=$(grep -iP "docker" < /etc/group)
+    if [[ "${has_docker_group}" != "" ]]
+    then
+        already_in_group=$(groups | grep -iP "docker")
+        if [[ "${already_in_group}" == "" ]]
+        then
+            # Add user to group
+            sudo usermod -aG docker ${USER}
+        fi
+    fi
+fi
 

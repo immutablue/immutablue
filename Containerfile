@@ -5,6 +5,17 @@ FROM quay.io/zachpodbielniak/nautilusopenwithcode:${FEDORA_VERSION} AS nautiluso
 FROM docker.io/mikefarah/yq AS yq
 FROM ghcr.io/ublue-os/config:latest AS ublue-config
 FROM ghcr.io/ublue-os/akmods:main-${FEDORA_VERSION} AS ublue-akmods
+FROM registry.fedoraproject.org/fedora:${FEDORA_VERSION} as dep-builder
+
+RUN set -eux && \
+    echo -e 'max_parallel_downloads=10\n' >> /etc/dnf/dnf.conf && \
+    dnf5 update -y && \
+    dnf5 install -y git golang && \
+    mkdir -p /build && \
+    git clone https://github.com/Containerpak/cpak /build/cpak && \
+    bash -c "cd /build/cpak && make all"
+
+
 FROM quay.io/fedora/fedora-silverblue:${FEDORA_VERSION}
 
 
@@ -28,6 +39,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     --mount=type=bind,from=yq,src=/usr/bin,dst=/mnt-yq \
     --mount=type=bind,from=ublue-config,src=/rpms,dst=/mnt-ublue-config \
     --mount=type=bind,from=ublue-akmods,src=/rpms,dst=/mnt-ublue-akmods \
+    --mount=type=bind,from=dep-builder,src=/build,dst=/mnt-dep-builder \
     set -eux && \
     ls -l ${INSTALL_DIR}/build && \
     chmod +x ${INSTALL_DIR}/build/*.sh && \

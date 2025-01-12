@@ -90,3 +90,16 @@ tar -xzf /tmp/hugo.tar.gz -C /usr/bin/ hugo
 rm /tmp/hugo.tar.gz
 hugo version
 
+
+# Install fzf-git
+# - https://github.com/junegunn/fzf-git.sh
+curl -Lo /usr/bin/fzf-git "${FZF_GIT_URL}"
+chmod a+x /usr/bin/fzf-git
+
+
+# Install starship prompt
+curl -Lo "/tmp/install_starship.sh" "${STARSHIP_URL}"
+sh "/tmp/install_starship.sh" -y -b "/usr/bin/"
+rm "/tmp/install_starship.sh"
+
+

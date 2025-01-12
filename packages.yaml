@@ -5,53 +5,63 @@ immutablue:
     url: https://pkgs.tailscale.com/stable/fedora/tailscale.repo
   - name: ublue-os-staging.repo
     url: https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-41/ublue-os-staging-fedora-41.repo
+  - name: docker-ce.repo
+    url: https://download.docker.com/linux/fedora/docker-ce.repo
+  - name: ghostty.repo 
+    url: https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-41/pgdev-ghostty-fedora-41.repo
 
 
   # RPM Packages to be installed
   rpm:
-  - make
+  - bashmount
   - distrobox
-  - podman-compose
+  - docker-ce
+  - fex-emu-filesystem
+  - fex-emu-rootfs-fedora
+  - firewall-applet
+  - firewall-config
   - fuse-sshfs
+  - fzf 
+  - ghostty
+  - gnome-terminal
+  - just
+  - libvirt
+  - lm_sensors
+  - make
+  - muvm
+  - nautilus-open-any-terminal
+  - NetworkManager-tui
+  - podman-compose
+  - ptyxis
+  - python3-pip
   - qemu
   - qemu-user-binfmt
-  - libvirt
-  - virt-manager
-  - virt-bootstrap
-  - xrdp
-  - NetworkManager-tui
-  - firewall-config
-  - firewall-applet
-  - tailscale
-  - ptyxis
-  - gnome-terminal
-  - python3-pip
-  - lm_sensors
+  - stow
   - syncthing
   - syncthing-tools
-  # - nautilus-open-any-terminal
+  - tailscale
+  - virt-bootstrap
+  - virt-manager
+  - xrdp
 
   # Since Brew doesn't exist on arm64 we should
   # layer in these packages we would normally brew
   # but as system RPMs. 
   rpm_aarch64:
-  - stow 
-  - neovim 
-  - htop 
-  - tmux 
-  - just 
-  - fastfetch
   - calc 
   - coreutils 
-  - moreutils 
-  - fzf 
+  - fastfetch
   - glances 
+  - htop 
+  - moreutils 
   - ncdu
+  - neovim 
+  - pass
   - ranger 
   - ripgrep 
   - tig 
+  - tmux 
   - zenity 
-  - pass
 
   rpm_x86_64:
   
@@ -64,7 +74,8 @@ immutablue:
   rpm_rm:
   - firefox-langpacks
   - firefox
-  
+  - gnome-software-rpm-ostree
+  - gnome-shell-extension-background-logo
   
   # Temp files to be removed during build stage (errors out build)
   file_rm:
@@ -97,25 +108,25 @@ immutablue:
   - org.gnome.World.PikaBackup
   - org.gnome.clocks
   - org.gnome.dspy
+  - com.github.rafostar.Clapper
   - com.github.tchx84.Flatseal
   - com.mattjakeman.ExtensionManager
+  - com.rafaelmardojai.Blanket
   - io.github.martchus.syncthingtray
-  - re.sonny.Junction
-  - nl.brixit.powersupply
   - io.github.peazip.PeaZip 
-  - io.gitlab.librewolf-community
-  - org.chromium.Chromium
   - io.github.ungoogled_software.ungoogled_chromium
+  - io.gitlab.librewolf-community
+  - nl.brixit.powersupply
+  - org.chromium.Chromium
   - org.libreoffice.LibreOffice
   - org.pulseaudio.pavucontrol
   - org.videolan.VLC
-  - com.github.rafostar.Clapper
-  - com.rafaelmardojai.Blanket
+  - re.sonny.Junction
 
   # Only have x86_64 builds
   flatpaks_x86_64:
-  - org.mozilla.firefox
   - io.github.prateekmedia.appimagepool
+  - org.mozilla.firefox
   - org.torproject.torbrowser-launcher
 
   #Flatpaks to be uninstalled 
@@ -139,6 +150,7 @@ immutablue:
   # - immutablue-docs.container
   - sshd.service
   - tailscaled.service
+  - docker.service
 
   services_disable_sys:
   services_mask_sys:
@@ -166,8 +178,8 @@ distrobox:
   additional_flags_x86_64: 
   - -v /var/home/linuxbrew:/var/home/linuxbrew
   - -v /home/linuxbrew:/home/linuxbrew
-  pkg_inst_cmd: dnf install -y
-  pkg_updt_cmd: dnf update -y
+  pkg_inst_cmd: dnf5 install -y
+  pkg_updt_cmd: dnf5 update -y
   extra_commands: |
     #!/bin/bash
     [ "" == "$(grep max_parallel_downloads /etc/dnf/dnf.conf)" ] && sudo bash -c 'echo "max_parallel_downloads=10" >> /etc/dnf/dnf.conf'
@@ -194,8 +206,8 @@ distrobox:
   additional_flags_x86_64: 
   - -v /var/home/linuxbrew:/var/home/linuxbrew
   - -v /home/linuxbrew:/home/linuxbrew
-  pkg_inst_cmd: dnf install -y
-  pkg_updt_cmd: dnf update -y
+  pkg_inst_cmd: dnf5 install -y
+  pkg_updt_cmd: dnf5 update -y
 
   # Setup VS Code Repo - https://code.visualstudio.com/docs/setup/linux
   # Setup ffmpeg for supporting MTP - https://computingforgeeks.com/how-to-install-ffmpeg-on-fedora/
@@ -238,6 +250,13 @@ distrobox:
   - distrobox 
 
 # These are x86_64 only 
+# Some packages may be duplicated to what is layered
+# in as RPMs. This is expected. On x86_64 we mount 
+# the linuxbrew path into distrobox containers which
+# exposes the brew binaries to the running container.
+# As well this allows for us to make sure that the 
+# binary is present for certain automations for the 
+# time that exists before brew is setup.
 brew: 
   install:
   - calc
@@ -247,6 +266,7 @@ brew:
   - fzf
   - glances 
   - htop 
+  - just
   - moreutils
   - ncdu
   - neovim

@@ -12,6 +12,8 @@ LTS_REPO_URL="https://copr.fedorainfracloud.org/coprs/kwizart/kernel-longterm-6.
 HUGO_RELEASE_URL_x86_64="https://github.com/gohugoio/hugo/releases/download/v0.140.2/hugo_extended_withdeploy_0.140.2_linux-amd64.tar.gz"
 HUGO_RELEASE_URL_aarch64="https://github.com/gohugoio/hugo/releases/download/v0.140.2/hugo_extended_withdeploy_0.140.2_linux-arm64.tar.gz"
 HUGO_RELEASE_URL=""
+FZF_GIT_URL="https://raw.githubusercontent.com/junegunn/fzf-git.sh/refs/heads/main/fzf-git.sh"
+STARSHIP_URL="https://starship.rs/install.sh"
 
 if [[ "${MARCH}" == "aarch64" ]]
 then 
