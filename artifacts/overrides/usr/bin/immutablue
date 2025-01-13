@@ -3,8 +3,8 @@
 INSTALL_DIR=/usr/libexec/immutablue/just
 cd ${INSTALL_DIR} || exit 1
 
-# exec justt directly
-if [[ $(type just 2>/dev/null /dev/null) -eq 0 ]]
+# exec just directly
+if [[ "$(type just 2>/dev/null >/dev/null)" -eq 0 ]]
 then
     exec just "${@}"
 else
