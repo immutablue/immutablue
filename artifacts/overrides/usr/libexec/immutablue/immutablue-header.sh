@@ -197,7 +197,7 @@ immutablue_services_enable_setup_for_next_boot() {
     systemctl --user unmask immutablue-first-login.service
     sudo systemctl unmask immutablue-first-boot.service
     rm ${HOME}/.config/.immutablue_did_first_login
-    rm /etc/immutablue/setup/did_first_boot{,-graphical}
+    rm /etc/immutablue/setup/did_first_boot{,_graphical}
 }
 
 
@@ -205,7 +205,7 @@ immutablue_services_force_setup_to_run_now() {
     systemctl --user unmask immutablue-first-login.service
     sudo systemctl unmask immutablue-first-boot.service
     rm ${HOME}/.config/.immutablue_did_first_login
-    rm /etc/immutablue/setup/did_first_boot{,-graphical}
+    rm /etc/immutablue/setup/did_first_boot{,_graphical}
     sudo systemctl start immutablue-first-boot.service
     systemctl --user start immutablue-first-login.service
 }
