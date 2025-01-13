@@ -41,6 +41,7 @@ immutablue:
   - python3-pip
   - qemu
   - qemu-user-binfmt
+  - solaar
   - stow
   - syncthing
   - syncthing-tools
