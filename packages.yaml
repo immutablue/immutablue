@@ -10,6 +10,11 @@ immutablue:
   - name: ghostty.repo 
     url: https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-41/pgdev-ghostty-fedora-41.repo
 
+  repo_urls_x86_64:
+  # Currently podman-bootc only support x86_64
+  - name: podman-bootc.repo 
+    url: https://copr.fedorainfracloud.org/coprs/gmaglione/podman-bootc/repo/fedora-41/gmaglione-podman-bootc-fedora-41.repo
+
 
   # RPM Packages to be installed
   rpm:
@@ -64,6 +69,8 @@ immutablue:
   - zenity 
 
   rpm_x86_64:
+  - podman-bootc
+  - podman-machine
   
  
   # Urls to RPMs to download (they are curled)
