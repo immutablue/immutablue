@@ -1,7 +1,14 @@
 #!/bin/bash 
 # Install dir for Immutablue 
-INSTALL_DIR=/usr/immutablue
-cd $INSTALL_DIR
-# exec make directly
-exec make $@
+INSTALL_DIR=/usr/libexec/immutablue/just
+cd ${INSTALL_DIR} || exit 1
+
+# exec justt directly
+if [[ $(type just 2>/dev/null /dev/null) -eq 0 ]]
+then
+    exec just "${@}"
+else
+    echo "just is somehow now present in \$PATH"
+    exit 1
+fi
 
