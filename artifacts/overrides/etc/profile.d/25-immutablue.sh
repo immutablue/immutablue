@@ -32,7 +32,7 @@ then
     fi
 
     # starship prompt by default
-    type 2>/dev/null >/dev/null
+    type starship 2>/dev/null >/dev/null
     if [[ $? -eq 0 ]]
     then
         eval "$(starship init bash)"
