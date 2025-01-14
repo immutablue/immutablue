@@ -19,6 +19,7 @@ immutablue:
   # RPM Packages to be installed
   rpm:
   - bashmount
+  - dialog
   - distrobox
   - docker-ce
   - fex-emu-filesystem
