@@ -12,6 +12,7 @@ RUN set -eux && \
     dnf5 update -y && \
     dnf5 install -y git golang && \
     mkdir -p /build && \
+    git clone https://gitlab.com/immutablue/blue2go.git /build/blue2go && \
     git clone https://github.com/Containerpak/cpak /build/cpak && \
     bash -c "cd /build/cpak && make all"
 

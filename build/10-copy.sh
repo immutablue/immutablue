@@ -5,5 +5,6 @@ if [ -f "./99-common.sh" ]; then source "./99-common.sh"; fi
 
 cp /mnt-nautilusopenwithcode/libnautilus-open-with-code.so /usr/lib64/nautilus/extensions-4/libnautilus-open-with-code.so
 cp /mnt-yq/yq /usr/bin/yq
+cp /mnt-dep-builder/blue2go/blue2go /usr/bin/blue2go
 cp /mnt-dep-builder/cpak/cpak /usr/bin/cpak
 
