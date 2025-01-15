@@ -7,4 +7,5 @@ cp /mnt-nautilusopenwithcode/libnautilus-open-with-code.so /usr/lib64/nautilus/e
 cp /mnt-yq/yq /usr/bin/yq
 cp /mnt-dep-builder/blue2go/blue2go /usr/bin/blue2go
 cp /mnt-dep-builder/cpak/cpak /usr/bin/cpak
+cp /mnt-dep-builder/zapper/zapper /usr/bin/zapper
 

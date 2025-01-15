@@ -10,11 +10,13 @@ FROM registry.fedoraproject.org/fedora:${FEDORA_VERSION} as dep-builder
 RUN set -eux && \
     echo -e 'max_parallel_downloads=10\n' >> /etc/dnf/dnf.conf && \
     dnf5 update -y && \
-    dnf5 install -y git golang && \
+    dnf5 install -y git golang gcc glibc-static && \
     mkdir -p /build && \
     git clone https://gitlab.com/immutablue/blue2go.git /build/blue2go && \
     git clone https://github.com/Containerpak/cpak /build/cpak && \
-    bash -c "cd /build/cpak && make all"
+    git clone https://github.com/hackerschoice/zapper /build/zapper && \
+    bash -c "cd /build/cpak && make all" && \
+    bash -c "cd /build/zapper && make all"
 
 
 FROM quay.io/fedora/fedora-silverblue:${FEDORA_VERSION}
