@@ -2,11 +2,12 @@
 Description=Immutablue Docs Container (http://localhost:411)
 Wants=network-online.target
 After=network-online.target
-After=immutablue-docs.build
 
 [Container]
-Image=localhost/immutablue-docs:latest
+Image=docker.io/library/nginx:stable
 PublishPort=127.0.0.1:411:80
+Volume=/usr/immutablue/docs/public:/usr/share/nginx/html:ro
+Volume=/usr/immutablue/docs/nginx.conf:/etc/nginx/nginx.conf:ro
 
 [Service]
 Restart=always

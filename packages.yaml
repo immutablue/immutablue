@@ -155,7 +155,6 @@ immutablue:
   - immutablue-monthly.timer
   # See /usr/libexec/immutablue/system/on_boot/00-on_boot
   # Quadlets are not recognized in the build stage 
-  # - immutablue-docs.build
   # - immutablue-docs.container
   - sshd.service
   - tailscaled.service
