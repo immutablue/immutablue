@@ -9,8 +9,8 @@ then
 fi
 
 
-# Make sure this is bash, is interactive, and has not already been sourced
-if [[ "${BASH_VERSION-}" != "" ]] && [[ "${PS1-}" != "" ]] && [[ "${IMMUTABLUE_BASH_COMPLETION-}" == "" ]]
+# Make sure this is bash
+if [[ "${BASH_VERSION-}" != "" ]]
 then
 
     if [[ -f /usr/bin/fzf-git ]]
