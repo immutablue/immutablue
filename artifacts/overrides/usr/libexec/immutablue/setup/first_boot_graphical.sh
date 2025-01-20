@@ -18,6 +18,13 @@ then
     exit 1
 fi
 
+if [[ "$(immutablue-settings .immutablue.run_first_boot_graphical_installer)" != "true" ]]
+then 
+    echo ".immutablue.run-first-boot-graphical-installer is not set to \"true\" -- bailing."
+    exit 0
+fi
+
+
 if [[ "$(immutablue_has_internet)" == "${FALSE}" ]]
 then
     # If nuclues we can't show a graphical indicator
