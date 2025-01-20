@@ -48,6 +48,7 @@ dbox_install_single() {
     local key=".distrobox[${index}]"
     local name=$(yq "${key}.name" < $packages_yaml)
     local image=$(yq "${key}.image" < $packages_yaml)
+    local remove=$(yq "${key}.rm" < $packages_yaml)
     local pkg_inst_cmd=$(yq "${key}.pkg_inst_cmd" < $packages_yaml)
     local pkg_updt_cmd=$(yq "${key}.pkg_updt_cmd" < $packages_yaml)
     local packages=$(cat <(yq "${key}.packages[]" < $packages_yaml) <(yq "${key}.packages_$(uname -m)[]" < $packages_yaml))
@@ -58,6 +59,11 @@ dbox_install_single() {
     local app_export=$(cat <(yq "${key}.app_export[]" < $packages_yaml) <(yq "${key}.app_export_$(uname -m)[]" < $packages_yaml))
     local bin_symlink=$(cat <(yq "${key}.bin_symlink[]" < $packages_yaml) <(yq "${key}.bin_symlink_$(uname -m)[]" < $packages_yaml))
 
+    if [[ "${remove}" == "true" ]]
+    then 
+        distrobox rm -f "${name}"
+        return 0
+    fi
 
     bash <(yq "${key}.extra_commands" < $packages_yaml)
 
