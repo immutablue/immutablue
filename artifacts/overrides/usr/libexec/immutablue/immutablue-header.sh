@@ -133,7 +133,14 @@ immutablue_build_has_working_tailscale() {
 }
 
 immutablue_has_internet_v4() {
-    ping -c1 -W2 9.9.9.9 >/dev/null 2>/dev/null
+    if [[ "$(immutablue-settings .immutablue.header.force_always_has_internet_v4)" == "true" ]]
+    then 
+        echo "${TRUE}"
+        return 0
+    fi
+    
+    local test_host=$(immutablue-settings .immutablue.header.has_internet_host_v4)
+    ping -c1 -W2 "${test_host}" >/dev/null 2>/dev/null
     if [[ $? -eq 0 ]]
     then
         echo $TRUE 
@@ -143,7 +150,14 @@ immutablue_has_internet_v4() {
 }
 
 immutablue_has_internet_v6() {
-    ping -c1 -W2 2620:fe::fe >/dev/null 2>/dev/null
+    if [[ "$(immutablue-settings .immutablue.header.force_always_has_internet_v6)" == "true" ]]
+    then 
+        echo "${TRUE}"
+        return 0
+    fi
+
+    local test_host=$(immutablue-settings .immutablue.header.has_internet_host_v6)
+    ping -c1 -W2 "${test_host}" >/dev/null 2>/dev/null
     if [[ $? -eq 0 ]]
     then
         echo $TRUE 
@@ -153,6 +167,12 @@ immutablue_has_internet_v6() {
 }
 
 immutablue_has_internet() {
+    if [[ "$(immutablue-settings .immutablue.header.force_always_has_internet)" == "true" ]]
+    then 
+        echo "${TRUE}"
+        return 0
+    fi
+
     if [[ "$(immutablue_has_internet_v4)" == "${FALSE}" ]]
     then
         if [[ "$(immutablue_has_internet_v6)" == "${FALSE}" ]]

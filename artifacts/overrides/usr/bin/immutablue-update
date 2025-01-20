@@ -21,19 +21,37 @@ error_info() {
     exit ${ret_code}
 }
 
-sudo rpm-ostree update || error_info "rpm-ostree update" $?
-distrobox upgrade -a || error_info "distrobox upgrade" $?
-flatpak --user -y update || error_info "flatpak --user update" $?
-flatpak --system -y update || error_info "flatpak --system update" $?
+if [[ "$(immutablue-settings .immutablue.run_rpm_ostree_update)" == "true" ]]
+then
+    sudo rpm-ostree update || error_info "rpm-ostree update" $?
+fi
+
+if [[ "$(immutablue-settings .immutablue.run_distrobox_upgrade)" == "true" ]]
+then
+    distrobox upgrade -a || error_info "distrobox upgrade" $?
+fi
+
+if [[ "$(immutablue-settings .immutablue.run_flatpak_user_update)" == "true" ]]
+then
+    flatpak --user -y update || error_info "flatpak --user update" $?
+fi
+
+if [[ "$(immutablue-settings .immutablue.run_flatpak_system_update)" == "true" ]]
+then
+    flatpak --system -y update || error_info "flatpak --system update" $?
+fi
 
 # Check for brew since it is not on non-x86_64 systems
 type brew 2>/dev/null >/dev/null
-if [[ $? -eq 0 ]]
+if [[ $? -eq 0 ]] && [[ "$(immutablue-settings .immutablue.run_brew_update)" == "true" ]]
 then
     brew update || error_info "brew update" $?
     brew upgrade || error_info "brew upgrade" $?
 fi
 
-# re-enable setup scripts to re-run
-immutablue_services_enable_setup_for_next_boot
+# re-enable setup scripts to re-run if settings allow
+if [[ "$(immutablue-settings .immutablue.run_install_on_update)" == "true" ]]
+then
+    immutablue_services_enable_setup_for_next_boot
+fi
 

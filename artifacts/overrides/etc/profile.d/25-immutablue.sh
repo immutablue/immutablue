@@ -1,5 +1,5 @@
 #!/bin/bash
-# This profile script is part of immutalblue
+# This profile script is part of immutablue
 # - https://gitlab.com/immutablue/immutablue
 
 # Set ulimits
@@ -13,12 +13,12 @@ fi
 if [[ "${BASH_VERSION-}" != "" ]]
 then
 
-    if [[ -f /usr/bin/fzf-git ]]
+    if [[ -f /usr/bin/fzf-git ]] && [[ "$(immutablue-settings .immutablue.profile.enable_sourcing_fzf_git)" == "true" ]]
     then 
         source /usr/bin/fzf-git
     fi
     
-    if [[ -d /home/linuxbrew/.linuxbrew/etc/bash_completion.d/ ]]
+    if [[ -d /home/linuxbrew/.linuxbrew/etc/bash_completion.d/ ]] && [[ "$(immutablue-settings .immutablue.profile.enable_brew_bash_completions)" == "true" ]]
     then
         for f in /home/linuxbrew/.linuxbrew/etc/bash_completion.d/*
         do
@@ -35,7 +35,10 @@ then
     type starship 2>/dev/null >/dev/null
     if [[ $? -eq 0 ]]
     then
-        eval "$(starship init bash)"
+        if [[ "$(immutablue-settings .immutablue.profile.enable_starship)" == "true" ]]
+        then
+            eval "$(starship init bash)"
+        fi
     fi
 
 

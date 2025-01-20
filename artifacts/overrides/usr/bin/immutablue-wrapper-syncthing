@@ -28,7 +28,7 @@ else
     echo "tailscale not on this system, skipping further checks."
 fi
 
-settings_check=$(immutablue-settings .services.syncthing.tailscale-mode)
+settings_check=$(immutablue-settings .services.syncthing.tailscale_mode)
 
 if [[ $TAILSCALE_MODE -eq 1 ]] && [[ "${settings_check}" == "true" ]]
 then
