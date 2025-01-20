@@ -28,7 +28,9 @@ else
     echo "tailscale not on this system, skipping further checks."
 fi
 
-if [[ $TAILSCALE_MODE -eq 1 ]]
+settings_check=$(immutablue-settings .services.syncthing.tailscale-mode)
+
+if [[ $TAILSCALE_MODE -eq 1 ]] && [[ "${settings_check}" == "true" ]]
 then
     tailscale_ip_trimmed=$(tailscale ip -4 | head -n1 | xargs)
     /usr/bin/syncthing serve --no-browser --no-restart --logflags=0 --gui-address="http://${tailscale_ip_trimmed}:8384"

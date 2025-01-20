@@ -1,0 +1,18 @@
+# Default Immutablue Settings
+# can be retrieved with immutablue-settings
+# 
+# Settings are retrieved in the following orders:
+# - ${HOME}/.config/immutablue/settings.yaml
+# - /etc/immutablue/settings.yaml
+# - /usr/immutablue/settings.yaml
+
+immutablue:
+
+services:
+  syncthing:
+    # Tailscale mode:
+    # make the webui exposed over the tailscale ip
+    # If tailscale fails, or is not used this is 
+    # ignored.
+    tailscale-mode: true
+

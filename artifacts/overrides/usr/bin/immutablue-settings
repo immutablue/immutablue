@@ -1,0 +1,29 @@
+#!/bin/bash 
+set -euo pipefail 
+
+FILE_ORDER=(
+    "${HOME}/.config/immutablue/settings.yaml"
+    "/etc/immutablue/settings.yaml"
+    "/usr/immutablue/settings.yaml"
+)
+
+if [[ $# -eq 0 ]]
+then 
+    echo "Usage: $(basename $0) <setting>"
+    exit 1
+fi
+
+CONFIG="${1}"
+
+for yaml in ${FILE_ORDER[@]}
+do 
+    if [[ ! -f "${yaml}" ]]; then continue; fi
+
+    value=$(yq "${CONFIG}" < "${yaml}")
+    if [[ "${value}" != "" ]]
+    then 
+        echo "${value}"
+        exit 0
+    fi
+done
+

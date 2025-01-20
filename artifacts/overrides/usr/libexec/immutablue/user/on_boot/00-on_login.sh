@@ -23,3 +23,10 @@ then
     fi
 fi
 
+
+# Check for settings file, if not present create it 
+if [[ ! -f "${HOME}/.config/immutablue/settings.yaml" ]]
+then 
+    mkdir -p "${HOME}/.config/immutablue"
+    echo -e "# Immutablue Settings file -- see /usr/immutablue/settings.yaml\n" > "${HOME}/.config/immutablue/settings.yaml"
+fi
