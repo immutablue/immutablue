@@ -20,7 +20,7 @@ do
     if [[ ! -f "${yaml}" ]]; then continue; fi
 
     value=$(yq "${CONFIG}" < "${yaml}")
-    if [[ "${value}" != "" ]]
+    if [[ "${value}" != "" ]] && [[ "${value}" != "null" ]]
     then 
         echo "${value}"
         exit 0
