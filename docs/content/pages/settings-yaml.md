@@ -12,7 +12,7 @@ ${HOME}/.config/immutablue/settings.yaml
 /etc/immutablue/settings.yaml
 /usr/immutablue/settings.yaml
 ```
-That is, if a specific setting is locatated in the `${HOME}` file, and the one located in `/usr`, the `${HOME}` value is used. This provides a "fall-through" approach.
+That is, if a specific setting is located in the `${HOME}` file, and the one located in `/usr`, the `${HOME}` value is used. This provides a "fall-through" approach.
 
 ## /usr/immutablue/settings.yaml
 Immutablue default settings are located in the last file (`/usr/immutablue/settings.yaml`). These can also be overwritten downstream in an `immutablue-custom` build.
