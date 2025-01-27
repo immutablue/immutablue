@@ -65,7 +65,7 @@ This references `.immutablue.rpm_rm` and its derivatives in the `packages.yaml`.
 
 ### 50-remove-files 
 
-This references `.immutablue.file_rm` and its derivatives in the `packages.yaml`. This runs `rm -rf` on each listed entry, so you are able to do full directory pathes here. This is useful for cleanups of temp files that make itself into the build that you don't want/can't have there.
+This references `.immutablue.file_rm` and its derivatives in the `packages.yaml`. This runs `rm -rf` on each listed entry, so you are able to do full directory paths here. This is useful for cleanups of temp files that make itself into the build that you don't want/can't have there.
 
 ### 60-services 
 

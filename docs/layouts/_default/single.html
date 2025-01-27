@@ -1,0 +1,23 @@
+{{ define "main" }}
+<style>
+.footer {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  text-align: center;
+}
+</style>
+
+<h1>{{ .Title }}</h1>
+
+{{ .Content }}
+
+<br/>
+<div class="footer">
+    {{ with .GitInfo }}
+        Last Modified By: {{ .AuthorName }} on {{ .CommitDate.Format "2006-01-02" }}
+    {{ end }}
+</div>
+{{ end }}
+

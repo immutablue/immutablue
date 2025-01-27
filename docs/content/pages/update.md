@@ -6,7 +6,7 @@ title = 'Updating Immutablue'
 
 # Updating Immutablue
 
-Keeping Immutablue up-to-date (including for all builds inheriting from Immutablue) is straight-forward. It should be noted that there is an autoupdate program that runs weekly (meaning. updates are ran without human intervention) which updates the following things:
+Keeping Immutablue up-to-date (including for all builds inheriting from Immutablue) is straight-forward. It should be noted that there is an autoupdate program that runs weekly (meaning, updates are ran without human intervention) which updates the following things:
 - Immutablue Image (via `rpm-ostree`) -- applied on next system boot
 - Flatpaks
 - Distrobox Images (only the packages, not the version of the container image!)
