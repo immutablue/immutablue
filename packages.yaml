@@ -181,7 +181,7 @@ immutablue:
 
 distrobox:
 - name: util
-  image: registry.fedoraproject.org/fedora:41
+  image: quay.io/immutablue/dbox-fedora:41
   root: false 
   additional_flags_x86_64: 
   - -v /var/home/linuxbrew:/var/home/linuxbrew
@@ -209,7 +209,7 @@ distrobox:
   - git
       
 - name: dev
-  image: registry.fedoraproject.org/fedora:41
+  image: quay.io/immutablue/dbox-fedora:41
   root: false 
   additional_flags_x86_64: 
   - -v /var/home/linuxbrew:/var/home/linuxbrew
