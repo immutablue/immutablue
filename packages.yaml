@@ -38,6 +38,7 @@ immutablue:
   - nautilus-open-any-terminal
   - NetworkManager-tui
   - podman-compose
+  - powertop
   - ptyxis
   - python3-pip
   - qemu
