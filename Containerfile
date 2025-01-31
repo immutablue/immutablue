@@ -1,3 +1,4 @@
+ARG BASE_IMAGE=quay.io/fedora-ostree-desktops/silverblue
 ARG FEDORA_VERSION=41
 
 
@@ -19,9 +20,10 @@ RUN set -eux && \
     bash -c "cd /build/zapper && make all"
 
 
-FROM quay.io/fedora/fedora-silverblue:${FEDORA_VERSION}
+FROM ${BASE_IMAGE}:${FEDORA_VERSION}
 
 
+ARG BASE_IMAGE=quay.io/fedora-ostree-desktops/silverblue
 ARG FEDORA_VERSION=41
 ARG IMAGE_TAG=${FEDORA_VERSION}
 ARG INSTALL_DIR=/usr/immutablue
