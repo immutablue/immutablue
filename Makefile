@@ -2,6 +2,7 @@ ifndef $(REGISTRY)
     REGISTRY := quay.io/immutablue
 endif
 
+BASE_IMAGE := quay.io/fedora-ostree-desktops/silverblue
 IMAGE_BASE_TAG := immutablue
 IMAGE := $(REGISTRY)/$(IMAGE_BASE_TAG)
 CURRENT := 41
@@ -48,6 +49,11 @@ ifndef $(DO_INSTALL_ZFS)
 	DO_INSTALL_ZFS := false 
 endif
 
+ifeq ($(ASAHI),1)
+	BASE_IMAGE := quay.io/fedora-asahi-atomic-remix/silverblue
+	TAG := $(TAG)-asahi
+endif
+
 FULL_TAG := $(IMAGE):$(TAG)
 
 .PHONY: list all all_upgrade install update upgrade install_or_update reboot \
@@ -77,26 +83,13 @@ update: install_or_update
 
 
 build:
-	# buildah manifest rm $(MANIFEST) || true 
-	# buildah manifest create $(MANIFEST)
-	# buildah build \
-	# 	--jobs=4 \
-	# 	--manifest $(MANIFEST) \
-	# 	--platform=$(PLATFORM) \
-	# 	--ignorefile ./.containerignore \
-	# 	--no-cache \
-	# 	-t $(IMAGE):$(TAG) \
-	# 	-f ./Containerfile \
-	# 	--build-arg=FEDORA_VERSION=$(VERSION) \
-	# 	--build-arg=DO_INSTALL_LTS=$(DO_INSTALL_LTS) \
-	# 	--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
-	# 	--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_ZFS)
 	buildah \
 		build \
 		--ignorefile ./.containerignore \
 		--no-cache \
 		-t $(IMAGE):$(TAG) \
 		-f ./Containerfile \
+		--build-arg=BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg=FEDORA_VERSION=$(VERSION) \
 		--build-arg=IMAGE_TAG=$(IMAGE_BASE_TAG):$(TAG) \
 		--build-arg=DO_INSTALL_LTS=$(DO_INSTALL_LTS) \
@@ -112,15 +105,11 @@ ifeq ($(SET_AS_LATEST), 1)
 	buildah \
 		push \
 		$(IMAGE):latest
-		# --compression-format $(IMAGE_COMPRESSION_FORMAT) \
-		# --compression-level $(IMAGE_COMPRESSION_LEVEL) \
 		
 endif
 	buildah \
 		push \
 		$(IMAGE):$(TAG)
-		# --compression-format $(IMAGE_COMPRESSION_FORMAT) \
-		# --compression-level $(IMAGE_COMPRESSION_LEVEL) \
 
 
 retag:
