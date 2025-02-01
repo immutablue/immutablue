@@ -16,11 +16,12 @@ RUN set -eux && \
     git clone https://gitlab.com/immutablue/blue2go.git /build/blue2go && \
     git clone https://github.com/Containerpak/cpak /build/cpak && \
     git clone https://github.com/hackerschoice/zapper /build/zapper && \
-    bash -c "cd /build/cpak && make all" && \
+    # bash -c "cd /build/cpak && make all" && \
     bash -c "cd /build/zapper && make all"
 
 
 FROM ${BASE_IMAGE}:${FEDORA_VERSION}
+# FROM quay.io/fedora/fedora-bootc:${FEDORA_VERSION}
 
 
 ARG BASE_IMAGE=quay.io/fedora-ostree-desktops/silverblue
@@ -32,6 +33,7 @@ ARG DO_INSTALL_ZFS=false
 ARG DO_INSTALL_LTS=false
 ARG IMMUTABLUE_BUILD=true
 ARG IMAGE_TAG=immutablue
+ARG IMMUTABLUE_BUILD_OPTIONS=${IMMUTABLUE_BUILD_OPTIONS}
 
 
 # Copy in files for build

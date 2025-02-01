@@ -49,10 +49,16 @@ ifndef $(DO_INSTALL_ZFS)
 	DO_INSTALL_ZFS := false 
 endif
 
+ifndef $(BUILD_OPTIONS)
+	BUILD_OPTIONS := gnome
+endif
+
 ifeq ($(ASAHI),1)
 	BASE_IMAGE := quay.io/fedora-asahi-atomic-remix/silverblue
 	TAG := $(TAG)-asahi
+BUILD_OPTIONS := $(BUILD_OPTIONS),asahi
 endif
+
 
 FULL_TAG := $(IMAGE):$(TAG)
 
@@ -94,12 +100,11 @@ build:
 		--build-arg=IMAGE_TAG=$(IMAGE_BASE_TAG):$(TAG) \
 		--build-arg=DO_INSTALL_LTS=$(DO_INSTALL_LTS) \
 		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
-		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS)
+		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS) \
+		--build-arg=IMMUTABLUE_BUILD_OPTIONS=$(BUILD_OPTIONS)
 
 		
 
-IMAGE_COMPRESSION_FORMAT := zstd:chunked 
-IMAGE_COMPRESSION_LEVEL := 12
 push:
 ifeq ($(SET_AS_LATEST), 1)
 	buildah \

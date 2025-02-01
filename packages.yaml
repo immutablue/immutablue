@@ -22,35 +22,39 @@ immutablue:
   - dialog
   - distrobox
   - docker-ce
-  - fex-emu-filesystem
-  - fex-emu-rootfs-fedora
-  - firewall-applet
-  - firewall-config
+  # - fex-emu-filesystem
+  # - fex-emu-rootfs-fedora
   - fuse-sshfs
   - fzf 
-  - ghostty
-  - gnome-terminal
   - just
   - libvirt
   - lm_sensors
   - make
-  - muvm
-  - nautilus-open-any-terminal
+  # - muvm
   - NetworkManager-tui
   - podman-compose
   - powertop
-  - ptyxis
   - python3-pip
   - qemu
   - qemu-user-binfmt
-  - solaar
   - stow
   - syncthing
   - syncthing-tools
   - tailscale
   - virt-bootstrap
-  - virt-manager
   - xrdp
+
+  rpm_gui:
+  - firewall-applet
+  - firewall-config
+  - ghostty
+  - solaar
+
+
+  rpm_gnome:
+  - gnome-shell
+  - nautilus-open-any-terminal
+  - ptyxis
 
   # Since Brew doesn't exist on arm64 we should
   # layer in these packages we would normally brew
@@ -82,10 +86,10 @@ immutablue:
   
   # RPM Packages to be removed
   rpm_rm:
-  - firefox-langpacks
-  - firefox
-  - gnome-software-rpm-ostree
-  - gnome-shell-extension-background-logo
+  # - firefox-langpacks
+  # - firefox
+  # - gnome-software-rpm-ostree
+  # - gnome-shell-extension-background-logo
   
   # Temp files to be removed during build stage (errors out build)
   file_rm:

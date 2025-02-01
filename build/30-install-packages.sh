@@ -9,26 +9,33 @@ pkg_urls=$(get_immutablue_package_urls)
 pip_pkgs=$(get_immutablue_pip_packages)
 
 
+# Base packages
+while read -r option
+do 
+    dnf5 -y install $(get_immutablue_packages_for_build "${option}")
+done < <(get_immutablue_build_options)
+
+
 # Add ublue udev rules
-rpm-ostree install /mnt-ublue-config/ublue-os-udev-rules*.rpm 
+dnf5 -y install /mnt-ublue-config/ublue-os-udev-rules*.rpm 
 if [[ "$DO_INSTALL_AKMODS" == "true" ]]
 then 
-    rpm-ostree install /mnt-ublue-akmods/ublue-os/ublue-os-akmods-addons*.rpm
-    rpm-ostree install /mnt-ublue-akmods/kmods/kmod-{framework,openrazer,xone}-*.rpm
+    dnf5 -y install /mnt-ublue-akmods/ublue-os/ublue-os-akmods-addons*.rpm
+    dnf5 -y install /mnt-ublue-akmods/kmods/kmod-{framework,openrazer,xone}-*.rpm
 fi
 
 
 # Install rpm_urls
 if [[ "$pkg_urls" != "" ]]
 then
-    rpm-ostree install $(for pkg in $pkg_urls; do printf '%s ' $pkg; done)
+    dnf5 -y install $(for pkg in $pkg_urls; do printf '%s ' $pkg; done)
 fi
 
 
 # Install immutablue packages
 if [[ "$pkgs" != "" ]]
 then 
-    rpm-ostree install $(for pkg in $pkgs; do printf '%s ' $pkg; done)
+    dnf5 -y install $(for pkg in $pkgs; do printf '%s ' $pkg; done)
 fi
 
 
@@ -49,15 +56,15 @@ then
     # Hacky -- but the above seems to sometimes fail because kernel-core gets
     # flagged sometimes as protected but is not under /etc/dnf/protected.d/
     # - https://github.com/rpm-software-management/dnf5/issues/1909
-    dnf5 remove -y --setopt protect_running_kernel=false kernel{,-core,-modules,-modules-extra}
-    rpm-ostree install kernel-longterm{,-core,-modules,-modules-extra,-devel}
+    dnf5 -y remove --setopt protect_running_kernel=false kernel{,-core,-modules,-modules-extra}
+    dnf5 -y install kernel-longterm{,-core,-modules,-modules-extra,-devel}
 fi
 
 # ZFS handling
 # do zfs install with LTS by default
 if [[ "$DO_INSTALL_ZFS" == "true" ]] || [[ "$DO_INSTALL_LTS" == "true" ]]
 then 
-    rpm-ostree install "${ZFS_RPM_URL}"
+    dnf5 -y install "${ZFS_RPM_URL}"
     rpm-ostree override replace \
         --from repo='zfs' \
         --experimental \
