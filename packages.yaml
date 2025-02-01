@@ -144,6 +144,7 @@ immutablue:
 
   # pip packages to install 
   pip_packages:
+  - pulsemixer
   - yafti
 
   # Services 
