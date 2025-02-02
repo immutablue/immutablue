@@ -12,7 +12,7 @@ immutablue:
   run_install_on_update: true
 
   # update following components with `immutablue-update`
-  run_rpm_ostree_update: true
+  run_bootc_update: true
   run_distrobox_upgrade: true 
   run_flatpak_system_update: true 
   run_flatpak_user_update: true 

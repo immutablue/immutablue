@@ -21,9 +21,9 @@ error_info() {
     exit ${ret_code}
 }
 
-if [[ "$(immutablue-settings .immutablue.run_rpm_ostree_update)" == "true" ]]
+if [[ "$(immutablue-settings .immutablue.run_bootc_update)" == "true" ]]
 then
-    sudo rpm-ostree update || error_info "rpm-ostree update" $?
+    sudo bootc update || error_info "bootc update" $?
 fi
 
 if [[ "$(immutablue-settings .immutablue.run_distrobox_upgrade)" == "true" ]]

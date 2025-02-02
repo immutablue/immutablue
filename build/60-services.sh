@@ -1,7 +1,7 @@
 #!/bin/bash 
 set -euxo pipefail
-if [ -f "${INSTALL_DIR}/build/99-common.sh" ]; then source "${INSTALL_DIR}/build/99-common.sh"; fi
-if [ -f "./99-common.sh" ]; then source "./99-common.sh"; fi
+if [[ -f "${INSTALL_DIR}/build/99-common.sh" ]]; then source "${INSTALL_DIR}/build/99-common.sh"; fi
+if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 
 
 sys_unmask=$(get_immutablue_system_services_to_unmask)

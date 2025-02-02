@@ -37,6 +37,14 @@ immutablue_get_image_base() {
     immutablue_get_image_full | awk -F: '{printf "%s\n", $1 }'
 }
 
+immutablue_build_is_kionite() {
+    if [[ "$(immutablue_get_image_tag)" =~ kionite ]] 
+    then 
+        echo ${TRUE}
+    else
+        echo ${FALSE}
+    fi
+}
 
 immutablue_build_is_nucleus() {
     if [[ "$(immutablue_get_image_tag)" =~ nucleus ]] 

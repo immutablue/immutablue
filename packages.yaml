@@ -19,18 +19,18 @@ immutablue:
   # RPM Packages to be installed
   rpm:
   - bashmount
+  - cmake
   - dialog
   - distrobox
   - docker-ce
-  # - fex-emu-filesystem
-  # - fex-emu-rootfs-fedora
   - fuse-sshfs
   - fzf 
+  - gcc
+  - git
   - just
   - libvirt
   - lm_sensors
   - make
-  # - muvm
   - NetworkManager-tui
   - podman-compose
   - powertop
@@ -42,19 +42,29 @@ immutablue:
   - syncthing-tools
   - tailscale
   - virt-bootstrap
-  - xrdp
 
+  # Everything that is non-nucleus by default
   rpm_gui:
   - firewall-applet
   - firewall-config
   - ghostty
   - solaar
+  - xrdp
 
 
-  rpm_gnome:
-  - gnome-shell
+
+  rpm_silverblue:
   - nautilus-open-any-terminal
   - ptyxis
+
+  rpm_silverblue_aarch64:
+
+  rpm_nucleus:
+  - neovim
+  - tmux 
+
+  rpm_kinoite:
+
 
   # Since Brew doesn't exist on arm64 we should
   # layer in these packages we would normally brew
@@ -82,14 +92,19 @@ immutablue:
  
   # Urls to RPMs to download (they are curled)
   rpm_url:
+  - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-41.noarch.rpm
+  - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-41.noarch.rpm
+
   
   
   # RPM Packages to be removed
   rpm_rm:
-  # - firefox-langpacks
-  # - firefox
-  # - gnome-software-rpm-ostree
-  # - gnome-shell-extension-background-logo
+
+  rpm_rm_silverblue:
+  - firefox-langpacks
+  - firefox
+  - gnome-software-rpm-ostree
+  - gnome-shell-extension-background-logo
   
   # Temp files to be removed during build stage (errors out build)
   file_rm:
@@ -147,6 +162,7 @@ immutablue:
   flatpaks_rm:
 
   # pip packages to install 
+  # not ran on nucleus builds
   pip_packages:
   - yafti
 
@@ -164,6 +180,9 @@ immutablue:
   - sshd.service
   - tailscaled.service
   - docker.service
+
+  services_enable_sys_gui:
+  - xrdp.service
 
   services_disable_sys:
   services_mask_sys:
