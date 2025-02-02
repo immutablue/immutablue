@@ -63,6 +63,10 @@ endif
 
 
 # Builds Options
+# Flavors to start
+# You can only pick one of these
+#
+# No desktop environment
 ifeq ($(NUCLEUS),1)
 	BASE_IMAGE := quay.io/fedora/fedora-bootc
 	TAG := $(TAG)-nucleus
@@ -70,6 +74,7 @@ ifeq ($(NUCLEUS),1)
 	BUILD_OPTIONS := nucleus
 endif
 
+# KDE desktop
 ifeq ($(KINOITE),1)
 	GUI_FLAVOR := kinoite
 	BASE_IMAGE := quay.io/fedora-ostree-desktops/$(GUI_FLAVOR)
@@ -78,6 +83,64 @@ ifeq ($(KINOITE),1)
 	BUILD_OPTIONS := gui,kinoite
 endif
 
+# Sway desktop
+ifeq ($(SERICEA),1)
+	GUI_FLAVOR := sway-atomic
+	BASE_IMAGE := quay.io/fedora-ostree-desktops/$(GUI_FLAVOR)
+	TAG := $(TAG)-sericea
+	# Replace everything
+	BUILD_OPTIONS := gui,sericea
+endif
+
+# Budgie desktop
+ifeq ($(ONYX),1)
+	GUI_FLAVOR := budgie-atomic
+	BASE_IMAGE := quay.io/fedora-ostree-desktops/$(GUI_FLAVOR)
+	TAG := $(TAG)-kinoite
+	# Replace everything
+	BUILD_OPTIONS := gui,onyx
+endif
+
+# XFCE desktop
+ifeq ($(VAUXITE),1)
+	GUI_FLAVOR := xfce-atomic
+	BASE_IMAGE := quay.io/fedora-ostree-desktops/$(GUI_FLAVOR)
+	TAG := $(TAG)-vauxite
+	# Replace everything
+	BUILD_OPTIONS := gui,vauxite
+endif
+
+# LXQt desktop
+ifeq ($(LAZURITE),1)
+	GUI_FLAVOR := lxqt-atomic
+	BASE_IMAGE := quay.io/fedora-ostree-desktops/$(GUI_FLAVOR)
+	TAG := $(TAG)-lazurite
+	# Replace everything
+	BUILD_OPTIONS := gui,lazurite
+endif
+
+# LXQt desktop
+ifeq ($(COSMIC),1)
+	GUI_FLAVOR := cosmic-atomic
+	BASE_IMAGE := quay.io/fedora-ostree-desktops/$(GUI_FLAVOR)
+	TAG := $(TAG)-cosmic
+	# Replace everything
+	BUILD_OPTIONS := gui,cosmic
+endif
+
+# Bazzite (only support gnome)
+# Immutablue on the steamdeck??
+ifeq ($(BAZZITE),1)
+	GUI_FLAVOR := bazzite
+	BASE_IMAGE := ghcr.io/ublue-os/bazzite-deck-gnome
+	TAG := $(TAG)-bazzite
+	# Replace everything
+	BUILD_OPTIONS := gui,bazzite
+endif
+
+
+
+# Build-time customizations from build options
 ifeq ($(ASAHI),1)
 	BASE_IMAGE := quay.io/fedora-asahi-atomic-remix/$(GUI_FLAVOR)
 	TAG := $(TAG)-asahi

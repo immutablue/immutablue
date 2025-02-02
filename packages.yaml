@@ -64,6 +64,12 @@ immutablue:
   - tmux 
 
   rpm_kinoite:
+  rpm_sericea:
+  rpm_onyx:
+  rpm_vauxite:
+  rpm_lazurite:
+  rpm_cosmic:
+  rpm_bazzite:
 
 
   # Since Brew doesn't exist on arm64 we should
