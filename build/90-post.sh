@@ -21,6 +21,12 @@ then
     echo -e 'import "./10-cyan.justfile"\n' >> /usr/libexec/immutablue/just/Justfile
 fi
 
+# add asahi justfile
+if [[ "$(is_option_in_build_options asahi)" == "${TRUE}" ]]
+then 
+    echo -e 'import "./25-asahi.justfile"\n' >> /usr/libexec/immutablue/just/Justfile
+fi
+
 
 # set /etc/immutablue/setup to world-writable
 chmod -R 777 /etc/immutablue/setup
