@@ -1,5 +1,5 @@
 #!/bin/bash 
-
+if [[ -f "/usr/libexec/immutablue/immutablue-header.sh" ]]; then source "/usr/libexec/immutablue/immutablue-header.sh"; fi
 PACKAGES_YAML="${INSTALL_DIR}/packages.yaml"
 MARCH="$(uname -m)"
 
@@ -22,9 +22,38 @@ else
     HUGO_RELEASE_URL="${HUGO_RELEASE_URL_x86_64}"
 fi
 
+
+get_immutablue_build_options() {
+    IFS=',' read -ra entry_array <<< "${IMMUTABLUE_BUILD_OPTIONS}" 
+    for entry in "${entry_array[@]}"
+    do
+        echo -e "${entry}"
+    done 
+}
+
+is_option_in_build_options() {
+    local option="$1"
+    IFS=',' read -ra entry_array <<< "${IMMUTABLUE_BUILD_OPTIONS}" 
+    for entry in "${entry_array[@]}"
+    do
+        if [[ "${option}" == "${entry}" ]]
+        then 
+            echo "${TRUE}"
+            return 0
+        fi
+    done 
+    echo "${FALSE}"
+}
+
+# looks up entries in packages.yaml
+# takes into account the architecture and build options
 get_yaml_array() {
     local key="$1"
-    cat <(yq "$key[]" < "${PACKAGES_YAML}") <(yq "${key}_${MARCH}[]" < "${PACKAGES_YAML}")
+    cat <(yq "${key}[]" < "${PACKAGES_YAML}") <(yq "${key}_${MARCH}[]" < "${PACKAGES_YAML}")
+    while read -r option 
+    do 
+        cat <(yq "${key}_${option}[]" < "${PACKAGES_YAML}") <(yq "${key}_${option}_${MARCH}[]" < "${PACKAGES_YAML}")
+    done < <(get_immutablue_build_options)
 }
 
 

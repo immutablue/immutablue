@@ -8,6 +8,18 @@ IMAGE := $(REGISTRY)/$(IMAGE_BASE_TAG)
 CURRENT := 41
 MANIFEST := $(IMAGE_BASE_TAG)
 
+
+# by default the version tagged build is silverblue
+ifndef $(GUI_FLAVOR)	
+	GUI_FLAVOR := silverblue
+endif
+
+# Default to gui,silverblue
+ifndef $(BUILD_OPTIONS)
+	BUILD_OPTIONS := gui,silverblue
+endif
+
+
 ifndef $(PLATFORM)
 	PLATFORM := linux/amd64 
 endif
@@ -49,10 +61,35 @@ ifndef $(DO_INSTALL_ZFS)
 	DO_INSTALL_ZFS := false 
 endif
 
-ifeq ($(ASAHI),1)
-	BASE_IMAGE := quay.io/fedora-asahi-atomic-remix/silverblue
-	TAG := $(TAG)-asahi
+
+# Builds Options
+ifeq ($(NUCLEUS),1)
+	BASE_IMAGE := quay.io/fedora/fedora-bootc
+	TAG := $(TAG)-nucleus
+	# We don't want gui or anything else, just replace with nucleus
+	BUILD_OPTIONS := nucleus
 endif
+
+ifeq ($(KINOITE),1)
+	GUI_FLAVOR := kinoite
+	BASE_IMAGE := quay.io/fedora-ostree-desktops/$(GUI_FLAVOR)
+	TAG := $(TAG)-kinoite
+	# Replace everything
+	BUILD_OPTIONS := gui,kinoite
+endif
+
+ifeq ($(ASAHI),1)
+	BASE_IMAGE := quay.io/fedora-asahi-atomic-remix/$(GUI_FLAVOR)
+	TAG := $(TAG)-asahi
+	BUILD_OPTIONS := $(BUILD_OPTIONS),asahi
+endif
+
+ifeq ($(CYAN),1)
+	TAG := $(TAG)-cyan
+	BUILD_OPTIONS := $(BUILD_OPTIONS),cyan
+endif
+
+
 
 FULL_TAG := $(IMAGE):$(TAG)
 
@@ -94,12 +131,11 @@ build:
 		--build-arg=IMAGE_TAG=$(IMAGE_BASE_TAG):$(TAG) \
 		--build-arg=DO_INSTALL_LTS=$(DO_INSTALL_LTS) \
 		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
-		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS)
+		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS) \
+		--build-arg=IMMUTABLUE_BUILD_OPTIONS=$(BUILD_OPTIONS)
 
 		
 
-IMAGE_COMPRESSION_FORMAT := zstd:chunked 
-IMAGE_COMPRESSION_LEVEL := 12
 push:
 ifeq ($(SET_AS_LATEST), 1)
 	buildah \

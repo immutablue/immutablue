@@ -1,7 +1,7 @@
 #!/bin/bash 
 set -euxo pipefail
-if [ -f "${INSTALL_DIR}/build/99-common.sh" ]; then source "${INSTALL_DIR}/build/99-common.sh"; fi
-if [ -f "./99-common.sh" ]; then source "./99-common.sh"; fi
+if [[ -f "${INSTALL_DIR}/build/99-common.sh" ]]; then source "${INSTALL_DIR}/build/99-common.sh"; fi
+if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 
 
 pkgs=$(get_immutablue_packages)
@@ -9,26 +9,39 @@ pkg_urls=$(get_immutablue_package_urls)
 pip_pkgs=$(get_immutablue_pip_packages)
 
 
+# Base packages
+# while read -r option
+# do 
+#     dnf5 -y install $(get_immutablue_packages_for_build "${option}")
+# done < <(get_immutablue_build_options)
+
 # Add ublue udev rules
-rpm-ostree install /mnt-ublue-config/ublue-os-udev-rules*.rpm 
+dnf5 -y install /mnt-ublue-config/ublue-os-udev-rules*.rpm 
 if [[ "$DO_INSTALL_AKMODS" == "true" ]]
 then 
-    rpm-ostree install /mnt-ublue-akmods/ublue-os/ublue-os-akmods-addons*.rpm
-    rpm-ostree install /mnt-ublue-akmods/kmods/kmod-{framework,openrazer,xone}-*.rpm
+    dnf5 -y install /mnt-ublue-akmods/ublue-os/ublue-os-akmods-addons*.rpm
+    dnf5 -y install /mnt-ublue-akmods/kmods/kmod-{framework,openrazer,xone}-*.rpm
 fi
 
 
 # Install rpm_urls
 if [[ "$pkg_urls" != "" ]]
 then
-    rpm-ostree install $(for pkg in $pkg_urls; do printf '%s ' $pkg; done)
+    dnf5 -y install $(for pkg in $pkg_urls; do printf '%s ' $pkg; done)
+fi
+
+
+# Install Nvidia Drivers if this is cyan (must be done after URL step as it relies on rpmfusion)
+if [[ "$(is_option_in_build_options cyan)" == "${TRUE}" ]]
+then 
+    dnf5 -y install /mnt-ublue-akmods-nvidia/ublue-os/ublue-os-nvidia*.rpm /mnt-ublue-akmods-nvidia/kmods/kmod-nvidia-*.rpm 
 fi
 
 
 # Install immutablue packages
 if [[ "$pkgs" != "" ]]
 then 
-    rpm-ostree install $(for pkg in $pkgs; do printf '%s ' $pkg; done)
+    dnf5 -y install $(for pkg in $pkgs; do printf '%s ' $pkg; done)
 fi
 
 
@@ -36,33 +49,23 @@ fi
 if [[ "$DO_INSTALL_LTS" == "true" ]]
 then 
     curl -Lo "/etc/yum.repos.d/kwizart-kernel-longterm-${LTS_VERSION}-fedora-41.repo" "${LTS_REPO_URL}"
-    # ------------------------------------------------------------------------------|
-    # rpm-ostree override replace \
-    #     --from repo="copr:copr.fedorainfracloud.org:kwizart:kernel-longterm-${LTS_VERSION}" \
-    #     --experimental \
-    #     --remove=kernel \
-    #     --remove=kernel-core \
-    #     --remove=kernel-modules \
-    #     --remove=kernel-modules-extra \
-    #     kernel-longterm{,-core,-modules,-modules-extra,-devel}
-    # ------------------------------------------------------------------------------|
-    # Hacky -- but the above seems to sometimes fail because kernel-core gets
-    # flagged sometimes as protected but is not under /etc/dnf/protected.d/
-    # - https://github.com/rpm-software-management/dnf5/issues/1909
-    dnf5 remove -y --setopt protect_running_kernel=false kernel{,-core,-modules,-modules-extra}
-    rpm-ostree install kernel-longterm{,-core,-modules,-modules-extra,-devel}
+    dnf5 -y remove --setopt protect_running_kernel=false kernel{,-core,-modules,-modules-extra}
+    dnf5 -y install kernel-longterm{,-core,-modules,-modules-extra,-devel}
 fi
 
 # ZFS handling
 # do zfs install with LTS by default
 if [[ "$DO_INSTALL_ZFS" == "true" ]] || [[ "$DO_INSTALL_LTS" == "true" ]]
 then 
-    rpm-ostree install "${ZFS_RPM_URL}"
-    rpm-ostree override replace \
-        --from repo='zfs' \
-        --experimental \
-        --remove=zfs-fuse \
-        zfs{,-dracut}
+    dnf5 -y install "${ZFS_RPM_URL}"
+    dnf5 -y remove zfs-fuse
+    dnf5 -y install zfs{,-dracut}
+
+    # rpm-ostree override replace \
+    #     --from repo='zfs' \
+    #     --experimental \
+    #     --remove=zfs-fuse \
+    #     zfs{,-dracut}
 
     ZFS_VERSION=$(dkms status | grep -i zfs | awk '{ printf "%s\n", $1 }' | awk -F/ '{ printf "%s\n", $2 }')
     KERNEL_SUFFIX=""
@@ -76,8 +79,8 @@ then
 fi
 
 
-# pip package handling
-if [[ "$pip_pkgs" != "" ]]
+# pip package handling for all but NUCLEUS images
+if [[ "$pip_pkgs" != "" ]] && [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]]
 then 
     pip3 install --prefix=/usr $(for pkg in $pip_pkgs; do printf '%s ' $pkg; done)
 fi

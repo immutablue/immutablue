@@ -19,38 +19,52 @@ immutablue:
   # RPM Packages to be installed
   rpm:
   - bashmount
+  - cmake
   - dialog
   - distrobox
   - docker-ce
-  - fex-emu-filesystem
-  - fex-emu-rootfs-fedora
-  - firewall-applet
-  - firewall-config
   - fuse-sshfs
   - fzf 
-  - ghostty
-  - gnome-terminal
+  - gcc
+  - git
   - just
   - libvirt
   - lm_sensors
   - make
-  - muvm
-  - nautilus-open-any-terminal
   - NetworkManager-tui
   - podman-compose
   - powertop
-  - ptyxis
   - python3-pip
   - qemu
   - qemu-user-binfmt
-  - solaar
   - stow
   - syncthing
   - syncthing-tools
   - tailscale
   - virt-bootstrap
-  - virt-manager
+
+  # Everything that is non-nucleus by default
+  rpm_gui:
+  - firewall-applet
+  - firewall-config
+  - ghostty
+  - solaar
   - xrdp
+
+
+
+  rpm_silverblue:
+  - nautilus-open-any-terminal
+  - ptyxis
+
+  rpm_silverblue_aarch64:
+
+  rpm_nucleus:
+  - neovim
+  - tmux 
+
+  rpm_kinoite:
+
 
   # Since Brew doesn't exist on arm64 we should
   # layer in these packages we would normally brew
@@ -78,10 +92,15 @@ immutablue:
  
   # Urls to RPMs to download (they are curled)
   rpm_url:
+  - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-41.noarch.rpm
+  - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-41.noarch.rpm
+
   
   
   # RPM Packages to be removed
   rpm_rm:
+
+  rpm_rm_silverblue:
   - firefox-langpacks
   - firefox
   - gnome-software-rpm-ostree
@@ -143,6 +162,7 @@ immutablue:
   flatpaks_rm:
 
   # pip packages to install 
+  # not ran on nucleus builds
   pip_packages:
   - pulsemixer
   - yafti
@@ -161,6 +181,9 @@ immutablue:
   - sshd.service
   - tailscaled.service
   - docker.service
+
+  services_enable_sys_gui:
+  - xrdp.service
 
   services_disable_sys:
   services_mask_sys:
