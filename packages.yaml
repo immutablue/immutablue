@@ -157,6 +157,7 @@ immutablue:
   - org.pulseaudio.pavucontrol
   - org.videolan.VLC
   - re.sonny.Junction
+  - org.virt_manager.virt-manager
 
   # Only have x86_64 builds
   flatpaks_x86_64:
