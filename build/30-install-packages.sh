@@ -9,12 +9,6 @@ pkg_urls=$(get_immutablue_package_urls)
 pip_pkgs=$(get_immutablue_pip_packages)
 
 
-# Base packages
-# while read -r option
-# do 
-#     dnf5 -y install $(get_immutablue_packages_for_build "${option}")
-# done < <(get_immutablue_build_options)
-
 # Add ublue udev rules
 dnf5 -y install /mnt-ublue-config/ublue-os-udev-rules*.rpm 
 if [[ "$DO_INSTALL_AKMODS" == "true" ]]
@@ -60,12 +54,6 @@ then
     dnf5 -y install "${ZFS_RPM_URL}"
     dnf5 -y remove zfs-fuse
     dnf5 -y install zfs{,-dracut}
-
-    # rpm-ostree override replace \
-    #     --from repo='zfs' \
-    #     --experimental \
-    #     --remove=zfs-fuse \
-    #     zfs{,-dracut}
 
     ZFS_VERSION=$(dkms status | grep -i zfs | awk '{ printf "%s\n", $1 }' | awk -F/ '{ printf "%s\n", $2 }')
     KERNEL_SUFFIX=""

@@ -38,11 +38,6 @@ ARG IMAGE_TAG=immutablue
 ARG IMMUTABLUE_BUILD_OPTIONS=${IMMUTABLUE_BUILD_OPTIONS}
 
 
-# Copy in files for build
-# COPY . ${INSTALL_DIR}
-# COPY ./artifacts/overrides/ /
-
-
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     --mount=type=bind,from=ctx,src=/,dst=/mnt-ctx \
     --mount=type=bind,from=nautilusopenwithcode,src=/usr/lib64/nautilus/extensions-4,dst=/mnt-nautilusopenwithcode \
