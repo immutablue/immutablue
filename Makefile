@@ -142,7 +142,7 @@ endif
 
 # Build-time customizations from build options
 ifeq ($(ASAHI),1)
-	BASE_IMAGE := quay.io/fedora-asahi-atomic-remix/$(GUI_FLAVOR)
+	BASE_IMAGE := quay.io/fedora-asahi-remix-atomic-desktops/${GUI_FLAVOR}
 	TAG := $(TAG)-asahi
 	BUILD_OPTIONS := $(BUILD_OPTIONS),asahi
 endif
