@@ -42,25 +42,6 @@ ifndef $(SET_AS_LATEST)
 	SET_AS_LATEST = 0
 endif
 	
-# Default to non-LTS build
-ifndef $(LTS)
-	LTS := 0 
-    DO_INSTALL_LTS := false
-endif
-
-ifeq ($(LTS), 1)
-	TAG := $(TAG)-lts
-    DO_INSTALL_LTS := true
-endif
-
-ifndef $(DO_INSTALL_AKMODS)
-	DO_INSTALL_AKMODS := false
-endif 
-
-ifndef $(DO_INSTALL_ZFS)
-	DO_INSTALL_ZFS := false 
-endif
-
 
 # Builds Options
 # Flavors to start
@@ -150,6 +131,34 @@ endif
 ifeq ($(CYAN),1)
 	TAG := $(TAG)-cyan
 	BUILD_OPTIONS := $(BUILD_OPTIONS),cyan
+endif
+
+
+# Default to non-LTS build
+ifndef $(LTS)
+	LTS := 0 
+    DO_INSTALL_LTS := false
+endif
+
+ifeq ($(LTS), 1)
+	TAG := $(TAG)-lts
+    DO_INSTALL_LTS := true
+	# LTS auto-adds zfs
+	BUILD_OPTIONS := $(BUILD_OPTIONS),lts,zfs
+endif
+
+ifndef $(DO_INSTALL_AKMODS)
+	DO_INSTALL_AKMODS := false
+endif 
+
+ifndef $(ZFS)
+	ZFS := 0 
+	DO_INSTALL_ZFS := false
+endif
+
+ifeq ($(ZFS),1)
+	DO_INSTALL_ZFS := true
+	BUILD_OPTIONS := $(BUILD_OPTIONS),zfs
 endif
 
 
