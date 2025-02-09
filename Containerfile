@@ -17,6 +17,7 @@ RUN set -eux && \
     dnf5 install -y git golang gcc glibc-static && \
     mkdir -p /build && \
     git clone https://gitlab.com/immutablue/blue2go.git /build/blue2go && \
+    git clone https://gitlab.com/immutablue/cigar.git /build/cigar && \
     git clone https://github.com/Containerpak/cpak /build/cpak && \
     git clone https://github.com/hackerschoice/zapper /build/zapper && \
     bash -c "cd /build/cpak && make all" && \

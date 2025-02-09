@@ -34,7 +34,6 @@ immutablue:
   - NetworkManager-tui
   - podman-compose
   - powertop
-  - python3-pip
   - qemu
   - qemu-user-binfmt
   - ramalama
@@ -49,6 +48,8 @@ immutablue:
   - firewall-applet
   - firewall-config
   - ghostty
+  # since we don't use this in nucleus builds, then we can just put this in gui
+  - python3-pip
   - solaar
   - xrdp
 
@@ -71,6 +72,10 @@ immutablue:
   rpm_lazurite:
   rpm_cosmic:
   rpm_bazzite:
+  rpm_build_a_blue_workshop:
+  - neovim 
+  - nodejs-npm
+  - tmux
 
 
   # Since Brew doesn't exist on arm64 we should
@@ -207,6 +212,9 @@ immutablue:
   - immutablue-weekly.timer
   - immutablue-monthly.timer
   - syncthing.service
+
+  services_enable_user_build_a_blue_workshop:
+  - n8n.service
 
   services_disable_user:
   services_mask_user:

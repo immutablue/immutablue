@@ -68,7 +68,7 @@ fi
 
 
 # pip package handling for all but NUCLEUS images
-if [[ "$pip_pkgs" != "" ]] && [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]]
+if [[ "$pip_pkgs" != "" ]] && [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && [[ "$(is_option_in_build_options build_a_blue_workshop)" == "${FALSE}" ]]
 then 
     pip3 install --prefix=/usr $(for pkg in $pip_pkgs; do printf '%s ' $pkg; done)
 fi
@@ -92,5 +92,20 @@ chmod a+x /usr/bin/fzf-git
 curl -Lo "/tmp/install_starship.sh" "${STARSHIP_URL}"
 sh "/tmp/install_starship.sh" -y -b "/usr/bin/"
 rm "/tmp/install_starship.sh"
+
+
+# n8n install for build-a-blue
+if [[ "$(is_option_in_build_options build_a_blue_workshop)" == "${TRUE}" ]]
+then
+    # The horror! npm won't run because /root is a dangling symlink.
+    # So, we perform the ancient ritual of de-dangling, perform the npm wango-tango, and then re-dangle for good luck.
+    unlink /root
+    mkdir -p /root
+    mkdir -p /usr/libexec/immutablue/node
+    npm install --global --prefix /usr/libexec/immutablue/node n8n
+    ln -s /usr/libexec/immutablue/node/bin/n8n /usr/bin/n8n
+    rm -rf /root 
+    ln -s var/roothome /root
+fi
 
 

@@ -163,6 +163,15 @@ endif
 
 
 
+# A special edition so divine, it's been ordained by the Blue Council.
+ifeq ($(BUILD_A_BLUE_WORKSHOP),1)
+	BASE_IMAGE := quay.io/fedora/fedora-bootc
+	TAG := $(TAG)-build-a-blue-workshop
+	BUILD_OPTIONS := build_a_blue_workshop
+endif
+
+
+
 FULL_TAG := $(IMAGE):$(TAG)
 
 .PHONY: list all all_upgrade install update upgrade install_or_update reboot \
