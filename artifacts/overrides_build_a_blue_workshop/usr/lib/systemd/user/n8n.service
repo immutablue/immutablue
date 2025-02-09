@@ -1,0 +1,12 @@
+[Unit]
+Description=n8n.io service (immutablue)
+
+[Service]
+Type=simple
+StandardOutput=journal
+ExecStart=/usr/bin/n8n
+
+[Install]
+WantedBy=defalt.target
+
+
