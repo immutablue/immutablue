@@ -3,6 +3,8 @@ _default:
     just --list
 
 
+alias c := choose
+# interactive option to choose
 choose:
     just --choose
 
