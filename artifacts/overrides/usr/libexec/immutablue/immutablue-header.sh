@@ -37,67 +37,75 @@ immutablue_get_image_base() {
     immutablue_get_image_full | awk -F: '{printf "%s\n", $1 }'
 }
 
-immutablue_build_is_kionite() {
-    if [[ "$(immutablue_get_image_tag)" =~ kionite ]] 
-    then 
-        echo ${TRUE}
-    else
-        echo ${FALSE}
-    fi
+
+get_immutablue_build_options() {
+    IFS=',' read -ra entry_array < "/usr/immutablue/build_options"
+    for entry in "${entry_array[@]}"
+    do
+        echo -e "${entry}"
+    done 
+}
+
+immutablue_is_option_in_build_options() {
+    local option="$1"
+    IFS=',' read -ra entry_array < "/usr/immutablue/build_options"
+    for entry in "${entry_array[@]}"
+    do
+        if [[ "${option}" == "${entry}" ]]
+        then 
+            echo "${TRUE}"
+            return 0
+        fi
+    done 
+    echo "${FALSE}"
+}
+
+immutablue_build_is_gui() {
+    immutablue_is_option_in_build_options gui
+}
+
+immutablue_build_is_silverblue() {
+    immutablue_is_option_in_build_options silverblue
+}
+
+immutablue_build_is_kinoite() {
+    immutablue_is_option_in_build_options kionite
+}
+
+immutablue_build_is_vauxite() {
+    immutablue_is_option_in_build_options vauxite
+}
+
+immutablue_build_is_lazurite() {
+    immutablue_is_option_in_build_options lazurite
 }
 
 immutablue_build_is_nucleus() {
-    if [[ "$(immutablue_get_image_tag)" =~ nucleus ]] 
-    then 
-        echo ${TRUE}
-    else
-        echo ${FALSE}
-    fi
+    immutablue_is_option_in_build_options nucleus
 }
 
 immutablue_build_is_kuberblue() {
-    if [[ "$(immutablue_get_image_tag)" =~ kuberblue ]] 
-    then 
-        echo ${TRUE}
-    else
-        echo ${FALSE}
-    fi
+    immutablue_is_option_in_build_options kuberblue
 }
 
 immutablue_build_is_trueblue() {
-    if [[ "$(immutablue_get_image_tag)" =~ trueblue ]] 
-    then 
-        echo ${TRUE}
-    else
-        echo ${FALSE}
-    fi
+    immutablue_is_option_in_build_options trueblue
 }
 
 immutablue_build_is_lts() {
-    if [[ "$(immutablue_get_image_tag)" =~ lts ]] 
-    then 
-        echo ${TRUE}
-    else
-        echo ${FALSE}
-    fi
+    immutablue_is_option_in_build_options lts
+}
+
+immutablue_build_is_zfs() {
+    immutablue_is_option_in_build_options zfs
 }
 
 immutablue_build_is_cyan() {
-    if [[ "$(immutablue_get_image_tag)" =~ cyan ]] 
-    then 
-        echo ${TRUE}
-    else
-        echo ${FALSE}
-    fi
+    immutablue_is_option_in_build_options cyan
 }
 
 immutablue_build_is_asahi() {
-    if [[ "$(immutablue_get_image_tag)" =~ asahi ]] 
-    then 
-        echo ${TRUE}
-    else
-        echo ${FALSE}
-    fi
+    immutablue_is_option_in_build_options asahi
 }
 
 
