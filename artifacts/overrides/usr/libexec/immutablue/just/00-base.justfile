@@ -119,3 +119,34 @@ clean_system:
     flatpak uninstall --unused
     rpm-ostree cleanup -bm
 
+
+# toggle firewall (useful for testing connection issues)
+toggle_firewall:
+    #!/usr/bin/bash 
+    set -euo pipefail 
+
+    if [[ "$(firewall-cmd --state 2>&1)" == "running" ]]
+    then 
+        sudo systemctl stop firewalld.service
+        echo "stopped"
+    else
+        sudo systemctl start firewalld.service
+        echo "started"
+    fi
+
+# disable tailscale (enabled by default)
+disable_tailscale:
+    sudo systemctl disable --now tailscaled.service
+
+# enable tailscale (enabled by default)
+enable_tailscale:
+    sudo systemctl enable --now tailscaled.service
+
+# disable syncthing (enabled by default)
+disable_syncthing:
+    sudo systemctl --global disable --now syncthing.service
+
+# enable syncthing (enabled by default)
+enable_syncthing:
+    sudo systemctl --global enable --now syncthing.service
+
