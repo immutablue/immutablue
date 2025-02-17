@@ -4,11 +4,11 @@ INSTALL_DIR=/usr/libexec/immutablue/just
 cd ${INSTALL_DIR} || exit 1
 
 # exec just directly
-if [[ "$(type just 2>/dev/null >/dev/null)" -eq 0 ]]
+if [[ "$(type just &>/dev/null)" -eq 0 ]]
 then
     exec just "${@}"
 else
-    echo "just is somehow now present in \$PATH"
+    echo "just is somehow not present in \$PATH"
     exit 1
 fi
 

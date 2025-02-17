@@ -42,7 +42,7 @@ then
 fi
 
 # Check for brew since it is not on non-x86_64 systems
-type brew 2>/dev/null >/dev/null
+type brew &>/dev/null
 if [[ $? -eq 0 ]] && [[ "$(immutablue-settings .immutablue.run_brew_update)" == "true" ]]
 then
     brew update || error_info "brew update" $?

@@ -32,7 +32,7 @@ then
     fi
 
     # starship prompt by default
-    type starship 2>/dev/null >/dev/null
+    type starship &>/dev/null
     if [[ $? -eq 0 ]]
     then
         if [[ "$(immutablue-settings .immutablue.profile.enable_starship)" == "true" ]]

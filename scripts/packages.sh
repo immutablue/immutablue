@@ -12,7 +12,7 @@ source ./scripts/common.sh
 
 
 post_install_notes() {
-    type brew 2>/dev/null >/dev/null
+    type brew &>/dev/null
     if [ $? -ne 0 ]
     then 
         echo -e "brew is not part of your path. Add the following to your .bashrc"
@@ -37,7 +37,7 @@ dbox_install_single() {
     [ $# -ne 2 ] && echo "$0 <packages.yaml> <index>" && exit 1
 
     # First things firt, we need to `ln` in yq since we use it...
-    type yq 2>/dev/null 
+    type yq &>/dev/null
     if [ 0 -ne $? ]
     then 
         sudo ln -s /usr/bin/distrobox-host-exec /usr/local/bin/yq
@@ -71,19 +71,19 @@ dbox_install_single() {
     sudo $pkg_inst_cmd $(for pkg in $packages; do printf ' %s' $pkg; done)
 
 
-    type npm 2>/dev/null
+    type npm &>/dev/null
     if [ 0 -eq $? ]
     then 
         [ "" != "$npm_packages" ] && sudo npm i -g $(for pkg in $npm_packages; do printf ' %s' $pkg; done)
     fi 
     
-    type pip3 2>/dev/null
+    type pip3 &>/dev/null
     if [ 0 -eq $? ]
     then 
         [ "" != "$pip_packages" ] && sudo pip3 install $(for pkg in $pip_packages; do printf ' %s' $pkg; done)
     fi 
 
-    type cargo 2>/dev/null
+    type cargo &>/dev/null
     if [ 0 -eq $? ]
     then
         [ "" != "$cargo_packages" ] && sudo cargo -t default --locked install $(for cargo in $cargo_packages; do printf ' %s' $pkg; done)

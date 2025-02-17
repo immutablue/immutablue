@@ -3,7 +3,7 @@ set -euxo pipefail
 
 TAILSCALE_MODE=0
 
-type syncthing >/dev/null 2>/dev/null
+type syncthing &>/dev/null
 if [[ $? -ne 0 ]]
 then 
     echo "syncthing is not present...exiting"
@@ -11,7 +11,7 @@ then
 fi
 
 
-type tailscale >/dev/null 2>/dev/null
+type tailscale &>/dev/null
 if [[ $? -eq 0 ]]
 then 
     echo "tailscale is present, checking for backend state"

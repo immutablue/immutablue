@@ -133,7 +133,7 @@ immutablue_build_has_gnome() {
 }
 
 immutablue_build_has_working_tailscale() {
-    type tailscale >/dev/null 2>/dev/null
+    type tailscale &>/dev/null
     if [[ $? -eq 0 ]]
     then 
         if [[ "$(tailscale status --json | jq .BackendState)" == "\"Running\"" ]]
@@ -204,21 +204,21 @@ immutablue_has_internet() {
 
 
 immutablue_get_terminal_command() {
-    type kitty 2>/dev/null >/dev/null
+    type kitty &>/dev/null
     if [[ $? -eq 0 ]] 
     then 
         echo "kitty"
         return 0
     fi
 
-    type ptyxis 2>/dev/null >/dev/null 
+    type ptyxis &>/dev/null
     if [[ $? -eq 0 ]] 
     then 
         echo "ptyxis --"
         return 0
     fi
     
-    type gnome-terminal 2>/dev/null >/dev/null 
+    type gnome-terminal &>/dev/null
     if [[ $? -eq 0 ]] 
     then 
         echo "gnome-terminal --"
