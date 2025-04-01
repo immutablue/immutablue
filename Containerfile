@@ -1,5 +1,5 @@
 ARG BASE_IMAGE=quay.io/fedora-ostree-desktops/silverblue
-ARG FEDORA_VERSION=41
+ARG FEDORA_VERSION=42
 
 FROM scratch as ctx
 COPY / /
@@ -28,7 +28,7 @@ FROM ${BASE_IMAGE}:${FEDORA_VERSION}
 
 
 ARG BASE_IMAGE=quay.io/fedora-ostree-desktops/silverblue
-ARG FEDORA_VERSION=41
+ARG FEDORA_VERSION=42
 ARG IMAGE_TAG=${FEDORA_VERSION}
 ARG INSTALL_DIR=/usr/immutablue
 ARG DO_INSTALL_AKMODS=false

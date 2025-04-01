@@ -42,7 +42,7 @@ fi
 # LTS Kernel
 if [[ "$DO_INSTALL_LTS" == "true" ]]
 then 
-    curl -Lo "/etc/yum.repos.d/kwizart-kernel-longterm-${LTS_VERSION}-fedora-41.repo" "${LTS_REPO_URL}"
+    curl -Lo "/etc/yum.repos.d/kwizart-kernel-longterm-${LTS_VERSION}-fedora-42.repo" "${LTS_REPO_URL}"
     dnf5 -y remove --setopt protect_running_kernel=false kernel{,-core,-modules,-modules-extra}
     dnf5 -y install kernel-longterm{,-core,-modules,-modules-extra,-devel}
 fi

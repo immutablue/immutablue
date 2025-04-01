@@ -4,16 +4,16 @@ immutablue:
   - name: tailscale.repo 
     url: https://pkgs.tailscale.com/stable/fedora/tailscale.repo
   - name: ublue-os-staging.repo
-    url: https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-41/ublue-os-staging-fedora-41.repo
+    url: https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-42/ublue-os-staging-fedora-42.repo
   - name: docker-ce.repo
     url: https://download.docker.com/linux/fedora/docker-ce.repo
   - name: ghostty.repo 
-    url: https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-41/pgdev-ghostty-fedora-41.repo
+    url: https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-42/pgdev-ghostty-fedora-42.repo
 
   repo_urls_x86_64:
   # Currently podman-bootc only support x86_64
   - name: podman-bootc.repo 
-    url: https://copr.fedorainfracloud.org/coprs/gmaglione/podman-bootc/repo/fedora-41/gmaglione-podman-bootc-fedora-41.repo
+    url: https://copr.fedorainfracloud.org/coprs/gmaglione/podman-bootc/repo/fedora-42/gmaglione-podman-bootc-fedora-42.repo
 
 
   # RPM Packages to be installed
@@ -22,7 +22,7 @@ immutablue:
   - cmake
   - dialog
   - distrobox
-  - docker-ce
+  # - docker-ce
   - fuse-sshfs
   - fzf 
   - gcc
@@ -104,8 +104,8 @@ immutablue:
  
   # Urls to RPMs to download (they are curled)
   rpm_url:
-  - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-41.noarch.rpm
-  - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-41.noarch.rpm
+  - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-42.noarch.rpm
+  - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-42.noarch.rpm
 
   
   
@@ -177,8 +177,8 @@ immutablue:
   # pip packages to install 
   # not ran on nucleus builds
   pip_packages:
-  - pulsemixer
-  - yafti
+  # - pulsemixer
+  # - yafti
 
   # Services 
   services_enable_sys:
@@ -193,7 +193,7 @@ immutablue:
   # - immutablue-docs.container
   - sshd.service
   - tailscaled.service
-  - docker.service
+  # - docker.service
 
   services_enable_sys_gui:
   - xrdp.service
@@ -222,7 +222,7 @@ immutablue:
 
 distrobox:
 - name: util
-  image: quay.io/immutablue/dbox-fedora:41
+  image: quay.io/immutablue/dbox-fedora:42
   root: false 
   additional_flags_x86_64: 
   - -v /var/home/linuxbrew:/var/home/linuxbrew
@@ -250,7 +250,7 @@ distrobox:
   - git
       
 - name: dev
-  image: quay.io/immutablue/dbox-fedora:41
+  image: quay.io/immutablue/dbox-fedora:42
   root: false 
   additional_flags_x86_64: 
   - -v /var/home/linuxbrew:/var/home/linuxbrew
