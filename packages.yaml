@@ -22,7 +22,7 @@ immutablue:
   - cmake
   - dialog
   - distrobox
-  # - docker-ce
+  - docker-ce
   - fuse-sshfs
   - fzf 
   - gcc
