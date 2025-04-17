@@ -57,7 +57,6 @@ immutablue:
 
   rpm_silverblue:
   - nautilus-open-any-terminal
-  - ptyxis
 
   rpm_silverblue_aarch64:
 
