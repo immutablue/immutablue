@@ -1,73 +1,67 @@
 +++
-date = '2025-02-01T20:45:41-05:00'
+date = '2025-04-18T17:45:00-05:00'
 draft = false
-title = 'Build'
+title = 'Build Reference'
 +++
 
-# Building Immutablue
+# Immutablue Build Reference
 
-Immutablue is built in multiple stages (see [architecture](/pages/architecture/#build-process)). Classically there existed mid-stream immutablue-custom builds that added simple things like nvidia, or apple-silicon support but these have since been merged into the upstream repo so its easier to build these.
+This page provides technical reference information about the build system, build options, and the package configuration mechanism. For a more comprehensive guide on customizing builds, see the [Build Customization](build-customization.md) page.
 
-The simplest way to build Immutablue is the following:
+## Basic Build Command
+
+The simplest way to build Immutablue is:
 ```bash
 make build
 ```
 
-## Build Options
+This will build the default variant (GNOME desktop/Silverblue) for the current architecture.
 
-Build options, simply put, is a CSV of "options" that the Immutablue build system understands. It can iterate over them and make decisions. Current build options are:
-- gui - all gui based builds (basically anything not nucleus)
-- asahi - apple silicon support
-- cyan - nvidia support
-- nucleus - barebones image, no gui (also no pip package support)
-- silverblue - uses upstream silverblue (gnome)
-- kinoite - uses upstream kinoite (kde)
+## Reading Build Options
 
-The default build option is: `gui,silverblue` which can be seen in the `Makefile`.
+### During Build Time
 
-Passing different options to the `make build` command will change the build options. For example:
-- `make CYAN=1 build` will change the build option to `gui,silverblue,cyan`
-- `make NUCLEUS=1 build` will change the build option to just `nucleus`
+During build time, you can evaluate the build options through the environment variable `${IMMUTABLUE_BUILD_OPTIONS}`.
 
-Depending on the build option, some will also change the image that is pulled from as the base (such as kinoite).
+### At Runtime
 
-By default, the system pulls from upstream Silverblue (quay.io/fedora-ostree-desktops/silverblue)
+During build, the configured build options are written to a file at `/usr/immutablue/build_options` so they can be known at runtime. To access build options at runtime, simply read this file.
 
-### Reading build options
+## Build Helper Functions
 
-During build-time you can evaluate the build options through the environment variable `${IMMUTABLUE_BUILD_OPTIONS}`
+Immutablue provides helper functions in `/usr/immutablue/build/99-common.sh` to work with build options:
 
-During build the configured build options are written to a file at `/usr/immutablue/build_options` so it can be known at runtime and not just build-time. So at runtime just read `/usr/immutablue/build_options`
+- `get_immutablue_build_options`: Returns an array of build options that can be easily consumed in a while loop without having to modify the `IFS`.
 
+- `is_option_in_build_options`: Checks if a specific build option exists in the current build. This can be used for conditional build-time configurations (as is done for the Cyan variant to include NVIDIA support).
 
-### build-time helper functions
+## packages.yaml Configuration
 
-There exist two build-time helper functions (from `/usr/immutablue/build/99-common.sh`):
-- `get_immutablue_build_options` - returns an array that can be easily consumed in a while loop (see implementation of `is_option_in_build_options`) without having to modify the `IFS`
-- `is_option_in_build_options` - checks to see if that passed argument, which should be a valid build option, exists in the build options. Can be used to build option detection at build-time to do special configs (such as we do for cyan)
+The `packages.yaml` file supports a flexible configuration system with architecture and build option specific variants.
 
+### Key Format
 
+The general format for keys in `packages.yaml` is:
+```
+<key>[_<build_option>][_<architecture>]
+```
 
-## packages.yaml and the build options
+Where:
+- `<key>` is the base key (e.g., `rpm`, `rpm_url`)
+- `<build_option>` is an optional build option (e.g., `silverblue`, `kinoite`, `cyan`)
+- `<architecture>` is an optional architecture specifier (e.g., `x86_64`, `aarch64`)
 
-Classically we supported just two types of keys in the `packages.yaml`:
+### Examples
+
 ```yaml
 immutablue: 
-  rpms:
-  rpms_aarch64:
+  rpm:                 # Base packages for all variants and architectures
+  rpm_aarch64:         # Packages only for ARM architecture
+  rpm_silverblue:      # Packages only for GNOME/Silverblue variants
+  rpm_kinoite_x86_64:  # Packages only for KDE/Kinoite variants on x86_64
 ```
-That is `<key>` and `<key>_<architecture>`.
 
-Immutablue now supports:
-```yaml
-immutablue: 
-  rpms:
-  rpms_aarch64:
-  rpms_silverblue:
-  rpms_kinoite_x86_64:
-```
-So the same as above, but also including `<key>_<build_option>` and `<key>_<build_option>_<architecture>`.
+The architecture is determined at build time using `$(uname -m)`.
 
-It is important to note that `<architecture>` is the same as running `$(uname -m)` which is how its evaluated internally at build-time.
-
+For a full guide on customizing your build, including how to add packages, repositories, and file overrides, see the [Build Customization](build-customization.md) page.
 
