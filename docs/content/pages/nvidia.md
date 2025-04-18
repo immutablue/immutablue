@@ -1,19 +1,70 @@
 +++
-date = '2025-02-01T21:26:21-05:00'
+date = '2025-04-18T18:15:00-05:00'
 draft = false
-title = 'Nvidia'
+title = 'NVIDIA Support'
 +++
 
-# Nvidia support on Immutablue
+# NVIDIA Support on Immutablue
 
-To get Nvidia support on Immutablue its a two step process:
-- rebase to any Immutablue image that has `-cyan` in it (such as quay.io/immutablue/immutablue:41-cyan) and reboot
-- run `immutablue enable_nvidia_kmod` and reboot after it is finished one last time
+Immutablue provides NVIDIA support through the "Cyan" variant. For general information about the Cyan variant, see the [Immutablue Variants](immutablue-variants.md#immutablue-cyan) page.
 
-## Validating
+## Installation
 
-You can validate that the nvidia kmod is loaded with:
+To install Immutablue with NVIDIA support, you need to:
+
+1. Rebase to the Cyan variant:
+   ```bash
+   sudo rpm-ostree rebase ostree-unverified-registry:quay.io/immutablue/immutablue-cyan:42
+   ```
+
+2. Reboot your system:
+   ```bash
+   sudo systemctl reboot
+   ```
+
+3. Activate the NVIDIA kernel module:
+   ```bash
+   immutablue enable_nvidia_kmod
+   ```
+
+4. Reboot again to load the kernel module:
+   ```bash
+   sudo systemctl reboot
+   ```
+
+## Verification
+
+You can verify that the NVIDIA kernel module is loaded correctly by running:
+
 ```bash
 lsmod | grep -i nvidia
 ```
+
+You should see several NVIDIA-related modules listed in the output.
+
+## Troubleshooting
+
+If you experience issues with NVIDIA support:
+
+1. Check if the NVIDIA kernel module is loaded:
+   ```bash
+   lsmod | grep -i nvidia
+   ```
+
+2. Check the NVIDIA driver status:
+   ```bash
+   nvidia-smi
+   ```
+
+3. If the module isn't loading, check the DKMS status:
+   ```bash
+   dkms status
+   ```
+
+4. Try rebuilding the kernel module:
+   ```bash
+   sudo dkms autoinstall
+   ```
+
+See the [Maintenance and Troubleshooting](maintenance-and-troubleshooting.md#nvidia-specific-issues) page for more detailed guidance on troubleshooting NVIDIA issues.
 

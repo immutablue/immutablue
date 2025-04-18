@@ -1,76 +1,101 @@
 +++
-date = '2025-02-02T12:34:22-05:00'
+date = '2025-04-18T18:30:00-05:00'
 draft = false
-title = 'Asahi'
+title = 'Apple Silicon Support'
 +++
 
-# Immutablue Asahi
-A special build of Immutablue that adds apple silicon support. Whatever devices (Asahi Linux)[https://asahilinux.org/fedora/#device-support] supports, we support.
+# Apple Silicon Support
 
-## Usage
-If you want to just use plain Immutablue you can use `quay.io/immutablue/immutablue:41-asahi` or `quay.io/immutablue/immutablue:41-kinoite-asahi`.
+Immutablue provides support for Apple Silicon (M1, M2, M3 series) devices through the "Asahi" variant. For general information about the Asahi variant, see the [Immutablue Variants](immutablue-variants.md#immutablue-asahi) page.
 
-If you maintain a downstream image then in your downstream images all you need to do is do:
+Immutablue Asahi supports the same devices as [Asahi Linux](https://asahilinux.org/fedora/#device-support).
+
+## Available Variants
+
+The following Asahi variants are available:
+
+- `quay.io/immutablue/immutablue:42-asahi` - GNOME desktop (Silverblue)
+- `quay.io/immutablue/immutablue:42-kinoite-asahi` - KDE desktop (Kinoite)
+
+## Building Custom Asahi Images
+
+If you maintain a downstream image and want to add Apple Silicon support, use:
+
 ```bash
-make ASAHI=1 all
+make ASAHI=1 build
 ```
-and voila, you will have an asahi build of your Immutablue image. It will be tagged with `-asahi` appended to the end of the tag name.
 
-It is **HIGHLY** recommended you build this with Apple Silicon hardware as to not break anything. It seems from my own testing that if this is built from Hetzner Arm64 VPS instances for whatever reason that it soft-bricks your install.
+This will produce an Asahi build of your Immutablue image with `-asahi` appended to the tag name.
 
-## Bootstrapping
-As of right now, as far as I know from my testing, you **must** bootstrap your Asahi Immutablue install with regular Fedora Asahi Remix (or I guess any other Asahi flavor). I have not tested or tried building an ISO file to boot, with the requirement of the `linux-16k` kernel having the drivers I highly doubt it will work.
+**Important**: It is strongly recommended to build Asahi images on Apple Silicon hardware. Building from non-Apple ARM64 servers (like Hetzner ARM64 VPS) may cause issues with the resulting image.
+
+## Installation
 
 ### Bootstrapping Process
-- Install asahi linux with `curl https://alx.sh | sh` from macos (I did Gnome)
-- After booting into asahi for the first time do a full update:
-  - `sudo dnf update -y && sudo reboot`
-- Now we need to bootstrap with an ostree repo, then use that to `rpm-ostree rebase` on top of. Follow these instructions exactly or you will need to restart from scratch.
-  - **NOTE**: The following is a relatively destructive operation. Your system will be "reset" in terms of configs, but your home *should* be preserved. Regardless be responsible and have a backup before doing this. I warned you and take no responsibility.
-```bash 
-sudo su -
-dnf -y install ostree ostree-grub2 rpm-ostree
 
-# Move boot loader stuff (honestly much just be able to be deleted)
-mv /boot/loader /boot/loader.pre_sb.bak
-mv /boot/grub2/grub.cfg /boot/grub2/grub.cfg.pre_sb.bak
-cp /boot/efi/EFI/fedora/grub.cfg /boot/efi/EFI/fedora/grub.cfg.pre_sb.bak
+Currently, you must bootstrap an Immutablue Asahi installation from an existing Fedora Asahi Remix installation. Direct ISO installation is not supported due to the requirements of the Linux 16K kernel and specific Apple hardware drivers.
 
-# ostree init
-ostree admin init-fs /
+1. **Install Asahi Linux from macOS**:
+   ```bash
+   curl https://alx.sh | sh
+   ```
+   Choose the Fedora Asahi Remix GNOME option during installation.
 
-ostree remote add fedora https://ostree.fedoraproject.org --set=contenturl=mirrorlist=https://ostree.fedoraproject.org/mirrorlist --no-gpg-verify
+2. **After booting into Fedora Asahi Remix**:
+   - Update the system and reboot:
+     ```bash
+     sudo dnf update -y && sudo reboot
+     ```
 
-ostree --repo=/ostree/repo pull fedora:fedora/40/aarch64/silverblue
+3. **Prepare for Immutablue**:
+   - Install required packages:
+     ```bash
+     sudo su -
+     dnf -y install ostree ostree-grub2 rpm-ostree
+     ```
 
-ostree admin os-init fedora
+   - Backup boot loader files:
+     ```bash
+     mv /boot/loader /boot/loader.pre_sb.bak
+     mv /boot/grub2/grub.cfg /boot/grub2/grub.cfg.pre_sb.bak
+     cp /boot/efi/EFI/fedora/grub.cfg /boot/efi/EFI/fedora/grub.cfg.pre_sb.bak
+     ```
 
-# use a base fedora silverblue to get things started
-ostree admin deploy --os=fedora --karg-proc-cmdline fedora:fedora/40/aarch64/silverblue
+   - Initialize ostree:
+     ```bash
+     ostree admin init-fs /
+     ostree remote add fedora https://ostree.fedoraproject.org --set=contenturl=mirrorlist=https://ostree.fedoraproject.org/mirrorlist --no-gpg-verify
+     ostree --repo=/ostree/repo pull fedora:fedora/42/aarch64/silverblue
+     ostree admin os-init fedora
+     ostree admin deploy --os=fedora --karg-proc-cmdline fedora:fedora/42/aarch64/silverblue
+     ```
 
-# Find the first id (so we know not to use it)
-# Make note of this as its for the above Fedora id
-ls -l /ostree/deploy/fedora/deploy
+   - Find the deployment ID:
+     ```bash
+     ls -l /ostree/deploy/fedora/deploy
+     ```
 
-# Now we rebase to an immutablue-asahi build (such as hyacinth-macaw) 
-# This gives us a second id
-rpm-ostree rebase --os=fedora --sysroot=/ --experimental ostree-unverified-registry:registry.gitlab.com/immutablue/hyacinth-macaw:40-asahi
+   - Rebase to Immutablue Asahi:
+     ```bash
+     rpm-ostree rebase --os=fedora --sysroot=/ --experimental ostree-unverified-registry:quay.io/immutablue/immutablue:42-asahi
+     ```
 
-# Note cf7f7a6e62c5353223d16c9d6fab0c9e0191c2c6848f6fcf7773180d0152d18d.0 is the checksum of the deployment in this case for my hyacinth-macaw
-for i in /etc/fstab /etc/default/grub /etc/locale.conf ; do cp "$i" /ostree/deploy/fedora/deploy/cf7f7a6e62c5353223d16c9d6fab0c9e0191c2c6848f6fcf7773180d0152d18d.0/$i; done
+   - Copy essential configuration files (replace the checksum with your actual deployment ID):
+     ```bash
+     DEPLOY_ID=$(ls -1 /ostree/deploy/fedora/deploy/ | grep -v ^$(ls -1 /ostree/deploy/fedora/deploy/ | head -1)$ | head -1)
+     for i in /etc/fstab /etc/default/grub /etc/locale.conf ; do cp "$i" /ostree/deploy/fedora/deploy/${DEPLOY_ID}/$i; done
+     echo 'L /var/home - - - - ../sysroot/home' > /ostree/deploy/fedora/deploy/${DEPLOY_ID}/etc/tmpfiles.d/00rpm-ostree.conf
+     ```
 
-# Add in your home dir
-echo 'L /var/home - - - - ../sysroot/home' > /ostree/deploy/fedora/deploy/cf7f7a6e62c5353223d16c9d6fab0c9e0191c2c6848f6fcf7773180d0152d18d.0/etc/tmpfiles.d/00rpm-ostree.conf
+4. **Reboot**:
+   ```bash
+   systemctl reboot
+   ```
 
-```
-- And then reboot and hope it works. If it doesn't -- you didn't follow this exactly and will have to start over (likely) with a fresh Asahi install from macos.
-- Enjoy
+### Recovery
 
-#### What about bootc?
-In theory it may be possible with bootc to install Immutablue Asahi to disk, however this is untested. Proceed at your own risk. If it does work for you, feel free to open up a pull request to update this doc with what you did.
+If you need to reset and reinstall Asahi from macOS, validate your partitions first, then run:
 
-#### You need to reset and reinstall asahi from macos:
-Validate your partitions -- **DO NOT BLINDLY COPY AND PASTE BELOW COMMANDS**
 ```bash
 diskutil apfs deleteContainer disk0s3
 diskutil eraseVolume free free disk0s4
@@ -79,19 +104,43 @@ diskutil eraseVolume free free disk0s6
 curl https://alx.sh | sh
 ```
 
-## Post Install 
+**Warning**: Do not blindly copy and paste these commands. Make sure you understand what they do and that they apply to your system's partition layout.
 
-### Use full display 
-By default the notch part of the display is not used. If you would like to use this you can do that with the following:
+## Post-Install Configuration
+
+### Display Notch Support
+
+By default, the notch area of the display is not used. 
+
+To use the full display including the notch area:
 ```bash
 immutablue asahi_enable_notch_render
+sudo systemctl reboot
 ```
-After doing so reboot, and the full screen (including notched part) should be used.
 
-#### Disable
-Run the following
+To disable full display rendering and hide the notch area:
 ```bash
 immutablue asahi_disable_notch_render
+sudo systemctl reboot
 ```
+
+### Hardware Support
+
+Immutablue Asahi includes support for:
+- GPU acceleration
+- Wi-Fi
+- Bluetooth
+- USB ports
+- Display
+- Keyboard and trackpad
+- Speakers and microphone
+
+Some features like the Touch Bar on MacBook Pro models may have limited functionality.
+
+## Troubleshooting
+
+If you encounter issues with your Asahi installation, see the [Maintenance and Troubleshooting](maintenance-and-troubleshooting.md) page for general troubleshooting advice.
+
+For Apple Silicon specific issues, the [Asahi Linux Community](https://asahilinux.org/community/) is a valuable resource.
 
 
