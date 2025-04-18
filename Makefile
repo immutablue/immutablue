@@ -177,14 +177,14 @@ FULL_TAG := $(IMAGE):$(TAG)
 .PHONY: list all all_upgrade install update upgrade install_or_update reboot \
 	build push iso upgrade rebase clean \
 	install_distrobox install_flatpak install_brew \
-	post_install_notes
+	post_install_notes test test_container test_container_qemu test_artifacts
 
 
 list:
 	@LC_ALL=C $(MAKE) -pRrq -f $(firstword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/(^|\n)# Files(\n|$$)/,/(^|\n)# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | grep -E -v -e '^[^[:alnum:]]' -e '^$@$$'
 
 
-all: build push
+all: build test push
 all_upgrade: all update
 
 ifeq ($(REBOOT),1)
@@ -338,3 +338,22 @@ post_install:
 
 post_install_notes:
 	bash -x -c 'source ./scripts/packages.sh && post_install_notes'
+
+test: test_container test_container_qemu test_artifacts
+
+test_container:
+	chmod +x ./tests/test_container.sh
+	./tests/test_container.sh $(IMAGE):$(TAG)
+
+test_container_qemu:
+	chmod +x ./tests/test_container_qemu.sh
+	./tests/test_container_qemu.sh $(IMAGE):$(TAG)
+	
+test_artifacts:
+	chmod +x ./tests/test_artifacts.sh
+	./tests/test_artifacts.sh $(IMAGE):$(TAG)
+	
+# Run all tests with a single command
+run_all_tests:
+	chmod +x ./tests/run_tests.sh
+	./tests/run_tests.sh $(IMAGE):$(TAG)
