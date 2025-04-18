@@ -27,6 +27,7 @@ immutablue:
   - fzf 
   - gcc
   - git
+  - ibus-speech-to-text
   - just
   - libvirt
   - lm_sensors
