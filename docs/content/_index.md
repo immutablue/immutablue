@@ -26,25 +26,25 @@ Immutablue is designed to provide a stable, immutable base OS with flexible appl
 
 ## Getting Started
 
-- [Installation Guide](/pages/install.md) - How to install Immutablue
-- [Architecture](/pages/architecture.md) - Understand the Immutablue architecture
-- [Package Management](/pages/package-management.md) - How to manage software
-- [Maintenance and Troubleshooting](/pages/maintenance-and-troubleshooting.md) - Keep your system running smoothly
+- [Installation Guide](/pages/install/) - How to install Immutablue
+- [Architecture](/pages/architecture/) - Understand the Immutablue architecture
+- [Package Management](/pages/package-management/) - How to manage software
+- [Maintenance and Troubleshooting](/pages/maintenance-and-troubleshooting/) - Keep your system running smoothly
 
 ## Customization
 
-- [Component Architecture](/pages/component-architecture.md) - Understanding the components of Immutablue
-- [Build Customization](/pages/build-customization.md) - Create your own Immutablue variant
-- [Immutablue Variants](/pages/immutablue-variants.md) - Different flavors of Immutablue
-- [Settings YAML](/pages/settings-yaml.md) - Configure your Immutablue system
+- [Component Architecture](/pages/component-architecture/) - Understanding the components of Immutablue
+- [Build Customization](/pages/build-customization/) - Create your own Immutablue variant
+- [Immutablue Variants](/pages/immutablue-variants/) - Different flavors of Immutablue
+- [Settings YAML](/pages/settings-yaml/) - Configure your Immutablue system
 
 ## Additional Documentation
 
-- [Update Guide](/pages/update.md) - How to update your Immutablue system
-- [Justfiles and the Immutablue Command](/pages/justfiles-and-the-immutablue-command.md) - Using the Immutablue command-line tools
-- [NVIDIA Support](/pages/nvidia.md) - Using Immutablue with NVIDIA graphics
-- [Apple Silicon Support](/pages/asahi.md) - Using Immutablue on Apple M1/M2/M3 Macs
-- [Testing](/pages/testing.md) - How Immutablue is tested
+- [Update Guide](/pages/update/) - How to update your Immutablue system
+- [Justfiles and the Immutablue Command](/pages/justfiles-and-the-immutablue-command/) - Using the Immutablue command-line tools
+- [NVIDIA Support](/pages/nvidia/) - Using Immutablue with NVIDIA graphics
+- [Apple Silicon Support](/pages/asahi/) - Using Immutablue on Apple M1/M2/M3 Macs
+- [Testing](/pages/testing/) - How Immutablue is tested
 
 ---
 

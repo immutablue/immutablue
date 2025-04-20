@@ -6,7 +6,7 @@ title = 'Build Reference'
 
 # Immutablue Build Reference
 
-This page provides technical reference information about the build system, build options, and the package configuration mechanism. For a more comprehensive guide on customizing builds, see the [Build Customization](build-customization.md) page.
+This page provides technical reference information about the build system, build options, and the package configuration mechanism. For a more comprehensive guide on customizing builds, see the [Build Customization](/pages/build-customization) page.
 
 ## Basic Build Command
 
@@ -63,5 +63,5 @@ immutablue:
 
 The architecture is determined at build time using `$(uname -m)`.
 
-For a full guide on customizing your build, including how to add packages, repositories, and file overrides, see the [Build Customization](build-customization.md) page.
+For a full guide on customizing your build, including how to add packages, repositories, and file overrides, see the [Build Customization](/pages/build-customization) page.
 

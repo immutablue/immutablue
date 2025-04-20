@@ -6,7 +6,7 @@ title = 'NVIDIA Support'
 
 # NVIDIA Support on Immutablue
 
-Immutablue provides NVIDIA support through the "Cyan" variant. For general information about the Cyan variant, see the [Immutablue Variants](immutablue-variants.md#immutablue-cyan) page.
+Immutablue provides NVIDIA support through the "Cyan" variant. For general information about the Cyan variant, see the [Immutablue Variants](/pages/immutablue-variants#immutablue-cyan) page.
 
 ## Installation
 
@@ -66,5 +66,5 @@ If you experience issues with NVIDIA support:
    sudo dkms autoinstall
    ```
 
-See the [Maintenance and Troubleshooting](maintenance-and-troubleshooting.md#nvidia-specific-issues) page for more detailed guidance on troubleshooting NVIDIA issues.
+See the [Maintenance and Troubleshooting](/pages/maintenance-and-troubleshooting#nvidia-specific-issues) page for more detailed guidance on troubleshooting NVIDIA issues.
 

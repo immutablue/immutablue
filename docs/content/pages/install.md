@@ -7,7 +7,7 @@ title = 'Installation Guide'
 
 # Installing Immutablue
 
-Currently (as of Jan 6th 2024) the built ISOs have a bug and fails to install. To work around this: 
+Currently (as of Apr 20th 2025) the built ISOs have a bug and fails to install. To work around this: 
 - Download the latest
 [Silverblue iso here](https://download.fedoraproject.org/pub/fedora/linux/releases/41/Silverblue/x86_64/iso/Fedora-Silverblue-ostree-x86_64-41-1.4.iso)
 - dd to a flash drive (`dd if=/path/to/iso of=/dev/flashdrivedevice bs=1M && sync`) or boot in a VM and run through the install.

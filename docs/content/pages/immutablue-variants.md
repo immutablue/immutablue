@@ -237,4 +237,4 @@ To create your own variant of Immutablue, follow these steps:
 4. Build the image with your desired options using `make build`
 5. Test and refine your custom image
 
-See the [Build Customization](build-customization.md) documentation for more details on customizing your Immutablue variant.
+See the [Build Customization](/pages/build-customization) documentation for more details on customizing your Immutablue variant.

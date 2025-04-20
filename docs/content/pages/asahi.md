@@ -6,7 +6,7 @@ title = 'Apple Silicon Support'
 
 # Apple Silicon Support
 
-Immutablue provides support for Apple Silicon (M1, M2, M3 series) devices through the "Asahi" variant. For general information about the Asahi variant, see the [Immutablue Variants](immutablue-variants.md#immutablue-asahi) page.
+Immutablue provides support for Apple Silicon (M1, M2, M3 series) devices through the "Asahi" variant. For general information about the Asahi variant, see the [Immutablue Variants](/pages/immutablue-variants#immutablue-asahi) page.
 
 Immutablue Asahi supports the same devices as [Asahi Linux](https://asahilinux.org/fedora/#device-support).
 
@@ -139,7 +139,7 @@ Some features like the Touch Bar on MacBook Pro models may have limited function
 
 ## Troubleshooting
 
-If you encounter issues with your Asahi installation, see the [Maintenance and Troubleshooting](maintenance-and-troubleshooting.md) page for general troubleshooting advice.
+If you encounter issues with your Asahi installation, see the [Maintenance and Troubleshooting](/pages/maintenance-and-troubleshooting) page for general troubleshooting advice.
 
 For Apple Silicon specific issues, the [Asahi Linux Community](https://asahilinux.org/community/) is a valuable resource.
 

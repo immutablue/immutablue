@@ -8,7 +8,7 @@ title = 'System Architecture'
 
 Immutablue is an immutable operating system that is built utilizing a cloud-native container methodology. As such, one of the core principles of the Immutablue Project is re-use / inheritance.
 
-This page provides an overview of the high-level architecture and build process of Immutablue. For details about the component architecture and internal workings, see the [Component Architecture](component-architecture.md) page.
+This page provides an overview of the high-level architecture and build process of Immutablue. For details about the component architecture and internal workings, see the [Component Architecture](/pages/component-architecture) page.
 
 ## Container-based Inheritance Model
 
@@ -21,7 +21,7 @@ A core concept of containers is doing `FROM <image>` and then making customizati
 
 All of the intermediate images are perfectly capable of being ran by themselves as a full-featured Immutablue release. However, the idea is that you can base a downstream image off of these images. We take responsibility of doing the hard part of adding Apple-Silicon support, or prebaking in the Nvidia kmod so you don't have to. You can get them "for free".
 
-For more details about the different variants and their use cases, see the [Immutablue Variants](immutablue-variants.md) page.
+For more details about the different variants and their use cases, see the [Immutablue Variants](/pages/immutablue-variants) page.
 
 ### Downstream (Custom) Images 
 
@@ -31,7 +31,7 @@ All of the mentioned intermediate images are "custom-images." The cool thing is,
 
 Immutablue is built with buildah which builds an OCI compliant container and pushes this to `quay.io`. The container is built in a 2-stage process where a dep-builder container is used to build any binaries we may need, then the real Immutablue container is built.
 
-The build process is described in more detail in the [Build Customization](build-customization.md) page, but here's a high-level overview of the build stages.
+The build process is described in more detail in the [Build Customization](/pages/build-customization) page, but here's a high-level overview of the build stages.
 
 The Immutablue container uses a sub-stage approach consisting of 8 sub-stages:
 - `00-pre`: Early build preparation
@@ -65,5 +65,5 @@ Quadlets however **cannot** be enabled in `packages.yaml`, rather, we can add th
 
 ## First Boot and Initialization Process
 
-For details about the system initialization, first boot process, and service management, see the [Component Architecture](component-architecture.md#system-initialization) page.
+For details about the system initialization, first boot process, and service management, see the [Component Architecture](/pages/component-architecture#system-initialization) page.
 

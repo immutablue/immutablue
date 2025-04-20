@@ -6,7 +6,7 @@ title = 'Settings YAML Reference'
 
 # Settings YAML Reference
 
-The Immutablue settings system is described in the [Component Architecture](component-architecture.md#settings-system) page. This page provides more detailed reference information about the settings system and examples of common settings.
+The Immutablue settings system is described in the [Component Architecture](/pages/component-architecture#settings-system) page. This page provides more detailed reference information about the settings system and examples of common settings.
 
 ## Hierarchical Settings Files
 
