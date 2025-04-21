@@ -26,11 +26,37 @@ SUCCESS_COUNT=0
 FAIL_COUNT=0
 SKIP_COUNT=0
 
-# Check if we're running in fix mode
-if [[ "$1" == "--fix" ]]; then
-    FIX_MODE=true
-    echo "Running in fix mode (auto-fixes will be attempted)"
-fi
+# Process command line arguments
+REPORT_ONLY=false
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --fix)
+            FIX_MODE=true
+            echo "Running in fix mode (auto-fixes will be attempted)"
+            shift
+            ;;
+        --report-only)
+            REPORT_ONLY=true
+            echo "Running in report-only mode (will not fail even if issues are found)"
+            shift
+            ;;
+        --help|-h)
+            echo "Usage: $0 [--fix] [--report-only]"
+            echo ""
+            echo "Options:"
+            echo "  --fix          Attempt to automatically fix some shell script issues"
+            echo "  --report-only  Report issues but always exit with success (for CI integration)"
+            echo "  --help         Show this help message"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
 
 # Configure ShellCheck options
 # --shell=bash: Specify bash as the shell dialect
@@ -93,7 +119,7 @@ find_shell_scripts() {
     # Find files with bash shebang but no .sh extension
     while IFS= read -r -d '' file; do
         # Check for bash shebang
-        if head -n1 "$file" | grep -q "^#\!/bin/\(ba\)\?sh"; then
+        if head -n1 "$file" | grep -q "^#!/bin/\(ba\)\?sh"; then
             # Don't duplicate .sh files
             if [[ "${file}" != *".sh" ]]; then
                 all_scripts+=("$file")
@@ -177,6 +203,13 @@ main() {
         echo
         echo "To automatically fix some issues, run this test with --fix:"
         echo "  ./test_shellcheck.sh --fix"
+        
+        # If in report-only mode, always return success
+        if [[ "$REPORT_ONLY" == true ]]; then
+            echo
+            echo "Running in report-only mode, exiting with success despite failures"
+            EXIT_CODE=0
+        fi
     else
         echo "✅ ALL CHECKS PASSED"
     fi

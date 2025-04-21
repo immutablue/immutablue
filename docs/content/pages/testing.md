@@ -45,9 +45,6 @@ make test_artifacts
 
 # Run only ShellCheck tests
 make test_shellcheck
-
-# Run only shell linting with ShellCheck
-make lint_shell
 ```
 
 ### Running Tests with Alternative Container Images
@@ -147,14 +144,20 @@ The ShellCheck test script:
 
 #### Auto-Fix Mode
 
-The ShellCheck tests include an experimental auto-fix capability for some common issues:
+The ShellCheck tests include several useful modes:
 
 ```bash
+# Run ShellCheck tests normally
+./tests/test_shellcheck.sh
+
 # Run ShellCheck tests with auto-fix attempts
 ./tests/test_shellcheck.sh --fix
+
+# Run ShellCheck tests in report-only mode (always exits with success)
+./tests/test_shellcheck.sh --report-only
 ```
 
-In this mode, the script:
+The `--fix` mode enables automatic fixing:
 1. Identifies issues in a shell script
 2. Generates a diff of the suggested fixes
 3. Applies the fixes using patch
@@ -165,6 +168,11 @@ This feature can automatically handle many common issues like:
 - Quoting variables
 - Removing unnecessary cat usage
 - Fixing common command substitution issues
+
+The `--report-only` mode is useful for CI/CD integration:
+1. Runs all checks and reports issues
+2. Always exits with success (0) even if issues are found
+3. Allows gradual adoption of ShellCheck without breaking existing builds
 
 #### ShellCheck Configuration
 

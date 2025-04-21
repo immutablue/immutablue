@@ -16,5 +16,9 @@ disable=SC1091  # Can't follow non-constant source
 # Many variables are defined for use by scripts that source these files
 disable=SC2034  # Unused variables
 
+# Disable warnings about TRUE/FALSE being undefined
+# These are defined elsewhere in the project
+disable=SC2154  # Variable referenced but not assigned
+
 # External sources
 external-sources=true

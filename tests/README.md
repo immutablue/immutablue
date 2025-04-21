@@ -40,11 +40,12 @@ make test_container_qemu
 make test_artifacts
 make test_shellcheck
 
-# Run just the shell script linting
-make lint_shell
 
 # Run the shell script linting with auto-fix attempts
 ./tests/test_shellcheck.sh --fix
+
+# Run the shell script linting in report-only mode (always exits with success)
+./tests/test_shellcheck.sh --report-only
 
 # Run the full test suite with detailed output
 make run_all_tests
