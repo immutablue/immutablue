@@ -45,7 +45,7 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [--fix] [--report-only]"
             echo ""
             echo "Options:"
-            echo "  --fix          Display detailed information about issues that need manual fixes"
+            echo "  --fix          Display detailed information about issues that need manual fixes (experimental)"
             echo "  --report-only  Report issues but always exit with success (for CI integration)"
             echo "  --help         Show this help message"
             exit 0
