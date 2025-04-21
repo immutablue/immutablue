@@ -41,7 +41,7 @@ make test_artifacts
 make test_shellcheck
 
 
-# Run the shell script linting with auto-fix attempts
+# Run the shell script linting with detailed diagnostics
 ./tests/test_shellcheck.sh --fix
 
 # Run the shell script linting in report-only mode (always exits with success)

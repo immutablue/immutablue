@@ -157,13 +157,13 @@ The ShellCheck tests include several useful modes:
 ./tests/test_shellcheck.sh --report-only
 ```
 
-The `--fix` mode enables automatic fixing:
+The `--fix` mode provides detailed diagnostic information:
 1. Identifies issues in a shell script
-2. Generates a diff of the suggested fixes
-3. Applies the fixes using patch
-4. Re-checks the script to verify the fix worked
+2. Displays specific information about each issue
+3. Highlights the lines that need manual fixes
+4. Shows error codes that can be looked up for more information
 
-This feature can automatically handle many common issues like:
+This mode helps address common issues like:
 - Double vs. single bracket usage
 - Quoting variables
 - Removing unnecessary cat usage

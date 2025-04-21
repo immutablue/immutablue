@@ -33,7 +33,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --fix)
             FIX_MODE=true
-            echo "Running in fix mode (auto-fixes will be attempted)"
+            echo "Running in fix mode (will highlight issues that need manual fixes)"
             shift
             ;;
         --report-only)
@@ -45,7 +45,7 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [--fix] [--report-only]"
             echo ""
             echo "Options:"
-            echo "  --fix          Attempt to automatically fix some shell script issues"
+            echo "  --fix          Display detailed information about issues that need manual fixes"
             echo "  --report-only  Report issues but always exit with success (for CI integration)"
             echo "  --help         Show this help message"
             exit 0
@@ -166,19 +166,9 @@ main() {
             # Try to fix if in fix mode
             if [[ "$FIX_MODE" == true ]]; then
                 echo "Attempting to fix issues in ${file}..."
-                if shellcheck --format=diff "${SHELLCHECK_OPTS[@]}" "$file" | patch -p1; then
-                    echo "✓ Applied automatic fixes to ${file}"
-                    # Verify the fix worked
-                    if run_shellcheck "$file"; then
-                        echo "✓ File now passes validation!"
-                        ((FAIL_COUNT--))
-                        ((SUCCESS_COUNT++))
-                    else
-                        echo "✗ Automatic fixes only partially resolved issues"
-                    fi
-                else
-                    echo "✗ Unable to automatically fix issues in ${file}"
-                fi
+                # Simplify by just showing the issues that need manual fixes
+                echo "ℹ The following issues need manual fixes:"
+                shellcheck --severity=warning "${file}" | grep -E "^In.*line" | sed 's/^/  - /'
             fi
         fi
     done
