@@ -50,7 +50,7 @@ fi
 if [[ "$pkg_urls" != "" ]]
 then
     # Convert the list of URLs into a space-separated string for dnf
-    dnf5 -y install "$(for pkg in $pkg_urls; do printf '%s ' "$pkg"; done)"
+    dnf5 -y install $(for pkg in $pkg_urls; do printf '%s ' "$pkg"; done)
 fi
 
 # Install NVIDIA Drivers if this is a cyan variant
@@ -66,7 +66,7 @@ fi
 if [[ "$pkgs" != "" ]]
 then 
     # Convert the list of packages into a space-separated string for dnf
-    dnf5 -y install "$(for pkg in $pkgs; do printf '%s ' "$pkg"; done)"
+    dnf5 -y install $(for pkg in $pkgs; do printf '%s ' "$pkg"; done)
 fi
 
 # Install the LTS kernel if enabled

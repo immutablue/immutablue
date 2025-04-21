@@ -9,6 +9,6 @@ pkgs=$(get_immutablue_packages_to_remove)
 
 if [[ "$pkgs" != "" ]]
 then 
-    dnf5 -y remove "$(for pkg in $pkgs; do printf '%s ' "$pkg"; done)"
+    dnf5 -y remove $(for pkg in $pkgs; do printf '%s ' "$pkg"; done)
 fi
 

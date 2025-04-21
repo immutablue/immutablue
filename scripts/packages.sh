@@ -94,25 +94,25 @@ dbox_install_single() {
     bash <(yq "${key}.extra_commands" < $packages_yaml)
 
     sudo "$pkg_updt_cmd"
-    sudo "$pkg_inst_cmd" "$(for pkg in $packages; do printf ' %s' "$pkg"; done)"
+    sudo "$pkg_inst_cmd" $(for pkg in $packages; do printf ' %s' "$pkg"; done)
 
 
     type npm &>/dev/null
     if [ 0 -eq $? ]
     then 
-        [ "" != "$npm_packages" ] && sudo npm i -g "$(for pkg in $npm_packages; do printf ' %s' "$pkg"; done)"
+        [ "" != "$npm_packages" ] && sudo npm i -g $(for pkg in $npm_packages; do printf ' %s' "$pkg"; done)
     fi 
     
     type pip3 &>/dev/null
     if [ 0 -eq $? ]
     then 
-        [ "" != "$pip_packages" ] && sudo pip3 install "$(for pkg in $pip_packages; do printf ' %s' "$pkg"; done)"
+        [ "" != "$pip_packages" ] && sudo pip3 install $(for pkg in $pip_packages; do printf ' %s' "$pkg"; done)
     fi 
 
     type cargo &>/dev/null
     if [ 0 -eq $? ]
     then
-        [ "" != "$cargo_packages" ] && sudo cargo -t default --locked install "$(for cargo_pkg in $cargo_packages; do printf ' %s' "$cargo_pkg"; done)"
+        [ "" != "$cargo_packages" ] && sudo cargo -t default --locked install $(for cargo_pkg in $cargo_packages; do printf ' %s' "$cargo_pkg"; done)
     fi
 
     for bin in $bin_export 
