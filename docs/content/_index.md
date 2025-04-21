@@ -42,6 +42,7 @@ Immutablue is designed to provide a stable, immutable base OS with flexible appl
 
 - [Update Guide](/pages/update/) - How to update your Immutablue system
 - [Justfiles and the Immutablue Command](/pages/justfiles-and-the-immutablue-command/) - Using the Immutablue command-line tools
+- [Development Containers](/pages/devcontainer/) - Using DevContainers for development
 - [NVIDIA Support](/pages/nvidia/) - Using Immutablue with NVIDIA graphics
 - [Apple Silicon Support](/pages/asahi/) - Using Immutablue on Apple M1/M2/M3 Macs
 - [Testing](/pages/testing/) - How Immutablue is tested

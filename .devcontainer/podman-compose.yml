@@ -1,0 +1,30 @@
+version: '3'
+
+services:
+  immutablue-dev:
+    build:
+      context: .
+      dockerfile: Containerfile
+    volumes:
+      - ..:/workspaces/immutablue:cached,z
+      # Mount podman socket for container-in-container support
+      - /run/podman/podman.sock:/run/podman/podman.sock
+      # Allow access to container storage
+      - ${XDG_RUNTIME_DIR}/containers:${XDG_RUNTIME_DIR}/containers
+    command: sleep infinity
+    environment:
+      - IMMUTABLUE_DEVELOPMENT=true
+      - BUILDAH_ISOLATION=chroot
+      - STORAGE_DRIVER=overlay2
+      - _BUILDAH_STARTED_IN_USERNS=""
+    ports:
+      - "1313:1313"
+    userns_mode: keep-id
+    # Podman-specific settings
+    privileged: true
+    security_opt:
+      - label=disable
+      - seccomp=unconfined
+    cap_add:
+      - SYS_ADMIN
+      - NET_ADMIN
