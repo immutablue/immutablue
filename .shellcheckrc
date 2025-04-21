@@ -1,0 +1,20 @@
+# ShellCheck configuration for Immutablue project
+
+# Shell dialect
+shell=bash
+
+# Specify source paths to help shellcheck find sourced files
+source-path=scripts
+source-path=artifacts/overrides/usr/libexec/immutablue
+
+# Disable warnings about non-constant source paths (sourcing from variables)
+# These are commonly used in the project and are unavoidable
+disable=SC1090  # Can't follow non-constant source
+disable=SC1091  # Can't follow non-constant source
+
+# Disable warnings about unused variables in library files
+# Many variables are defined for use by scripts that source these files
+disable=SC2034  # Unused variables
+
+# External sources
+external-sources=true

@@ -177,7 +177,7 @@ FULL_TAG := $(IMAGE):$(TAG)
 .PHONY: list all all_upgrade install update upgrade install_or_update reboot \
 	build push iso upgrade rebase clean \
 	install_distrobox install_flatpak install_brew \
-	post_install_notes test test_container test_container_qemu test_artifacts
+	post_install_notes test test_container test_container_qemu test_artifacts test_shellcheck lint_shell
 
 
 list:
@@ -339,7 +339,15 @@ post_install:
 post_install_notes:
 	bash -x -c 'source ./scripts/packages.sh && post_install_notes'
 
-test: test_container test_container_qemu test_artifacts
+lint_shell:
+	chmod +x ./tests/test_shellcheck.sh
+	./tests/test_shellcheck.sh
+
+test_shellcheck:
+	chmod +x ./tests/test_shellcheck.sh
+	./tests/test_shellcheck.sh
+
+test: test_container test_container_qemu test_artifacts test_shellcheck
 
 test_container:
 	chmod +x ./tests/test_container.sh

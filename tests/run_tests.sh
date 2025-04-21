@@ -46,6 +46,13 @@ if [[ $? -ne 0 ]]; then
   EXIT_CODE=1
 fi
 
+# Run shellcheck validation
+echo -e "\n>> Running ShellCheck Validation"
+bash "$TEST_DIR/test_shellcheck.sh"
+if [[ $? -ne 0 ]]; then
+  EXIT_CODE=1
+fi
+
 # Report final results
 echo -e "\n=== Test Suite Results ==="
 if [[ $EXIT_CODE -eq 0 ]]; then

@@ -10,11 +10,12 @@ Immutablue includes a comprehensive set of unit tests to ensure the integrity an
 
 ## Testing Framework Overview
 
-The testing framework is designed to verify three key aspects of Immutablue:
+The testing framework is designed to verify four key aspects of Immutablue:
 
 1. **Container Tests**: Basic verification of the container image's functionality and structure
 2. **QEMU Tests**: Ensuring the container image can boot properly in a virtualized environment
 3. **Artifacts Tests**: Validating that all files in the `artifacts/overrides` directory are correctly included in the container image and haven't been modified
+4. **ShellCheck Tests**: Static analysis of all shell scripts to ensure code quality and catch potential bugs
 
 The tests are configured to run automatically as part of the build process and can also be executed manually during development.
 
@@ -41,6 +42,12 @@ make test_container_qemu
 
 # Run only artifacts tests
 make test_artifacts
+
+# Run only ShellCheck tests
+make test_shellcheck
+
+# Run only shell linting with ShellCheck
+make lint_shell
 ```
 
 ### Running Tests with Alternative Container Images
@@ -104,6 +111,71 @@ One of the most important tests is the file integrity check, which:
 5. Compares the checksums to ensure files haven't been modified
 
 This ensures that all files specified in the repository are correctly included in the container and haven't been tampered with during the build process.
+
+### ShellCheck Tests
+
+The ShellCheck tests (`test_shellcheck.sh`) perform static analysis of all shell scripts in the project using the ShellCheck tool. This helps identify:
+
+- Syntax errors and potential bugs
+- Common shell script pitfalls and mistakes
+- Security vulnerabilities and unsafe practices
+- Style inconsistencies and non-portable constructs
+
+#### How ShellCheck Testing Works
+
+The ShellCheck test script:
+
+1. Automatically finds all shell scripts in the project by:
+   - Searching for files with `.sh` extension
+   - Finding executable files with a bash shebang (`#!/bin/bash`)
+   
+2. Runs ShellCheck on each script with carefully selected rules:
+   - Uses bash as the shell dialect
+   - Focuses on warnings and errors (ignores style/info by default)
+   - Enables relevant optional checks
+   - Excludes specific checks that aren't applicable to the project
+   
+3. Provides detailed output for any issues found:
+   - Line numbers and code context
+   - Clear explanation of the problem
+   - Suggested fix or best practice reference
+   
+4. Summarizes test results:
+   - Count of files checked
+   - Number of files that passed/failed
+   - Exit code based on overall success
+
+#### Auto-Fix Mode
+
+The ShellCheck tests include an experimental auto-fix capability for some common issues:
+
+```bash
+# Run ShellCheck tests with auto-fix attempts
+./tests/test_shellcheck.sh --fix
+```
+
+In this mode, the script:
+1. Identifies issues in a shell script
+2. Generates a diff of the suggested fixes
+3. Applies the fixes using patch
+4. Re-checks the script to verify the fix worked
+
+This feature can automatically handle many common issues like:
+- Double vs. single bracket usage
+- Quoting variables
+- Removing unnecessary cat usage
+- Fixing common command substitution issues
+
+#### ShellCheck Configuration
+
+The project includes a `.shellcheckrc` configuration file in the root directory that:
+
+- Specifies bash as the primary shell dialect
+- Sets search paths for sourced files
+- Disables certain checks that aren't appropriate for this project
+- Configures external source handling
+
+This configuration ensures that ShellCheck validates scripts according to project-specific standards and requirements.
 
 ## Extending the Test Suite
 
@@ -173,8 +245,10 @@ The test files are organized as follows:
 - `tests/test_container.sh`: Container tests
 - `tests/test_container_qemu.sh`: QEMU-based tests
 - `tests/test_artifacts.sh`: Artifacts and file integrity tests
+- `tests/test_shellcheck.sh`: ShellCheck static analysis tests
 - `tests/run_tests.sh`: Master test runner script
 - `tests/README.md`: Test documentation for developers
+- `.shellcheckrc`: ShellCheck configuration file (in project root)
 
 ## Future Improvements
 
@@ -188,6 +262,10 @@ Future improvements to the testing framework could include:
    - Boot with UEFI instead of direct kernel boot
    - Test with multiple architectures (aarch64, etc.)
    - Validate more specific functionality after boot
+6. **Enhanced Shell Script Testing**:
+   - Integration with pre-commit hooks for git
+   - Expanded coverage for more script types
+   - Custom rules for Immutablue-specific conventions
 
 ## Troubleshooting
 
@@ -202,6 +280,12 @@ Future improvements to the testing framework could include:
   - Busybox installed with `dnf install busybox`
   - A working kernel with appropriate modules
   - Access to create temporary files and launch QEMU processes
+- **ShellCheck Not Found**: Install ShellCheck with `dnf install ShellCheck`
+- **ShellCheck Failures**: Common causes of ShellCheck failures:
+  - Single brackets `[ ]` instead of double brackets `[[ ]]`
+  - Unquoted variables that should be quoted
+  - Unsafe command substitution without quoting
+  - Missing error handling in scripts
 
 ### Debugging Tests
 
@@ -216,6 +300,11 @@ To debug test failures:
    - Examine the QEMU log and container tar file in the temporary directory
    - Try running QEMU manually with the generated files
    - Adjust timeouts and memory settings if needed
+6. For ShellCheck failures:
+   - Run ShellCheck directly on the failing script: `shellcheck scripts/failing_script.sh`
+   - Use the `--format=json` option to get detailed information: `shellcheck --format=json scripts/failing_script.sh`
+   - Try the auto-fix mode: `./tests/test_shellcheck.sh --fix`
+   - Check the ShellCheck wiki for information on specific error codes: `https://github.com/koalaman/shellcheck/wiki/SC####` (replace #### with the error code)
 
 ## Conclusion
 

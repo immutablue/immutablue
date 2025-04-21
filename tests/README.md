@@ -20,6 +20,12 @@ The tests are organized into the following categories:
    - SHA256 checksum comparison between repo files and container files
    - Detailed reporting of file integrity
 
+4. **ShellCheck Tests** (`test_shellcheck.sh`): Static analysis of shell scripts using ShellCheck to identify:
+   - Common shell script bugs and issues
+   - Best practices violations
+   - Potential security vulnerabilities
+   - Style inconsistencies
+
 ## Running Tests
 
 You can run individual tests or all tests together using the Makefile targets:
@@ -32,6 +38,13 @@ make test
 make test_container
 make test_container_qemu
 make test_artifacts
+make test_shellcheck
+
+# Run just the shell script linting
+make lint_shell
+
+# Run the shell script linting with auto-fix attempts
+./tests/test_shellcheck.sh --fix
 
 # Run the full test suite with detailed output
 make run_all_tests
@@ -45,6 +58,7 @@ To run these tests, you need:
 - podman
 - qemu (for the QEMU tests)
 - KVM access (for the QEMU tests)
+- shellcheck (for the shell script tests)
 
 ## Adding New Tests
 
