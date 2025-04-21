@@ -1,0 +1,83 @@
+FROM registry.fedoraproject.org/fedora:42
+
+ARG USERNAME=immutablue
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+
+# Install needed packages
+RUN dnf update -y && \
+    dnf install -y \
+    git \
+    curl \
+    make \
+    podman \
+    podman-docker \
+    buildah \
+    skopeo \
+    fuse-overlayfs \
+    golang \
+    hugo \
+    jq \
+    yq \
+    which \
+    sudo \
+    procps \
+    bash-completion \
+    zsh \
+    tree \
+    unzip \
+    wget \
+    gawk && \
+    dnf clean all
+
+# Create the user
+RUN groupadd --gid $USER_GID $USERNAME && \
+    useradd --uid $USER_UID --gid $USER_GID -m $USERNAME && \
+    echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME && \
+    chmod 0440 /etc/sudoers.d/$USERNAME
+
+# Configure podman for rootless operation
+RUN echo -e 'unqualified-search-registries = ["docker.io"]\n\
+[[registry]]\nprefix = "docker.io"\nlocation = "docker.io"\n' > /etc/containers/registries.conf.d/docker.conf && \
+    mkdir -p /etc/containers/containers.conf.d && \
+    echo -e '[engine]\ncgroup_manager = "cgroupfs"\nevents_logger = "file"\n' > /etc/containers/containers.conf.d/oci.conf
+
+# Set up container storage for rootless operation
+RUN mkdir -p /home/$USERNAME/.config/containers && \
+    echo -e '[storage]\ndriver = "vfs"\nrunroot = "/tmp/run/$USER"\ngraphroot = "/home/$USERNAME/.local/share/containers/storage"\n' > /home/$USERNAME/.config/containers/storage.conf && \
+    chown -R $USERNAME:$USERNAME /home/$USERNAME/.config
+
+# Configure subuid and subgid for nested containers and fix uid/gid mapping tools
+RUN touch /etc/subuid /etc/subgid && \
+    chmod 644 /etc/subuid /etc/subgid && \
+    echo "${USERNAME}:100000:65536" >> /etc/subuid && \
+    echo "${USERNAME}:100000:65536" >> /etc/subgid && \
+    # Make sure newuidmap and newgidmap have proper permissions
+    chmod u+s /usr/bin/newuidmap /usr/bin/newgidmap
+
+USER $USERNAME
+WORKDIR /workspaces/immutablue
+
+# Set up container environment
+ENV IMMUTABLUE_DEVELOPMENT=true
+ENV PATH="/home/$USERNAME/.local/bin:${PATH}"
+ENV BUILDAH_ISOLATION=chroot
+ENV _BUILDAH_STARTED_IN_USERNS=""
+ENV STORAGE_DRIVER=overlay2
+
+# Create required directories and fix file permissions for container builds
+USER root
+RUN mkdir -p /home/$USERNAME/.local/share/containers/storage && \
+    chown -R $USERNAME:$USERNAME /home/$USERNAME/.local && \
+    mkdir -p /run/user/$(id -u $USERNAME) && \
+    chown -R $USERNAME:$USERNAME /run/user/$(id -u $USERNAME)
+
+USER $USERNAME
+
+# Setup shell
+RUN echo 'source /usr/share/bash-completion/bash_completion' >> ~/.bashrc && \
+    echo 'alias docker=podman' >> ~/.bashrc && \
+    # Create storage directories in advance to avoid permission issues
+    mkdir -p ~/.local/share/containers/storage/overlay && \
+    mkdir -p ~/.local/share/containers/storage/overlay-layers && \
+    mkdir -p ~/.local/share/containers/storage/overlay-containers

@@ -1,0 +1,40 @@
+{
+  "name": "Immutablue Development",
+  "build": {
+    "dockerfile": "Containerfile"
+  },
+  "runArgs": [
+    "--userns=keep-id",
+    "--privileged",
+    "--security-opt=seccomp=unconfined",
+    "--security-opt=label=disable",
+    "--cap-add=SYS_ADMIN",
+    "--cap-add=NET_ADMIN"
+  ],
+  "mounts": [
+    "type=bind,source=${localWorkspaceFolder},target=/workspaces/immutablue,consistency=cached",
+    "type=bind,source=/run/podman/podman.sock,target=/run/podman/podman.sock",
+    "type=bind,source=${env:XDG_RUNTIME_DIR}/containers,target=${env:XDG_RUNTIME_DIR}/containers,consistency=cached"
+  ],
+  "forwardPorts": [1313],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "budparr.language-hugo-vscode",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "containerEnv": {
+    "IMMUTABLUE_DEVELOPMENT": "true",
+    "BUILDAH_ISOLATION": "chroot",
+    "STORAGE_DRIVER": "overlay2",
+    "_BUILDAH_STARTED_IN_USERNS": ""
+  },
+  "remoteUser": "immutablue",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/immutablue,type=bind,consistency=cached",
+  "workspaceFolder": "/workspaces/immutablue"
+}
