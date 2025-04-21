@@ -26,8 +26,9 @@ get_yaml_distrobox_length() {
     [ $# -ne 1 ] && echo "$0 <packages.yaml>" && exit 1
     local packages_yaml="$1"
     local key=".distrobox[].name"
-    local length=$(yq "${key}" < $packages_yaml | wc -l)
-    echo $length
+    local length
+    length="$(yq "${key}" < "$packages_yaml" | wc -l)"
+    echo "$length"
 }
 
 
@@ -46,18 +47,43 @@ dbox_install_single() {
     local packages_yaml="$1"
     local index="$2"
     local key=".distrobox[${index}]"
-    local name=$(yq "${key}.name" < $packages_yaml)
-    local image=$(yq "${key}.image" < $packages_yaml)
-    local remove=$(yq "${key}.rm" < $packages_yaml)
-    local pkg_inst_cmd=$(yq "${key}.pkg_inst_cmd" < $packages_yaml)
-    local pkg_updt_cmd=$(yq "${key}.pkg_updt_cmd" < $packages_yaml)
-    local packages=$(cat <(yq "${key}.packages[]" < $packages_yaml) <(yq "${key}.packages_$(uname -m)[]" < $packages_yaml))
-    local npm_packages=$(cat <(yq "${key}.npm_packages[]" < $packages_yaml) <(yq "${key}.npm_packages_$(uname -m)[]" < $packages_yaml))
-    local pip_packages=$(cat <(yq "${key}.pip_packages[]" < $packages_yaml) <(yq "${key}.pip_packages_$(uname -m)[]" < $packages_yaml))
-    local cargo_packages=$(cat <(yq "${key}.cargo_packages[]" < $packages_yaml) <(yq "${key}.cargo_packages_$(uname -m)[]" < $packages_yaml))
-    local bin_export=$(cat <(yq "${key}.bin_export[]" < $packages_yaml) <(yq "${key}.bin_export_$(uname -m)[]" < $packages_yaml))
-    local app_export=$(cat <(yq "${key}.app_export[]" < $packages_yaml) <(yq "${key}.app_export_$(uname -m)[]" < $packages_yaml))
-    local bin_symlink=$(cat <(yq "${key}.bin_symlink[]" < $packages_yaml) <(yq "${key}.bin_symlink_$(uname -m)[]" < $packages_yaml))
+    
+    # Declare and assign separately to avoid masking return values
+    local name
+    name="$(yq "${key}.name" < "$packages_yaml")"
+    
+    local image
+    image="$(yq "${key}.image" < "$packages_yaml")"
+    
+    local remove
+    remove="$(yq "${key}.rm" < "$packages_yaml")"
+    
+    local pkg_inst_cmd
+    pkg_inst_cmd="$(yq "${key}.pkg_inst_cmd" < "$packages_yaml")"
+    
+    local pkg_updt_cmd
+    pkg_updt_cmd="$(yq "${key}.pkg_updt_cmd" < "$packages_yaml")"
+    
+    local packages
+    packages="$(cat <(yq "${key}.packages[]" < "$packages_yaml") <(yq "${key}.packages_$(uname -m)[]" < "$packages_yaml"))"
+    
+    local npm_packages
+    npm_packages="$(cat <(yq "${key}.npm_packages[]" < "$packages_yaml") <(yq "${key}.npm_packages_$(uname -m)[]" < "$packages_yaml"))"
+    
+    local pip_packages
+    pip_packages="$(cat <(yq "${key}.pip_packages[]" < "$packages_yaml") <(yq "${key}.pip_packages_$(uname -m)[]" < "$packages_yaml"))"
+    
+    local cargo_packages
+    cargo_packages="$(cat <(yq "${key}.cargo_packages[]" < "$packages_yaml") <(yq "${key}.cargo_packages_$(uname -m)[]" < "$packages_yaml"))"
+    
+    local bin_export
+    bin_export="$(cat <(yq "${key}.bin_export[]" < "$packages_yaml") <(yq "${key}.bin_export_$(uname -m)[]" < "$packages_yaml"))"
+    
+    local app_export
+    app_export="$(cat <(yq "${key}.app_export[]" < "$packages_yaml") <(yq "${key}.app_export_$(uname -m)[]" < "$packages_yaml"))"
+    
+    local bin_symlink
+    bin_symlink="$(cat <(yq "${key}.bin_symlink[]" < "$packages_yaml") <(yq "${key}.bin_symlink_$(uname -m)[]" < "$packages_yaml"))"
 
     if [[ "${remove}" == "true" ]]
     then 
@@ -67,26 +93,26 @@ dbox_install_single() {
 
     bash <(yq "${key}.extra_commands" < $packages_yaml)
 
-    sudo $pkg_updt_cmd 
-    sudo $pkg_inst_cmd $(for pkg in $packages; do printf ' %s' $pkg; done)
+    sudo "$pkg_updt_cmd"
+    sudo "$pkg_inst_cmd" "$(for pkg in $packages; do printf ' %s' "$pkg"; done)"
 
 
     type npm &>/dev/null
     if [ 0 -eq $? ]
     then 
-        [ "" != "$npm_packages" ] && sudo npm i -g $(for pkg in $npm_packages; do printf ' %s' $pkg; done)
+        [ "" != "$npm_packages" ] && sudo npm i -g "$(for pkg in $npm_packages; do printf ' %s' "$pkg"; done)"
     fi 
     
     type pip3 &>/dev/null
     if [ 0 -eq $? ]
     then 
-        [ "" != "$pip_packages" ] && sudo pip3 install $(for pkg in $pip_packages; do printf ' %s' $pkg; done)
+        [ "" != "$pip_packages" ] && sudo pip3 install "$(for pkg in $pip_packages; do printf ' %s' "$pkg"; done)"
     fi 
 
     type cargo &>/dev/null
     if [ 0 -eq $? ]
     then
-        [ "" != "$cargo_packages" ] && sudo cargo -t default --locked install $(for cargo in $cargo_packages; do printf ' %s' $pkg; done)
+        [ "" != "$cargo_packages" ] && sudo cargo -t default --locked install "$(for cargo_pkg in $cargo_packages; do printf ' %s' "$cargo_pkg"; done)"
     fi
 
     for bin in $bin_export 
@@ -112,16 +138,25 @@ dbox_install_all_from_yaml() {
     local packages_yaml="$1"
  
     i=0
-    local dbox_count=$(get_yaml_distrobox_length $packages_yaml)
+    local dbox_count
+    dbox_count="$(get_yaml_distrobox_length "$packages_yaml")"
 
     while [ $i -lt $dbox_count ]
     do 
         echo "$i"
         local key=".distrobox[${i}]"
-        local name=$(yq "${key}.name" < $packages_yaml)
-        local image=$(yq "${key}.image" < $packages_yaml)
-        local root_mode=$(yq "${key}.root" < $packages_yaml)
-        local add_flag=$(cat <(yq "${key}.additional_flags[]" < $packages_yaml) <(yq "${key}.additional_flags_$(uname -m)[]" < $packages_yaml))
+        
+        local name
+        name="$(yq "${key}.name" < "$packages_yaml")"
+        
+        local image
+        image="$(yq "${key}.image" < "$packages_yaml")"
+        
+        local root_mode
+        root_mode="$(yq "${key}.root" < "$packages_yaml")"
+        
+        local add_flag
+        add_flag="$(cat <(yq "${key}.additional_flags[]" < "$packages_yaml") <(yq "${key}.additional_flags_$(uname -m)[]" < "$packages_yaml"))"
 
         # Check for an empty line (new-line). If no image is specified
         if [ 0 -eq "$(container_exists "${name}")" ]
@@ -291,10 +326,17 @@ brew_install_all_packages() {
 
 services_unmask_disable_enable_mask_yaml() {
     local svc_yaml="$1"
-    local enable=$(cat <(yq '.immutablue.services_enable_user[]' < "${svc_yaml}") <(yq ".immutablue.services_enable_user_$(uname -m)" < "${svc_yaml}"))
-    local disable=$(cat <(yq '.immutablue.services_disable_user[]' < "${svc_yaml}") <(yq ".immutablue.services_disable_user_$(uname -m)" < "${svc_yaml}"))
-    local mask=$(cat <(yq '.immutablue.services_mask_user[]' < "${svc_yaml}") <(yq ".immutablue.services_mask_user_$(uname -m)" < "${svc_yaml}"))
-    local unmask=$(cat <(yq '.immutablue.services_unmask_user[]' < "${svc_yaml}") <(yq ".immutablue.services_unmask_user_$(uname -m)" < "${svc_yaml}"))
+    local enable
+    enable="$(cat <(yq '.immutablue.services_enable_user[]' < "${svc_yaml}") <(yq ".immutablue.services_enable_user_$(uname -m)" < "${svc_yaml}"))"
+    
+    local disable
+    disable="$(cat <(yq '.immutablue.services_disable_user[]' < "${svc_yaml}") <(yq ".immutablue.services_disable_user_$(uname -m)" < "${svc_yaml}"))"
+    
+    local mask
+    mask="$(cat <(yq '.immutablue.services_mask_user[]' < "${svc_yaml}") <(yq ".immutablue.services_mask_user_$(uname -m)" < "${svc_yaml}"))"
+    
+    local unmask
+    unmask="$(cat <(yq '.immutablue.services_unmask_user[]' < "${svc_yaml}") <(yq ".immutablue.services_unmask_user_$(uname -m)" < "${svc_yaml}"))"
 
     systemctl --user daemon-reload
     for s in $unmask; do systemctl --user unmask --now "$s"; done
