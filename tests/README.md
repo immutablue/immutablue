@@ -20,26 +20,32 @@ The tests are organized into the following categories:
    - SHA256 checksum comparison between repo files and container files
    - Detailed reporting of file integrity
 
-4. **ShellCheck Tests** (`test_shellcheck.sh`): Static analysis of shell scripts using ShellCheck to identify:
+4. **Pre-Build ShellCheck Tests** (`test_shellcheck.sh`): Static analysis of shell scripts using ShellCheck to identify:
    - Common shell script bugs and issues
    - Best practices violations
    - Potential security vulnerabilities
    - Style inconsistencies
+   - This test runs automatically before the build process
 
 ## Running Tests
 
 You can run individual tests or all tests together using the Makefile targets:
 
 ```bash
-# Run all tests
+# Run all tests (excluding pre-build tests)
 make test
+
+# Run pre-build shellcheck test explicitly
+make pre_test
+
+# Skip all tests (including pre-build tests)
+make build SKIP_TEST=1
+make test SKIP_TEST=1
 
 # Run individual test categories
 make test_container
 make test_container_qemu
 make test_artifacts
-make test_shellcheck
-
 
 # Run the shell script linting with detailed diagnostics
 ./tests/test_shellcheck.sh --fix
@@ -49,6 +55,9 @@ make test_shellcheck
 
 # Run the full test suite with detailed output
 make run_all_tests
+
+# Skip specific test suite
+make run_all_tests SKIP_TEST=1
 ```
 
 ## Requirements
@@ -68,4 +77,6 @@ When adding new tests:
 1. Create a new test script in the `tests` directory
 2. Add a corresponding target in the Makefile
 3. Update the `run_tests.sh` script to include your new test
-4. Add your test to the `test` target dependency list
+4. Update the appropriate section (pre-build tests, regular tests) and target dependency list
+5. If it's a pre-build test, add it to the `pre_test` target
+6. If it's a regular test, add it to the `test` target dependency list

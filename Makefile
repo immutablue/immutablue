@@ -19,6 +19,11 @@ ifndef $(BUILD_OPTIONS)
 	BUILD_OPTIONS := gui,silverblue
 endif
 
+# Default to running tests
+ifndef $(SKIP_TEST)
+	SKIP_TEST := 0
+endif
+
 
 ifndef $(PLATFORM)
 	PLATFORM := linux/amd64 
@@ -200,7 +205,7 @@ install: install_or_update
 update: install_or_update
 
 
-build:
+build: pre_test
 	buildah \
 		build \
 		--ignorefile ./.containerignore \
@@ -339,25 +344,52 @@ post_install:
 post_install_notes:
 	bash -x -c 'source ./scripts/packages.sh && post_install_notes'
 
-test_shellcheck:
-	chmod +x ./tests/test_shellcheck.sh
-	./tests/test_shellcheck.sh --report-only
+pre_test:
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		echo "Running pre-build shellcheck tests..."; \
+		chmod +x ./tests/test_shellcheck.sh; \
+		./tests/test_shellcheck.sh --report-only; \
+	else \
+		echo "Skipping pre-build shellcheck tests (SKIP_TEST=1)"; \
+	fi
 
-test: test_container test_container_qemu test_artifacts test_shellcheck
+test:
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		$(MAKE) test_container test_container_qemu test_artifacts; \
+	else \
+		echo "Skipping tests (SKIP_TEST=1)"; \
+	fi
 
 test_container:
-	chmod +x ./tests/test_container.sh
-	./tests/test_container.sh $(IMAGE):$(TAG)
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		chmod +x ./tests/test_container.sh; \
+		./tests/test_container.sh $(IMAGE):$(TAG); \
+	else \
+		echo "Skipping container tests (SKIP_TEST=1)"; \
+	fi
 
 test_container_qemu:
-	chmod +x ./tests/test_container_qemu.sh
-	./tests/test_container_qemu.sh $(IMAGE):$(TAG)
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		chmod +x ./tests/test_container_qemu.sh; \
+		./tests/test_container_qemu.sh $(IMAGE):$(TAG); \
+	else \
+		echo "Skipping container QEMU tests (SKIP_TEST=1)"; \
+	fi
 	
 test_artifacts:
-	chmod +x ./tests/test_artifacts.sh
-	./tests/test_artifacts.sh $(IMAGE):$(TAG)
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		chmod +x ./tests/test_artifacts.sh; \
+		./tests/test_artifacts.sh $(IMAGE):$(TAG); \
+	else \
+		echo "Skipping artifacts tests (SKIP_TEST=1)"; \
+	fi
 	
 # Run all tests with a single command
 run_all_tests:
-	chmod +x ./tests/run_tests.sh
-	./tests/run_tests.sh $(IMAGE):$(TAG)
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		echo "Running all tests..."; \
+		chmod +x ./tests/run_tests.sh; \
+		./tests/run_tests.sh $(IMAGE):$(TAG); \
+	else \
+		echo "Skipping all tests (SKIP_TEST=1)"; \
+	fi

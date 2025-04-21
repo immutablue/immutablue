@@ -15,9 +15,9 @@ The testing framework is designed to verify four key aspects of Immutablue:
 1. **Container Tests**: Basic verification of the container image's functionality and structure
 2. **QEMU Tests**: Ensuring the container image can boot properly in a virtualized environment
 3. **Artifacts Tests**: Validating that all files in the `artifacts/overrides` directory are correctly included in the container image and haven't been modified
-4. **ShellCheck Tests**: Static analysis of all shell scripts to ensure code quality and catch potential bugs
+4. **Pre-Build ShellCheck Tests**: Static analysis of all shell scripts to ensure code quality and catch potential bugs
 
-The tests are configured to run automatically as part of the build process and can also be executed manually during development.
+The tests are configured to run automatically as part of the build process and can also be executed manually during development. ShellCheck tests run as pre-build tests to ensure code quality before the build process begins, while the other tests run after building the container.
 
 ## Running Tests
 
@@ -29,11 +29,33 @@ To run all tests:
 make test
 ```
 
+To run a more detailed test suite with comprehensive reporting:
+
+```bash
+make run_all_tests
+```
+
+### Skipping Tests
+
+You can skip all tests, including pre-build tests, using the SKIP_TEST option:
+
+```bash
+# Skip tests during build
+make build SKIP_TEST=1
+
+# Skip tests when running test targets
+make test SKIP_TEST=1
+make run_all_tests SKIP_TEST=1
+```
+
 ### Running Individual Test Categories
 
 You can run specific test categories:
 
 ```bash
+# Run pre-build ShellCheck tests
+make pre_test
+
 # Run only container tests
 make test_container
 
@@ -42,9 +64,6 @@ make test_container_qemu
 
 # Run only artifacts tests
 make test_artifacts
-
-# Run only ShellCheck tests
-make test_shellcheck
 ```
 
 ### Running Tests with Alternative Container Images

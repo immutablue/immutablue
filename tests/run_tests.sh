@@ -25,6 +25,13 @@ TEST_DIR="$(dirname "$(realpath "$0")")"
 # Run all tests
 echo "=== Running Immutablue Test Suite ==="
 
+# Run pre-build tests first
+echo -e "\n>> Running Pre-Build Tests (ShellCheck)"
+bash "$TEST_DIR/test_shellcheck.sh" --report-only
+if [[ $? -ne 0 ]]; then
+  EXIT_CODE=1
+fi
+
 # Run container tests
 echo -e "\n>> Running Container Tests"
 bash "$TEST_DIR/test_container.sh" "$@"
@@ -42,13 +49,6 @@ fi
 # Run artifacts tests
 echo -e "\n>> Running Artifacts Tests"
 bash "$TEST_DIR/test_artifacts.sh" "$@"
-if [[ $? -ne 0 ]]; then
-  EXIT_CODE=1
-fi
-
-# Run shellcheck validation
-echo -e "\n>> Running ShellCheck Validation"
-bash "$TEST_DIR/test_shellcheck.sh"
 if [[ $? -ne 0 ]]; then
   EXIT_CODE=1
 fi
