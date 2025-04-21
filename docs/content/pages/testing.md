@@ -48,6 +48,23 @@ make test SKIP_TEST=1
 make run_all_tests SKIP_TEST=1
 ```
 
+The SKIP_TEST variable can be used in the following ways:
+
+1. **Skip all tests during build:**
+   - `make build SKIP_TEST=1` - Skips pre-build shellcheck and builds without testing
+   - Useful for rapid iteration during development
+
+2. **Skip specific test categories:**
+   - `make test SKIP_TEST=1` - Skips post-build tests only
+   - `make pre_test SKIP_TEST=1` - Skips pre-build tests only
+   - Allows selectively running only the tests you need
+
+3. **Skip tests in CI/CD:**
+   - Add `SKIP_TEST=1` to your CI/CD configuration
+   - Useful for debugging build issues without running tests
+
+By default, SKIP_TEST is set to 0, which means all tests will run. Setting it to 1 will skip tests according to where it's applied.
+
 ### Running Individual Test Categories
 
 You can run specific test categories:
@@ -161,37 +178,51 @@ The ShellCheck test script:
    - Number of files that passed/failed
    - Exit code based on overall success
 
-#### Auto-Fix Mode
+#### ShellCheck Modes and Integration
 
-The ShellCheck tests include several useful modes:
+The ShellCheck tests offer several modes to adapt to different usage scenarios:
 
 ```bash
-# Run ShellCheck tests normally
+# Run ShellCheck tests normally (fails if issues are found)
 ./tests/test_shellcheck.sh
 
-# Run ShellCheck tests with auto-fix attempts
+# Run ShellCheck tests with diagnostic mode for manual fixes
 ./tests/test_shellcheck.sh --fix
 
 # Run ShellCheck tests in report-only mode (always exits with success)
 ./tests/test_shellcheck.sh --report-only
 ```
 
-The `--fix` mode provides detailed diagnostic information:
+##### Diagnostic Mode (--fix)
+
+The `--fix` mode provides detailed diagnostic information to help developers identify and fix issues:
 1. Identifies issues in a shell script
-2. Displays specific information about each issue
-3. Highlights the lines that need manual fixes
+2. Displays specific information about each issue with line numbers
+3. Highlights the lines that need manual fixes in a readable format
 4. Shows error codes that can be looked up for more information
+5. Formats output with bullet points for better readability
+
+**Note**: Despite its name, this mode does NOT automatically fix issues. It provides guidance for manual fixes.
 
 This mode helps address common issues like:
 - Double vs. single bracket usage
-- Quoting variables
-- Removing unnecessary cat usage
-- Fixing common command substitution issues
+- Proper variable quoting
+- Command substitution safety
+- Array handling and expansion
+- Return value capturing
+- Word splitting prevention
+- Unnecessary command usage (like cat)
 
-The `--report-only` mode is useful for CI/CD integration:
+##### Report-Only Mode (--report-only)
+
+The `--report-only` mode is specifically designed for CI/CD integration:
 1. Runs all checks and reports issues
 2. Always exits with success (0) even if issues are found
-3. Allows gradual adoption of ShellCheck without breaking existing builds
+3. Provides the same comprehensive output as normal mode
+4. Allows gradual adoption of ShellCheck without breaking existing builds
+5. Used by default in the pre-build test phase
+
+This mode ensures that shellcheck issues don't block builds while still making the issues visible in CI/CD logs.
 
 #### ShellCheck Configuration
 

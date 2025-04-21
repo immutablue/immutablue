@@ -4,10 +4,12 @@
 # This script uses shellcheck to validate all shell scripts in the Immutablue project.
 # It checks for common shell script issues, best practices, and potential bugs.
 #
-# Usage: ./test_shellcheck.sh [--fix]
+# Usage: ./test_shellcheck.sh [--fix] [--report-only]
 #
 # Options:
-#   --fix    Attempt to automatically fix some shell script issues (experimental)
+#   --fix          Highlight issues that need manual fixing and provide detailed diagnostics
+#                  This does NOT automatically fix issues, but provides guidance for manual fixes
+#   --report-only  Report issues but always exit with success code (useful for CI/CD integration)
 #
 # Return codes:
 #   0: All shell scripts passed validation
@@ -45,7 +47,7 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [--fix] [--report-only]"
             echo ""
             echo "Options:"
-            echo "  --fix          Display detailed information about issues that need manual fixes (experimental)"
+            echo "  --fix          Display detailed information about issues that need manual fixes"
             echo "  --report-only  Report issues but always exit with success (for CI integration)"
             echo "  --help         Show this help message"
             exit 0
@@ -163,12 +165,14 @@ main() {
             check_failed=true
             EXIT_CODE=1
             
-            # Try to fix if in fix mode
+            # If in fix mode, show detailed diagnostic information to help with manual fixes
             if [[ "$FIX_MODE" == true ]]; then
-                echo "Attempting to fix issues in ${file}..."
-                # Simplify by just showing the issues that need manual fixes
+                echo "Providing detailed diagnostics for ${file}..."
+                # Show the specific issues that need manual fixes in a more readable format
                 echo "ℹ The following issues need manual fixes:"
+                # Grep for lines that start with "In" and format them with bullet points for better readability
                 shellcheck --severity=warning "${file}" | grep -E "^In.*line" | sed 's/^/  - /'
+                # Note that this doesn't automatically fix issues but helps identify them for manual correction
             fi
         fi
     done

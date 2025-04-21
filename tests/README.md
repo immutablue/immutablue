@@ -26,6 +26,8 @@ The tests are organized into the following categories:
    - Potential security vulnerabilities
    - Style inconsistencies
    - This test runs automatically before the build process
+   - Integrated with CI/CD through the `--report-only` mode
+   - Comprehensive diagnostics through the `--fix` mode (shows issues that need manual fixes)
 
 ## Running Tests
 

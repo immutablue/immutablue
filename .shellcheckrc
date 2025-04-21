@@ -20,8 +20,9 @@ disable=SC2034  # Unused variables
 # These are defined elsewhere in the project
 disable=SC2154  # Variable referenced but not assigned
 
-# Disables warnings about line splitting when its not needed
-disable=SC2046
+# Disable warnings about word splitting in command substitution when it's not a problem
+# This is often used in safe ways throughout the project, especially in complex command construction
+disable=SC2046  # Quote this to prevent word splitting
 
 # External sources
 external-sources=true

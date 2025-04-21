@@ -7,10 +7,13 @@
 # Usage: ./run_tests.sh [IMAGE_NAME:TAG]
 #   where IMAGE_NAME:TAG is an optional container image reference (default: quay.io/immutablue/immutablue:42)
 #
-# The script will execute all test scripts:
+# The script will execute all test scripts in the following order:
+# - test_shellcheck.sh: Static analysis of all shell scripts (pre-build test)
 # - test_container.sh: Basic container tests
 # - test_container_qemu.sh: QEMU boot tests
 # - test_artifacts.sh: Artifacts and file integrity tests
+#
+# SKIP_TEST=1 environment variable can be used to skip all tests
 #
 # Return codes:
 # - 0: All tests passed

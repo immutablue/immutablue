@@ -19,7 +19,10 @@ ifndef $(BUILD_OPTIONS)
 	BUILD_OPTIONS := gui,silverblue
 endif
 
-# Default to running tests
+# Default to running tests (set to 1 to skip tests)
+# This variable controls whether pre-build and post-build tests are executed
+# Usage: make build SKIP_TEST=1 (skips all tests)
+#        make test SKIP_TEST=1 (skips post-build tests only)
 ifndef $(SKIP_TEST)
 	SKIP_TEST := 0
 endif
@@ -205,6 +208,9 @@ install: install_or_update
 update: install_or_update
 
 
+# Build the Immutablue container image
+# This target first runs pre-build tests (shellcheck) to ensure code quality
+# Pre-tests can be skipped by setting SKIP_TEST=1
 build: pre_test
 	buildah \
 		build \
@@ -344,6 +350,10 @@ post_install:
 post_install_notes:
 	bash -x -c 'source ./scripts/packages.sh && post_install_notes'
 
+# Pre-build test target: Validates shell scripts before building the container
+# This target runs shellcheck against all bash scripts in the project to ensure code quality
+# It runs in report-only mode for CI/CD integration (won't fail the build)
+# Can be skipped by setting SKIP_TEST=1
 pre_test:
 	@if [ "$(SKIP_TEST)" = "0" ]; then \
 		echo "Running pre-build shellcheck tests..."; \
@@ -353,6 +363,10 @@ pre_test:
 		echo "Skipping pre-build shellcheck tests (SKIP_TEST=1)"; \
 	fi
 
+# Main test target: Runs all post-build tests to validate the container image
+# This target runs container tests, QEMU tests, and artifact tests
+# These tests validate the built container image's functionality and integrity
+# Can be skipped by setting SKIP_TEST=1
 test:
 	@if [ "$(SKIP_TEST)" = "0" ]; then \
 		$(MAKE) test_container test_container_qemu test_artifacts; \
@@ -360,6 +374,9 @@ test:
 		echo "Skipping tests (SKIP_TEST=1)"; \
 	fi
 
+# Container test target: Validates basic container functionality
+# Tests include container lint checks, essential packages, directory structure, and systemd services
+# Can be skipped by setting SKIP_TEST=1
 test_container:
 	@if [ "$(SKIP_TEST)" = "0" ]; then \
 		chmod +x ./tests/test_container.sh; \
@@ -368,6 +385,10 @@ test_container:
 		echo "Skipping container tests (SKIP_TEST=1)"; \
 	fi
 
+# QEMU container test target: Tests container boot in a virtualized environment
+# Validates that the container can boot properly in QEMU 
+# Falls back to bootc container lint if QEMU is not available
+# Can be skipped by setting SKIP_TEST=1
 test_container_qemu:
 	@if [ "$(SKIP_TEST)" = "0" ]; then \
 		chmod +x ./tests/test_container_qemu.sh; \
@@ -376,6 +397,10 @@ test_container_qemu:
 		echo "Skipping container QEMU tests (SKIP_TEST=1)"; \
 	fi
 	
+# Artifacts test target: Verifies file integrity in the container
+# Validates that files in artifacts/overrides match those in the container
+# Ensures directory structure is correct and files haven't been modified
+# Can be skipped by setting SKIP_TEST=1
 test_artifacts:
 	@if [ "$(SKIP_TEST)" = "0" ]; then \
 		chmod +x ./tests/test_artifacts.sh; \
@@ -384,7 +409,10 @@ test_artifacts:
 		echo "Skipping artifacts tests (SKIP_TEST=1)"; \
 	fi
 	
-# Run all tests with a single command
+# Run all tests with a single command with detailed output
+# This target provides more detailed test output than the regular test target
+# It runs both pre-build tests (shellcheck) and post-build tests (container, QEMU, artifacts)
+# Can be skipped by setting SKIP_TEST=1
 run_all_tests:
 	@if [ "$(SKIP_TEST)" = "0" ]; then \
 		echo "Running all tests..."; \
