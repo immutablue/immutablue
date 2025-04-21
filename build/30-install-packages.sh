@@ -50,7 +50,7 @@ fi
 if [[ "$pkg_urls" != "" ]]
 then
     # Convert the list of URLs into a space-separated string for dnf
-    dnf5 -y install $(for pkg in $pkg_urls; do printf '%s ' $pkg; done)
+    dnf5 -y install "$(for pkg in $pkg_urls; do printf '%s ' "$pkg"; done)"
 fi
 
 # Install NVIDIA Drivers if this is a cyan variant
@@ -66,7 +66,7 @@ fi
 if [[ "$pkgs" != "" ]]
 then 
     # Convert the list of packages into a space-separated string for dnf
-    dnf5 -y install $(for pkg in $pkgs; do printf '%s ' $pkg; done)
+    dnf5 -y install "$(for pkg in $pkgs; do printf '%s ' "$pkg"; done)"
 fi
 
 # Install the LTS kernel if enabled
@@ -123,7 +123,7 @@ fi
 if [[ "$pip_pkgs" != "" ]] && [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && [[ "$(is_option_in_build_options build_a_blue_workshop)" == "${FALSE}" ]]
 then 
     # Install pip packages to the system-wide Python installation
-    pip3 install --prefix=/usr $(for pkg in $pip_pkgs; do printf '%s ' $pkg; done)
+    pip3 install --prefix=/usr "$(for pkg in $pip_pkgs; do printf '%s ' "$pkg"; done)"
 fi
 
 

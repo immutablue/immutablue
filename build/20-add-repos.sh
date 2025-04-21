@@ -8,13 +8,13 @@ repos=$(cat <(yq '.immutablue.repo_urls[].name' < ${INSTALL_DIR}/packages.yaml) 
 
 for repo in $repos
 do 
-    curl -Lo "/etc/yum.repos.d/$repo" $(yq ".immutablue.repo_urls[] | select(.name == \"$repo\").url" < ${INSTALL_DIR}/packages.yaml) || true
+    curl -Lo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls[] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")" || true
 done
 
 
 for repo in $repos
 do 
-    curl -Lo "/etc/yum.repos.d/$repo" $(yq ".immutablue.repo_urls_$(uname -m)[] | select(.name == \"$repo\").url" < ${INSTALL_DIR}/packages.yaml) || true 
+    curl -Lo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls_$(uname -m)[] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")" || true 
 done
 
 

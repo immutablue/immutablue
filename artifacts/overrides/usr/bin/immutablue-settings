@@ -15,7 +15,7 @@ fi
 
 CONFIG="${1}"
 
-for yaml in ${FILE_ORDER[@]}
+for yaml in "${FILE_ORDER[@]}"
 do 
     if [[ ! -f "${yaml}" ]]; then continue; fi
 

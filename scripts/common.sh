@@ -7,7 +7,7 @@ make_export () {
     local bin_to_export="$1"
     mkdir -p "${export_dir}"
     if [ -f "${export_dir}/${bin_to_export}" ]; then rm "${export_dir}/${bin_to_export}"; fi
-    distrobox-export --bin $(which "${bin_to_export}") --export-path "${export_dir}/"
+    distrobox-export --bin "$(which "${bin_to_export}")" --export-path "${export_dir}/"
 }
 
 
@@ -18,7 +18,8 @@ make_app () {
 
 
 get_containers () {
-    local container_listing=$(distrobox list --no-color)
+    local container_listing
+    container_listing="$(distrobox list --no-color)"
 
     while read -r line
     do
@@ -29,7 +30,8 @@ get_containers () {
 
 container_exists () {
     local to_check="$1"
-    local containers=$(get_containers)
+    local containers
+    containers="$(get_containers)"
     local exists=0
 
     while read -r line

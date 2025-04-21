@@ -124,7 +124,7 @@ dbox_install_all_from_yaml() {
         local add_flag=$(cat <(yq "${key}.additional_flags[]" < $packages_yaml) <(yq "${key}.additional_flags_$(uname -m)[]" < $packages_yaml))
 
         # Check for an empty line (new-line). If no image is specified
-        if [ 0 -eq $(container_exists "${name}") ]
+        if [ 0 -eq "$(container_exists "${name}")" ]
         then 
             # Set this to an empty space if its nothing
             # so distrobox-create doesn't hang wanting more params.
@@ -177,12 +177,12 @@ flatpak_config() {
         repos=$(cat <(yq '.immutablue.flatpak_repos[].name' < $flatpaks_yaml) <(yq ".immutablue.flatpak_repos_$(uname -m)[].name" < $flatpaks_yaml))
         if [ "" != "$repos" ]
         then 
-            for repo in $repos; do  flatpak remote-add --user --if-not-exists $repo $(cat <(yq ".immutablue.flatpak_repos[] | select(.name == \"$repo\").url" < $flatpaks_yaml) <(yq ".immutablue.flatpak_repos_$(uname -m)[] | select(.name == \"$repo\").url" < $flatpaks_yaml)) || true; done
+            for repo in $repos; do  flatpak remote-add --user --if-not-exists "$repo" "$(cat <(yq ".immutablue.flatpak_repos[] | select(.name == \"$repo\").url" < "$flatpaks_yaml") <(yq ".immutablue.flatpak_repos_$(uname -m)[] | select(.name == \"$repo\").url" < "$flatpaks_yaml"))" || true; done
         fi
 
 	# Replace Fedora flatpaks with flathub ones
 	flatpak install --user --noninteractive org.gnome.Platform//46
-	flatpak install --user --noninteractive --reinstall flathub $(flatpak list --app-runtime=org.fedoraproject.Platform --columns=application | tail -n +1 )
+	flatpak install --user --noninteractive --reinstall flathub "$(flatpak list --app-runtime=org.fedoraproject.Platform --columns=application | tail -n +1)"
 
 	# Remove system flatpaks (pre-installed)
 	#flatpak remove --system --noninteractive --all
@@ -237,7 +237,7 @@ flatpak_make_refs() {
     apps=$(yq '.immutablue.flatpaks[]' < $PACKAGES_FILE)
     runtimes=$(yq '.immutablue.flatpaks_runtime[]' < $PACKAGES_FILE)
 
-    for app in $apps; do printf "app/%s/%s/stable\n" $app $(uname -m) >> $FLATPAK_REFS_FILE; done
+    for app in $apps; do printf "app/%s/%s/stable\n" "$app" "$(uname -m)" >> "$FLATPAK_REFS_FILE"; done
     for runtime in $runtimes; do printf "runtime/%s\n" $runtime >> $FLATPAK_REFS_FILE; done
 }
 
@@ -259,12 +259,12 @@ brew_install_all_from_yaml() {
 
     if [ "" != "$brew_add" ]
     then 
-        brew install $(for pkg in $brew_add; do printf '%s ' $pkg; done)
+        brew install "$(for pkg in $brew_add; do printf '%s ' "$pkg"; done)"
     fi
 
     if [ "" != "$brew_rm" ] 
     then 
-        brew uninstall $(for pkg in $brew_rm; do printf '%s ' $pkg; done)
+        brew uninstall "$(for pkg in $brew_rm; do printf '%s ' "$pkg"; done)"
     fi
 }
 

@@ -189,7 +189,8 @@ immutablue_has_internet_v4() {
     fi
     
     # Get the configured test host from settings
-    local test_host=$(immutablue-settings .immutablue.header.has_internet_host_v4)
+    local test_host
+    test_host="$(immutablue-settings .immutablue.header.has_internet_host_v4)"
     
     # Ping the test host with a short timeout
     # Redirect output to avoid clutter
@@ -218,7 +219,8 @@ immutablue_has_internet_v6() {
     fi
 
     # Get the configured IPv6 test host from settings
-    local test_host=$(immutablue-settings .immutablue.header.has_internet_host_v6)
+    local test_host
+    test_host="$(immutablue-settings .immutablue.header.has_internet_host_v6)"
     
     # Ping the IPv6 test host with a short timeout
     ping -c1 -W2 "${test_host}" >/dev/null 2>/dev/null
@@ -355,7 +357,7 @@ immutablue_try_command_and_try_again_on_delay() {
     # Echo the command for debugging purposes
     echo "$@"
     # Execute the command and capture its output and return code
-    output="$(${@})"
+    output="$("$@")"
     ret_code=$?
     
     # Check if the command failed (either returned FALSE or a non-zero exit code)
@@ -366,7 +368,7 @@ immutablue_try_command_and_try_again_on_delay() {
 
         # Try the command again
         echo "$@"
-        output="$(${@})"
+        output="$("$@")"
         ret_code=$?
 
         # Check if the command failed again
