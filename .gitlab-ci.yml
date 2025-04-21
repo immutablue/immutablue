@@ -1,65 +1,65 @@
-stages:
-  - build
-
-variables:
-  FEDORA_VERSION: 41
-  BUILD_IMAGE: quay.io/fedora/fedora:40
-  DOCKER_PRIVILEGED: "true"
-  DOCKER_DRIVER: "overlay"
-  SLEEP_TIME: 10
-
-
-build-stable-amd64:
-  stage: build
-  image: $BUILD_IMAGE
-  tags: 
-    - amd64
-  rules:
-    - if: $DAILY == null && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  script: |
-    until dnf install -y make buildah fuse-overlayfs; do sleep $SLEEP_TIME; done
-    until buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"; do sleep $SLEEP_TIME; done
-    until make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION build; do sleep $SLEEP_TIME; done
-    # until make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION push; do sleep $SLEEP_TIME; done
-
-
-build-daily-amd64:
-  stage: build
-  image: $BUILD_IMAGE
-  tags: 
-    - amd64
-  rules:
-    - if: $DAILY
-  script: |
-    until dnf install -y make buildah podman fuse-overlayfs; do sleep $SLEEP_TIME; done
-    until buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"; do sleep $SLEEP_TIME; done
-    until make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$(date +'%Y%m%d')" SET_AS_LATEST=1 build; do sleep $SLEEP_TIME; done
-    # until make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$(date +'%Y%m%d')" SET_AS_LATEST=1 push; do sleep $SLEEP_TIME; done
-    # until make TAG="$FEDORA_VERSION-$(date +'%Y%m%d')" RETAG=$FEDORA_VERSION retag; do sleep $SLEEP_TIME; done 
-    # until make TAG=$FEDORA_VERSION push; do sleep $SLEEP_TIME; done
-
-
-build-feature-amd64:
-  stage: build
-  image: $BUILD_IMAGE
-  tags: 
-    - amd64
-  rules:
-    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
-  script: |
-    until dnf install -y make buildah fuse-overlayfs; do sleep $SLEEP_TIME; done
-    until make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$CI_COMMIT_SHORT_SHA" build; do sleep $SLEEP_TIME; done
-
-
-build-iso-amd64:
-  stage: build 
-  image: $BUILD_IMAGE 
-  tags: 
-    - amd64
-  rules:
-    - if: $WEEKLY && $ISO
-  script: |
-    until dnf install -y make podman fuse-overlayfs yq s3cmd; do sleep $SLEEP_TIME; done
-    until make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION iso; do sleep $SLEEP_TIME; done
-    until make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION S3_ACCESS_KEY=$S3_ACCESS_KEY S3_SECRET_KEY=$S3_SECRET_KEY push_iso; do sleep $SLEEP_TIME; done
-
+# stages:
+#   - build
+#
+# variables:
+#   FEDORA_VERSION: 41
+#   BUILD_IMAGE: quay.io/fedora/fedora:40
+#   DOCKER_PRIVILEGED: "true"
+#   DOCKER_DRIVER: "overlay"
+#   SLEEP_TIME: 10
+#
+#
+# build-stable-amd64:
+#   stage: build
+#   image: $BUILD_IMAGE
+#   tags: 
+#     - amd64
+#   rules:
+#     - if: $DAILY == null && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+#   script: |
+#     until dnf install -y make buildah fuse-overlayfs; do sleep $SLEEP_TIME; done
+#     until buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"; do sleep $SLEEP_TIME; done
+#     until make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION build; do sleep $SLEEP_TIME; done
+#     # until make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION push; do sleep $SLEEP_TIME; done
+#
+#
+# build-daily-amd64:
+#   stage: build
+#   image: $BUILD_IMAGE
+#   tags: 
+#     - amd64
+#   rules:
+#     - if: $DAILY
+#   script: |
+#     until dnf install -y make buildah podman fuse-overlayfs; do sleep $SLEEP_TIME; done
+#     until buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"; do sleep $SLEEP_TIME; done
+#     until make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$(date +'%Y%m%d')" SET_AS_LATEST=1 build; do sleep $SLEEP_TIME; done
+#     # until make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$(date +'%Y%m%d')" SET_AS_LATEST=1 push; do sleep $SLEEP_TIME; done
+#     # until make TAG="$FEDORA_VERSION-$(date +'%Y%m%d')" RETAG=$FEDORA_VERSION retag; do sleep $SLEEP_TIME; done 
+#     # until make TAG=$FEDORA_VERSION push; do sleep $SLEEP_TIME; done
+#
+#
+# build-feature-amd64:
+#   stage: build
+#   image: $BUILD_IMAGE
+#   tags: 
+#     - amd64
+#   rules:
+#     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+#   script: |
+#     until dnf install -y make buildah fuse-overlayfs; do sleep $SLEEP_TIME; done
+#     until make VERSION=$FEDORA_VERSION TAG="$FEDORA_VERSION-$CI_COMMIT_SHORT_SHA" build; do sleep $SLEEP_TIME; done
+#
+#
+# build-iso-amd64:
+#   stage: build 
+#   image: $BUILD_IMAGE 
+#   tags: 
+#     - amd64
+#   rules:
+#     - if: $WEEKLY && $ISO
+#   script: |
+#     until dnf install -y make podman fuse-overlayfs yq s3cmd; do sleep $SLEEP_TIME; done
+#     until make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION iso; do sleep $SLEEP_TIME; done
+#     until make VERSION=$FEDORA_VERSION TAG=$FEDORA_VERSION S3_ACCESS_KEY=$S3_ACCESS_KEY S3_SECRET_KEY=$S3_SECRET_KEY push_iso; do sleep $SLEEP_TIME; done
+#
