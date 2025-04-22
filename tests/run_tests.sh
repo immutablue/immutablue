@@ -12,6 +12,7 @@
 # - test_container.sh: Basic container tests
 # - test_container_qemu.sh: QEMU boot tests
 # - test_artifacts.sh: Artifacts and file integrity tests
+# - test_setup.sh: Enhanced first-boot setup tests
 #
 # SKIP_TEST=1 environment variable can be used to skip all tests
 #
@@ -52,6 +53,13 @@ fi
 # Run artifacts tests
 echo -e "\n>> Running Artifacts Tests"
 bash "$TEST_DIR/test_artifacts.sh" "$@"
+if [[ $? -ne 0 ]]; then
+  EXIT_CODE=1
+fi
+
+# Run setup tests
+echo -e "\n>> Running Setup Tests"
+bash "$TEST_DIR/test_setup.sh"
 if [[ $? -ne 0 ]]; then
   EXIT_CODE=1
 fi

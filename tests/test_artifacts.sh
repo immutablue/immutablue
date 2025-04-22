@@ -129,7 +129,7 @@ function test_override_files_in_container() {
   while IFS= read -r file; do
     # Skip test files that are not expected to be in the container
     # This allows adding test-only files to the repository
-    if [[ "$file" == *"/test/"* || "$file" == *"/Justfile" || "$file" == *"/system.conf" ]]; then
+    if [[ "$file" == *"/test/"* || "$file" == *"/Justfile" || "$file" == *"/system.conf" || "$file" == */"__pycache__/"* ]]; then
       echo "SKIP: Test file $file (not expected to be same in the container)"
       ((SKIP_FILES++))
       continue

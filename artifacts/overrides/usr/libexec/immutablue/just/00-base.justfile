@@ -109,6 +109,20 @@ post_install_notes:
 update:
     immutablue-update
 
+
+# re-run initial setup (like the first login)
+initial_setup:
+    #!/usr/bin/bash
+    set -euo pipefail
+
+    if [[ -n "${DISPLAY:-}" ]]
+    then 
+        /usr/libexec/immutablue/setup/immutablue_setup_gui.py --no-reboot
+    else 
+        /usr/libexec/immutablue/setup/immutablue_setup_tui.py --no-reboot
+    fi
+
+
 # Clean up unused images, volumes, flatpaks and such
 clean_system:
     #!/usr/bin/bash

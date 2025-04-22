@@ -35,6 +35,9 @@ immutablue:
   - NetworkManager-tui
   - podman-compose
   - powertop
+  - python3-yaml
+  - python3-gobject
+  - python3-pip
   - qemu
   - qemu-user-binfmt
   - ramalama
@@ -49,8 +52,6 @@ immutablue:
   - firewall-applet
   - firewall-config
   - ghostty
-  # since we don't use this in nucleus builds, then we can just put this in gui
-  - python3-pip
   - solaar
   - xrdp
 

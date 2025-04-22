@@ -1,0 +1,100 @@
+welcome:
+  title: "Welcome to Immutablue"
+  description: "This setup will guide you through configuring your new Immutablue system. We'll help you set up hardware, network, development environments, and applications to make your system ready for use."
+  logo: "/usr/share/pixmaps/fedora-logo.png"
+
+steps:
+  - id: "intro"
+    title: "Introduction to Immutablue"
+    description: "Immutablue is a customized Fedora-based system with an immutable base. This design provides enhanced security, reliability, and easy rollback while still allowing you to customize your system through containers, flatpaks, and user applications. The immutable design means the core system files are protected from unwanted changes, while your user data and customizations are preserved separately."
+    type: "info"
+    image: "/usr/share/pixmaps/fedora-logo-sprite.png"
+
+  - id: "hardware"
+    title: "Hardware Detection"
+    description: "We'll now scan your hardware configuration and apply appropriate optimizations to enhance system performance."
+    type: "action"
+    action: "hardware_detection"
+
+  - id: "network"
+    title: "Network Configuration"
+    description: "Let's check your network configuration to ensure you have proper connectivity for installing applications and updates."
+    type: "action"
+    action: "network_setup"
+
+  - id: "dev_env"
+    title: "Development Environment"
+    description: "Select the development tools you want to install in your Immutablue system. These will be set up in containers using Distrobox, providing isolated environments with native integration."
+    type: "options"
+    option_type: "checkbox"
+    options:
+      - id: "devbox_base"
+        label: "Basic Development Environment"
+        description: "Includes git, compilers, and standard development tools"
+        default: true
+
+      - id: "devbox_python"
+        label: "Python Development"
+        description: "Full Python development environment with common libraries and tools"
+        default: false
+
+      - id: "devbox_nodejs"
+        label: "Node.js Development"
+        description: "Node.js development environment with npm and common utilities"
+        default: false
+
+      - id: "devbox_rust"
+        label: "Rust Development"
+        description: "Rust development environment with cargo and standard tools"
+        default: false
+
+      - id: "devbox_go"
+        label: "Go Development"
+        description: "Go development environment with standard libraries and tools"
+        default: false
+
+      - id: "devbox_java"
+        label: "Java Development"
+        description: "Java development environment with JDK and Maven"
+        default: false
+
+  - id: "applications"
+    title: "Application Installation"
+    description: "Select additional applications to install on your system. These will be installed as Flatpaks, providing secure sandboxed applications that can be updated independently of the base system."
+    type: "options"
+    option_type: "checkbox"
+    options:
+      - id: "app_firefox"
+        label: "Firefox Web Browser"
+        description: "Mozilla Firefox web browser (Flatpak)"
+        default: true
+
+      - id: "app_vscode"
+        label: "Visual Studio Code"
+        description: "Visual Studio Code editor for software development (Flatpak)"
+        default: false
+
+      - id: "app_libreoffice"
+        label: "LibreOffice"
+        description: "Full office suite with word processor, spreadsheet, and presentation tools (Flatpak)"
+        default: false
+
+      - id: "app_gimp"
+        label: "GIMP"
+        description: "GNU Image Manipulation Program for image editing (Flatpak)"
+        default: false
+
+      - id: "app_inkscape"
+        label: "Inkscape"
+        description: "Vector graphics editor (Flatpak)"
+        default: false
+
+      - id: "app_vlc"
+        label: "VLC Media Player"
+        description: "Versatile media player for audio and video (Flatpak)"
+        default: false
+
+  - id: "finish"
+    title: "Setup Complete"
+    description: "Your Immutablue system has been configured according to your preferences. The system will now reboot to apply all settings. After reboot, your selected applications and development environments will be installed in the background."
+    type: "info"
