@@ -27,7 +27,6 @@ immutablue:
   - fzf 
   - gcc
   - git
-  - ibus-speech-to-text
   - just
   - libvirt
   - lm_sensors
@@ -49,6 +48,7 @@ immutablue:
   - firewall-applet
   - firewall-config
   - ghostty
+  - ibus-speech-to-text
   # since we don't use this in nucleus builds, then we can just put this in gui
   - python3-pip
   - solaar
