@@ -309,10 +309,23 @@ immutablue_services_enable_setup_for_next_boot() {
     systemctl --user unmask immutablue-first-login.service
     # Unmask the system-level first boot service
     sudo systemctl unmask immutablue-first-boot.service
+
     # Remove the flag files that indicate setup has already run
-    rm ${HOME}/.config/.immutablue_did_first_login
+    if [[ -f "${HOME}/.config/.immutablue_did_first_login" ]]
+    then 
+        rm "${HOME}/.config/.immutablue_did_first_login"
+    fi
+
     # Remove both the first boot and first boot graphical flag files
-    rm /etc/immutablue/setup/did_first_boot{,_graphical}
+    if [[ -f /etc/immutablue/setup/did_first_boot ]]
+    then 
+        rm /etc/immutablue/setup/did_first_boot
+    fi
+
+    if [[ -f /etc/immutablue/setup/did_first_boot_graphical ]]
+    then 
+        rm /etc/immutablue/setup/did_first_boot_graphical
+    fi
 }
 
 # Force the setup services to run immediately
