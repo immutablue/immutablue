@@ -34,6 +34,9 @@ immutablue:
   - NetworkManager-tui
   - podman-compose
   - powertop
+  - python3-yaml
+  - python3-gobject
+  - python3-pip
   - qemu
   - qemu-user-binfmt
   - ramalama

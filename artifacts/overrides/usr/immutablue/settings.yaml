@@ -1,0 +1,77 @@
+# Default Immutablue Settings
+# can be retrieved with immutablue-settings
+# 
+# Settings are retrieved in the following orders:
+# - ${HOME}/.config/immutablue/settings.yaml
+# - /etc/immutablue/settings.yaml
+# - /usr/immutablue/settings.yaml
+
+immutablue:
+  # Re-run `immutablue install` after the next 
+  # reboot after running `immutablue-update`
+  run_install_on_update: true
+
+  # update following components with `immutablue-update`
+  run_bootc_update: true
+  run_distrobox_upgrade: true 
+  run_flatpak_system_update: true 
+  run_flatpak_user_update: true 
+  run_brew_update: true
+
+  # Run the first-boot-graphical installer 
+  # - /usr/libexec/immutablue/setup/first-boot-graphical.sh
+  run_first_boot_graphical_installer: true
+
+  # Run the first-boot script 
+  # - /usr/libexec/immutablue/setup/first-boot.sh
+  run_first_boot_script: true 
+
+  # Run the first-login script 
+  # - /usr/libexec/immutablue/setup/first-login.sh
+  run_first_login_script: true
+
+  # Enhanced setup configuration
+  setup:
+    # Enable the enhanced interactive setup
+    enabled: true
+    
+    # Installation flags (set by the setup wizard)
+    install_distrobox: false
+    install_flatpaks: false
+    
+    # Default selections are stored in the config file and can be 
+    # overridden here if desired
+    default_selections: {}
+
+  # Settings for immutablue-header.sh 
+  # - /usr/libexec/immutablue/immutablue-header.sh
+  header:
+    # immutablue_has_internet always returns true
+    force_always_has_internet: false
+    force_always_has_internet_v4: false
+    force_always_has_internet_v6: false
+
+    has_internet_host_v4: "9.9.9.9"
+    has_internet_host_v6: "2620:fe::fe"
+
+  # Settings for bash profile 
+  # - /etc/profile.d/25-immutablue.sh
+  profile:
+    # Enable starship by default
+    enable_starship: true 
+
+    # Enable brew bash completions 
+    enable_brew_bash_completions: true
+
+    # Enable sourcing fzf-git
+    # - /usr/bin/fzf-git
+    enable_sourcing_fzf_git: true
+
+
+services:
+  syncthing:
+    # Tailscale mode:
+    # make the webui exposed over the tailscale ip
+    # If tailscale fails, or is not used this is 
+    # ignored.
+    tailscale_mode: true

@@ -185,7 +185,7 @@ FULL_TAG := $(IMAGE):$(TAG)
 .PHONY: list all all_upgrade install update upgrade install_or_update reboot \
 	build push iso upgrade rebase clean \
 	install_distrobox install_flatpak install_brew \
-	post_install_notes test test_container test_container_qemu test_artifacts test_shellcheck
+	post_install_notes test test_container test_container_qemu test_artifacts test_shellcheck test_setup
 
 
 list:
@@ -364,12 +364,12 @@ pre_test:
 	fi
 
 # Main test target: Runs all post-build tests to validate the container image
-# This target runs container tests, QEMU tests, and artifact tests
+# This target runs container tests, QEMU tests, artifact tests, and setup tests
 # These tests validate the built container image's functionality and integrity
 # Can be skipped by setting SKIP_TEST=1
 test:
 	@if [ "$(SKIP_TEST)" = "0" ]; then \
-		$(MAKE) test_container test_container_qemu test_artifacts; \
+		$(MAKE) test_container test_container_qemu test_artifacts test_setup; \
 	else \
 		echo "Skipping tests (SKIP_TEST=1)"; \
 	fi
@@ -409,9 +409,22 @@ test_artifacts:
 		echo "Skipping artifacts tests (SKIP_TEST=1)"; \
 	fi
 	
+# Setup tests target: Tests the enhanced first-boot setup modules
+# Tests the TUI and GUI setup applications with dry-run functionality
+# Verifies that the setup applications work correctly without making changes
+# Can be skipped by setting SKIP_TEST=1
+test_setup:
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		echo "Running setup tests..."; \
+		chmod +x ./tests/test_setup.sh; \
+		./tests/test_setup.sh; \
+	else \
+		echo "Skipping setup tests (SKIP_TEST=1)"; \
+	fi
+
 # Run all tests with a single command with detailed output
 # This target provides more detailed test output than the regular test target
-# It runs both pre-build tests (shellcheck) and post-build tests (container, QEMU, artifacts)
+# It runs both pre-build tests (shellcheck) and post-build tests (container, QEMU, artifacts, setup)
 # Can be skipped by setting SKIP_TEST=1
 run_all_tests:
 	@if [ "$(SKIP_TEST)" = "0" ]; then \
