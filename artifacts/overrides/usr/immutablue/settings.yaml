@@ -9,7 +9,7 @@
 immutablue:
   # Re-run `immutablue install` after the next 
   # reboot after running `immutablue-update`
-  run_install_on_update: true
+  run_install_on_update: false
 
   # update following components with `immutablue-update`
   run_bootc_update: true
