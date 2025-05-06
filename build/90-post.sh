@@ -27,6 +27,12 @@ then
     echo -e 'import "./25-asahi.justfile"\n' >> /usr/libexec/immutablue/just/Justfile
 fi
 
+# add kuberblue justfile
+if [[ "$(is_option_in_build_options kuberblue)" == "${TRUE}" ]]
+then 
+    echo -e 'import "./30-kuberblue.justfile"\n' >> /usr/libexec/immutablue/just/Justfile
+fi
+
 
 # set /etc/immutablue/setup to world-writable
 chmod -R 777 /etc/immutablue/setup

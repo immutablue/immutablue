@@ -1,0 +1,12 @@
+[Service]
+Type=simple
+RemainAfterExit=true
+StandardOutput=journal
+Environment=JUST_VERBOSE=1
+ExecStart=/usr/bin/kuberblue on_boot
+ExecStop=/usr/bin/kuberblue on_shutdown
+
+[Install]
+WantedBy=multi-user.target
+
+

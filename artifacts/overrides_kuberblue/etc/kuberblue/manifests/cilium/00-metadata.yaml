@@ -1,0 +1,12 @@
+# Name of the chart deployment
+name: cilium
+# The namespace for the chart to reside in
+namespace: kube-system
+# The name of the chart to deploy (e.g. cilium/cilium)
+chart: cilium/cilium
+create_namespace: true
+# Name of the chart repo
+repo_name: cilium
+repo_url: https://helm.cilium.io/
+# Arguments to be passed that are not set in values.yaml. Prefer values file.
+args:

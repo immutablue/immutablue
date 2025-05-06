@@ -1,0 +1,17 @@
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: ClusterConfiguration 
+controllerManager:
+  extraArgs:
+    - name: flex-volume-plugin-dir
+      value: "/opt/libexec/kubernetes/kubelet-plugins/volume/exec/"
+nodeRegistration:
+  criSocket: "/var/run/crio/crio.sock"
+  kubeletExtraArgs:
+    - name: volume-plugin-dir
+      value: "/opt/libexec/kubernetes/kubelet-plugins/volume/exec/"
+networking:
+  podSubnet: "10.244.0.0/16"
+  serviceSubnet: "10.96.0.0/16"
+  dnsDomain: "cluster.local"
+
+
