@@ -208,6 +208,28 @@ install: install_or_update
 update: install_or_update
 
 
+DEPS_CONTAINER := $(IMAGE):$(VERSION)-deps
+build-deps:
+	buildah \
+		build \
+		--ignorefile ./.containerignore \
+		--no-cache \
+		-t $(DEPS_CONTAINER) \
+		-f ./deps/Containerfile \
+		--build-arg=BASE_IMAGE=$(BASE_IMAGE) \
+		--build-arg=FEDORA_VERSION=$(VERSION) \
+		--build-arg=IMAGE_TAG=$(IMAGE_BASE_TAG):$(TAG) \
+		--build-arg=DO_INSTALL_LTS=$(DO_INSTALL_LTS) \
+		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
+		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS) \
+		--build-arg=IMMUTABLUE_BUILD_OPTIONS=$(BUILD_OPTIONS)
+
+push-deps:
+	buildah \
+		push \
+		$(DEPS_CONTAINER)
+
+
 # Build the Immutablue container image
 # This target first runs pre-build tests (shellcheck) to ensure code quality
 # Pre-tests can be skipped by setting SKIP_TEST=1
