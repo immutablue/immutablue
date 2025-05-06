@@ -11,9 +11,13 @@ immutablue:
     url: https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-42/pgdev-ghostty-fedora-42.repo
 
   repo_urls_x86_64:
-  # Currently podman-bootc only support x86_64
+    # Currently podman-bootc only support x86_64
   - name: podman-bootc.repo 
     url: https://copr.fedorainfracloud.org/coprs/gmaglione/podman-bootc/repo/fedora-42/gmaglione-podman-bootc-fedora-42.repo
+
+  repo_urls_trueblue:
+  - name: znapzend.repo 
+    url: https://copr.fedorainfracloud.org/coprs/spike/znapzend/repo/fedora-42/spike-znapzend-fedora-42.repo
 
 
   # RPM Packages to be installed
@@ -80,6 +84,19 @@ immutablue:
   - nodejs-npm
   - tmux
 
+  rpm_trueblue:
+  - znapzend
+  - samba
+  - samba-client
+  - cockpit-files
+  - cockpit-machines
+  - cockpit-networkmanager
+  - cockpit-ostree
+  - cockpit-podman
+  - cockpit-storaged
+  - cockpit-system
+  - cockpit-navigator
+
 
   # Since Brew doesn't exist on arm64 we should
   # layer in these packages we would normally brew
@@ -109,6 +126,14 @@ immutablue:
   rpm_url:
   - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-42.noarch.rpm
   - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-42.noarch.rpm
+
+
+  # trueblue specific cockpit plugins
+  rpm_url_trueblue:
+  - https://github.com/45Drives/cockpit-zfs-manager/releases/download/v1.3.1/cockpit-zfs-manager-1.3.1-1.el8.noarch.rpm 
+  - https://github.com/45Drives/cockpit-file-sharing/releases/download/v4.2.8/cockpit-file-sharing-4.2.8-1.el8.noarch.rpm 
+  - https://github.com/45Drives/cockpit-benchmark/releases/download/v2.1.1/cockpit-benchmark-2.1.1-1.el8.noarch.rpm 
+  - https://github.com/spotsnel/cockpit-tailscale/releases/download/v0.0.6/cockpit-tailscale-v0.0.6-1.el9.noarch.rpm
 
   
   

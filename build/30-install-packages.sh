@@ -27,6 +27,7 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 # These functions are defined in 99-common.sh
 pkgs=$(get_immutablue_packages)
 pkg_urls=$(get_immutablue_package_urls)
+pkg_post_urls=$(get_immutablue_package_post_urls)
 pip_pkgs=$(get_immutablue_pip_packages)
 
 # Install the uBlue udev rules for hardware support
@@ -43,38 +44,12 @@ then
     dnf5 -y install /mnt-ublue-akmods/kmods/kmod-{framework,openrazer,xone}-*.rpm
 fi
 
-
-# Install RPMs from URLs
-# This is for packages that need to be downloaded directly from URLs
-# rather than from repositories, such as RPMFusion
-if [[ "$pkg_urls" != "" ]]
-then
-    # Convert the list of URLs into a space-separated string for dnf
-    dnf5 -y install $(for pkg in $pkg_urls; do printf '%s ' "$pkg"; done)
-fi
-
-# Install NVIDIA Drivers if this is a cyan variant
-# This must be done after installing RPM URLs because it relies on RPMFusion
-if [[ "$(is_option_in_build_options cyan)" == "${TRUE}" ]]
-then 
-    # Install NVIDIA drivers from the pre-built ublue packages
-    # This includes both the ublue-os-nvidia package and the kmod-nvidia kernel module
-    dnf5 -y install /mnt-ublue-akmods-nvidia/ublue-os/ublue-os-nvidia*.rpm /mnt-ublue-akmods-nvidia/kmods/kmod-nvidia-*.rpm 
-fi
-
-# Install the main packages defined in packages.yaml
-if [[ "$pkgs" != "" ]]
-then 
-    # Convert the list of packages into a space-separated string for dnf
-    dnf5 -y install $(for pkg in $pkgs; do printf '%s ' "$pkg"; done)
-fi
-
 # Install the LTS kernel if enabled
 # The LTS kernel provides better stability for systems that need it
 if [[ "$DO_INSTALL_LTS" == "true" ]]
 then 
     # Download the LTS kernel repository configuration
-    curl -Lo "/etc/yum.repos.d/kwizart-kernel-longterm-${LTS_VERSION}-fedora-42.repo" "${LTS_REPO_URL}"
+    curl -Lo "/etc/yum.repos.d/kwizart-kernel-longterm-${LTS_VERSION}-fedora-${FEDORA_VERSION}.repo" "${LTS_REPO_URL}"
     
     # Remove the standard kernel packages
     # The protect_running_kernel=false option allows removing the currently running kernel
@@ -117,6 +92,43 @@ then
     # Add ZFS to the list of modules to load at boot
     echo 'zfs' >> "${MODULES_CONF}"
 fi
+
+# Install RPMs from URLs
+# This is for packages that need to be downloaded directly from URLs
+# rather than from repositories, such as RPMFusion
+if [[ "$pkg_urls" != "" ]]
+then
+    # Convert the list of URLs into a space-separated string for dnf
+    dnf5 -y install $(for pkg in $pkg_urls; do printf '%s ' "$pkg"; done)
+fi
+
+# Install NVIDIA Drivers if this is a cyan variant
+# This must be done after installing RPM URLs because it relies on RPMFusion
+if [[ "$(is_option_in_build_options cyan)" == "${TRUE}" ]]
+then 
+    # Install NVIDIA drivers from the pre-built ublue packages
+    # This includes both the ublue-os-nvidia package and the kmod-nvidia kernel module
+    dnf5 -y install /mnt-ublue-akmods-nvidia/ublue-os/ublue-os-nvidia*.rpm /mnt-ublue-akmods-nvidia/kmods/kmod-nvidia-*.rpm 
+fi
+
+# Install the main packages defined in packages.yaml
+if [[ "$pkgs" != "" ]]
+then 
+    # Convert the list of packages into a space-separated string for dnf
+    dnf5 -y install $(for pkg in $pkgs; do printf '%s ' "$pkg"; done)
+fi
+
+
+# Install RPMs from URLs post pkgs
+# This is for packages that need to be downloaded directly from URLs
+# rather than from repositories, that need to be installed after the 
+# regular pkags above
+if [[ "$pkg_post_urls" != "" ]]
+then
+    # Convert the list of URLs into a space-separated string for dnf
+    dnf5 -y install $(for pkg in $pkg_post_urls; do printf '%s ' "$pkg"; done)
+fi
+
 
 # Install Python packages via pip
 # This is skipped for nucleus (headless) and build-a-blue-workshop variants
