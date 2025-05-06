@@ -1,0 +1,74 @@
+
+# CRI-O bug requires digest to be off
+authentication:
+  mutual:
+    spire:
+      install:
+        initImage:
+          useDigest: false
+        server:
+          image:
+            useDigest: false
+        agent:
+          image:
+            useDigest: false
+
+certgen:
+  image:
+    useDigest: false
+
+clustermesh:
+  apiserver:
+    image:
+      useDigest: false
+
+envoy:
+  enabled: true
+  image:
+    useDigest: false
+
+kubeProxyReplacement: "true"
+
+hubble:
+  relay:
+    enabled: true
+    image:
+      useDigest: false
+  ui:
+    backend:
+      image:
+        useDigest: false
+    frontend:
+      image:
+        useDigest: false
+
+nodeinit:
+  enabled: true
+  image:
+    useDigest: false
+
+operator:
+  enabled: true
+  image:
+    useDigest: false
+
+image:
+  useDigest: false
+
+ingressController:
+  enabled: true
+  default: true
+
+ipam:
+  operator:
+    clusterPoolIPv4PodCIDRList: ["10.244.0.0/16"]
+
+l2announcements:
+  enabled: true
+
+# Establish connection to kubernetes
+# `auto` here looks at the cluster-info configmap
+# This is customizable
+# See `https://docs.cilium.io/en/stable/helm-reference/`
+k8sServiceHost: "auto"
+k8sServicePort: 6443

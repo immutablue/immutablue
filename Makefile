@@ -179,6 +179,11 @@ ifeq ($(BUILD_A_BLUE_WORKSHOP),1)
 endif
 
 
+ifeq ($(KUBERBLUE),1)
+	TAG := $(TAG)-kuberblue
+	BUILD_OPTIONS := $(BUILD_OPTIONS),kuberblue
+endif
+
 ifeq ($(TRUEBLUE),1)
 	TAG := $(TAG)-trueblue
 	BUILD_OPTIONS := $(BUILD_OPTIONS),trueblue,lts,zfs

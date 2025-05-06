@@ -1,0 +1,24 @@
+NAME="Kuberblue"
+VERSION="42 (Immutablue)"
+ID=kuberblue
+VERSION_ID=42
+VERSION_CODENAME=""
+PLATFORM_ID="platform:f42"
+PRETTY_NAME="Kuberblue 42 (Immutablue)"
+ANSI_COLOR="0;38;2;60;110;180"
+LOGO=fedora-logo-icon
+CPE_NAME="cpe:/o:fedoraproject:fedora:42"
+DEFAULT_HOSTNAME="kuberblue"
+HOME_URL="https://silverblue.fedoraproject.org"
+DOCUMENTATION_URL="https://docs.fedoraproject.org/en-US/fedora-silverblue/"
+SUPPORT_URL="https://ask.fedoraproject.org/"
+BUG_REPORT_URL="https://github.com/fedora-silverblue/issue-tracker/issues"
+REDHAT_BUGZILLA_PRODUCT="Fedora"
+REDHAT_BUGZILLA_PRODUCT_VERSION=42
+REDHAT_SUPPORT_PRODUCT="Fedora"
+REDHAT_SUPPORT_PRODUCT_VERSION=42
+SUPPORT_END=2025-05-13
+VARIANT="Silverblue"
+VARIANT_ID=silverblue
+OSTREE_VERSION='42.20241921.0'
+

@@ -5,8 +5,8 @@ immutablue:
     url: https://pkgs.tailscale.com/stable/fedora/tailscale.repo
   - name: ublue-os-staging.repo
     url: https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-42/ublue-os-staging-fedora-42.repo
-  - name: docker-ce.repo
-    url: https://download.docker.com/linux/fedora/docker-ce.repo
+  # - name: docker-ce.repo
+  #   url: https://download.docker.com/linux/fedora/docker-ce.repo
   - name: ghostty.repo 
     url: https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-42/pgdev-ghostty-fedora-42.repo
 
@@ -26,7 +26,7 @@ immutablue:
   - cmake
   - dialog
   - distrobox
-  - docker-ce
+  # - docker-ce
   - fuse-sshfs
   - fzf 
   - gcc
@@ -97,6 +97,22 @@ immutablue:
   - cockpit-system
   - cockpit-navigator
 
+  rpm_kuberblue:
+  - cockpit
+  - crio 
+  - cri-tools1.32
+  - fzf
+  - glances
+  - helm
+  - htop 
+  - just
+  - kubernetes1.32
+  - kubernetes1.32-client
+  - kubernetes1.32-kubeadm
+  - kubernetes1.32-systemd
+  - neovim
+  - tmux
+
 
   # Since Brew doesn't exist on arm64 we should
   # layer in these packages we would normally brew
@@ -148,6 +164,13 @@ immutablue:
   
   # Temp files to be removed during build stage (errors out build)
   file_rm:
+
+
+  # force delete for systemd-resolved removal as it conflicts with
+  # the resolver in the kuber pods
+  file_rm_kuberblue:
+  - /etc/resolv.conf
+
 
 
   # Repositories for Flatpaks
@@ -225,9 +248,22 @@ immutablue:
 
   services_enable_sys_gui:
   - xrdp.service
+  
+  services_enable_sys_kuberblue:
+  - kuberblue-onboot.service
+  - cockpit.socket
+  - sshd.service 
+  - crio.service 
+  - kubelet.service
 
   services_disable_sys:
+  services_disable_sys_kuberblue:
+  - firewalld.service
+
   services_mask_sys:
+  services_mask_sys_kuberblue:
+  - systemd-resolved.service
+
   services_unmask_sys:
 
   # User services 

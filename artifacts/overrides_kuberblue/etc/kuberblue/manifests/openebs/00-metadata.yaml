@@ -1,0 +1,10 @@
+# Name of the chart deployment
+name: openebs
+namespace: openebs
+chart: openebs/openebs
+create_namespace: true
+# Name of the chart repo
+repo_name: openebs
+repo_url: https://openebs.github.io/openebs
+# Arguments to be passed that are not set in values.yaml. Prefer values file.
+args:
