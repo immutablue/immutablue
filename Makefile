@@ -179,6 +179,15 @@ ifeq ($(BUILD_A_BLUE_WORKSHOP),1)
 endif
 
 
+ifeq ($(TRUEBLUE),1)
+	TAG := $(TAG)-trueblue
+	BUILD_OPTIONS := $(BUILD_OPTIONS),trueblue,lts,zfs
+	# set to install lts and zfs by default with trueblue 
+    DO_INSTALL_LTS := true
+    DO_INSTALL_ZFS := true
+endif
+
+
 
 FULL_TAG := $(IMAGE):$(TAG)
 

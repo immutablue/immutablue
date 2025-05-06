@@ -5,9 +5,21 @@ MARCH="$(uname -m)"
 
 MODULES_CONF="/etc/modules-load.d/10-immutablue.conf"
 
-ZFS_RPM_URL="https://zfsonlinux.org/fedora/zfs-release-2-6.fc42.noarch.rpm"
-LTS_VERSION="6.6"
-LTS_REPO_URL="https://copr.fedorainfracloud.org/coprs/kwizart/kernel-longterm-6.6/repo/fedora-42/kwizart-kernel-longterm-${LTS_VERSION}-fedora-42.repo"
+LTS_VERSION="invalid-lts-version"
+ZFS_RPM_URL="invalid-zfs-url"
+
+if [[ ${FEDORA_VERSION} == "41" ]]
+then
+    LTS_VERSION="6.6"
+    ZFS_RPM_URL="https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-2-8.fc41.noarch.rpm"
+elif [[ ${FEDORA_VERSION} == "42" ]]
+then 
+    LTS_VERSION="6.12"
+    ZFS_RPM_URL="https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-2-8.fc42.noarch.rpm"
+fi
+
+# LTS_REPO_URL="https://copr.fedorainfracloud.org/coprs/kwizart/kernel-longterm-6.6/repo/fedora-42/kwizart-kernel-longterm-${LTS_VERSION}-fedora-42.repo"
+LTS_REPO_URL="https://copr.fedorainfracloud.org/coprs/kwizart/kernel-longterm-${LTS_VERSION}/repo/fedora-${FEDORA_VERSION}/kwizart-kernel-longterm-${LTS_VERSION}-fedora-${FEDORA_VERSION}.repo"
 
 HUGO_RELEASE_URL_x86_64="https://github.com/gohugoio/hugo/releases/download/v0.143.1/hugo_extended_withdeploy_0.143.1_linux-amd64.tar.gz"
 HUGO_RELEASE_URL_aarch64="https://github.com/gohugoio/hugo/releases/download/v0.143.1/hugo_extended_withdeploy_0.143.1_linux-arm64.tar.gz"
@@ -74,6 +86,11 @@ get_immutablue_packages_to_remove() {
 
 get_immutablue_package_urls() {
     get_yaml_array '.immutablue.rpm_url'
+}
+
+
+get_immutablue_package_post_urls() {
+    get_yaml_array '.immutablue.rpm_post_url'
 }
 
 
