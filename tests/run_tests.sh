@@ -36,6 +36,13 @@ if [[ $? -ne 0 ]]; then
   EXIT_CODE=1
 fi
 
+# Run brew variant tests
+echo -e "\n>> Running Brew Variant Tests"
+bash "$TEST_DIR/test_brew_variants.sh"
+if [[ $? -ne 0 ]]; then
+  EXIT_CODE=1
+fi
+
 # Run container tests
 echo -e "\n>> Running Container Tests"
 bash "$TEST_DIR/test_container.sh" "$@"

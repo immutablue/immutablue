@@ -395,4 +395,12 @@ brew:
   - zenity
   uninstall:
 
+  # Variant-specific packages (empty for now)
+  install_kuberblue:
+  uninstall_kuberblue:
+  install_trueblue:
+  uninstall_trueblue:
+  install_build_a_blue_workshop:
+  uninstall_build_a_blue_workshop:
+
 
