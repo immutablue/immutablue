@@ -286,20 +286,64 @@ brew_install_all_from_yaml() {
     [ $# -ne 1 ] && echo "echo brew_install_all_from_yaml <packages.yaml>" && exit 1
     local brew_yaml="$1"
 
+    # Source the immutablue header for utility functions
+    if [[ -f "/usr/libexec/immutablue/immutablue-header.sh" ]]; then
+        source "/usr/libexec/immutablue/immutablue-header.sh"
+    fi
+
+    # Start with base packages
     brew_add=$(yq '.brew.install[]' < $brew_yaml)
     brew_rm=$(yq '.brew.uninstall[]' < $brew_yaml)
+    
+    # Add variant-specific packages for all detected variants
+    if [[ -f "/usr/immutablue/build_options" ]]
+    then
+        # Use the existing function from immutablue-header.sh if available
+        if type get_immutablue_build_options >/dev/null 2>&1; then
+            while read -r option
+            do
+                # Try to get variant-specific packages for this option
+                local variant_add
+                variant_add=$(yq ".brew.install_${option}[]" < $brew_yaml)
+                local variant_rm
+                variant_rm=$(yq ".brew.uninstall_${option}[]" < $brew_yaml)
+                
+                # Add to the main lists (handles multiple variants automatically)
+                brew_add="$brew_add $variant_add"
+                brew_rm="$brew_rm $variant_rm"
+            done < <(get_immutablue_build_options)
+        else
+            # Fallback to manual parsing if header not available
+            local build_options
+            build_options="$(cat /usr/immutablue/build_options)"
+            IFS=',' read -ra option_array <<< "${build_options}"
+            
+            for option in "${option_array[@]}"
+            do
+                # Try to get variant-specific packages for this option
+                local variant_add
+                variant_add=$(yq ".brew.install_${option}[]" < $brew_yaml)
+                local variant_rm
+                variant_rm=$(yq ".brew.uninstall_${option}[]" < $brew_yaml)
+                
+                # Add to the main lists (handles multiple variants automatically)
+                brew_add="$brew_add $variant_add"
+                brew_rm="$brew_rm $variant_rm"
+            done
+        fi
+    fi
     
     # Assume `brew` is not in $PATH yet
     export PATH="$HOME/../linuxbrew/.linuxbrew/bin:$PATH"
 
     if [ "" != "$brew_add" ]
     then 
-        brew install "$(for pkg in $brew_add; do printf '%s ' "$pkg"; done)"
+        brew install $(for pkg in $brew_add; do printf '%s ' "$pkg"; done)
     fi
 
     if [ "" != "$brew_rm" ] 
     then 
-        brew uninstall "$(for pkg in $brew_rm; do printf '%s ' "$pkg"; done)"
+        brew uninstall $(for pkg in $brew_rm; do printf '%s ' "$pkg"; done)
     fi
 }
 
