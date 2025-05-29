@@ -83,7 +83,7 @@ determine_file_and_deploy(){
 deploy_all_manifests(){
     # First process manifests in the root directory
     if compgen -G "${manifest_dir}*.yaml" > /dev/null || compgen -G "${manifest_dir}*.json" > /dev/null; then
-        for f in ${manifest_dir}*.{yaml,json} 2>/dev/null; do
+        for f in "${manifest_dir}"*.yaml "${manifest_dir}"*.json; do
             # Skip if the file doesn't exist (happens when no matches for one of the patterns)
             [ -e "$f" ] || continue
             determine_file_and_deploy "$f"

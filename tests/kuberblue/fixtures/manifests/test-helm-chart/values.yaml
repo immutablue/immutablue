@@ -1,0 +1,98 @@
+# Default values for test-helm-chart
+replicaCount: 2
+
+image:
+  repository: nginx
+  tag: "alpine"
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+    - ALL
+    add:
+    - NET_BIND_SERVICE
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: test-app.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Test-specific configuration
+test:
+  enabled: true
+  labels:
+    test: kuberblue
+    component: test-app
+
+# Application configuration
+app:
+  name: test-application
+  version: "1.0.0"
+  port: 8080
+  
+# Environment-specific settings
+environment: test
+
+# Database configuration (for testing)
+database:
+  enabled: false
+  host: localhost
+  port: 5432
+  name: testdb
+
+# Redis configuration (for testing)
+redis:
+  enabled: false
+  host: localhost
+  port: 6379

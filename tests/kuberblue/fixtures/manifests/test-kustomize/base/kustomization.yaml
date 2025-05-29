@@ -1,0 +1,46 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: test-kustomize-base
+
+resources:
+- namespace.yaml
+- deployment.yaml
+- service.yaml
+- configmap.yaml
+
+commonLabels:
+  app: test-kustomize
+  test: kuberblue
+
+# Common annotations
+commonAnnotations:
+  managed-by: kustomize
+  purpose: testing
+
+# Name prefix for all resources
+namePrefix: test-
+
+# Namespace for all resources
+namespace: test-kustomize
+
+# Image transformations
+images:
+- name: nginx
+  newTag: alpine
+
+# ConfigMap generator
+configMapGenerator:
+- name: app-config
+  literals:
+  - app.name=test-kustomize
+  - app.version=1.0.0
+  - environment=test
+
+# Secret generator
+secretGenerator:
+- name: app-secrets
+  literals:
+  - password=test-password
+  - api-key=test-api-key

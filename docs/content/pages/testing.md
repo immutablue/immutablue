@@ -10,12 +10,22 @@ Immutablue includes a comprehensive set of unit tests to ensure the integrity an
 
 ## Testing Framework Overview
 
-The testing framework is designed to verify four key aspects of Immutablue:
+The testing framework is designed to verify key aspects of Immutablue and its variants:
 
+### Core Immutablue Testing
 1. **Container Tests**: Basic verification of the container image's functionality and structure
 2. **QEMU Tests**: Ensuring the container image can boot properly in a virtualized environment
 3. **Artifacts Tests**: Validating that all files in the `artifacts/overrides` directory are correctly included in the container image and haven't been modified
 4. **Pre-Build ShellCheck Tests**: Static analysis of all shell scripts to ensure code quality and catch potential bugs
+
+### Kuberblue Testing Framework
+For Kuberblue (the Kubernetes distribution variant), additional comprehensive testing is provided:
+
+5. **Kuberblue Container Tests**: Validates Kubernetes binaries, Kuberblue-specific files, systemd services, and configurations
+6. **Kuberblue Components Tests**: Tests just commands, manifest deployment capabilities, user management, and script functionality
+7. **Kuberblue Security Tests**: Validates RBAC configuration, network policies, pod security contexts, and system security
+8. **Kuberblue Cluster Tests**: Tests cluster initialization, networking setup, storage provisioning, and overall health (requires VM environment)
+9. **Kuberblue Integration Tests**: End-to-end testing with real workloads, application deployment validation, and functionality verification
 
 The tests are configured to run automatically as part of the build process and can also be executed manually during development. ShellCheck tests run as pre-build tests to ensure code quality before the build process begins, while the other tests run after building the container.
 
@@ -81,6 +91,34 @@ make test_container_qemu
 
 # Run only artifacts tests
 make test_artifacts
+
+# Kuberblue-specific test categories
+make test_kuberblue_container    # Test Kuberblue container validation
+make test_kuberblue_components   # Test Kuberblue components and scripts
+make test_kuberblue_security     # Test Kuberblue security configurations
+make test_kuberblue_cluster      # Test cluster functionality (requires VM)
+make test_kuberblue_integration  # Test integration scenarios (requires cluster)
+make test_kuberblue              # Run complete Kuberblue test suite
+```
+
+### Running Kuberblue Tests with Different Levels
+
+Kuberblue tests support different execution levels based on available infrastructure:
+
+```bash
+# Basic Kuberblue tests (container and components only)
+make test_kuberblue
+
+# Enable cluster testing (requires VM environment)
+KUBERBLUE_CLUSTER_TEST=1 make test_kuberblue
+
+# Enable full integration testing (requires cluster environment)
+KUBERBLUE_INTEGRATION_TEST=1 make test_kuberblue
+
+# Run individual Kuberblue tests directly
+./tests/kuberblue/test_kuberblue_container.sh
+./tests/kuberblue/test_kuberblue_components.sh
+./tests/kuberblue/test_kuberblue_security.sh
 ```
 
 ### Running Tests with Alternative Container Images
@@ -235,6 +273,87 @@ The project includes a `.shellcheckrc` configuration file in the root directory 
 
 This configuration ensures that ShellCheck validates scripts according to project-specific standards and requirements.
 
+## Kuberblue Testing Framework
+
+The Kuberblue testing framework provides comprehensive validation for the Kubernetes distribution variant of Immutablue. This framework is automatically activated when testing Kuberblue images and includes specialized tests for Kubernetes functionality.
+
+### Kuberblue Container Tests
+
+The Kuberblue container tests (`test_kuberblue_container.sh`) verify:
+
+- **Kubernetes Binaries**: Validates presence and accessibility of `kubeadm`, `kubelet`, `kubectl`, `crio`, and `helm`
+- **Kuberblue Directories**: Ensures `/etc/kuberblue` and `/usr/libexec/kuberblue` exist with proper structure
+- **Configuration Files**: Verifies kubeadm configuration, manifests directory, and setup scripts
+- **Systemd Services**: Validates Kuberblue-specific systemd services and timers
+- **User Configuration**: Checks kuberblue user setup and permissions
+
+### Kuberblue Components Tests
+
+The components tests (`test_kuberblue_components.sh`) validate:
+
+- **Just Commands**: Tests all Kuberblue just commands for syntax and basic execution
+- **Manifest Deployment**: Validates Helm charts, Kustomize configurations, and raw YAML manifests
+- **Script Functionality**: Tests all scripts in `/usr/libexec/kuberblue/` for syntax and functionality
+- **User Management**: Validates user creation scripts and kubectl configuration
+- **Configuration Files**: Tests kubeadm and system configuration files
+
+### Kuberblue Security Tests
+
+The security tests (`test_kuberblue_security.sh`) verify:
+
+- **RBAC Configuration**: Tests default service account permissions and kuberblue user RBAC
+- **Network Policies**: Validates network policy creation and enforcement (if supported by CNI)
+- **Pod Security**: Tests security contexts, pod security standards, and privilege restrictions
+- **System Security**: Validates SELinux configuration, file permissions, and service security
+
+### Kuberblue Cluster Tests
+
+The cluster tests (`test_kuberblue_cluster.sh`) provide comprehensive cluster validation:
+
+- **Cluster Initialization**: Tests kubeadm cluster initialization with Kuberblue configuration
+- **Network Setup**: Validates CNI plugin deployment (Cilium/Flannel) and functionality
+- **Storage Setup**: Tests OpenEBS deployment and persistent storage functionality
+- **Cluster Health**: Validates overall cluster health and component status
+
+**Requirements**: VM environment with 4GB+ RAM, 4+ CPU cores, and KVM support.
+
+### Kuberblue Integration Tests
+
+The integration tests (`test_kuberblue_integration.sh`) perform end-to-end validation:
+
+- **Application Deployment**: Tests multi-tier application stacks with databases and services
+- **Cluster Operations**: Validates scaling, resource management, and operational procedures
+- **Stateful Workloads**: Tests StatefulSets, persistent storage, and data persistence
+- **Real-World Manifests**: Deploys and validates actual Kuberblue manifests (Cilium, OpenEBS)
+- **Functionality Validation**: Ensures deployed applications work correctly, not just deploy successfully
+
+**Requirements**: Full cluster environment with network connectivity for external validation.
+
+### Kuberblue Helper Utilities
+
+The framework includes specialized helper utilities:
+
+- **`cluster_utils.sh`**: Cluster management, pod readiness, and resource cleanup
+- **`manifest_utils.sh`**: Helm chart validation, Kustomize testing, and manifest deployment
+- **`network_utils.sh`**: Network connectivity testing, service discovery, and CNI validation
+
+### Kuberblue Test Fixtures
+
+Test fixtures provide realistic testing scenarios:
+
+- **Sample Configurations**: Test kubeadm configurations and system settings
+- **Helm Charts**: Complete test chart with templates, values, and metadata
+- **Kustomize Overlays**: Base configurations with environment-specific overlays
+- **Test Scripts**: Helper scripts for cluster setup and network validation
+
+### Environment Variables
+
+Kuberblue tests use environment variables for flexible execution:
+
+- `KUBERBLUE_CLUSTER_TEST=1`: Enables cluster-level testing requiring VM environment
+- `KUBERBLUE_INTEGRATION_TEST=1`: Enables full integration testing requiring cluster
+- These variables allow selective execution based on available infrastructure
+
 ## Extending the Test Suite
 
 ### Adding New Container Tests
@@ -280,6 +399,60 @@ To add new artifact validation tests:
 2. Add a new test function that verifies specific directory structures or file content
 3. Add your test to the runner section
 
+### Adding New Kuberblue Tests
+
+To add new Kuberblue-specific tests:
+
+1. **For Container Tests**: Add functions to `tests/kuberblue/test_kuberblue_container.sh`
+2. **For Components Tests**: Add functions to `tests/kuberblue/test_kuberblue_components.sh`
+3. **For Security Tests**: Add functions to `tests/kuberblue/test_kuberblue_security.sh`
+4. **For Cluster Tests**: Add functions to `tests/kuberblue/test_kuberblue_cluster.sh`
+5. **For Integration Tests**: Add functions to `tests/kuberblue/test_kuberblue_integration.sh`
+
+Follow the existing pattern:
+
+```bash
+function test_new_kuberblue_feature() {
+    echo "Testing new Kuberblue feature"
+    
+    # Ensure cluster is initialized (for cluster/integration tests)
+    if ! is_cluster_initialized; then
+        echo "SKIP: Cluster not initialized, skipping test"
+        return 0
+    fi
+    
+    # Use helper utilities
+    source "$TEST_DIR/helpers/cluster_utils.sh"
+    
+    # Run test logic
+    if ! kubectl get nodes >/dev/null 2>&1; then
+        echo "FAIL: New feature test failed"
+        return 1
+    fi
+    
+    echo "PASS: New feature test passed"
+    return 0
+}
+```
+
+### Creating New Helper Utilities
+
+To add new helper functions:
+
+1. Create new files in `tests/kuberblue/helpers/` or extend existing ones
+2. Follow the pattern of existing helpers with proper error handling
+3. Include cleanup functions for resource management
+4. Source helpers in test scripts that need them
+
+### Adding Test Fixtures
+
+To add new test fixtures:
+
+1. **Configurations**: Add to `tests/kuberblue/fixtures/configs/`
+2. **Manifests**: Add to `tests/kuberblue/fixtures/manifests/`
+3. **Scripts**: Add to `tests/kuberblue/fixtures/scripts/`
+4. Make scripts executable and include proper documentation
+
 ### Adding Test Documentation
 
 When adding new tests, be sure to:
@@ -287,6 +460,7 @@ When adding new tests, be sure to:
 1. Update this documentation page with details about the new tests
 2. Add comprehensive comments to your test functions
 3. Update the README.md in the tests directory
+4. Include environment variable requirements and usage
 
 ## Continuous Integration
 
@@ -300,13 +474,27 @@ The test suite is designed to be integrated into CI/CD pipelines. When setting u
 
 The test files are organized as follows:
 
+### Core Immutablue Tests
 - `tests/test_container.sh`: Container tests
-- `tests/test_container_qemu.sh`: QEMU-based tests
+- `tests/test_container_qemu.sh`: QEMU-based tests (includes Kuberblue support)
 - `tests/test_artifacts.sh`: Artifacts and file integrity tests
 - `tests/test_shellcheck.sh`: ShellCheck static analysis tests
-- `tests/run_tests.sh`: Master test runner script
+- `tests/run_tests.sh`: Master test runner script (detects and runs Kuberblue tests)
 - `tests/README.md`: Test documentation for developers
 - `.shellcheckrc`: ShellCheck configuration file (in project root)
+
+### Kuberblue Testing Framework
+- `tests/kuberblue/test_kuberblue_container.sh`: Kuberblue container validation
+- `tests/kuberblue/test_kuberblue_components.sh`: Components and scripts testing
+- `tests/kuberblue/test_kuberblue_security.sh`: Security configuration validation
+- `tests/kuberblue/test_kuberblue_cluster.sh`: Cluster functionality testing
+- `tests/kuberblue/test_kuberblue_integration.sh`: Integration and end-to-end testing
+- `tests/kuberblue/helpers/cluster_utils.sh`: Cluster management utilities
+- `tests/kuberblue/helpers/manifest_utils.sh`: Manifest validation utilities
+- `tests/kuberblue/helpers/network_utils.sh`: Network testing utilities
+- `tests/kuberblue/fixtures/configs/`: Sample configurations for testing
+- `tests/kuberblue/fixtures/manifests/`: Test Helm charts, Kustomize overlays, and YAML
+- `tests/kuberblue/fixtures/scripts/`: Helper scripts for test scenarios
 
 ## Future Improvements
 
@@ -344,6 +532,13 @@ Future improvements to the testing framework could include:
   - Unquoted variables that should be quoted
   - Unsafe command substitution without quoting
   - Missing error handling in scripts
+- **Kuberblue Test Failures**: Common causes specific to Kuberblue:
+  - Missing kubectl: Install with `dnf install kubernetes-client`
+  - Missing helm: Install with `dnf install helm`
+  - Insufficient VM resources: Ensure 4GB+ RAM and 4+ CPU cores
+  - Network connectivity issues: Check firewall and DNS settings
+  - Cluster initialization timeout: Increase `QEMU_TIMEOUT` for slower systems
+  - Missing test fixtures: Ensure all fixture files are present and executable
 
 ### Debugging Tests
 
@@ -363,7 +558,18 @@ To debug test failures:
    - Use the `--format=json` option to get detailed information: `shellcheck --format=json scripts/failing_script.sh`
    - Try the auto-fix mode: `./tests/test_shellcheck.sh --fix`
    - Check the ShellCheck wiki for information on specific error codes: `https://github.com/koalaman/shellcheck/wiki/SC####` (replace #### with the error code)
+7. For Kuberblue test failures:
+   - Check cluster status: `kubectl cluster-info` and `kubectl get nodes`
+   - Examine pod logs: `kubectl logs -n kube-system <pod-name>`
+   - Review test resource cleanup: `kubectl get all --all-namespaces -l test=kuberblue`
+   - Enable verbose mode: Add `set -x` to specific test functions
+   - Check environment variables: `echo $KUBERBLUE_CLUSTER_TEST $KUBERBLUE_INTEGRATION_TEST`
+   - Run individual helper functions: `source tests/kuberblue/helpers/cluster_utils.sh && get_cluster_debug_info`
+   - Test cluster connectivity: `kubectl run debug --image=busybox --rm -it -- sh`
+   - Check VM resources: Monitor CPU, memory, and disk usage during tests
 
 ## Conclusion
 
-The Immutablue testing framework provides a robust mechanism for ensuring the quality and integrity of the container image. By following the patterns established in the existing tests, developers can extend the test suite to cover new functionality and edge cases, ensuring that Immutablue remains stable and reliable for users.
+The Immutablue testing framework provides a robust mechanism for ensuring the quality and integrity of the container image and its variants. The comprehensive Kuberblue testing framework adds specialized validation for Kubernetes deployments, ensuring that the entire Kubernetes distribution works correctly from container validation through cluster operations to real-world workload deployment.
+
+By following the patterns established in the existing tests, developers can extend the test suite to cover new functionality and edge cases, ensuring that both Immutablue and Kuberblue remain stable and reliable for users. The modular architecture allows for selective test execution based on available infrastructure, making the framework adaptable to different development and CI/CD environments.
