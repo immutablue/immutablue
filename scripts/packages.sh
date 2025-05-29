@@ -292,8 +292,8 @@ brew_install_all_from_yaml() {
     fi
 
     # Start with base packages
-    brew_add=$(yq '.brew.install[]' < $brew_yaml)
-    brew_rm=$(yq '.brew.uninstall[]' < $brew_yaml)
+    brew_add=$(cat <(yq '.brew.install[]' < $brew_yaml))
+    brew_rm=$(cat <(yq '.brew.uninstall[]' < $brew_yaml))
     
     # Add variant-specific packages for all detected variants
     if [[ -f "/usr/immutablue/build_options" ]]
@@ -304,9 +304,9 @@ brew_install_all_from_yaml() {
             do
                 # Try to get variant-specific packages for this option
                 local variant_add
-                variant_add=$(yq ".brew.install_${option}[]" < $brew_yaml)
+                variant_add=$(cat <(yq ".brew.install_${option}[]" < $brew_yaml))
                 local variant_rm
-                variant_rm=$(yq ".brew.uninstall_${option}[]" < $brew_yaml)
+                variant_rm=$(cat <(yq ".brew.uninstall_${option}[]" < $brew_yaml))
                 
                 # Add to the main lists (handles multiple variants automatically)
                 brew_add="$brew_add $variant_add"
@@ -322,9 +322,9 @@ brew_install_all_from_yaml() {
             do
                 # Try to get variant-specific packages for this option
                 local variant_add
-                variant_add=$(yq ".brew.install_${option}[]" < $brew_yaml)
+                variant_add=$(cat <(yq ".brew.install_${option}[]" < $brew_yaml))
                 local variant_rm
-                variant_rm=$(yq ".brew.uninstall_${option}[]" < $brew_yaml)
+                variant_rm=$(cat <(yq ".brew.uninstall_${option}[]" < $brew_yaml))
                 
                 # Add to the main lists (handles multiple variants automatically)
                 brew_add="$brew_add $variant_add"
