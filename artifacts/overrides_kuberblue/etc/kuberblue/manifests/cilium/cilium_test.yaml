@@ -1,0 +1,150 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cilium-networking-test
+  annotations:
+    kuberblue.test/component: "cilium"
+    kuberblue.test/category: "networking"
+    kuberblue.test/priority: "high"
+    kuberblue.test/timeout: "300s"
+spec:
+  timeouts:
+    apply: 60s
+    assert: 300s
+    cleanup: 60s
+  steps:
+  
+  # Step 1: Verify Cilium pods are running
+  - name: verify-cilium-deployment
+    try:
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: DaemonSet
+          metadata:
+            name: cilium
+            namespace: kube-system
+          status:
+            numberReady: ($numberAvailable)
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            namespace: kube-system
+            labels:
+              k8s-app: cilium
+          status:
+            phase: Running
+            
+  # Step 2: Test pod-to-pod connectivity
+  - name: test-pod-connectivity
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: cilium-test
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: test-client
+            namespace: cilium-test
+          spec:
+            containers:
+            - name: client
+              image: curlimages/curl:latest
+              command: ['sleep', '3600']
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "128Mi"
+                  cpu: "100m"
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: test-server
+            namespace: cilium-test
+            labels:
+              app: test-server
+          spec:
+            containers:
+            - name: server
+              image: nginx:alpine
+              ports:
+              - containerPort: 80
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "128Mi"
+                  cpu: "100m"
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: test-server-svc
+            namespace: cilium-test
+          spec:
+            selector:
+              app: test-server
+            ports:
+            - port: 80
+              targetPort: 80
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: test-client
+            namespace: cilium-test
+          status:
+            phase: Running
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: test-server
+            namespace: cilium-test
+          status:
+            phase: Running
+    - script:
+        timeout: 60s
+        content: |
+          # Test direct pod IP connectivity
+          SERVER_IP=$(kubectl get pod test-server -n cilium-test -o jsonpath='{.status.podIP}')
+          kubectl exec test-client -n cilium-test -- curl -f --max-time 10 "http://${SERVER_IP}/" || exit 1
+          
+          # Test service connectivity  
+          kubectl exec test-client -n cilium-test -- curl -f --max-time 10 "http://test-server-svc/" || exit 1
+          
+          echo "Pod-to-pod and service connectivity verified"
+          
+  # Step 3: Test DNS resolution
+  - name: test-dns-resolution
+    try:
+    - script:
+        timeout: 30s
+        content: |
+          # Test cluster DNS resolution
+          kubectl exec test-client -n cilium-test -- nslookup kubernetes.default.svc.cluster.local || exit 1
+          kubectl exec test-client -n cilium-test -- nslookup test-server-svc.cilium-test.svc.cluster.local || exit 1
+          echo "DNS resolution verified"
+          
+  # Cleanup is automatic due to namespace deletion
+  cleanup:
+  - delete:
+      ref:
+        apiVersion: v1
+        kind: Namespace
+        name: cilium-test

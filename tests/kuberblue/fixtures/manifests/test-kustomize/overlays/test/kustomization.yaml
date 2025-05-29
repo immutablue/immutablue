@@ -1,0 +1,59 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: test-kustomize-overlay
+
+# Base kustomization to build upon
+bases:
+- ../../base
+
+# Namespace for test environment
+namespace: test-kustomize-overlay
+
+# Name suffix for test environment
+nameSuffix: -test-env
+
+# Additional labels for test environment
+commonLabels:
+  environment: test
+  version: v1.0.0
+
+# Additional annotations for test environment
+commonAnnotations:
+  environment: test
+  deployment.kubernetes.io/revision: "1"
+
+# Resource patches for test environment
+resources:
+- replica-patch.yaml
+
+# Patches for test environment
+patchesStrategicMerge:
+- deployment-patch.yaml
+
+# JSON patches
+patchesJson6902:
+- target:
+    version: v1
+    kind: Service
+    name: kustomize-service
+  path: service-patch.json
+
+# ConfigMap generator for test environment
+configMapGenerator:
+- name: test-env-config
+  literals:
+  - test.enabled=true
+  - test.timeout=30s
+  - debug.enabled=true
+
+# Image transformations for test environment
+images:
+- name: nginx
+  newTag: alpine-slim
+  
+# Replica count for test environment
+replicas:
+- name: kustomize-app
+  count: 3

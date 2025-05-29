@@ -199,7 +199,8 @@ FULL_TAG := $(IMAGE):$(TAG)
 .PHONY: list all all_upgrade install update upgrade install_or_update reboot \
 	build push iso upgrade rebase clean \
 	install_distrobox install_flatpak install_brew \
-	post_install_notes test test_container test_container_qemu test_artifacts test_shellcheck test_setup
+	post_install_notes test test_container test_container_qemu test_artifacts test_shellcheck test_setup \
+	test_kuberblue_container test_kuberblue_cluster test_kuberblue_components test_kuberblue_integration test_kuberblue_security test_kuberblue test_kuberblue_chainsaw test_chainsaw
 
 
 list:
@@ -401,11 +402,16 @@ pre_test:
 
 # Main test target: Runs all post-build tests to validate the container image
 # This target runs container tests, QEMU tests, artifact tests, and setup tests
+# For Kuberblue builds, includes Kuberblue-specific container and components tests
 # These tests validate the built container image's functionality and integrity
 # Can be skipped by setting SKIP_TEST=1
 test:
 	@if [ "$(SKIP_TEST)" = "0" ]; then \
 		$(MAKE) test_container test_container_qemu test_artifacts test_setup; \
+		if [ "$(KUBERBLUE)" = "1" ]; then \
+			echo "Running Kuberblue-specific tests..."; \
+			$(MAKE) test_kuberblue_container test_kuberblue_components test_kuberblue_security; \
+		fi; \
 	else \
 		echo "Skipping tests (SKIP_TEST=1)"; \
 	fi
@@ -470,3 +476,122 @@ run_all_tests:
 	else \
 		echo "Skipping all tests (SKIP_TEST=1)"; \
 	fi
+
+# Kuberblue container test target: Validates Kuberblue-specific container functionality
+# Tests include Kubernetes binaries, Kuberblue files, systemd services, and configurations
+# Can be skipped by setting SKIP_TEST=1
+test_kuberblue_container:
+	@$(MAKE) KUBERBLUE=1 _run_kuberblue_container_test
+
+_run_kuberblue_container_test:
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		chmod +x ./tests/kuberblue/test_kuberblue_container.sh; \
+		KUBERBLUE=1 ./tests/kuberblue/test_kuberblue_container.sh $(IMAGE):$(TAG); \
+	else \
+		echo "Skipping Kuberblue container tests (SKIP_TEST=1)"; \
+	fi
+
+# Kuberblue cluster test target: Tests Kubernetes cluster functionality
+# Validates cluster initialization, networking, storage, and health
+# Requires VM environment - enable with KUBERBLUE_CLUSTER_TEST=1
+# Can be skipped by setting SKIP_TEST=1
+test_kuberblue_cluster:
+	@$(MAKE) KUBERBLUE=1 _run_kuberblue_cluster_test
+
+_run_kuberblue_cluster_test:
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		chmod +x ./tests/kuberblue/test_kuberblue_cluster.sh; \
+		KUBERBLUE=1 KUBERBLUE_CLUSTER_TEST=1 ./tests/kuberblue/test_kuberblue_cluster.sh $(IMAGE):$(TAG); \
+	else \
+		echo "Skipping Kuberblue cluster tests (SKIP_TEST=1)"; \
+	fi
+
+# Kuberblue components test target: Tests individual Kuberblue components
+# Validates just commands, manifest deployment, user management, and scripts
+# Can be skipped by setting SKIP_TEST=1
+test_kuberblue_components:
+	@$(MAKE) KUBERBLUE=1 _run_kuberblue_components_test
+
+_run_kuberblue_components_test:
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		chmod +x ./tests/kuberblue/test_kuberblue_components.sh; \
+		KUBERBLUE=1 ./tests/kuberblue/test_kuberblue_components.sh $(IMAGE):$(TAG); \
+	else \
+		echo "Skipping Kuberblue components tests (SKIP_TEST=1)"; \
+	fi
+
+# Kuberblue integration test target: End-to-end integration testing
+# Tests complete application deployment, real-world scenarios, and functionality validation
+# Requires full cluster environment - enable with KUBERBLUE_INTEGRATION_TEST=1
+# Can be skipped by setting SKIP_TEST=1
+test_kuberblue_integration:
+	@$(MAKE) KUBERBLUE=1 _run_kuberblue_integration_test
+
+_run_kuberblue_integration_test:
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		chmod +x ./tests/kuberblue/test_kuberblue_integration.sh; \
+		KUBERBLUE=1 KUBERBLUE_CLUSTER_TEST=1 KUBERBLUE_INTEGRATION_TEST=1 ./tests/kuberblue/test_kuberblue_integration.sh $(IMAGE):$(TAG); \
+	else \
+		echo "Skipping Kuberblue integration tests (SKIP_TEST=1)"; \
+	fi
+
+# Kuberblue security test target: Security validation for Kuberblue
+# Tests RBAC, network policies, pod security, and system security configurations
+# Can be skipped by setting SKIP_TEST=1
+test_kuberblue_security:
+	@$(MAKE) KUBERBLUE=1 _run_kuberblue_security_test
+
+_run_kuberblue_security_test:
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		chmod +x ./tests/kuberblue/test_kuberblue_security.sh; \
+		KUBERBLUE=1 ./tests/kuberblue/test_kuberblue_security.sh $(IMAGE):$(TAG); \
+	else \
+		echo "Skipping Kuberblue security tests (SKIP_TEST=1)"; \
+	fi
+
+# Kuberblue full test suite: Runs all Kuberblue tests
+# Includes container tests, components tests, and optionally cluster/integration tests
+# Use KUBERBLUE_CLUSTER_TEST=1 to enable cluster testing
+# Use KUBERBLUE_INTEGRATION_TEST=1 to enable integration testing
+# Can be skipped by setting SKIP_TEST=1
+test_kuberblue:
+	@$(MAKE) KUBERBLUE=1 _run_kuberblue_suite
+
+_run_kuberblue_suite:
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		echo "Running Kuberblue test suite..."; \
+		$(MAKE) test_kuberblue_container test_kuberblue_components test_kuberblue_security; \
+		if [ "$${KUBERBLUE_CLUSTER_TEST:-0}" = "1" ]; then \
+			echo "Running cluster tests..."; \
+			$(MAKE) test_kuberblue_cluster; \
+			if [ "$${KUBERBLUE_INTEGRATION_TEST:-0}" = "1" ]; then \
+				echo "Running integration tests..."; \
+				$(MAKE) test_kuberblue_integration; \
+			fi; \
+		else \
+			echo "INFO: Set KUBERBLUE_CLUSTER_TEST=1 to enable cluster testing"; \
+			echo "INFO: Set KUBERBLUE_INTEGRATION_TEST=1 to enable integration testing"; \
+		fi; \
+	else \
+		echo "Skipping Kuberblue tests (SKIP_TEST=1)"; \
+	fi
+
+# Kuberblue Chainsaw test target: Runs declarative Chainsaw tests for Kuberblue
+# Tests include co-located YAML tests for networking, storage, and components
+# Requires a running Kubernetes cluster and chainsaw binary installation
+# Can be skipped by setting SKIP_TEST=1
+test_kuberblue_chainsaw:
+	@$(MAKE) KUBERBLUE=1 _run_kuberblue_chainsaw_test
+
+_run_kuberblue_chainsaw_test:
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		echo "Running Kuberblue Chainsaw tests..."; \
+		chmod +x ./tests/kuberblue/chainsaw_runner.sh; \
+		KUBERBLUE=1 ./tests/kuberblue/chainsaw_runner.sh; \
+	else \
+		echo "Skipping Kuberblue Chainsaw tests (SKIP_TEST=1)"; \
+	fi
+
+# Chainsaw-only testing: Runs only the Chainsaw declarative tests
+# Convenience target for running just the Chainsaw tests without other Kuberblue tests
+test_chainsaw: test_kuberblue_chainsaw

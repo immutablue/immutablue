@@ -1,0 +1,22 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Configuration
+metadata:
+  name: kuberblue-test-config
+spec:
+  timeouts:
+    apply: 30s
+    assert: 300s
+    cleanup: 60s
+    delete: 30s
+    error: 10s
+    exec: 60s
+  cleanup:
+    skipDelete: false
+  discovery:
+    excludeTestRegex: "^(disabled|skip)-.*"
+    includeTestRegex: ".*_test\\.yaml$"
+  execution:
+    parallel: 4
+    repeatCount: 1
+  reporting:
+    format: "json"

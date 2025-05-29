@@ -1,0 +1,16 @@
+apiVersion: v2
+name: test-helm-chart
+description: A test Helm chart for Kuberblue testing
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - test
+  - kuberblue
+  - nginx
+home: https://example.com
+sources:
+  - https://github.com/example/test-helm-chart
+maintainers:
+  - name: Kuberblue Team
+    email: kuberblue@example.com
