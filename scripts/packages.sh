@@ -360,7 +360,9 @@ brew_install_all_packages() {
     then 
         brew_install 
         brew_install_all_from_yaml $PACKAGES_FILE
-        for f in $PACKAGES_CUSTOM_FMT; do brew_install_all_from_yaml $f; done
+        shopt -s nullglob
+        for f in $PACKAGES_CUSTOM_FMT; do brew_install_all_from_yaml "$f"; done
+        shopt -u nullglob
     else 
         sudo mkdir -p /var/home/linuxbrew/.linuxbrew/bin/
         sudo bash -c "chown -R $USER:$USER /var/home/linuxbrew/"
