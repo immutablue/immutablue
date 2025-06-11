@@ -64,7 +64,7 @@ immutablue:
 
 
   rpm_silverblue:
-  - nautilus-open-any-terminal
+  # - nautilus-open-any-terminal
 
   rpm_silverblue_aarch64:
 
