@@ -93,36 +93,36 @@ dbox_install_single() {
 
     bash <(yq "${key}.extra_commands" < $packages_yaml)
 
-    sudo "$pkg_updt_cmd"
-    sudo "$pkg_inst_cmd" $(for pkg in $packages; do printf ' %s' "$pkg"; done)
+    sudo $pkg_updt_cmd
+    sudo $pkg_inst_cmd $(for pkg in $packages; do printf ' %s' "$pkg"; done)
 
 
     type npm &>/dev/null
     if [ 0 -eq $? ]
     then 
-        [ "" != "$npm_packages" ] && sudo npm i -g $(for pkg in $npm_packages; do printf ' %s' "$pkg"; done)
+        [ "" != "$npm_packages" ] && sudo npm i -g $(for pkg in $npm_packages; do printf ' %s' "$pkg"; done) || true
     fi 
     
     type pip3 &>/dev/null
     if [ 0 -eq $? ]
     then 
-        [ "" != "$pip_packages" ] && sudo pip3 install $(for pkg in $pip_packages; do printf ' %s' "$pkg"; done)
+        [ "" != "$pip_packages" ] && sudo pip3 install $(for pkg in $pip_packages; do printf ' %s' "$pkg"; done) || true
     fi 
 
     type cargo &>/dev/null
     if [ 0 -eq $? ]
     then
-        [ "" != "$cargo_packages" ] && sudo cargo -t default --locked install $(for cargo_pkg in $cargo_packages; do printf ' %s' "$cargo_pkg"; done)
+        [ "" != "$cargo_packages" ] && sudo cargo -t default --locked install $(for cargo_pkg in $cargo_packages; do printf ' %s' "$cargo_pkg"; done) || true
     fi
 
     for bin in $bin_export 
     do 
-        make_export "${bin}"
+        make_export "${bin}" || true
     done
 
     for app in $app_export
     do 
-        make_app "${app}"
+        make_app "${app}" || true
     done
 
     for bin in $bin_symlink
@@ -181,9 +181,9 @@ dbox_install_all_from_yaml() {
 
         if [ "true" == "$root_mode" ]
         then
-            distrobox enter --root "${name}" -- bash -c "source ./scripts/packages.sh && dbox_install_single ${packages_yaml} $i" 
+            distrobox enter --root "${name}" -- bash -x -c "source ./scripts/packages.sh && dbox_install_single ${packages_yaml} $i" 
         else
-            distrobox enter "${name}" -- bash -c "source ./scripts/packages.sh && dbox_install_single ${packages_yaml} $i" 
+            distrobox enter "${name}" -- bash -x -c "source ./scripts/packages.sh && dbox_install_single ${packages_yaml} $i" 
         fi
 
         (( i++ ))
