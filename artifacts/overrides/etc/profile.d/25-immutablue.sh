@@ -5,7 +5,7 @@
 # Set ulimits
 if [[ "$(whoami)" != "root" ]]
 then
-    ulimit -n 65535
+    ulimit -n 524288
 fi
 
 
