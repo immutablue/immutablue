@@ -109,6 +109,31 @@ then
     # Install NVIDIA drivers from the pre-built ublue packages
     # This includes both the ublue-os-nvidia package and the kmod-nvidia kernel module
     dnf5 -y install /mnt-ublue-akmods-nvidia/ublue-os/ublue-os-nvidia*.rpm /mnt-ublue-akmods-nvidia/kmods/kmod-nvidia-*.rpm 
+    
+    # Determine the NVIDIA driver version from DKMS
+    NVIDIA_VERSION=$(dkms status | grep -i nvidia | awk '{ printf "%s\n", $1 }' | awk -F/ '{ printf "%s\n", $2 }' | head -n1)
+    
+    # Determine if we should look for the LTS kernel
+    KERNEL_SUFFIX=""
+    if [[ "$DO_INSTALL_LTS" == "true" ]]; then KERNEL_SUFFIX="longterm"; fi
+    
+    # Find the installed kernel version
+    KERNEL_VERSION=$(rpm -qa | grep -P 'kernel-(|'"$KERNEL_SUFFIX"'-)(\d+\.\d+\.\d+)' | sed -E 's/kernel-(|'"$KERNEL_SUFFIX"'-)//')
+    
+    # Rebuild and install the NVIDIA kernel module for the current kernel
+    # This is necessary to ensure the module matches our kernel version
+    if [[ -n "$NVIDIA_VERSION" ]]; then
+        dkms build -m nvidia -v ${NVIDIA_VERSION} -k ${KERNEL_VERSION} --force
+        dkms install -m nvidia -v ${NVIDIA_VERSION} -k ${KERNEL_VERSION} --force
+    else
+        echo "WARNING: Could not determine NVIDIA driver version from DKMS"
+    fi
+    
+    # Add NVIDIA modules to the list of modules to load at boot
+    echo 'nvidia' >> "${MODULES_CONF}"
+    echo 'nvidia_drm' >> "${MODULES_CONF}"
+    echo 'nvidia_modeset' >> "${MODULES_CONF}"
+    echo 'nvidia_uvm' >> "${MODULES_CONF}"
 fi
 
 # Install the main packages defined in packages.yaml
@@ -158,6 +183,27 @@ chmod a+x /usr/bin/fzf-git
 curl -Lo "/tmp/install_starship.sh" "${STARSHIP_URL}"
 sh "/tmp/install_starship.sh" -y -b "/usr/bin/"
 rm "/tmp/install_starship.sh"
+
+# Verify NVIDIA kernel modules are built if cyan variant
+if [[ "$(is_option_in_build_options cyan)" == "${TRUE}" ]]
+then
+    # Check if NVIDIA kernel modules exist for the installed kernel
+    KERNEL_VERSION=$(rpm -qa | grep -P 'kernel-(|longterm-)(\d+\.\d+\.\d+)' | sed -E 's/kernel-(|longterm-)//')
+    NVIDIA_MODULES_FOUND=0
+    
+    # Look for NVIDIA kernel modules in the expected locations
+    if find "/lib/modules/${KERNEL_VERSION}" -name "nvidia*.ko*" 2>/dev/null | grep -q nvidia; then
+        NVIDIA_MODULES_FOUND=1
+        echo "SUCCESS: NVIDIA kernel modules found for kernel ${KERNEL_VERSION}"
+    fi
+    
+    # If modules not found, this is a critical error
+    if [[ $NVIDIA_MODULES_FOUND -eq 0 ]]; then
+        echo "ERROR: NVIDIA kernel modules not found for kernel ${KERNEL_VERSION}"
+        echo "This will cause the system to fall back to nouveau driver"
+        exit 1
+    fi
+fi
 
 # Special installation for the build-a-blue-workshop variant
 # This installs n8n, a workflow automation tool
