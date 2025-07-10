@@ -106,30 +106,34 @@ fi
 # This must be done after installing RPM URLs because it relies on RPMFusion
 if [[ "$(is_option_in_build_options cyan)" == "${TRUE}" ]]
 then 
-    # Install NVIDIA drivers from the pre-built ublue packages
-    # This includes both the ublue-os-nvidia package and the kmod-nvidia kernel module
-    dnf5 -y install /mnt-ublue-akmods-nvidia/ublue-os/ublue-os-nvidia*.rpm /mnt-ublue-akmods-nvidia/kmods/kmod-nvidia-*.rpm 
+    echo "Installing NVIDIA drivers for cyan variant..."
     
-    # Determine the NVIDIA driver version from DKMS
-    NVIDIA_VERSION=$(dkms status | grep -i nvidia | awk '{ printf "%s\n", $1 }' | awk -F/ '{ printf "%s\n", $2 }' | head -n1)
-    
-    # Determine if we should look for the LTS kernel
-    KERNEL_SUFFIX=""
-    if [[ "$DO_INSTALL_LTS" == "true" ]]; then KERNEL_SUFFIX="longterm"; fi
-    
-    # Find the installed kernel version
-    KERNEL_VERSION=$(rpm -qa | grep -P 'kernel-(|'"$KERNEL_SUFFIX"'-)(\d+\.\d+\.\d+)' | sed -E 's/kernel-(|'"$KERNEL_SUFFIX"'-)//')
-    
-    # Rebuild and install the NVIDIA kernel module for the current kernel
-    # This is necessary to ensure the module matches our kernel version
-    if [[ -n "$NVIDIA_VERSION" ]]; then
-        dkms build -m nvidia -v ${NVIDIA_VERSION} -k ${KERNEL_VERSION} --force
-        dkms install -m nvidia -v ${NVIDIA_VERSION} -k ${KERNEL_VERSION} --force
+    # Check if pre-built cyan deps are available
+    if [[ -d "/mnt-cyan-deps/nvidia" ]] && ls /mnt-cyan-deps/nvidia/kmod-nvidia-*.rpm &>/dev/null 2>&1; then
+        echo "Using pre-built NVIDIA kernel modules from cyan-deps..."
+        
+        # Install pre-built kernel modules
+        dnf5 -y install /mnt-cyan-deps/nvidia/kmod-nvidia-*.rpm
+        
+        # Install NVIDIA userspace components from RPM Fusion
+        dnf5 -y install xorg-x11-drv-nvidia xorg-x11-drv-nvidia-cuda xorg-x11-drv-nvidia-cuda-libs
+        
+        # Get kernel version for depmod
+        if [[ "$DO_INSTALL_LTS" == "true" ]]; then
+            KERNEL_VERSION=$(rpm -q kernel-longterm --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | head -n1)
+        else
+            KERNEL_VERSION=$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | head -n1)
+        fi
+        
+        # Update module dependencies
+        depmod -a ${KERNEL_VERSION}
     else
-        echo "WARNING: Could not determine NVIDIA driver version from DKMS"
+        echo "ERROR: Building NVIDIA modules from source in OSTree is not supported."
+        echo "Please build cyan-deps first: make build-cyan-deps push-cyan-deps"
+        exit 1
     fi
     
-    # Add NVIDIA modules to the list of modules to load at boot
+    # Add NVIDIA modules to load at boot
     echo 'nvidia' >> "${MODULES_CONF}"
     echo 'nvidia_drm' >> "${MODULES_CONF}"
     echo 'nvidia_modeset' >> "${MODULES_CONF}"
