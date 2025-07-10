@@ -1,0 +1,50 @@
+# Build NVIDIA kernel modules for Immutablue Cyan variant
+# This creates pre-built kernel modules that can be consumed by the main build
+
+ARG FEDORA_VERSION=42
+
+FROM quay.io/fedora/fedora:${FEDORA_VERSION} AS builder
+
+ARG FEDORA_VERSION=42
+
+# Install RPM Fusion repositories
+RUN dnf install -y \
+    https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA_VERSION}.noarch.rpm \
+    https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA_VERSION}.noarch.rpm
+
+# Update and install base requirements
+RUN dnf update -y && \
+    dnf install -y \
+    akmods \
+    mock \
+    rpm-build \
+    kernel \
+    kernel-devel \
+    kernel-headers \
+    gcc \
+    make \
+    elfutils-libelf-devel
+
+# Install NVIDIA akmod source
+RUN dnf install -y akmod-nvidia
+
+# Get the installed kernel version
+RUN KERNEL_VER=$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | head -n1) && \
+    echo "Building NVIDIA modules for kernel: ${KERNEL_VER}"
+
+# Create build directory
+RUN mkdir -p /var/cache/akmods /rpms/nvidia
+
+# Build NVIDIA kernel modules
+RUN KERNEL_VER=$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | head -n1) && \
+    akmods --kernels ${KERNEL_VER} --force
+
+# Copy built modules to output directory
+RUN find /var/cache/akmods -name "kmod-nvidia-*.rpm" -exec cp {} /rpms/nvidia/ \;
+
+# Also copy the akmod source package for reference
+RUN cp /usr/src/akmods/akmod-nvidia-*.src.rpm /rpms/nvidia/ || true
+
+# Final stage - just the built artifacts
+FROM scratch
+COPY --from=builder /rpms /rpms

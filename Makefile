@@ -246,6 +246,21 @@ push-deps:
 		push \
 		$(DEPS_CONTAINER)
 
+# Build NVIDIA kernel modules for Cyan variant
+CYAN_DEPS_CONTAINER := $(IMAGE):$(VERSION)-cyan-deps
+build-cyan-deps:
+	buildah \
+		build \
+		--no-cache \
+		-t $(CYAN_DEPS_CONTAINER) \
+		-f ./deps/cyan/Containerfile \
+		--build-arg=FEDORA_VERSION=$(VERSION)
+
+push-cyan-deps:
+	buildah \
+		push \
+		$(CYAN_DEPS_CONTAINER)
+
 
 # Build the Immutablue container image
 # This target first runs pre-build tests (shellcheck) to ensure code quality
