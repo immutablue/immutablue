@@ -80,6 +80,7 @@ immutablue:
   rpm_cosmic:
   rpm_bazzite:
   rpm_build_a_blue_workshop:
+  - buildah
   - neovim 
   - nodejs-npm
   - tmux
