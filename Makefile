@@ -57,7 +57,8 @@ endif
 #
 # No desktop environment
 ifeq ($(NUCLEUS),1)
-	BASE_IMAGE := quay.io/fedora/fedora-bootc
+	# BASE_IMAGE := quay.io/fedora/fedora-bootc
+	BASE_IMAGE := quay.io/fedora-ostree-desktops/base-atomic
 	TAG := $(TAG)-nucleus
 	# We don't want gui or anything else, just replace with nucleus
 	BUILD_OPTIONS := nucleus
@@ -173,7 +174,8 @@ endif
 
 # A special edition so divine, it's been ordained by the Blue Council.
 ifeq ($(BUILD_A_BLUE_WORKSHOP),1)
-	BASE_IMAGE := quay.io/fedora/fedora-bootc
+	# BASE_IMAGE := quay.io/fedora/fedora-bootc
+	BASE_IMAGE := quay.io/fedora-ostree-desktops/base-atomic
 	TAG := $(TAG)-build-a-blue-workshop
 	BUILD_OPTIONS := build_a_blue_workshop
 endif

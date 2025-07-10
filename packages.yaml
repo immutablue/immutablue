@@ -83,6 +83,7 @@ immutablue:
   - buildah
   - neovim 
   - nodejs-npm
+  - ShellCheck
   - tmux
 
   rpm_trueblue:
