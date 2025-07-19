@@ -26,6 +26,7 @@ HUGO_RELEASE_URL_aarch64="https://github.com/gohugoio/hugo/releases/download/v0.
 HUGO_RELEASE_URL=""
 FZF_GIT_URL="https://raw.githubusercontent.com/junegunn/fzf-git.sh/refs/heads/main/fzf-git.sh"
 STARSHIP_URL="https://starship.rs/install.sh"
+ZEROFS_RELEASE_URL="https://github.com/Barre/ZeroFS/releases/download/v0.0.2/zerofs-linux-multiarch.tar.gz"
 
 if [[ "${MARCH}" == "aarch64" ]]
 then 
