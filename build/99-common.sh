@@ -21,8 +21,8 @@ fi
 # LTS_REPO_URL="https://copr.fedorainfracloud.org/coprs/kwizart/kernel-longterm-6.6/repo/fedora-42/kwizart-kernel-longterm-${LTS_VERSION}-fedora-42.repo"
 LTS_REPO_URL="https://copr.fedorainfracloud.org/coprs/kwizart/kernel-longterm-${LTS_VERSION}/repo/fedora-${FEDORA_VERSION}/kwizart-kernel-longterm-${LTS_VERSION}-fedora-${FEDORA_VERSION}.repo"
 
-HUGO_RELEASE_URL_x86_64="https://github.com/gohugoio/hugo/releases/download/v0.143.1/hugo_extended_withdeploy_0.143.1_linux-amd64.tar.gz"
-HUGO_RELEASE_URL_aarch64="https://github.com/gohugoio/hugo/releases/download/v0.143.1/hugo_extended_withdeploy_0.143.1_linux-arm64.tar.gz"
+HUGO_RELEASE_URL_x86_64="https://github.com/gohugoio/hugo/releases/download/v0.148.1/hugo_extended_withdeploy_0.148.1_linux-amd64.tar.gz"
+HUGO_RELEASE_URL_aarch64="https://github.com/gohugoio/hugo/releases/download/v0.148.1/hugo_extended_withdeploy_0.148.1_linux-arm64.tar.gz"
 HUGO_RELEASE_URL=""
 FZF_GIT_URL="https://raw.githubusercontent.com/junegunn/fzf-git.sh/refs/heads/main/fzf-git.sh"
 STARSHIP_URL="https://starship.rs/install.sh"
