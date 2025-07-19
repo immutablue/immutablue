@@ -209,6 +209,24 @@ then
     fi
 fi
 
+
+# Special packages for trueblue builds
+if [[ "$(is_option_in_build_options trueblue)" == "${TRUE}" ]]
+then 
+    curl -Lo /tmp/zerofs.tar.gz "${ZEROFS_RELEASE_URL}"
+    zerofs_file="zerofs-amd64"
+
+    if [[ "${MARCH}" == "aarch64" ]]
+    then 
+        zerofs_file="zerofs-arm64"
+    fi
+
+    tar -xzf /tmp/zerofs.tar.gz -C /usr/bin/ "${zerofs_file}"
+    mv "/usr/bin/${zerofs_file}" /usr/bin/zerofs
+    chmod a+x /usr/bin/zerofs
+fi
+
+
 # Special installation for the build-a-blue-workshop variant
 # This installs n8n, a workflow automation tool
 if [[ "$(is_option_in_build_options build_a_blue_workshop)" == "${TRUE}" ]]
