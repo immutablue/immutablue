@@ -5,10 +5,6 @@ immutablue:
     url: https://pkgs.tailscale.com/stable/fedora/tailscale.repo
   - name: ublue-os-staging.repo
     url: https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-42/ublue-os-staging-fedora-42.repo
-  # - name: docker-ce.repo
-  #   url: https://download.docker.com/linux/fedora/docker-ce.repo
-  - name: ghostty.repo 
-    url: https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-42/pgdev-ghostty-fedora-42.repo
 
   repo_urls_x86_64:
     # Currently podman-bootc only support x86_64
@@ -23,24 +19,26 @@ immutablue:
   # RPM Packages to be installed
   rpm:
   - bashmount
+  - buildah
   - cmake
   - dialog
   - distrobox
-  # - docker-ce
   - fuse-sshfs
   - fzf 
   - gcc
   - git
+  - htop 
   - just
   - libvirt
   - lm_sensors
   - make
+  - neovim
   - NetworkManager-tui
   - podman-compose
   - powertop
-  - python3-yaml
   - python3-gobject
   - python3-pip
+  - python3-yaml
   - qemu
   - qemu-user-binfmt
   - ramalama
@@ -48,30 +46,25 @@ immutablue:
   - syncthing
   - syncthing-tools
   - tailscale
+  - tmux
   - virt-bootstrap
 
   # Everything that is non-nucleus by default
   rpm_gui:
   - firewall-applet
   - firewall-config
-  - ghostty
   - ibus-speech-to-text
-  # since we don't use this in nucleus builds, then we can just put this in gui
-  - python3-pip
+  - python3-pip  # since we don't use this in nucleus builds, then we can just put this in gui
   - solaar
+  - wl-clipboard
   - xrdp
 
 
 
   rpm_silverblue:
-  # - nautilus-open-any-terminal
-
   rpm_silverblue_aarch64:
 
   rpm_nucleus:
-  - neovim
-  - tmux 
-
   rpm_kinoite:
   rpm_sericea:
   rpm_onyx:
@@ -80,24 +73,21 @@ immutablue:
   rpm_cosmic:
   rpm_bazzite:
   rpm_build_a_blue_workshop:
-  - buildah
-  - neovim 
   - nodejs-npm
   - ShellCheck
-  - tmux
 
   rpm_trueblue:
-  - znapzend
-  - samba
-  - samba-client
   - cockpit-files
   - cockpit-machines
+  - cockpit-navigator
   - cockpit-networkmanager
   - cockpit-ostree
   - cockpit-podman
   - cockpit-storaged
   - cockpit-system
-  - cockpit-navigator
+  - samba
+  - samba-client
+  - znapzend
 
   rpm_kuberblue:
   - cockpit
@@ -124,15 +114,12 @@ immutablue:
   - coreutils 
   - fastfetch
   - glances 
-  - htop 
   - moreutils 
   - ncdu
-  - neovim 
   - pass
   - ranger 
   - ripgrep 
   - tig 
-  - tmux 
   - zenity 
 
   rpm_x86_64:
@@ -182,8 +169,7 @@ immutablue:
   # Runtimes for Flatpaks
   # (Can query with `flatpak list --app --columns=application,runtime`)
   flatpaks_runtime:
-  - org.gnome.Platform/x86_64/46 
-  - org.gnome.Platform/x86_64/45 
+  - org.gnome.Platform/x86_64/47
   - org.freedesktop.Platform/x86_64/23.08 
   - org.freedesktop.Platform/x86_64/22.08 
   - org.kde.Platform/x86_64/5.15-23.08 
@@ -206,12 +192,8 @@ immutablue:
   - com.github.tchx84.Flatseal
   - com.mattjakeman.ExtensionManager
   - com.rafaelmardojai.Blanket
-  - io.github.martchus.syncthingtray
   - io.github.peazip.PeaZip 
-  - io.github.ungoogled_software.ungoogled_chromium
-  - io.gitlab.librewolf-community
   - nl.brixit.powersupply
-  - org.chromium.Chromium
   - org.libreoffice.LibreOffice
   - org.pulseaudio.pavucontrol
   - org.videolan.VLC
@@ -222,7 +204,6 @@ immutablue:
   flatpaks_x86_64:
   - io.github.prateekmedia.appimagepool
   - org.mozilla.firefox
-  - org.torproject.torbrowser-launcher
 
   #Flatpaks to be uninstalled 
   flatpaks_rm:
@@ -300,14 +281,11 @@ distrobox:
     [ "" == "$(grep max_parallel_downloads /etc/dnf/dnf.conf)" ] && sudo bash -c 'echo "max_parallel_downloads=10" >> /etc/dnf/dnf.conf'
   packages:
   - which
-  - wl-clipboard
   packages_x86_64:
   packages_aarch64:
   npm_packages:
   pip_packages: 
   bin_export: 
-  - wl-copy 
-  - wl-paste
   app_export: 
   bin_symlink:
   - podman 
