@@ -31,7 +31,6 @@ immutablue:
   - fzf 
   - gcc
   - git
-  - just
   - libvirt
   - lm_sensors
   - make
@@ -107,7 +106,6 @@ immutablue:
   - glances
   - helm
   - htop 
-  - just
   - kubernetes1.32
   - kubernetes1.32-client
   - kubernetes1.32-kubeadm
@@ -381,7 +379,6 @@ brew:
   - fzf
   - glances 
   - htop 
-  - just
   - moreutils
   - ncdu
   - neovim

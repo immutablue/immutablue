@@ -31,6 +31,7 @@ done < <(get_immutablue_build_options)
 mkdir -p /usr/lib64/nautilus/extensions-4
 cp /mnt-nautilusopenwithcode/libnautilus-open-with-code.so /usr/lib64/nautilus/extensions-4/libnautilus-open-with-code.so
 cp /mnt-yq/yq /usr/bin/yq
+cp /mnt-just/just /usr/bin/just
 cp /mnt-build-deps/blue2go/blue2go /usr/bin/blue2go
 cp /mnt-build-deps/cigar/src/cigar /usr/bin/cigar
 # cp /mnt-build-deps/cpak/cpak /usr/bin/cpak
