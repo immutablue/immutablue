@@ -8,6 +8,16 @@ FROM quay.io/zachpodbielniak/nautilusopenwithcode:${FEDORA_VERSION} AS nautiluso
 FROM quay.io/immutablue/immutablue:${FEDORA_VERSION}-deps as build-deps
 FROM quay.io/immutablue/immutablue:${FEDORA_VERSION}-cyan-deps AS cyan-deps
 FROM docker.io/mikefarah/yq AS yq
+
+# Download just pre-built binary
+FROM registry.fedoraproject.org/fedora:${FEDORA_VERSION} AS just
+RUN dnf install -y curl tar && \
+    mkdir -p /tmp/just && \
+    curl -L "https://github.com/casey/just/releases/download/1.42.3/just-1.42.3-$(uname -m)-unknown-linux-musl.tar.gz" | \
+    tar xz -C /tmp/just && \
+    mv /tmp/just/just /usr/local/bin/just && \
+    chmod +x /usr/local/bin/just
+
 FROM ghcr.io/ublue-os/config:latest AS ublue-config
 FROM ghcr.io/ublue-os/akmods:main-${FEDORA_VERSION} AS ublue-akmods
 FROM ${BASE_IMAGE}:${FEDORA_VERSION}
@@ -29,6 +39,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     --mount=type=bind,from=ctx,src=/,dst=/mnt-ctx \
     --mount=type=bind,from=nautilusopenwithcode,src=/usr/lib64/nautilus/extensions-4,dst=/mnt-nautilusopenwithcode \
     --mount=type=bind,from=yq,src=/usr/bin,dst=/mnt-yq \
+    --mount=type=bind,from=just,src=/usr/local/bin,dst=/mnt-just \
     --mount=type=bind,from=ublue-config,src=/rpms,dst=/mnt-ublue-config \
     --mount=type=bind,from=ublue-akmods,src=/rpms,dst=/mnt-ublue-akmods \
     --mount=type=bind,from=cyan-deps,src=/rpms,dst=/mnt-cyan-deps \
