@@ -7,6 +7,7 @@ IMAGE_BASE_TAG := immutablue
 IMAGE := $(REGISTRY)/$(IMAGE_BASE_TAG)
 CURRENT := 42
 MANIFEST := $(IMAGE_BASE_TAG)
+VARIANT := Silverblue
 
 
 # by default the version tagged build is silverblue
@@ -62,6 +63,7 @@ ifeq ($(NUCLEUS),1)
 	TAG := $(TAG)-nucleus
 	# We don't want gui or anything else, just replace with nucleus
 	BUILD_OPTIONS := nucleus
+	VARIANT := Server
 endif
 
 # KDE desktop
@@ -316,7 +318,7 @@ iso: flatpak_refs/flatpaks
 		IMAGE_TAG=$(TAG) \
 		IMAGE_REPO=$(REGISTRY) \
 		IMAGE_SIGNED=false \
-		VARIANT=Silverblue \
+		VARIANT=$(VARIANT) \
 		ISO_NAME="build/immutablue-$(TAG).iso"
 	# sudo podman run \
 	# 	--name immutablue-build \
