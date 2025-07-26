@@ -338,12 +338,12 @@ brew_install_all_from_yaml() {
 
     if [ "" != "$brew_add" ]
     then 
-        brew install $(for pkg in $brew_add; do printf '%s ' "$pkg"; done)
+        brew install $(for pkg in $brew_add; do printf '%s ' "$pkg"; done) || true
     fi
 
     if [ "" != "$brew_rm" ] 
     then 
-        brew uninstall $(for pkg in $brew_rm; do printf '%s ' "$pkg"; done)
+        brew uninstall $(for pkg in $brew_rm; do printf '%s ' "$pkg"; done) || true
     fi
 }
 
