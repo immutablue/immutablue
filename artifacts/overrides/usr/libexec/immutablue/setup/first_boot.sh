@@ -23,15 +23,6 @@ fi
 
 # Create required directories
 mkdir -p /etc/immutablue/setup
-mkdir -p /usr/immutablue/setup
-
-# Ensure Python dependencies are installed for the setup applications
-# These should be part of the base image, but check just in case
-if ! rpm -q python3-yaml &>/dev/null; then
-    echo "Installing required Python dependencies for setup"
-    rpm-ostree install python3-yaml python3-pip
-    NEEDS_REBOOT=true
-fi
 
 # If we're a nucleus build (CLI-only), run the TUI setup
 if [[ "$(immutablue_build_is_nucleus)" == "${TRUE}" ]] && [[ "${SETUP_COMPLETED}" == "false" ]]; then
@@ -41,8 +32,10 @@ if [[ "$(immutablue_build_is_nucleus)" == "${TRUE}" ]] && [[ "${SETUP_COMPLETED}
     if [[ -f /usr/libexec/immutablue/setup/immutablue_setup_tui.py ]]; then
         # Run the TUI setup - it will create the did_first_boot_setup flag when complete
         # Run as root for system-wide configuration
-        /usr/libexec/immutablue/setup/immutablue_setup_tui.py --no-reboot
-        
+        # TODO: This is incomplete so we can set it up later. for now just 
+        # create the file that we did first setup
+        # /usr/libexec/immutablue/setup/immutablue_setup_tui.py --no-reboot
+        touch /etc/immutablue/setup/did_first_boot_setup
         # Check if the setup completed successfully
         if [[ -f /etc/immutablue/setup/did_first_boot_setup ]]; then
             echo "TUI setup completed successfully"

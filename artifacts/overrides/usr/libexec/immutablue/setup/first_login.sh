@@ -45,8 +45,10 @@ if [[ "$(immutablue_build_is_nucleus)" == "${FALSE}" ]] && [[ "${SETUP_COMPLETED
 
             # Run the GUI setup
             # It will create the flag file when completed
-            /usr/libexec/immutablue/setup/immutablue_setup_gui.py --no-reboot
-            
+            # TODO: This is incomplete so we can set it up later. for now just 
+            # create the file that we did first setup
+            # /usr/libexec/immutablue/setup/immutablue_setup_gui.py --no-reboot
+            sudo touch /etc/immutablue/setup/did_first_boot_setup
             # Check if the setup completed successfully
             if [[ -f /etc/immutablue/setup/did_first_boot_setup ]]; then
                 echo "GUI setup completed successfully"
