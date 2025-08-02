@@ -97,6 +97,8 @@ immutablue:
   - cockpit-storaged
   - cockpit-system
   - cockpit-navigator
+  - rsync
+  - rclone
 
   rpm_kuberblue:
   - cockpit
