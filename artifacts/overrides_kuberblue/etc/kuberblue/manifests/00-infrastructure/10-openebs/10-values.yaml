@@ -1,0 +1,37 @@
+# OpenEBS Configuration for Kuberblue Development Environment
+engines:
+  local:
+    lvm:
+      enabled: false  # Not needed for development
+    zfs:
+      enabled: false  # Not needed for development
+  replicated:
+    mayastor:
+      enabled: false  # Too resource-intensive for development
+
+# Enable Local PV for simple development storage
+localpv:
+  enabled: true
+  
+# Reduced resources for development environment
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Allow deployment on all nodes (including control plane for single-node setups)
+tolerations:
+  - operator: "Exists"
+
+# Basic analytics disabled for development
+analytics:
+  enabled: false
+
+# Default storage class configuration
+defaultStorageClass:
+  enabled: true
+  name: "openebs-hostpath"
+  isDefaultClass: true

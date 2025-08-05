@@ -1,0 +1,253 @@
+# Mimir Distributed Configuration
+# Optimized for Kuberblue single-node and small clusters
+
+# Global settings
+global:
+  # CRI-O compatibility
+  image:
+    registry: docker.io
+  
+# Mimir configuration
+mimir:
+  # Structured configuration
+  structuredConfig:
+    # Multi-tenancy disabled for simplicity
+    multitenancy_enabled: false
+    
+    # Limits configuration
+    limits:
+      # Metrics retention (1 year)
+      compactor_blocks_retention_period: 8760h
+      # Ingestion limits
+      ingestion_rate: 10000
+      ingestion_burst_size: 20000
+      max_global_series_per_user: 1000000
+      max_global_series_per_metric: 50000
+    
+    # Replication configuration (reduced for single-node)
+    ingester:
+      ring:
+        replication_factor: 1
+    
+    store_gateway:
+      sharding_ring:
+        replication_factor: 1
+    
+    # Common storage configuration
+    common:
+      storage:
+        backend: filesystem
+        filesystem:
+          dir: /data
+    
+    # Blocks storage configuration
+    blocks_storage:
+      backend: filesystem
+      filesystem:
+        dir: /data/tsdb-blocks
+      tsdb:
+        retention_period: 24h
+    
+    # Ruler storage
+    ruler_storage:
+      backend: filesystem
+      filesystem:
+        dir: /data/ruler-data
+    
+    # Ruler configuration
+    ruler:
+      rule_path: /data/ruler-temp
+
+# Distributor component
+distributor:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+  
+  # Pod disruption budget
+  podDisruptionBudget:
+    maxUnavailable: 0
+
+# Ingester component
+ingester:
+  replicas: 1
+  persistentVolume:
+    enabled: true
+    size: 50Gi
+    storageClass: ""  # Use default
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+  
+  # Zone aware replication disabled for single replica
+  zoneAwareReplication:
+    enabled: false
+
+# Querier component
+querier:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Query Frontend component
+query_frontend:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Query Scheduler
+query_scheduler:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Compactor component
+compactor:
+  replicas: 1
+  persistentVolume:
+    enabled: true
+    size: 20Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+
+# Store Gateway component
+store_gateway:
+  replicas: 1
+  persistentVolume:
+    enabled: true
+    size: 50Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  
+  # Zone aware replication disabled for single replica
+  zoneAwareReplication:
+    enabled: false
+
+# Ruler component (for recording rules and alerts)
+ruler:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Alertmanager component
+alertmanager:
+  enabled: false  # Can be enabled if needed
+  replicas: 1
+  persistentVolume:
+    enabled: true
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Overrides Exporter (exposes per-tenant resource usage)
+overrides_exporter:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 12m
+      memory: 32Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi
+
+# Gateway (nginx)
+gateway:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 12m
+      memory: 32Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 80
+    
+  # Basic auth disabled by default
+  auth:
+    enabled: false
+
+# Memcached for caching
+memcached:
+  enabled: false  # Disabled for simplicity in small deployments
+
+# MinIO disabled (using filesystem storage)
+minio:
+  enabled: false
+
+# Monitoring (disabled - Alloy-first architecture)
+serviceMonitor:
+  enabled: false
+  
+# Pod Security
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container Security
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+
+# Network policies
+networkPolicy:
+  enabled: false  # Can be enabled based on requirements

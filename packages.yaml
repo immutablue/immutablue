@@ -398,7 +398,6 @@ brew:
 
   # Variant-specific packages
   install_kuberblue:
-  - chainsaw
   uninstall_kuberblue:
   install_trueblue:
   uninstall_trueblue:

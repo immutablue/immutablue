@@ -99,9 +99,9 @@ function test_manifest_deployment() {
     echo "Testing manifest files exist"
     local expected_files=(
         "$manifests_dir/kube-flannel.yaml"
-        "$manifests_dir/cilium/00-metadata.yaml"
-        "$manifests_dir/cilium/10-values.yaml"
-        "$manifests_dir/cilium/50-default-ip-pool.yaml"
+        "$manifests_dir/00-infrastructure/00-cilium/00-metadata.yaml"
+        "$manifests_dir/00-infrastructure/00-cilium/10-values.yaml"
+        "$manifests_dir/00-infrastructure/00-cilium/50-default-ip-pool.yaml"
     )
     
     for manifest_file in "${expected_files[@]}"; do
@@ -114,18 +114,18 @@ function test_manifest_deployment() {
     done
     
     # Test OpenEBS directory exists
-    if podman run --rm "$IMAGE" test -d "$manifests_dir/openebs"; then
+    if podman run --rm "$IMAGE" test -d "$manifests_dir/00-infrastructure/10-openebs"; then
         echo "Found OpenEBS manifest directory"
         # Check for expected OpenEBS files
-        podman run --rm "$IMAGE" test -f "$manifests_dir/openebs/00-metadata.yaml" && echo "Found OpenEBS metadata file"
-        podman run --rm "$IMAGE" test -f "$manifests_dir/openebs/10-values.yaml" && echo "Found OpenEBS values file"
+        podman run --rm "$IMAGE" test -f "$manifests_dir/00-infrastructure/10-openebs/00-metadata.yaml" && echo "Found OpenEBS metadata file"
+        podman run --rm "$IMAGE" test -f "$manifests_dir/00-infrastructure/10-openebs/10-values.yaml" && echo "Found OpenEBS values file"
     fi
     
     # Test basic YAML syntax for key manifests (container-safe)
     echo "Testing basic YAML syntax"
     local yaml_files=(
         "$manifests_dir/kube-flannel.yaml"
-        "$manifests_dir/cilium/10-values.yaml"
+        "$manifests_dir/00-infrastructure/00-cilium/10-values.yaml"
     )
     
     for yaml_file in "${yaml_files[@]}"; do

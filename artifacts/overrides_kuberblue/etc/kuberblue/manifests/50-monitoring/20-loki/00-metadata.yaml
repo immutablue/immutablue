@@ -1,0 +1,12 @@
+# Name of the chart deployment
+name: loki
+# The namespace for the chart to reside in
+namespace: monitoring
+# The name of the chart to deploy
+chart: grafana/loki
+create_namespace: true
+# Name of the chart repo
+repo_name: grafana
+repo_url: https://grafana.github.io/helm-charts
+# Arguments to be passed that are not set in values.yaml. Prefer values file.
+args: ""

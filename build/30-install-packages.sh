@@ -227,6 +227,15 @@ then
 fi
 
 
+# Special packages for kuberblue builds
+if [[ "$(is_option_in_build_options kuberblue)" == "${TRUE}" ]]
+then 
+    curl -Lo /tmp/chainsaw.tar.gz "${CHAINSAW_RELEASE_URL}"
+    tar -xzf /tmp/chainsaw.tar.gz -C /usr/bin/ chainsaw
+    chmod a+x /usr/bin/chainsaw
+    rm /tmp/chainsaw.tar.gz
+fi
+
 # Special installation for the build-a-blue-workshop variant
 # This installs n8n, a workflow automation tool
 if [[ "$(is_option_in_build_options build_a_blue_workshop)" == "${TRUE}" ]]
