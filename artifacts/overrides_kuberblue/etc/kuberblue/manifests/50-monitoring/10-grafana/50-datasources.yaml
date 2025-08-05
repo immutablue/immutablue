@@ -1,0 +1,88 @@
+# Grafana datasources configuration
+# This ConfigMap will be picked up by the Grafana sidecar
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+    
+    # Mimir for Prometheus-compatible metrics
+    - name: Mimir
+      type: prometheus
+      uid: mimir
+      url: http://mimir-query-frontend:8080/prometheus
+      access: proxy
+      isDefault: true
+      jsonData:
+        timeInterval: 15s
+        httpMethod: POST
+      editable: true
+    
+    # Loki for logs
+    - name: Loki
+      type: loki
+      uid: loki
+      url: http://loki-gateway
+      access: proxy
+      jsonData:
+        maxLines: 1000
+        derivedFields:
+          - datasourceUid: tempo
+            matcherRegex: "traceID=(\\w+)"
+            name: TraceID
+            url: "$${__value.raw}"
+      editable: true
+    
+    # Tempo for traces
+    - name: Tempo
+      type: tempo
+      uid: tempo
+      url: http://tempo:3100
+      access: proxy
+      jsonData:
+        httpMethod: GET
+        tracesToLogs:
+          datasourceUid: loki
+          filterByTraceID: true
+          filterBySpanID: false
+          mapTagNamesEnabled: true
+          mappedTags:
+            - key: service.name
+              value: service
+            - key: pod
+              value: pod
+        serviceMap:
+          datasourceUid: mimir
+        nodeGraph:
+          enabled: true
+        search:
+          hide: false
+        lokiSearch:
+          datasourceUid: loki
+      editable: true
+    
+    # Alertmanager (if enabled in Mimir)
+    - name: Alertmanager
+      type: alertmanager
+      uid: alertmanager
+      url: http://mimir-alertmanager:8080
+      access: proxy
+      jsonData:
+        implementation: mimir
+      editable: true
+    
+    # Self-monitoring - Grafana metrics
+    - name: Grafana
+      type: prometheus
+      uid: grafana-metrics
+      url: http://mimir-query-frontend:8080/prometheus
+      access: proxy
+      jsonData:
+        httpMethod: POST
+      editable: true

@@ -27,12 +27,17 @@ HUGO_RELEASE_URL=""
 FZF_GIT_URL="https://raw.githubusercontent.com/junegunn/fzf-git.sh/refs/heads/main/fzf-git.sh"
 STARSHIP_URL="https://starship.rs/install.sh"
 ZEROFS_RELEASE_URL="https://github.com/Barre/ZeroFS/releases/download/v0.0.2/zerofs-linux-multiarch.tar.gz"
+CHAINSAW_RELEASE_URL_x86_64="https://github.com/kyverno/chainsaw/releases/download/v0.2.12/chainsaw_linux_amd64.tar.gz"
+CHAINSAW_RELEASE_URL_aarch64="https://github.com/kyverno/chainsaw/releases/download/v0.2.12/chainsaw_linux_arm64.tar.gz"
+CHAINSAW_RELEASE_URL=""
 
 if [[ "${MARCH}" == "aarch64" ]]
 then 
     HUGO_RELEASE_URL="${HUGO_RELEASE_URL_aarch64}"
+    CHAINSAW_RELEASE_URL="${CHAINSAW_RELEASE_URL_aarch64}"
 else 
     HUGO_RELEASE_URL="${HUGO_RELEASE_URL_x86_64}"
+    CHAINSAW_RELEASE_URL="${CHAINSAW_RELEASE_URL_x86_64}"
 fi
 
 

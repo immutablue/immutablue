@@ -1,0 +1,172 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: loki-log-storage-test
+  annotations:
+    kuberblue.test/component: "loki"
+    kuberblue.test/category: "monitoring"
+    kuberblue.test/priority: "high"
+    kuberblue.test/timeout: "300s"
+spec:
+  timeouts:
+    apply: 60s
+    assert: 300s
+    cleanup: 60s
+  steps:
+  
+  # Step 1: Verify Loki deployment
+  - name: verify-loki-deployment
+    try:
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: loki
+            namespace: monitoring
+          status:
+            readyReplicas: 1
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: loki-gateway
+            namespace: monitoring
+          status:
+            readyReplicas: 1
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: DaemonSet
+          metadata:
+            name: loki-canary
+            namespace: monitoring
+          status:
+            numberReady: ($numberAvailable)
+            
+  # Step 2: Verify services
+  - name: verify-loki-services
+    try:
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: loki
+            namespace: monitoring
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: loki-gateway
+            namespace: monitoring
+            
+  # Step 3: Test log ingestion
+  - name: test-log-ingestion
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: loki-test-client
+            namespace: monitoring
+          spec:
+            restartPolicy: Never
+            containers:
+            - name: test
+              image: curlimages/curl:latest
+              command:
+              - sh
+              - -c
+              - |
+                # Create test log entry
+                TIMESTAMP=$(date +%s%N)
+                cat > /tmp/logs.json << EOF
+                {
+                  "streams": [
+                    {
+                      "stream": {
+                        "job": "test",
+                        "pod": "test-pod"
+                      },
+                      "values": [
+                        ["${TIMESTAMP}", "Test log message from Kuberblue"]
+                      ]
+                    }
+                  ]
+                }
+                EOF
+                
+                # Send log to Loki
+                curl -X POST -H "Content-Type: application/json" \
+                  --data @/tmp/logs.json \
+                  http://loki-gateway/loki/api/v1/push
+                
+                # Wait for ingestion
+                sleep 5
+                
+                # Query the log back
+                curl -G http://loki-gateway/loki/api/v1/query_range \
+                  --data-urlencode 'query={job="test"}' \
+                  --data-urlencode "start=$(($TIMESTAMP/1000000000 - 60))" \
+                  --data-urlencode "end=$(($TIMESTAMP/1000000000 + 60))" | \
+                  grep "Test log message from Kuberblue" || exit 1
+                
+                echo "Log ingestion and query successful"
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "128Mi"
+                  cpu: "100m"
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: loki-test-client
+            namespace: monitoring
+          status:
+            phase: Succeeded
+            
+  # Step 4: Verify persistent storage
+  - name: verify-persistent-storage
+    try:
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: storage-loki-0
+            namespace: monitoring
+          status:
+            phase: Bound
+    - script:
+        timeout: 30s
+        content: |
+          # Verify Loki is writing to persistent storage
+          kubectl exec -n monitoring loki-0 -- ls -la /var/loki/chunks || exit 1
+          echo "Loki persistent storage is configured correctly"
+          
+  # Step 5: Test Loki canary
+  - name: verify-loki-canary
+    try:
+    - script:
+        timeout: 60s
+        content: |
+          # Check that Loki canary is successfully writing and reading logs
+          kubectl logs -n monitoring -l app.kubernetes.io/name=loki-canary --tail=10 | \
+            grep -E "(wrote|read)" || exit 1
+          echo "Loki canary is functioning correctly"
+          
+  cleanup:
+  - delete:
+      ref:
+        apiVersion: v1
+        kind: Pod
+        name: loki-test-client
+        namespace: monitoring

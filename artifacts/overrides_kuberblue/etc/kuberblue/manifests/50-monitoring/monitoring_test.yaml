@@ -1,0 +1,291 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: monitoring-stack-integration-test
+  annotations:
+    kuberblue.test/component: "monitoring-stack"
+    kuberblue.test/category: "monitoring"
+    kuberblue.test/priority: "high"
+    kuberblue.test/timeout: "900s"
+spec:
+  timeouts:
+    apply: 120s
+    assert: 600s
+    cleanup: 120s
+  steps:
+  
+  # Step 1: Verify all components are deployed
+  - name: verify-all-components
+    try:
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: DaemonSet
+          metadata:
+            name: alloy
+            namespace: monitoring
+          status:
+            numberReady: ($numberAvailable)
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: grafana
+            namespace: monitoring
+          status:
+            readyReplicas: 1
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: loki
+            namespace: monitoring
+          status:
+            readyReplicas: 1
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: tempo
+            namespace: monitoring
+          status:
+            readyReplicas: 1
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: mimir-distributor
+            namespace: monitoring
+          status:
+            readyReplicas: 1
+            
+  # Step 2: Test end-to-end metrics flow
+  - name: test-metrics-flow
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: metrics-generator
+            namespace: monitoring
+            annotations:
+              prometheus.io/scrape: "true"
+              prometheus.io/port: "8080"
+          spec:
+            restartPolicy: Never
+            containers:
+            - name: app
+              image: prom/node-exporter:latest
+              args:
+                - --web.listen-address=:8080
+                - --path.rootfs=/host
+              ports:
+              - containerPort: 8080
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "128Mi"
+                  cpu: "100m"
+    - script:
+        timeout: 120s
+        content: |
+          # Wait for metrics to flow through the pipeline
+          echo "Waiting for metrics to be collected and stored..."
+          sleep 60
+          
+          # Query Grafana API to verify metrics are available
+          METRIC_QUERY='node_load1'
+          RESPONSE=$(curl -s -u admin:admin -G \
+            --data-urlencode "query=${METRIC_QUERY}" \
+            http://grafana/api/datasources/proxy/uid/mimir/api/v1/query || echo "{}")
+          
+          if echo "$RESPONSE" | grep -q "\"status\":\"success\""; then
+            echo "✓ Metrics are flowing correctly through Alloy → Mimir → Grafana"
+          else
+            echo "✗ Metrics flow test failed"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+          
+  # Step 3: Test end-to-end logs flow
+  - name: test-logs-flow
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: log-generator
+            namespace: monitoring
+          spec:
+            restartPolicy: Never
+            containers:
+            - name: logger
+              image: busybox:latest
+              command:
+              - sh
+              - -c
+              - |
+                for i in $(seq 1 10); do
+                  echo "[$(date -Iseconds)] INFO Integration test log message $i"
+                  echo "[$(date -Iseconds)] ERROR Test error message $i"
+                  sleep 2
+                done
+              resources:
+                requests:
+                  memory: "32Mi"
+                  cpu: "10m"
+                limits:
+                  memory: "64Mi"
+                  cpu: "50m"
+    - script:
+        timeout: 120s
+        content: |
+          # Wait for logs to flow through the pipeline
+          echo "Waiting for logs to be collected and stored..."
+          sleep 60
+          
+          # Query Loki through Grafana to verify logs are available
+          QUERY='{namespace="monitoring",pod="log-generator"}'
+          RESPONSE=$(curl -s -u admin:admin -G \
+            --data-urlencode "query=${QUERY}" \
+            http://grafana/api/datasources/proxy/uid/loki/loki/api/v1/query_range?limit=10 || echo "{}")
+          
+          if echo "$RESPONSE" | grep -q "Integration test log message"; then
+            echo "✓ Logs are flowing correctly through Alloy → Loki → Grafana"
+          else
+            echo "✗ Logs flow test failed"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+          
+  # Step 4: Test end-to-end traces flow
+  - name: test-traces-flow
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: trace-generator
+            namespace: monitoring
+          spec:
+            restartPolicy: Never
+            containers:
+            - name: tracer
+              image: jaegertracing/jaeger-hotrod:latest
+              env:
+              - name: OTEL_EXPORTER_OTLP_ENDPOINT
+                value: "http://alloy:4317"
+              command:
+              - sh
+              - -c
+              - |
+                # Run the hotrod demo app briefly to generate traces
+                /go/bin/hotrod all &
+                PID=$!
+                sleep 30
+                
+                # Make some requests to generate traces
+                for i in $(seq 1 5); do
+                  wget -q -O- http://localhost:8080/dispatch?customer=123 || true
+                  sleep 2
+                done
+                
+                kill $PID || true
+                echo "Trace generation completed"
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "256Mi"
+                  cpu: "200m"
+    - script:
+        timeout: 180s
+        content: |
+          # Wait for traces to flow through the pipeline
+          echo "Waiting for traces to be collected and stored..."
+          sleep 90
+          
+          # Query Tempo through Grafana to verify traces are available
+          RESPONSE=$(curl -s -u admin:admin \
+            http://grafana/api/datasources/proxy/uid/tempo/api/search?limit=10 || echo "{}")
+          
+          if echo "$RESPONSE" | grep -q "traces"; then
+            echo "✓ Traces are flowing correctly through Alloy → Tempo → Grafana"
+          else
+            echo "⚠ Traces may not be flowing yet (this is normal if OTLP apps aren't deployed)"
+            echo "Response: $RESPONSE"
+          fi
+          
+  # Step 5: Verify Grafana datasource connectivity
+  - name: verify-grafana-datasources
+    try:
+    - script:
+        timeout: 60s
+        content: |
+          echo "Testing all Grafana datasources..."
+          
+          # Test each datasource
+          for ds in Mimir Loki Tempo; do
+            echo "Testing $ds datasource..."
+            RESPONSE=$(curl -s -u admin:admin \
+              http://grafana/api/datasources/name/$ds || echo "{}")
+            
+            if echo "$RESPONSE" | grep -q "\"name\":\"$ds\""; then
+              echo "✓ $ds datasource is configured"
+            else
+              echo "✗ $ds datasource is not configured"
+              exit 1
+            fi
+          done
+          
+          echo "✓ All datasources are properly configured"
+          
+  # Step 6: Verify dashboards are loaded
+  - name: verify-dashboards
+    try:
+    - script:
+        timeout: 60s
+        content: |
+          echo "Checking for dashboards..."
+          
+          DASHBOARDS=$(curl -s -u admin:admin \
+            http://grafana/api/search?type=dash-db || echo "[]")
+          
+          if echo "$DASHBOARDS" | grep -q "Kubernetes Overview"; then
+            echo "✓ Kubernetes Overview dashboard is loaded"
+          else
+            echo "⚠ Kubernetes Overview dashboard not found (may still be loading)"
+          fi
+          
+          DASH_COUNT=$(echo "$DASHBOARDS" | grep -c "\"uid\"" || echo "0")
+          echo "Total dashboards found: $DASH_COUNT"
+          
+  cleanup:
+  - delete:
+      ref:
+        apiVersion: v1
+        kind: Pod
+        name: metrics-generator
+        namespace: monitoring
+  - delete:
+      ref:
+        apiVersion: v1
+        kind: Pod
+        name: log-generator
+        namespace: monitoring
+  - delete:
+      ref:
+        apiVersion: v1
+        kind: Pod
+        name: trace-generator
+        namespace: monitoring

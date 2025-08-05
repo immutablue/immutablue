@@ -1,0 +1,162 @@
+# Grafana Configuration
+# Optimized for Kuberblue with pre-configured datasources
+
+# Admin credentials - password stored in Helm-managed secret
+# To get password: kubectl get secret grafana -n monitoring -o jsonpath="{.data.admin-password}" | base64 -d
+adminUser: admin
+# adminPassword removed - Grafana will auto-generate secure password
+
+# Persistence
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: ""  # Use default
+
+# Resources
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 80
+
+# Ingress configuration (disabled by default)
+ingress:
+  enabled: false
+  # annotations:
+  #   kubernetes.io/ingress.class: nginx
+  # hosts:
+  #   - grafana.example.com
+
+# Security
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 472
+  fsGroup: 472
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+
+# Grafana configuration
+grafana.ini:
+  server:
+    root_url: "%(protocol)s://%(domain)s:%(http_port)s/"
+    serve_from_sub_path: false
+  
+  # Security
+  security:
+    admin_user: admin
+    # admin_password removed - auto-generated password used
+    disable_gravatar: true
+    cookie_secure: false  # Set to true if using HTTPS
+    cookie_samesite: lax
+    strict_transport_security: false  # Set to true if using HTTPS
+  
+  # Anonymous access (disabled)
+  auth.anonymous:
+    enabled: false
+  
+  # Basic auth
+  auth.basic:
+    enabled: true
+  
+  # Disable user signup
+  users:
+    allow_sign_up: false
+    allow_org_create: false
+  
+  # Logging
+  log:
+    mode: console
+    level: info
+  
+  # Unified alerting (legacy alerting removed in v12+)
+  unified_alerting:
+    enabled: true
+  
+  # Feature toggles
+  feature_toggles:
+    enable: tempoSearch tempoBackendSearch
+
+# Environment variables
+env:
+  GF_INSTALL_PLUGINS: ""  # Add plugins here if needed
+
+# Sidecar for provisioning
+sidecar:
+  # Dashboard provisioning
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
+    folder: /var/lib/grafana/dashboards
+    searchNamespace: ALL
+    provider:
+      allowUiUpdates: true
+      disableDelete: false
+      folder: ""
+  
+  # Datasource provisioning
+  datasources:
+    enabled: true
+    label: grafana_datasource
+    labelValue: "1"
+    searchNamespace: ALL
+  
+  # Plugin provisioning
+  plugins:
+    enabled: false
+  
+  # Notifier provisioning
+  notifiers:
+    enabled: false
+  
+  # Alert provisioning
+  alerts:
+    enabled: false
+
+# Service account
+serviceAccount:
+  create: true
+  autoMount: true
+
+# RBAC
+rbac:
+  create: true
+  pspEnabled: false
+
+# Service Monitor for Prometheus (disabled - Alloy-first architecture)
+serviceMonitor:
+  enabled: false
+
+# Network policy
+networkPolicy:
+  enabled: false  # Can be enabled based on requirements
+
+# Pod annotations
+podAnnotations: {}
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Test framework (disabled - we use Chainsaw)
+testFramework:
+  enabled: false

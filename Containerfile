@@ -18,6 +18,7 @@ RUN dnf install -y curl tar && \
     mv /tmp/just/just /usr/local/bin/just && \
     chmod +x /usr/local/bin/just
 
+
 FROM ghcr.io/ublue-os/config:latest AS ublue-config
 FROM ghcr.io/ublue-os/akmods:main-${FEDORA_VERSION} AS ublue-akmods
 FROM ${BASE_IMAGE}:${FEDORA_VERSION}

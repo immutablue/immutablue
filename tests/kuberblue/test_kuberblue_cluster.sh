@@ -106,18 +106,18 @@ function test_network_setup() {
     local manifests_dir="/etc/kuberblue/manifests"
     
     # Check if Cilium configuration exists and deploy it
-    if [[ -d "$manifests_dir/cilium" ]]; then
+    if [[ -d "$manifests_dir/00-infrastructure/00-cilium" ]]; then
         echo "Deploying Cilium CNI"
         
         # Validate Cilium manifests
-        if ! validate_manifest_directory "$manifests_dir/cilium"; then
+        if ! validate_manifest_directory "$manifests_dir/00-infrastructure/00-cilium"; then
             echo "FAIL: Cilium manifest validation failed"
             return 1
         fi
         
         # Deploy Cilium using Helm (if metadata indicates Helm chart)
-        if [[ -f "$manifests_dir/cilium/00-metadata.yaml" ]]; then
-            if ! validate_helm_deployment "$manifests_dir/cilium" "kube-system" "cilium" "$manifests_dir/cilium/10-values.yaml"; then
+        if [[ -f "$manifests_dir/00-infrastructure/00-cilium/00-metadata.yaml" ]]; then
+            if ! validate_helm_deployment "$manifests_dir/00-infrastructure/00-cilium" "kube-system" "cilium" "$manifests_dir/00-infrastructure/00-cilium/10-values.yaml"; then
                 echo "FAIL: Cilium Helm deployment validation failed"
                 return 1
             fi
@@ -177,7 +177,7 @@ function test_storage_setup() {
     local manifests_dir="/etc/kuberblue/manifests"
     
     # Check if OpenEBS configuration exists
-    if [[ ! -d "$manifests_dir/openebs" ]]; then
+    if [[ ! -d "$manifests_dir/00-infrastructure/10-openebs" ]]; then
         echo "SKIP: OpenEBS configuration not found, skipping storage test"
         return 0
     fi
@@ -185,14 +185,14 @@ function test_storage_setup() {
     echo "Deploying OpenEBS storage"
     
     # Validate OpenEBS manifests
-    if ! validate_manifest_directory "$manifests_dir/openebs"; then
+    if ! validate_manifest_directory "$manifests_dir/00-infrastructure/10-openebs"; then
         echo "FAIL: OpenEBS manifest validation failed"
         return 1
     fi
     
     # Deploy OpenEBS using Helm (if metadata indicates Helm chart)
-    if [[ -f "$manifests_dir/openebs/00-metadata.yaml" ]]; then
-        if ! deploy_and_validate_helm_chart "$manifests_dir/openebs" "openebs" "openebs" "$manifests_dir/openebs/10-values.yaml" 300; then
+    if [[ -f "$manifests_dir/00-infrastructure/10-openebs/00-metadata.yaml" ]]; then
+        if ! deploy_and_validate_helm_chart "$manifests_dir/00-infrastructure/10-openebs" "openebs" "openebs" "$manifests_dir/00-infrastructure/10-openebs/10-values.yaml" 300; then
             echo "FAIL: OpenEBS Helm deployment failed"
             return 1
         fi

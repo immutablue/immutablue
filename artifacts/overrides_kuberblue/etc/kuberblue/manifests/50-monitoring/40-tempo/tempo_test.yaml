@@ -1,0 +1,228 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: tempo-trace-storage-test
+  annotations:
+    kuberblue.test/component: "tempo"
+    kuberblue.test/category: "monitoring"
+    kuberblue.test/priority: "high"
+    kuberblue.test/timeout: "300s"
+spec:
+  timeouts:
+    apply: 60s
+    assert: 300s
+    cleanup: 60s
+  steps:
+  
+  # Step 1: Verify Tempo deployment
+  - name: verify-tempo-deployment
+    try:
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: tempo
+            namespace: monitoring
+          status:
+            readyReplicas: 1
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: tempo-query
+            namespace: monitoring
+          status:
+            readyReplicas: 1
+            
+  # Step 2: Verify services
+  - name: verify-tempo-services
+    try:
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: tempo
+            namespace: monitoring
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: tempo-otlp
+            namespace: monitoring
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: tempo-jaeger
+            namespace: monitoring
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: tempo-query
+            namespace: monitoring
+            
+  # Step 3: Test trace ingestion via OTLP
+  - name: test-trace-ingestion
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: tempo-test-client
+            namespace: monitoring
+          spec:
+            restartPolicy: Never
+            containers:
+            - name: test
+              image: curlimages/curl:latest
+              command:
+              - sh
+              - -c
+              - |
+                # Create a simple OTLP trace in JSON format
+                TRACE_ID=$(printf '%032x' $RANDOM$RANDOM$RANDOM$RANDOM)
+                SPAN_ID=$(printf '%016x' $RANDOM$RANDOM)
+                TIMESTAMP=$(date +%s%N)
+                
+                cat > /tmp/trace.json << EOF
+                {
+                  "resourceSpans": [{
+                    "resource": {
+                      "attributes": [{
+                        "key": "service.name",
+                        "value": {"stringValue": "test-service"}
+                      }]
+                    },
+                    "scopeSpans": [{
+                      "spans": [{
+                        "traceId": "${TRACE_ID}",
+                        "spanId": "${SPAN_ID}",
+                        "name": "test-span",
+                        "kind": 1,
+                        "startTimeUnixNano": "${TIMESTAMP}",
+                        "endTimeUnixNano": "$((TIMESTAMP + 1000000000))",
+                        "attributes": [{
+                          "key": "test.attribute",
+                          "value": {"stringValue": "kuberblue-test"}
+                        }],
+                        "status": {}
+                      }]
+                    }]
+                  }]
+                }
+                EOF
+                
+                # Send trace to Tempo via OTLP HTTP
+                curl -X POST -H "Content-Type: application/json" \
+                  --data @/tmp/trace.json \
+                  http://tempo-otlp:4318/v1/traces
+                
+                # Wait for ingestion
+                sleep 10
+                
+                # Query the trace via Tempo API
+                curl -G http://tempo:3100/api/traces/${TRACE_ID} | \
+                  grep "${TRACE_ID}" || exit 1
+                
+                echo "Trace ingestion successful"
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "128Mi"
+                  cpu: "100m"
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: tempo-test-client
+            namespace: monitoring
+          status:
+            phase: Succeeded
+            
+  # Step 4: Test Jaeger compatibility
+  - name: test-jaeger-ingestion
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: tempo-jaeger-test
+            namespace: monitoring
+          spec:
+            restartPolicy: Never
+            containers:
+            - name: test
+              image: jaegertracing/jaeger-agent:latest
+              command:
+              - sh
+              - -c
+              - |
+                # Use Jaeger agent's test functionality to send a trace
+                /go/bin/agent-linux --reporter.grpc.host-port=tempo-jaeger:14250 &
+                AGENT_PID=$!
+                sleep 5
+                
+                # The agent should be able to connect
+                kill -0 $AGENT_PID && echo "Jaeger agent connected successfully"
+                kill $AGENT_PID
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "128Mi"
+                  cpu: "100m"
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: tempo-jaeger-test
+            namespace: monitoring
+          status:
+            phase: Succeeded
+            
+  # Step 5: Verify persistent storage
+  - name: verify-persistent-storage
+    try:
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: storage-tempo-0
+            namespace: monitoring
+          status:
+            phase: Bound
+    - script:
+        timeout: 30s
+        content: |
+          # Verify Tempo is writing to persistent storage
+          kubectl exec -n monitoring tempo-0 -- ls -la /var/tempo || exit 1
+          echo "Tempo persistent storage is configured correctly"
+          
+  cleanup:
+  - delete:
+      ref:
+        apiVersion: v1
+        kind: Pod
+        name: tempo-test-client
+        namespace: monitoring
+  - delete:
+      ref:
+        apiVersion: v1
+        kind: Pod
+        name: tempo-jaeger-test
+        namespace: monitoring

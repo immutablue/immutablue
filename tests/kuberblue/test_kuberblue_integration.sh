@@ -591,11 +591,11 @@ function test_real_world_manifests() {
     fi
     
     # Test Cilium deployment and functionality
-    if [[ -d "$manifests_dir/cilium" ]]; then
+    if [[ -d "$manifests_dir/00-infrastructure/00-cilium" ]]; then
         echo "Testing Cilium deployment"
         
         # Validate and deploy Cilium
-        if deploy_and_validate_helm_chart "$manifests_dir/cilium" "kube-system" "cilium" "$manifests_dir/cilium/10-values.yaml" 300; then
+        if deploy_and_validate_helm_chart "$manifests_dir/00-infrastructure/00-cilium" "kube-system" "cilium" "$manifests_dir/00-infrastructure/00-cilium/10-values.yaml" 300; then
             echo "Cilium deployment PASSED"
             
             # Test Cilium functionality
@@ -610,11 +610,11 @@ function test_real_world_manifests() {
     fi
     
     # Test OpenEBS deployment and functionality
-    if [[ -d "$manifests_dir/openebs" ]]; then
+    if [[ -d "$manifests_dir/00-infrastructure/10-openebs" ]]; then
         echo "Testing OpenEBS deployment"
         
         # Validate and deploy OpenEBS
-        if deploy_and_validate_helm_chart "$manifests_dir/openebs" "openebs" "openebs" "$manifests_dir/openebs/10-values.yaml" 300; then
+        if deploy_and_validate_helm_chart "$manifests_dir/00-infrastructure/10-openebs" "openebs" "openebs" "$manifests_dir/00-infrastructure/10-openebs/10-values.yaml" 300; then
             echo "OpenEBS deployment PASSED"
             
             # Test storage functionality

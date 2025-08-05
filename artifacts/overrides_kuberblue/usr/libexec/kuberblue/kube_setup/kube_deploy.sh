@@ -57,6 +57,12 @@ determine_file_and_deploy(){
         # We just need this for deploying helm charts.
        return
     fi
+    if [[ $(basename "$f") == *_test.yaml ]]
+    then
+        # Skip Chainsaw test files - these are local test definitions, not Kubernetes resources
+        echo "Skipping Chainsaw test file $(basename "$f")"
+        return
+    fi
     if [[ $(basename "$f") == *values.yaml ]]
     then
         echo "Deploying using Helm"
@@ -72,7 +78,15 @@ determine_file_and_deploy(){
     if [[ $(basename "$f") == *patch.yaml || $(basename "$f") == *patch.json ]]
     then
         echo "Applying patch from $f"
-        kubectl patch -f "$f"
+        # Extract resource type and name from patch filename
+        local patch_basename=$(basename "$f")
+        if [[ "$patch_basename" == *"default-sc-patch"* ]]; then
+            # This is a storage class patch - apply to openebs-hostpath storage class
+            kubectl patch storageclass openebs-hostpath --patch-file "$f"
+        else
+            echo "WARNING: Unknown patch file format: $f"
+            echo "Patch files must follow naming convention: *default-sc-patch*"
+        fi
         return
     fi 
     echo "Deploying $f"

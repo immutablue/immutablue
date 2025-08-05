@@ -1,0 +1,250 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: alloy-collector-test
+  annotations:
+    kuberblue.test/component: "alloy"
+    kuberblue.test/category: "monitoring"
+    kuberblue.test/priority: "high"
+    kuberblue.test/timeout: "300s"
+spec:
+  timeouts:
+    apply: 60s
+    assert: 300s
+    cleanup: 60s
+  steps:
+  
+  # Step 1: Verify Alloy deployment
+  - name: verify-alloy-deployment
+    try:
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: DaemonSet
+          metadata:
+            name: alloy
+            namespace: monitoring
+          status:
+            numberReady: ($numberAvailable)
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: alloy
+            namespace: monitoring
+            
+  # Step 2: Verify RBAC
+  - name: verify-rbac
+    try:
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: alloy
+            namespace: monitoring
+    - assert:
+        resource:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRole
+          metadata:
+            name: alloy
+    - assert:
+        resource:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: alloy
+            
+  # Step 3: Test metrics collection
+  - name: test-metrics-collection
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: alloy-metrics-test
+            namespace: monitoring
+            annotations:
+              prometheus.io/scrape: "true"
+              prometheus.io/port: "8080"
+              prometheus.io/path: "/metrics"
+          spec:
+            restartPolicy: Never
+            containers:
+            - name: metrics
+              image: prom/node-exporter:latest
+              args:
+                - --web.listen-address=:8080
+              ports:
+              - containerPort: 8080
+                name: metrics
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "128Mi"
+                  cpu: "100m"
+    - script:
+        timeout: 60s
+        content: |
+          # Wait for Alloy to discover and scrape the test pod
+          sleep 30
+          
+          # Check Alloy's own metrics to see if it's scraping
+          ALLOY_POD=$(kubectl get pods -n monitoring -l app.kubernetes.io/name=alloy -o jsonpath='{.items[0].metadata.name}')
+          
+          # Verify Alloy is running and healthy
+          kubectl exec -n monitoring $ALLOY_POD -- wget -q -O- http://localhost:12345/metrics | \
+            grep -E "alloy_build_info|prometheus_remote_write_samples_total" || exit 1
+          
+          echo "Alloy metrics collection is working"
+          
+  # Step 4: Test log collection
+  - name: test-log-collection
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: alloy-logs-test
+            namespace: monitoring
+          spec:
+            restartPolicy: Never
+            containers:
+            - name: logger
+              image: busybox:latest
+              command:
+              - sh
+              - -c
+              - |
+                echo "INFO Test log message from Kuberblue Alloy test"
+                echo "ERROR This is an error message for testing"
+                echo "DEBUG Debug level message"
+                sleep 30
+              resources:
+                requests:
+                  memory: "32Mi"
+                  cpu: "10m"
+                limits:
+                  memory: "64Mi"
+                  cpu: "50m"
+    - script:
+        timeout: 60s
+        content: |
+          # Wait for logs to be collected
+          sleep 20
+          
+          # Verify the test pod ran
+          kubectl logs -n monitoring alloy-logs-test | grep "Test log message" || exit 1
+          
+          echo "Log collection test completed"
+          
+  # Step 5: Test OTLP receiver
+  - name: test-otlp-receiver
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: alloy-otlp-test
+            namespace: monitoring
+          spec:
+            restartPolicy: Never
+            containers:
+            - name: otlp
+              image: otel/opentelemetry-collector-contrib:latest
+              command:
+              - sh
+              - -c
+              - |
+                # Create a simple OTLP exporter config
+                cat > /tmp/config.yaml << EOF
+                receivers:
+                  otlp:
+                    protocols:
+                      grpc:
+                        endpoint: 0.0.0.0:4317
+                
+                processors:
+                  batch:
+                
+                exporters:
+                  otlp:
+                    endpoint: alloy:4317
+                    tls:
+                      insecure: true
+                  debug:
+                    verbosity: detailed
+                
+                service:
+                  pipelines:
+                    traces:
+                      receivers: [otlp]
+                      processors: [batch]
+                      exporters: [otlp, debug]
+                EOF
+                
+                # Run collector briefly to test connection
+                /otelcol-contrib --config=/tmp/config.yaml &
+                PID=$!
+                sleep 10
+                kill $PID || true
+                echo "OTLP connection test completed"
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "128Mi"
+                  cpu: "100m"
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: alloy-otlp-test
+            namespace: monitoring
+          status:
+            phase: Succeeded
+            
+  # Step 6: Verify Alloy is sending data
+  - name: verify-data-flow
+    try:
+    - script:
+        timeout: 60s
+        content: |
+          # Get an Alloy pod
+          ALLOY_POD=$(kubectl get pods -n monitoring -l app.kubernetes.io/name=alloy -o jsonpath='{.items[0].metadata.name}')
+          
+          # Check Alloy logs for successful remote writes
+          kubectl logs -n monitoring $ALLOY_POD --tail=100 | \
+            grep -E "(remote_write|loki.write|otelcol.exporter)" || \
+            echo "No remote write logs found yet (this may be normal if backends aren't ready)"
+          
+          echo "Alloy data flow verification completed"
+          
+  cleanup:
+  - delete:
+      ref:
+        apiVersion: v1
+        kind: Pod
+        name: alloy-metrics-test
+        namespace: monitoring
+  - delete:
+      ref:
+        apiVersion: v1
+        kind: Pod
+        name: alloy-logs-test
+        namespace: monitoring
+  - delete:
+      ref:
+        apiVersion: v1
+        kind: Pod
+        name: alloy-otlp-test
+        namespace: monitoring

@@ -69,6 +69,7 @@ function validate_test_metadata() {
     return 0
 }
 
+
 function run_chainsaw_tests() {
     local manifest_dir="$1"
     local test_files=()
@@ -85,6 +86,7 @@ function run_chainsaw_tests() {
         error "Cannot access Kubernetes cluster. Please ensure cluster is running and kubectl is configured."
         return 1
     fi
+    
     
     # Discover tests
     if ! readarray -t test_files < <(discover_chainsaw_tests "$manifest_dir"); then

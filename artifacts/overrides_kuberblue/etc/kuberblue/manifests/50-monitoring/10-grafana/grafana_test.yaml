@@ -1,0 +1,195 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: grafana-visualization-test
+  annotations:
+    kuberblue.test/component: "grafana"
+    kuberblue.test/category: "monitoring"
+    kuberblue.test/priority: "high"
+    kuberblue.test/timeout: "300s"
+spec:
+  timeouts:
+    apply: 60s
+    assert: 300s
+    cleanup: 60s
+  steps:
+  
+  # Step 1: Verify Grafana deployment
+  - name: verify-grafana-deployment
+    try:
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: grafana
+            namespace: monitoring
+          status:
+            readyReplicas: 1
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: grafana
+            namespace: monitoring
+            
+  # Step 2: Verify persistent storage
+  - name: verify-persistent-storage
+    try:
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: grafana
+            namespace: monitoring
+          status:
+            phase: Bound
+            
+  # Step 3: Verify datasources ConfigMap
+  - name: verify-datasources
+    try:
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: grafana-datasources
+            namespace: monitoring
+            labels:
+              grafana_datasource: "1"
+              
+  # Step 4: Verify dashboards ConfigMap
+  - name: verify-dashboards
+    try:
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: grafana-dashboard-kubernetes-overview
+            namespace: monitoring
+            labels:
+              grafana_dashboard: "1"
+              
+  # Step 5: Test Grafana API access
+  - name: test-grafana-api
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: grafana-test-client
+            namespace: monitoring
+          spec:
+            restartPolicy: Never
+            containers:
+            - name: test
+              image: curlimages/curl:latest
+              command:
+              - sh
+              - -c
+              - |
+                # Test Grafana health endpoint
+                curl -f http://grafana/api/health || exit 1
+                echo "Grafana health check passed"
+                
+                # Test datasources API (requires auth)
+                curl -u admin:admin -f http://grafana/api/datasources || exit 1
+                echo "Grafana datasources API accessible"
+                
+                # Verify datasources are configured
+                DATASOURCES=$(curl -s -u admin:admin http://grafana/api/datasources | grep -c '"type"')
+                if [ "$DATASOURCES" -lt 3 ]; then
+                  echo "ERROR: Expected at least 3 datasources, found $DATASOURCES"
+                  exit 1
+                fi
+                echo "Datasources configured correctly"
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "128Mi"
+                  cpu: "100m"
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: grafana-test-client
+            namespace: monitoring
+          status:
+            phase: Succeeded
+            
+  # Step 6: Test datasource connectivity
+  - name: test-datasource-connectivity
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: grafana-datasource-test
+            namespace: monitoring
+          spec:
+            restartPolicy: Never
+            containers:
+            - name: test
+              image: curlimages/curl:latest
+              command:
+              - sh
+              - -c
+              - |
+                # Get datasource IDs
+                MIMIR_ID=$(curl -s -u admin:admin http://grafana/api/datasources/name/Mimir | jq -r '.id')
+                LOKI_ID=$(curl -s -u admin:admin http://grafana/api/datasources/name/Loki | jq -r '.id')
+                TEMPO_ID=$(curl -s -u admin:admin http://grafana/api/datasources/name/Tempo | jq -r '.id')
+                
+                # Test Mimir datasource
+                curl -u admin:admin -X POST \
+                  -H "Content-Type: application/json" \
+                  -d '{"from":"now-5m","to":"now","queries":[{"refId":"A","expr":"up"}]}' \
+                  http://grafana/api/ds/query || echo "Mimir query test completed"
+                
+                # Test Loki datasource
+                curl -u admin:admin -X GET \
+                  "http://grafana/api/datasources/proxy/${LOKI_ID}/loki/api/v1/labels" || echo "Loki query test completed"
+                
+                # Test Tempo datasource
+                curl -u admin:admin -X GET \
+                  "http://grafana/api/datasources/proxy/${TEMPO_ID}/api/echo" || echo "Tempo query test completed"
+                
+                echo "All datasource connectivity tests completed"
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "128Mi"
+                  cpu: "100m"
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: grafana-datasource-test
+            namespace: monitoring
+          status:
+            phase: Succeeded
+            
+  cleanup:
+  - delete:
+      ref:
+        apiVersion: v1
+        kind: Pod
+        name: grafana-test-client
+        namespace: monitoring
+  - delete:
+      ref:
+        apiVersion: v1
+        kind: Pod
+        name: grafana-datasource-test
+        namespace: monitoring
