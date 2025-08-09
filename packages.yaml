@@ -99,6 +99,7 @@ immutablue:
   - cockpit-navigator
   - rsync
   - rclone
+  - smartmontools
 
   rpm_kuberblue:
   - cockpit
