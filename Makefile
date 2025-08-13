@@ -186,6 +186,22 @@ endif
 ifeq ($(KUBERBLUE),1)
 	TAG := $(TAG)-kuberblue
 	BUILD_OPTIONS := $(BUILD_OPTIONS),kuberblue
+	
+	# Validate role flags
+	ifeq ($(CONTROL_PLANE)$(WORKER),11)
+		$(error Cannot specify both CONTROL_PLANE=1 and WORKER=1. Choose one role only.)
+	endif
+	
+	# Role-specific tags for autocluster
+	ifeq ($(CONTROL_PLANE),1)
+		TAG := $(TAG)-control-plane
+		BUILD_OPTIONS := $(BUILD_OPTIONS),control_plane
+	endif
+	
+	ifeq ($(WORKER),1)
+		TAG := $(TAG)-worker
+		BUILD_OPTIONS := $(BUILD_OPTIONS),worker
+	endif
 endif
 
 ifeq ($(TRUEBLUE),1)
@@ -204,7 +220,8 @@ FULL_TAG := $(IMAGE):$(TAG)
 	build push iso upgrade rebase clean \
 	install_distrobox install_flatpak install_brew \
 	post_install_notes test test_container test_container_qemu test_artifacts test_shellcheck test_setup \
-	test_kuberblue_container test_kuberblue_cluster test_kuberblue_components test_kuberblue_integration test_kuberblue_security test_kuberblue test_kuberblue_chainsaw test_chainsaw
+	test_kuberblue_container test_kuberblue_cluster test_kuberblue_components test_kuberblue_integration test_kuberblue_security test_kuberblue test_kuberblue_chainsaw test_chainsaw \
+	kuberblue-control-plane kuberblue-worker kuberblue
 
 
 list:
@@ -614,3 +631,16 @@ _run_kuberblue_chainsaw_test:
 # Chainsaw-only testing: Runs only the Chainsaw declarative tests
 # Convenience target for running just the Chainsaw tests without other Kuberblue tests
 test_chainsaw: test_kuberblue_chainsaw
+
+# Kuberblue Autocluster convenience targets
+# Build control plane image
+kuberblue-control-plane:
+	$(MAKE) KUBERBLUE=1 CONTROL_PLANE=1 build
+
+# Build worker image  
+kuberblue-worker:
+	$(MAKE) KUBERBLUE=1 WORKER=1 build
+
+# Build default kuberblue image (existing behavior unchanged)
+kuberblue:
+	$(MAKE) KUBERBLUE=1 build

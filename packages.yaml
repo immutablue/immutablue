@@ -101,6 +101,8 @@ immutablue:
   - rclone
 
   rpm_kuberblue:
+  - avahi-daemon
+  - avahi-tools
   - cockpit
   - crio 
   - cri-tools1.32
@@ -257,6 +259,7 @@ immutablue:
   - sshd.service 
   - crio.service 
   - kubelet.service
+  - avahi-daemon.service
 
   services_disable_sys:
   services_disable_sys_kuberblue:

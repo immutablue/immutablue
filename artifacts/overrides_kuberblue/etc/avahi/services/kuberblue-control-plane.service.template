@@ -1,0 +1,10 @@
+<service-group>
+  <name replace-wildcards="yes">Kuberblue Control Plane on %h</name>
+  <service>
+    <type>_kuberblue-cp._tcp</type>
+    <port>6443</port>
+    <txt-record>version=1.0</txt-record>
+    <txt-record>cluster-id=default</txt-record>
+    <txt-record>ready=true</txt-record>
+  </service>
+</service-group>
