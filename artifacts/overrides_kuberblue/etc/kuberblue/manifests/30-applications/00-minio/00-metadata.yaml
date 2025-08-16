@@ -1,0 +1,10 @@
+# Name of the chart deployment
+name: minio
+namespace: minio
+chart: minio/minio
+create_namespace: true
+# Name of the chart repo
+repo_name: minio
+repo_url: https://charts.min.io/
+# Arguments to be passed that are not set in values.yaml. Prefer values file.
+args:

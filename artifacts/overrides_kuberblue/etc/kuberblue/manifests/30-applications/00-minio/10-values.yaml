@@ -1,0 +1,73 @@
+# MinIO Distributed Mode Configuration
+mode: distributed
+
+# Number of MinIO instances/replicas for distributed mode (minimum 4)
+replicas: 4
+pools: 1
+drivesPerNode: 1
+
+# Let the chart auto-generate secure credentials
+# existingSecret: ""  # Commented out to use auto-generation
+
+# Persistence configuration
+persistence:
+  enabled: true
+  storageClass: "openebs-hostpath"
+  accessMode: ReadWriteOnce
+  size: 10Gi
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 9000
+
+# Console service configuration (MinIO web UI)
+consoleService:
+  type: ClusterIP
+  port: 9001
+
+# Resource requests and limits
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 512Mi
+    cpu: 250m
+
+# Security context
+securityContext:
+  enabled: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# Enable metrics for monitoring (disabled until Prometheus Operator is available)
+metrics:
+  serviceMonitor:
+    enabled: false
+
+# Environment variables
+environment:
+  MINIO_PROMETHEUS_AUTH_TYPE: "public"
+
+# Default buckets to create
+defaultBuckets: "data,backups"
+
+# Console configuration
+consoleIngress:
+  enabled: false
+
+# Ingress configuration  
+ingress:
+  enabled: false
+
+# Network policy (Kuberblue uses Cilium CNI)
+networkPolicy:
+  enabled: true
+  flavor: cilium
+
+# Pod disruption budget for high availability
+podDisruptionBudget:
+  enabled: true
+  maxUnavailable: 1

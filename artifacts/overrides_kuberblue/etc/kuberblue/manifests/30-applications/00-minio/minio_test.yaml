@@ -1,0 +1,136 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: minio-object-storage-test
+  annotations:
+    kuberblue.test/component: "minio"
+    kuberblue.test/category: "storage"
+    kuberblue.test/priority: "medium"
+    kuberblue.test/timeout: "600s"
+spec:
+  timeouts:
+    apply: 120s
+    assert: 600s
+    cleanup: 60s
+  steps:
+  
+  # Step 1: Verify MinIO deployment
+  - name: verify-minio-deployment
+    try:
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: minio
+            namespace: minio
+          status:
+            readyReplicas: 4
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: minio
+            namespace: minio
+          spec:
+            ports:
+            - port: 9000
+              name: api
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: minio-console
+            namespace: minio
+          spec:
+            ports:
+            - port: 9001
+              name: console
+              
+  # Step 2: Test MinIO connectivity and S3 API with auto-generated credentials
+  - name: test-minio-s3-api
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: minio-test
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: minio-client-test
+            namespace: minio-test
+          spec:
+            containers:
+            - name: mc-client
+              image: minio/mc:latest
+              command:
+              - sh
+              - -c
+              - |
+                # Get auto-generated credentials from secret
+                ROOT_USER=$(kubectl get secret minio -n minio -o jsonpath='{.data.rootUser}' | base64 -d)
+                ROOT_PASSWORD=$(kubectl get secret minio -n minio -o jsonpath='{.data.rootPassword}' | base64 -d)
+                mc alias set testminio http://minio.minio.svc.cluster.local:9000 $ROOT_USER $ROOT_PASSWORD &&
+                mc mb testminio/test-bucket --ignore-existing &&
+                echo "Hello MinIO" | mc pipe testminio/test-bucket/test-object.txt &&
+                mc cat testminio/test-bucket/test-object.txt &&
+                mc ls testminio/test-bucket/ &&
+                echo "MinIO S3 API test completed successfully"
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "128Mi"
+                  cpu: "100m"
+            restartPolicy: Never
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: minio-client-test
+            namespace: minio-test
+          status:
+            phase: Succeeded
+    - script:
+        timeout: 120s
+        content: |
+          # Verify S3 operations were successful
+          kubectl logs minio-client-test -n minio-test | grep "Hello MinIO" || exit 1
+          kubectl logs minio-client-test -n minio-test | grep "test-object.txt" || exit 1
+          echo "MinIO S3 API operations verified"
+          
+  # Step 3: Test MinIO accessibility
+  - name: test-minio-accessibility
+    try:
+    - script:
+        timeout: 180s
+        content: |
+          # Test that MinIO is accessible and functional
+          echo "Testing MinIO accessibility..."
+          
+          # Wait for StatefulSet to be ready
+          kubectl wait --for=condition=ready pod -l app=minio -n minio --timeout=300s
+          
+          # Verify MinIO admin functionality using auto-generated credentials
+          kubectl run temp-mc --image=minio/mc --rm -i --restart=Never -- sh -c "
+            ROOT_USER=\$(kubectl get secret minio -n minio -o jsonpath='{.data.rootUser}' | base64 -d)
+            ROOT_PASSWORD=\$(kubectl get secret minio -n minio -o jsonpath='{.data.rootPassword}' | base64 -d)
+            mc alias set testminio http://minio.minio.svc.cluster.local:9000 \$ROOT_USER \$ROOT_PASSWORD &&
+            mc admin info testminio"
+          
+          echo "MinIO accessibility test passed"
+          
+  cleanup:
+  - delete:
+      ref:
+        apiVersion: v1
+        kind: Namespace
+        name: minio-test
