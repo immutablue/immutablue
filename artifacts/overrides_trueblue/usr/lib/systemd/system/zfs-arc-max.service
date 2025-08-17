@@ -1,0 +1,17 @@
+[Unit]
+Description=Set ZFS max arc usage to half of system memory
+DefaultDependencies=no
+After=zfs-import.target
+Before=zfs-mount.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/libexec/immutablue/zfs/trueblue-zfs-arc-max
+StandardInput=null 
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=zfs.target
+
