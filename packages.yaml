@@ -32,6 +32,7 @@ immutablue:
   - libvirt-dbus
   - lm_sensors
   - make
+  - mbuffer
   - neovim
   - NetworkManager-tui
   - podman-compose
