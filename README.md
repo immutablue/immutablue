@@ -8,8 +8,17 @@ This is the base image designed for a general use case. If you're happy with the
 
 ### To rebase
 ```
-sudo rpm-ostree rebase ostree-unverified-registry:registry.gitlab.com/immutablue/immutablue:40
+sudo rpm-ostree rebase ostree-unverified-registry:quay.io/immutablue/immutablue:42
 ```
+
+### Immutablue Flavors
+Head over to the [Immutablue Quay Repository](https://quay.io/repository/immutablue/immutablue?tab=tags) and have a look. There are various *flavors* of Immutablue. The images are tagged in the format `<major_version>-[flavors...]`. so `42` tag is just the default image. But `42-nucleus-lts` is version 42 nucleus build with the LTS kernel. An image can have more than one flavor.
+- default: `42`
+- lts: `42-lts`
+    - Uses the 6.12 LTS kernel instead of the normal GA'd fedora kernel
+    - Includes ZFS
+- nucleus: `42-nucleus`
+    - no gui, great server build
 
 ### Customizing 
 
@@ -29,12 +38,17 @@ Fork the custom repository if you want to make changes. You can find it [here](h
     - install_distrobox:
         - Installs/update exisiting distroboxes. May be required to account for upstream changes.
     - post_install:
-        - Runs post_install.sh
+        - Runs post_install.sh from downstream images (in case of immutablue-custom usage)
 
 ### Reboot
 When running immutablue `install|upgrade|update` you can add the optional `REBOOT=1` flag. This will prompt a `systemctl reboot` call after all steps are executed for the respective targets.
 
 > By default `REBOOT=0`
+
+## Docs
+We have documentation embedded into Immutablue itself. When running immutablue if you want the 411 on various things, how-tos, etc., navigate to http://localhost:411 in your browser.
+
+These docs are also available to view in the project here under `docs/contents/pages/`.
 
 #### Examples
 
