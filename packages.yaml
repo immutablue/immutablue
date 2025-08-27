@@ -29,6 +29,7 @@ immutablue:
   - git
   - htop 
   - libvirt
+  - libvirt-dbus
   - lm_sensors
   - make
   - neovim
