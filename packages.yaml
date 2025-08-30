@@ -21,6 +21,7 @@ immutablue:
   - bashmount
   - buildah
   - cmake
+  - ddrescue
   - dialog
   - distrobox
   - fuse-sshfs
