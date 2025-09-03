@@ -103,6 +103,7 @@ immutablue:
   - cri-tools1.32
   - fzf
   - glances
+  - helm
   - htop 
   - kubernetes1.32
   - kubernetes1.32-client
