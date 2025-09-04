@@ -246,6 +246,10 @@ immutablue:
   - crio.service 
   - kubelet.service
 
+  services_enable_sys_trueblue:
+  - zfs-load-keys.service 
+  - zfs-arc-max.service
+
   services_disable_sys:
   services_disable_sys_kuberblue:
   - firewalld.service
