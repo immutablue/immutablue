@@ -260,3 +260,37 @@ then
 fi
 
 
+if [[ "$(is_option_in_build_options nix)" == "${TRUE}" ]]
+then 
+    # Remove the symlink
+    unlink /root
+    # Create a real directory
+    mkdir -p /root
+    # Install nix
+    curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | \
+        sh -s -- install linux \
+        --extra-conf "sandbox = false" \
+        --init none \
+        --no-confirm
+    
+    # Add Nix to the system profile
+    echo '. /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' >> /etc/profile.d/nix.sh
+    
+    # Create systemd service for nix-daemon
+    cp /nix/var/nix/profiles/default/lib/systemd/system/nix-daemon.service /etc/systemd/system/
+    systemctl enable nix-daemon.service
+    
+    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+    nix-channel --add https://nixos.org/channels/nixpkgs-unstable nixpkgs
+    nix-channel --update
+    
+    # Optional: Pre-install some Nix packages
+    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+    nix-env -iA nixpkgs.hello nixpkgs.htop
+    
+    # Clean up: remove the temporary directory
+    rm -rf /root 
+    # Restore the original symlink
+    ln -s var/roothome /root
+fi
+
