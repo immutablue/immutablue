@@ -172,6 +172,10 @@ ifeq ($(ZFS),1)
 	BUILD_OPTIONS := $(BUILD_OPTIONS),zfs
 endif
 
+ifeq ($(NIX),1)
+	TAG := $(TAG)-nix
+	BUILD_OPTIONS := $(BUILD_OPTIONS),nix
+endif
 
 
 # A special edition so divine, it's been ordained by the Blue Council.
