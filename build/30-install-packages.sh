@@ -266,6 +266,84 @@ then
     unlink /root
     # Create a real directory
     mkdir -p /root
+
+    # TODO: get this into its own file. however, it was 
+    # causing gid mis-users if it put it under artifcats_nix/
+    # and would create the gid as 968.
+    # Create systemd-sysusers configuration for Nix users
+    cat > /usr/lib/sysusers.d/nix.conf <<'EOF'
+# Nix build group
+g nixbld 30000
+
+# Nix build users
+u nixbld1  30001 "Nix build user 1"  /var/empty /sbin/nologin
+u nixbld2  30002 "Nix build user 2"  /var/empty /sbin/nologin
+u nixbld3  30003 "Nix build user 3"  /var/empty /sbin/nologin
+u nixbld4  30004 "Nix build user 4"  /var/empty /sbin/nologin
+u nixbld5  30005 "Nix build user 5"  /var/empty /sbin/nologin
+u nixbld6  30006 "Nix build user 6"  /var/empty /sbin/nologin
+u nixbld7  30007 "Nix build user 7"  /var/empty /sbin/nologin
+u nixbld8  30008 "Nix build user 8"  /var/empty /sbin/nologin
+u nixbld9  30009 "Nix build user 9"  /var/empty /sbin/nologin
+u nixbld10 30010 "Nix build user 10" /var/empty /sbin/nologin
+u nixbld11 30011 "Nix build user 11" /var/empty /sbin/nologin
+u nixbld12 30012 "Nix build user 12" /var/empty /sbin/nologin
+u nixbld13 30013 "Nix build user 13" /var/empty /sbin/nologin
+u nixbld14 30014 "Nix build user 14" /var/empty /sbin/nologin
+u nixbld15 30015 "Nix build user 15" /var/empty /sbin/nologin
+u nixbld16 30016 "Nix build user 16" /var/empty /sbin/nologin
+u nixbld17 30017 "Nix build user 17" /var/empty /sbin/nologin
+u nixbld18 30018 "Nix build user 18" /var/empty /sbin/nologin
+u nixbld19 30019 "Nix build user 19" /var/empty /sbin/nologin
+u nixbld20 30020 "Nix build user 20" /var/empty /sbin/nologin
+u nixbld21 30021 "Nix build user 21" /var/empty /sbin/nologin
+u nixbld22 30022 "Nix build user 22" /var/empty /sbin/nologin
+u nixbld23 30023 "Nix build user 23" /var/empty /sbin/nologin
+u nixbld24 30024 "Nix build user 24" /var/empty /sbin/nologin
+u nixbld25 30025 "Nix build user 25" /var/empty /sbin/nologin
+u nixbld26 30026 "Nix build user 26" /var/empty /sbin/nologin
+u nixbld27 30027 "Nix build user 27" /var/empty /sbin/nologin
+u nixbld28 30028 "Nix build user 28" /var/empty /sbin/nologin
+u nixbld29 30029 "Nix build user 29" /var/empty /sbin/nologin
+u nixbld30 30030 "Nix build user 30" /var/empty /sbin/nologin
+u nixbld31 30031 "Nix build user 31" /var/empty /sbin/nologin
+u nixbld32 30032 "Nix build user 32" /var/empty /sbin/nologin
+
+# Add build users to nixbld group
+m nixbld1 nixbld
+m nixbld2 nixbld
+m nixbld3 nixbld
+m nixbld4 nixbld
+m nixbld5 nixbld
+m nixbld6 nixbld
+m nixbld7 nixbld
+m nixbld8 nixbld
+m nixbld9 nixbld
+m nixbld10 nixbld
+m nixbld11 nixbld
+m nixbld12 nixbld
+m nixbld13 nixbld
+m nixbld14 nixbld
+m nixbld15 nixbld
+m nixbld16 nixbld
+m nixbld17 nixbld
+m nixbld18 nixbld
+m nixbld19 nixbld
+m nixbld20 nixbld
+m nixbld21 nixbld
+m nixbld22 nixbld
+m nixbld23 nixbld
+m nixbld24 nixbld
+m nixbld25 nixbld
+m nixbld26 nixbld
+m nixbld27 nixbld
+m nixbld28 nixbld
+m nixbld29 nixbld
+m nixbld30 nixbld
+m nixbld31 nixbld
+m nixbld32 nixbld
+EOF
+
     # Install nix
     curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | \
         sh -s -- install linux \
@@ -273,12 +351,8 @@ then
         --init none \
         --no-confirm
     
-    # Add Nix to the system profile
-    echo '. /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' >> /etc/profile.d/nix.sh
-    
     # Create systemd service for nix-daemon
     cp /nix/var/nix/profiles/default/lib/systemd/system/nix-daemon.service /etc/systemd/system/
-    systemctl enable nix-daemon.service
     
     . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
     nix-channel --add https://nixos.org/channels/nixpkgs-unstable nixpkgs
@@ -287,7 +361,14 @@ then
     # Optional: Pre-install some Nix packages
     . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
     nix-env -iA nixpkgs.hello nixpkgs.htop
-    
+ 
+
+    # Put the /nix under /etc/immutablue 
+    # this is bind-mounted to /nix at runtime
+    mkdir -p /etc/immutablue/nix
+    mv /nix /etc/immutablue/nix/install
+    mkdir -p /nix
+
     # Clean up: remove the temporary directory
     rm -rf /root 
     # Restore the original symlink

@@ -250,6 +250,10 @@ immutablue:
   - zfs-load-keys.service 
   - zfs-arc-max.service
 
+  services_enable_sys_nix:
+  - nix-daemon.service
+  - mount-nix.service
+
   services_disable_sys:
   services_disable_sys_kuberblue:
   - firewalld.service

@@ -1,0 +1,8 @@
+# Introduced via the immutablue project. 
+# - https://gitlab.com/immutablue/immutablue
+#
+# If you do not wish to use this, then simply remove it in your downstream build in the .immutablue.file_rm in yours packages.yaml
+#
+# Tweak defaults to include nix path
+Defaults    secure_path = /nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/var/lib/snapd/snap/bin
+
