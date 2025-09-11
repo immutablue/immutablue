@@ -1,0 +1,14 @@
+[Unit]
+Description=Mount immutablue nix to /nix
+Before=nix-daemon.service
+RequiresMountsFor=/etc/immutablue/nix/install
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/mount --bind /etc/immutablue/nix/install /nix
+ExecStop=/usr/bin/umount /nix
+
+[Install]
+WantedBy=local-fs.target
+
