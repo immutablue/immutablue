@@ -397,4 +397,8 @@ brew:
   install_build_a_blue_workshop:
   uninstall_build_a_blue_workshop:
 
+nix:
+  install:
+  - nixpkgs.htop
+  - nixpkgs.neovim
 

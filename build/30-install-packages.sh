@@ -360,7 +360,8 @@ EOF
     
     # Optional: Pre-install some Nix packages
     . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
-    nix-env -iA nixpkgs.hello nixpkgs.htop
+    nix_pkgs=$(get_nix_install_packages)
+    nix-env -iA $(for pkg in ${nix_pkgs}; do printf '%s ' "${pkg}"; done)
  
 
     # Put the /nix under /etc/immutablue 

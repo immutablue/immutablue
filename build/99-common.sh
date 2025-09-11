@@ -144,3 +144,7 @@ get_immutablue_user_services_to_mask() {
     get_yaml_array '.immutablue.services_mask_user'
 }
 
+get_nix_install_packages() {
+    get_yaml_array '.nix.install'
+}
+
