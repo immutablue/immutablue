@@ -164,3 +164,24 @@ disable_syncthing:
 enable_syncthing:
     sudo systemctl --global enable --now syncthing.service
 
+
+# disable libvirt (vm hosting)
+disable_libvirt:
+    immutablue-libvirt-manager -s disable
+
+# disable libvirt (vm hosting) (DRY-RUN)
+disable_libvirt_dry_run:
+    immutablue-libvirt-manager -s --dry-run disable
+
+# enable libvirt (vm hosting). also sets up group membership (requires restart)
+enable_libvirt:
+    immutablue-libvirt-manager -s enable
+
+# enable libvirt (vm hosting). also sets up group membership (DRY RUN)
+enable_libvirt_dry_run:
+    immutablue-libvirt-manager -s --dry-run enable
+
+# libvirt status (vm hosting)
+status_libvirt:
+    immutablue-libvirt-manager -s status
+
