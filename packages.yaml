@@ -24,6 +24,7 @@ immutablue:
   - ddrescue
   - dialog
   - distrobox
+  - e2fsprogs
   - fuse-sshfs
   - fzf 
   - gcc
