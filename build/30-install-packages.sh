@@ -188,6 +188,15 @@ curl -Lo "/tmp/install_starship.sh" "${STARSHIP_URL}"
 sh "/tmp/install_starship.sh" -y -b "/usr/bin/"
 rm "/tmp/install_starship.sh"
 
+# Install just command runner
+# We install this manually as it somehow breaks the iso installer 
+# if its installed as a system level package
+mkdir -p /tmp/just
+curl -L "${JUST_RELEASE_URL}" | tar xz -C /tmp/just
+mv /tmp/just/just /usr/bin/just
+chmod +x /usr/bin/just
+rm -rf /tmp/just
+
 # Verify NVIDIA kernel modules are built if cyan variant
 if [[ "$(is_option_in_build_options cyan)" == "${TRUE}" ]]
 then
