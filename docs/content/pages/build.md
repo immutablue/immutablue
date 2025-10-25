@@ -37,7 +37,7 @@ Immutablue provides helper functions in `/usr/immutablue/build/99-common.sh` to 
 
 ## packages.yaml Configuration
 
-The `packages.yaml` file supports a flexible configuration system with architecture and build option specific variants.
+The `packages.yaml` file supports a flexible configuration system with version, architecture, and build option specific variants.
 
 ### Key Format
 
@@ -51,17 +51,64 @@ Where:
 - `<build_option>` is an optional build option (e.g., `silverblue`, `kinoite`, `cyan`)
 - `<architecture>` is an optional architecture specifier (e.g., `x86_64`, `aarch64`)
 
+### Version-Specific Configuration
+
+Starting with Immutablue, packages can be configured per Fedora version. Each package section supports:
+
+- `all`: Packages that apply to all versions
+- `<version>`: Packages specific to a Fedora version (e.g., `42`, `43`)
+
+The lookup priority is:
+1. Version + build option + architecture specific
+2. Version + build option specific
+3. Version + architecture specific
+4. Version specific
+5. Build option + architecture specific
+6. Build option specific
+7. Architecture specific
+8. All versions
+
 ### Examples
 
 ```yaml
-immutablue: 
-  rpm:                 # Base packages for all variants and architectures
-  rpm_aarch64:         # Packages only for ARM architecture
-  rpm_silverblue:      # Packages only for GNOME/Silverblue variants
-  rpm_kinoite_x86_64:  # Packages only for KDE/Kinoite variants on x86_64
+immutablue:
+  # Version-specific configurations
+  lts_version:
+    41: "6.6"
+    42: "6.12"
+    43: "6.12"
+
+  # Package configurations with version support
+  rpm:
+    all:                 # Base packages for all variants and architectures
+    - bashmount
+    - git
+    43:                  # Additional packages only for Fedora 43
+    - new-package-for-f43
+
+  rpm_aarch64:
+    all:                 # Packages only for ARM architecture
+    - package-for-arm
+
+  rpm_silverblue:
+    all:                 # Packages only for GNOME/Silverblue variants
+    - gnome-tweaks
+
+  rpm_kinoite_x86_64:
+    all:                 # Packages only for KDE/Kinoite variants on x86_64
+    - kate
+
+  # Repository URLs with version support
+  repo_urls:
+    all:
+    - name: tailscale.repo
+      url: https://pkgs.tailscale.com/stable/fedora/tailscale.repo
+    43:
+    - name: fedora-43-specific.repo
+      url: https://example.com/f43-repo.repo
 ```
 
-The architecture is determined at build time using `$(uname -m)`.
+The architecture is determined at build time using `$(uname -m)`, and the version is determined by the `VERSION` build argument or defaults to `FEDORA_VERSION`.
 
 For a full guide on customizing your build, including how to add packages, repositories, and file overrides, see the [Build Customization](/pages/build-customization) page.
 

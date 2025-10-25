@@ -97,14 +97,16 @@ Key sections include:
 - **flatpaks**: Flatpaks to install
 - **flatpaks_rm**: Flatpaks to remove
 
-You can add architecture-specific and flavor-specific variants using suffixes:
+Each section supports version-specific, architecture-specific, and flavor-specific variants using nested keys:
 
-- **_x86_64**: Only for x86_64 architecture
-- **_aarch64**: Only for aarch64 architecture
-- **_gui**: Only for GUI builds
-- **_silverblue**: Only for GNOME builds
-- **_kinoite**: Only for KDE builds
-- And so on for other flavors
+- **all**: Applies to all versions, architectures, and flavors
+- **<version>**: Specific to a Fedora version (e.g., `42`, `43`)
+- **all_x86_64**: Only for x86_64 architecture
+- **all_aarch64**: Only for aarch64 architecture
+- **gui**: Only for GUI builds (under the appropriate section)
+- **silverblue**: Only for GNOME builds
+- **kinoite**: Only for KDE builds
+- And combinations like `42_x86_64` for version + architecture specific
 
 #### File Overrides
 
@@ -142,20 +144,22 @@ Here's an example of creating a custom image optimized for software development:
    ```
 
 2. Add development packages to `packages.yaml`:
-   ```yaml
-   immutablue:
-     rpm:
-     - basemount
-     - cmake
-     - gcc-c++
-     - git
-     - golang
-     - java-latest-openjdk-devel
-     - nodejs
-     - python3-devel
-     - rust
-     - code
-   ```
+    ```yaml
+    immutablue:
+      rpm:
+        all:
+        - cmake
+        - gcc-c++
+        - git
+        - golang
+        - java-latest-openjdk-devel
+        - nodejs
+        - python3-devel
+        - rust
+        - code
+        43:  # Additional packages for Fedora 43
+        - new-dev-tool-for-f43
+    ```
 
 3. Add custom VS Code settings through file overrides:
    ```
@@ -180,12 +184,16 @@ For example, to add a custom post-build step:
 To add custom repositories:
 
 1. Add the repository URL to `packages.yaml`:
-   ```yaml
-   immutablue:
-     repo_urls:
-     - name: my-custom-repo.repo
-       url: https://example.com/my-custom-repo.repo
-   ```
+    ```yaml
+    immutablue:
+      repo_urls:
+        all:
+        - name: my-custom-repo.repo
+          url: https://example.com/my-custom-repo.repo
+        43:  # Fedora 43 specific repository
+        - name: f43-specific-repo.repo
+          url: https://example.com/f43-repo.repo
+    ```
 
 2. The build process will download and install this repository file.
 
