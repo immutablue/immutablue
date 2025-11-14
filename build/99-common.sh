@@ -2,21 +2,12 @@
 if [[ -f "/usr/libexec/immutablue/immutablue-header.sh" ]]; then source "/usr/libexec/immutablue/immutablue-header.sh"; fi
 PACKAGES_YAML="${INSTALL_DIR}/packages.yaml"
 MARCH="$(uname -m)"
+VERSION="${VERSION:-${FEDORA_VERSION}}"
 
 MODULES_CONF="/etc/modules-load.d/10-immutablue.conf"
 
-LTS_VERSION="invalid-lts-version"
-ZFS_RPM_URL="invalid-zfs-url"
-
-if [[ ${FEDORA_VERSION} == "41" ]]
-then
-    LTS_VERSION="6.6"
-    ZFS_RPM_URL="https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-2-8.fc41.noarch.rpm"
-elif [[ ${FEDORA_VERSION} == "42" ]]
-then 
-    LTS_VERSION="6.12"
-    ZFS_RPM_URL="https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-2-8.fc42.noarch.rpm"
-fi
+LTS_VERSION=$(yq ".immutablue.lts_version.${VERSION}" < "${PACKAGES_YAML}")
+ZFS_RPM_URL=$(yq ".immutablue.zfs_rpm_url.${VERSION}" < "${PACKAGES_YAML}")
 
 # LTS_REPO_URL="https://copr.fedorainfracloud.org/coprs/kwizart/kernel-longterm-6.6/repo/fedora-42/kwizart-kernel-longterm-${LTS_VERSION}-fedora-42.repo"
 LTS_REPO_URL="https://copr.fedorainfracloud.org/coprs/kwizart/kernel-longterm-${LTS_VERSION}/repo/fedora-${FEDORA_VERSION}/kwizart-kernel-longterm-${LTS_VERSION}-fedora-${FEDORA_VERSION}.repo"
@@ -65,13 +56,36 @@ is_option_in_build_options() {
 }
 
 # looks up entries in packages.yaml
-# takes into account the architecture and build options
+# takes into account the version, architecture and build options
 get_yaml_array() {
     local key="$1"
-    cat <(yq "${key}[]" < "${PACKAGES_YAML}") <(yq "${key}_${MARCH}[]" < "${PACKAGES_YAML}")
-    while read -r option 
-    do 
-        cat <(yq "${key}_${option}[]" < "${PACKAGES_YAML}") <(yq "${key}_${option}_${MARCH}[]" < "${PACKAGES_YAML}")
+    # Base all
+    yq "${key}.all[]" < "${PACKAGES_YAML}" 2>/dev/null || true
+    # Version specific
+    if [[ -n "${VERSION}" ]]; then
+        yq "${key}.${VERSION}[]" < "${PACKAGES_YAML}" 2>/dev/null || true
+    fi
+    # Architecture all
+    yq "${key}.all_${MARCH}[]" < "${PACKAGES_YAML}" 2>/dev/null || true
+    # Version + architecture
+    if [[ -n "${VERSION}" ]]; then
+        yq "${key}.${VERSION}_${MARCH}[]" < "${PACKAGES_YAML}" 2>/dev/null || true
+    fi
+    # Build options
+    while read -r option
+    do
+        # Option all
+        yq "${key}_${option}.all[]" < "${PACKAGES_YAML}" 2>/dev/null || true
+        # Option version
+        if [[ -n "${VERSION}" ]]; then
+            yq "${key}_${option}.${VERSION}[]" < "${PACKAGES_YAML}" 2>/dev/null || true
+        fi
+        # Option architecture all
+        yq "${key}_${option}.all_${MARCH}[]" < "${PACKAGES_YAML}" 2>/dev/null || true
+        # Option version architecture
+        if [[ -n "${VERSION}" ]]; then
+            yq "${key}_${option}.${VERSION}_${MARCH}[]" < "${PACKAGES_YAML}" 2>/dev/null || true
+        fi
     done < <(get_immutablue_build_options)
 }
 
@@ -146,6 +160,6 @@ get_immutablue_user_services_to_mask() {
 }
 
 get_nix_install_packages() {
-    get_yaml_array '.nix.install'
+    get_yaml_array '.immutablue.nix.install'
 }
 

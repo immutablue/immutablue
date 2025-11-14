@@ -1,11 +1,9 @@
 # Build NVIDIA kernel modules for Immutablue Cyan variant
 # This creates pre-built kernel modules that can be consumed by the main build
 
-ARG FEDORA_VERSION=42
-
+ARG FEDORA_VERSION=43
 FROM quay.io/fedora/fedora:${FEDORA_VERSION} AS builder
-
-ARG FEDORA_VERSION=42
+ARG FEDORA_VERSION=43
 
 # Install RPM Fusion repositories
 RUN dnf install -y \

@@ -1,406 +1,478 @@
-immutablue: 
+immutablue:
+  lts_version:
+    41: "6.6"
+    42: "6.12"
+    42: "6.12"
+
+  zfs_rpm_url:
+    41: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-2-8.fc41.noarch.rpm"
+    42: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-2-8.fc42.noarch.rpm"
+    43: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-2-8.fc42.noarch.rpm"
+
   # Repo URLs to add in the build (they are curled)
   repo_urls:
-  - name: tailscale.repo 
-    url: https://pkgs.tailscale.com/stable/fedora/tailscale.repo
-  - name: ublue-os-staging.repo
-    url: https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-42/ublue-os-staging-fedora-42.repo
+    all:
+    - name: tailscale.repo
+      url: https://pkgs.tailscale.com/stable/fedora/tailscale.repo
+    43:
+    - name: ublue-os-staging.repo
+      url: https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-43/ublue-os-staging-fedora-43.repo
 
   repo_urls_x86_64:
-    # Currently podman-bootc only support x86_64
-  - name: podman-bootc.repo 
-    url: https://copr.fedorainfracloud.org/coprs/gmaglione/podman-bootc/repo/fedora-42/gmaglione-podman-bootc-fedora-42.repo
+    42:
+    - name: podman-bootc.repo
+      url: https://copr.fedorainfracloud.org/coprs/gmaglione/podman-bootc/repo/fedora-42/gmaglione-podman-bootc-fedora-42.repo
+    43:
+    - name: podman-bootc.repo
+      url: https://copr.fedorainfracloud.org/coprs/gmaglione/podman-bootc/repo/fedora-43/gmaglione-podman-bootc-fedora-43.repo
 
   repo_urls_trueblue:
-  - name: znapzend.repo 
-    url: https://copr.fedorainfracloud.org/coprs/spike/znapzend/repo/fedora-42/spike-znapzend-fedora-42.repo
+    42:
+    - name: znapzend.repo
+      url: https://copr.fedorainfracloud.org/coprs/spike/znapzend/repo/fedora-42/spike-znapzend-fedora-42.repo
+    43:
+    - name: znapzend.repo
+      url: https://copr.fedorainfracloud.org/coprs/spike/znapzend/repo/fedora-43/spike-znapzend-fedora-43.repo
 
 
   # RPM Packages to be installed
   rpm:
-  - bashmount
-  - buildah
-  - cmake
-  - ddrescue
-  - dialog
-  - distrobox
-  - e2fsprogs
-  - fuse-sshfs
-  - fzf 
-  - gcc
-  - git
-  - htop 
-  - libvirt
-  - libvirt-dbus
-  - lm_sensors
-  - make
-  - mbuffer
-  - neovim
-  - NetworkManager-tui
-  - podman-compose
-  - powertop
-  - pv
-  - python3-gobject
-  - python3-pip
-  - python3-yaml
-  - qemu
-  - qemu-user-binfmt
-  - ramalama
-  - ShellCheck
-  - stow
-  - syncthing
-  - syncthing-tools
-  - tailscale
-  - tmux
-  - virt-bootstrap
+    all:
+    - bashmount
+    - buildah
+    - cmake
+    - ddrescue
+    - dialog
+    - distrobox
+    - e2fsprogs
+    - fuse-sshfs
+    - fzf
+    - gcc
+    - git
+    - htop
+    - libvirt
+    - libvirt-dbus
+    - lm_sensors
+    - make
+    - mbuffer
+    - neovim
+    - NetworkManager-tui
+    - podman-compose
+    - powertop
+    - pv
+    - python3-gobject
+    - python3-pip
+    - python3-yaml
+    - qemu
+    - qemu-user-binfmt
+    - ramalama
+    - ShellCheck
+    - stow
+    - syncthing
+    - syncthing-tools
+    - tailscale
+    - tmux
+    - virt-bootstrap
 
   # Everything that is non-nucleus by default
   rpm_gui:
-  - firewall-applet
-  - firewall-config
-  - ibus-speech-to-text
-  - python3-pip  # since we don't use this in nucleus builds, then we can just put this in gui
-  - solaar
-  - wl-clipboard
-  - xrdp
+    all:
+    - firewall-applet
+    - firewall-config
+    - ibus-speech-to-text
+    - python3-pip  # since we don't use this in nucleus builds, then we can just put this in gui
+    - solaar
+    - wl-clipboard
+    - xrdp
 
 
 
   rpm_silverblue:
-  - gnome-shell-extension-caffeine
+    all:
+    - gnome-shell-extension-caffeine
   rpm_silverblue_aarch64:
+    all: []
 
   rpm_nucleus:
+    all: []
   rpm_kinoite:
+    all: []
   rpm_sericea:
+    all: []
   rpm_onyx:
+    all: []
   rpm_vauxite:
+    all: []
   rpm_lazurite:
+    all: []
   rpm_cosmic:
+    all: []
   rpm_bazzite:
+    all: []
   rpm_build_a_blue_workshop:
-  - nodejs-npm
-  - ShellCheck
+    all:
+    - nodejs-npm
+    - ShellCheck
 
   rpm_trueblue:
-  - cockpit-files
-  - cockpit-machines
-  - cockpit-navigator
-  - cockpit-networkmanager
-  - cockpit-ostree
-  - cockpit-podman
-  - cockpit-storaged
-  - cockpit-system
-  - cockpit-navigator
-  - rsync
-  - rclone
-  - smartmontools
-  - samba
-  - samba-client
-  - znapzend
+    all:
+    - cockpit-files
+    - cockpit-machines
+    - cockpit-navigator
+    - cockpit-networkmanager
+    - cockpit-ostree
+    - cockpit-podman
+    - cockpit-storaged
+    - cockpit-system
+    - cockpit-navigator
+    - rsync
+    - rclone
+    - smartmontools
+    - samba
+    - samba-client
+    # - znapzend
+    # - cockpit-zfs-manager
+    # - cockpit-file-sharing
+    # - cockpit-benchmark
+    # - cockpit-tailscale
 
   rpm_kuberblue:
-  - cockpit
-  - crio 
-  - cri-tools1.32
-  - fzf
-  - glances
-  - helm
-  - htop 
-  - kubernetes1.32
-  - kubernetes1.32-client
-  - kubernetes1.32-kubeadm
-  - kubernetes1.32-systemd
-  - neovim
-  - tmux
+    all:
+    - cockpit
+    - crio
+    - cri-tools1.32
+    - fzf
+    - glances
+    - helm
+    - htop
+    - kubernetes1.32
+    - kubernetes1.32-client
+    - kubernetes1.32-kubeadm
+    - kubernetes1.32-systemd
+    - neovim
+    - tmux
 
 
   # Since Brew doesn't exist on arm64 we should
   # layer in these packages we would normally brew
-  # but as system RPMs. 
+  # but as system RPMs.
   rpm_aarch64:
-  - calc 
-  - coreutils 
-  - fastfetch
-  - glances 
-  - moreutils 
-  - ncdu
-  - pass
-  - ranger 
-  - ripgrep 
-  - tig 
-  - zenity 
+    all:
+    - calc
+    - coreutils
+    - fastfetch
+    - glances
+    - moreutils
+    - ncdu
+    - pass
+    - ranger
+    - ripgrep
+    - tig
+    - zenity
 
   rpm_x86_64:
-  - podman-bootc
-  - podman-machine
+    all:
+    - podman-bootc
+    - podman-machine
   
  
   # Urls to RPMs to download (they are curled)
   rpm_url:
-  - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-42.noarch.rpm
-  - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-42.noarch.rpm
+    42:
+    - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-42.noarch.rpm
+    - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-42.noarch.rpm
+    43:
+    - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-43.noarch.rpm
+    - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-43.noarch.rpm
 
 
-  # trueblue specific cockpit plugins
-  rpm_url_trueblue:
-  - https://github.com/45Drives/cockpit-zfs-manager/releases/download/v1.3.1/cockpit-zfs-manager-1.3.1-1.el8.noarch.rpm 
-  - https://github.com/45Drives/cockpit-file-sharing/releases/download/v4.2.8/cockpit-file-sharing-4.2.8-1.el8.noarch.rpm 
-  - https://github.com/45Drives/cockpit-benchmark/releases/download/v2.1.1/cockpit-benchmark-2.1.1-1.el8.noarch.rpm 
-  - https://github.com/spotsnel/cockpit-tailscale/releases/download/v0.0.6/cockpit-tailscale-v0.0.6-1.el9.noarch.rpm
 
-  
   
   # RPM Packages to be removed
   rpm_rm:
+    all: []
 
   rpm_rm_silverblue:
-  - firefox-langpacks
-  - firefox
-  - gnome-software-rpm-ostree
-  - gnome-shell-extension-background-logo
-  
+    all:
+    - firefox-langpacks
+    - firefox
+    - gnome-software-rpm-ostree
+    - gnome-shell-extension-background-logo
+
   # Temp files to be removed during build stage (errors out build)
   file_rm:
+    all: []
 
 
   # force delete for systemd-resolved removal as it conflicts with
   # the resolver in the kuber pods
   file_rm_kuberblue:
-  - /etc/resolv.conf
+    all:
+    - /etc/resolv.conf
 
 
 
   # Repositories for Flatpaks
   flatpak_repos:
+    all: []
 
 
   # Runtimes for Flatpaks
   # (Can query with `flatpak list --app --columns=application,runtime`)
   flatpaks_runtime:
-  - org.gnome.Platform/x86_64/47
-  - org.freedesktop.Platform/x86_64/23.08 
-  - org.freedesktop.Platform/x86_64/22.08 
-  - org.kde.Platform/x86_64/5.15-23.08 
-  
-  
+    all:
+    - org.gnome.Platform/x86_64/47
+    - org.freedesktop.Platform/x86_64/23.08
+    - org.freedesktop.Platform/x86_64/22.08
+    - org.kde.Platform/x86_64/5.15-23.08
+
+
   # Flatpaks to be installed
   flatpaks:
-  - org.gnome.Calculator
-  - org.gnome.Calendar
-  - org.gnome.Contacts
-  - org.gnome.Evolution
-  - org.gnome.Logs
-  - org.gnome.Maps
-  - org.gnome.NautilusPreviewer
-  - org.gnome.Weather
-  - org.gnome.World.PikaBackup
-  - org.gnome.clocks
-  - org.gnome.dspy
-  - com.github.rafostar.Clapper
-  - com.github.tchx84.Flatseal
-  - com.mattjakeman.ExtensionManager
-  - com.rafaelmardojai.Blanket
-  - io.github.peazip.PeaZip 
-  - nl.brixit.powersupply
-  - org.libreoffice.LibreOffice
-  - org.pulseaudio.pavucontrol
-  - org.videolan.VLC
-  - re.sonny.Junction
-  - org.virt_manager.virt-manager
+    all:
+    - org.gnome.Calculator
+    - org.gnome.Calendar
+    - org.gnome.Contacts
+    - org.gnome.Evolution
+    - org.gnome.Logs
+    - org.gnome.Maps
+    - org.gnome.NautilusPreviewer
+    - org.gnome.Weather
+    - org.gnome.World.PikaBackup
+    - org.gnome.clocks
+    - org.gnome.dspy
+    - com.github.rafostar.Clapper
+    - com.github.tchx84.Flatseal
+    - com.mattjakeman.ExtensionManager
+    - com.rafaelmardojai.Blanket
+    - io.github.peazip.PeaZip
+    - nl.brixit.powersupply
+    - org.libreoffice.LibreOffice
+    - org.pulseaudio.pavucontrol
+    - org.videolan.VLC
+    - re.sonny.Junction
+    - org.virt_manager.virt-manager
 
   # Only have x86_64 builds
   flatpaks_x86_64:
-  - io.github.prateekmedia.appimagepool
-  - org.mozilla.firefox
+    all:
+    - io.github.prateekmedia.appimagepool
+    - org.mozilla.firefox
 
-  #Flatpaks to be uninstalled 
+  #Flatpaks to be uninstalled
   flatpaks_rm:
+    all: []
 
-  # pip packages to install 
+  # pip packages to install
   # not ran on nucleus builds
   pip_packages:
+    all: []
   # - pulsemixer
   # - yafti
 
-  # Services 
+  # Services
   services_enable_sys:
-  - immutablue-first-boot.service
-  - immutablue-onboot.service
-  - immutablue-hourly.timer
-  - immutablue-daily.timer
-  - immutablue-weekly.timer
-  - immutablue-monthly.timer
-  # See /usr/libexec/immutablue/system/on_boot/00-on_boot
-  # Quadlets are not recognized in the build stage 
-  # - immutablue-docs.container
-  - sshd.service
-  - tailscaled.service
-  # - docker.service
+    all:
+    - immutablue-first-boot.service
+    - immutablue-onboot.service
+    - immutablue-hourly.timer
+    - immutablue-daily.timer
+    - immutablue-weekly.timer
+    - immutablue-monthly.timer
+    # See /usr/libexec/immutablue/system/on_boot/00-on_boot
+    # Quadlets are not recognized in the build stage
+    # - immutablue-docs.container
+    - sshd.service
+    - tailscaled.service
+    # - docker.service
 
   services_enable_sys_gui:
-  - xrdp.service
-  
+    all:
+    - xrdp.service
+
   services_enable_sys_kuberblue:
-  - kuberblue-onboot.service
-  - cockpit.socket
-  - sshd.service 
-  - crio.service 
-  - kubelet.service
+    all:
+    - kuberblue-onboot.service
+    - cockpit.socket
+    - sshd.service
+    - crio.service
+    - kubelet.service
 
   services_enable_sys_trueblue:
-  - zfs-load-keys.service 
-  - zfs-arc-max.service
+    all:
+    - zfs-load-keys.service
+    - zfs-arc-max.service
 
   services_enable_sys_nix:
-  - nix-daemon.service
-  - mount-nix.service
+    all:
+    - nix-daemon.service
+    - mount-nix.service
 
   services_disable_sys:
+    all: []
   services_disable_sys_kuberblue:
-  - firewalld.service
+    all:
+    - firewalld.service
 
   services_mask_sys:
+    all: []
   services_mask_sys_kuberblue:
-  - systemd-resolved.service
+    all:
+    - systemd-resolved.service
 
   services_unmask_sys:
+    all: []
 
-  # User services 
+  # User services
   # Handled in immutablue installer
   services_enable_user:
-  - immutablue-first-login.service
-  - immutablue-onboot.service
-  - immutablue-hourly.timer
-  - immutablue-daily.timer
-  - immutablue-weekly.timer
-  - immutablue-monthly.timer
-  - syncthing.service
+    all:
+    - immutablue-first-login.service
+    - immutablue-onboot.service
+    - immutablue-hourly.timer
+    - immutablue-daily.timer
+    - immutablue-weekly.timer
+    - immutablue-monthly.timer
+    - syncthing.service
 
   services_enable_user_build_a_blue_workshop:
-  - n8n.service
+    all:
+    - n8n.service
 
   services_disable_user:
+    all: []
   services_mask_user:
+    all: []
   services_unmask_user:
+    all: []
 
-distrobox:
-- name: util
-  image: quay.io/immutablue/dbox-fedora:42
-  root: false 
-  additional_flags_x86_64: 
-  - -v /var/home/linuxbrew:/var/home/linuxbrew
-  - -v /home/linuxbrew:/home/linuxbrew
-  pkg_inst_cmd: dnf5 install -y
-  pkg_updt_cmd: dnf5 update -y
-  extra_commands: |
-    #!/bin/bash
-    [ "" == "$(grep max_parallel_downloads /etc/dnf/dnf.conf)" ] && sudo bash -c 'echo "max_parallel_downloads=10" >> /etc/dnf/dnf.conf'
-  packages:
-  - which
-  packages_x86_64:
-  packages_aarch64:
-  npm_packages:
-  pip_packages: 
-  bin_export: 
-  app_export: 
-  bin_symlink:
-  - podman 
-  - buildah 
-  - distrobox 
-  - git
-      
-- name: dev
-  image: quay.io/immutablue/dbox-fedora:42
-  root: false 
-  additional_flags_x86_64: 
-  - -v /var/home/linuxbrew:/var/home/linuxbrew
-  - -v /home/linuxbrew:/home/linuxbrew
-  pkg_inst_cmd: dnf5 install -y
-  pkg_updt_cmd: dnf5 update -y
+  distrobox:
+    all:
+    - name: util
+      image: quay.io/immutablue/dbox-fedora:42
+      root: false
+      additional_flags_x86_64:
+      - -v /var/home/linuxbrew:/var/home/linuxbrew
+      - -v /home/linuxbrew:/home/linuxbrew
+      pkg_inst_cmd: dnf5 install -y
+      pkg_updt_cmd: dnf5 update -y
+      extra_commands: |
+        #!/bin/bash
+        [ "" == "$(grep max_parallel_downloads /etc/dnf/dnf.conf)" ] && sudo bash -c 'echo "max_parallel_downloads=10" >> /etc/dnf/dnf.conf'
+      packages:
+      - which
+      packages_x86_64:
+      packages_aarch64:
+      npm_packages:
+      pip_packages:
+      bin_export:
+      app_export:
+      bin_symlink:
+      - podman
+      - buildah
+      - distrobox
+      - git
 
-  # Setup VS Code Repo - https://code.visualstudio.com/docs/setup/linux
-  # Setup ffmpeg for supporting MTP - https://computingforgeeks.com/how-to-install-ffmpeg-on-fedora/
-  extra_commands: |
-    #!/bin/bash
-    sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
-    sudo sh -c 'echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo' 
-    sudo dnf -y install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm 
-    sudo dnf -y install https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm 
-    [ "" == "$(grep max_parallel_downloads /etc/dnf/dnf.conf)" ] && sudo bash -c 'echo "max_parallel_downloads=10" >> /etc/dnf/dnf.conf'
+    - name: dev
+      image: quay.io/immutablue/dbox-fedora:42
+      root: false
+      additional_flags_x86_64:
+      - -v /var/home/linuxbrew:/var/home/linuxbrew
+      - -v /home/linuxbrew:/home/linuxbrew
+      pkg_inst_cmd: dnf5 install -y
+      pkg_updt_cmd: dnf5 update -y
+
+      # Setup VS Code Repo - https://code.visualstudio.com/docs/setup/linux
+      # Setup ffmpeg for supporting MTP - https://computingforgeeks.com/how-to/install-ffmpeg-on-fedora/
+      extra_commands: |
+        #!/bin/bash
+        sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+        sudo sh -c 'echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo'
+        sudo dnf -y install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+        sudo dnf -y install https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+        [ "" == "$(grep max_parallel_downloads /etc/dnf/dnf.conf)" ] && sudo bash -c 'echo "max_parallel_downloads=10" >> /etc/dnf/dnf.conf'
 
 
-  packages:
-  - which
-  - gdb 
-  - "@development-tools"
-  - python3-pip
-  - nodejs 
-  - cargo
-  - code 
-  
-  packages_x86_64:
-  packages_aarch64:
-  - pandoc
-  npm_packages:
-  pip_packages: 
-  cargo_packages:
-  bin_export: 
-  - code 
-  # Needed for nvim support
-  - ld 
-  - cargo
-  bin_export_aarch64:
-  - pandoc
-  app_export: 
-  - code
-  bin_symlink:
-  - podman 
-  - buildah 
-  - distrobox 
+      packages:
+      - which
+      - gdb
+      - "@development-tools"
+      - python3-pip
+      - nodejs
+      - cargo
+      - code
 
-# These are x86_64 only 
-# Some packages may be duplicated to what is layered
-# in as RPMs. This is expected. On x86_64 we mount 
-# the linuxbrew path into distrobox containers which
-# exposes the brew binaries to the running container.
-# As well this allows for us to make sure that the 
-# binary is present for certain automations for the 
-# time that exists before brew is setup.
-brew: 
-  install:
-  - calc
-  - coreutils
-  - dysk 
-  - fastfetch
-  - fzf
-  - glances 
-  - htop 
-  - moreutils
-  - ncdu
-  - neovim
-  - nvimpager
-  - pandoc
-  - pass
-  - ranger 
-  - ripgrep
-  - rust-parallel
-  - stow
-  - tig
-  - tmux
-  - zenity
-  uninstall:
+      packages_x86_64:
+      packages_aarch64:
+      - pandoc
+      npm_packages:
+      pip_packages:
+      cargo_packages:
+      bin_export:
+      - code
+      # Needed for nvim support
+      - ld
+      - cargo
+      bin_export_aarch64:
+      - pandoc
+      app_export:
+      - code
+      bin_symlink:
+      - podman
+      - buildah
+      - distrobox
 
-  # Variant-specific packages
-  install_kuberblue:
-  uninstall_kuberblue:
-  install_trueblue:
-  uninstall_trueblue:
-  install_build_a_blue_workshop:
-  uninstall_build_a_blue_workshop:
+  # These are x86_64 only
+  # Some packages may be duplicated to what is layered
+  # in as RPMs. This is expected. On x86_64 we mount
+  # the linuxbrew path into distrobox containers which
+  # exposes the brew binaries to the running container.
+  # As well this allows for us to make sure that the
+  # binary is present for certain automations for the
+  # time that exists before brew is setup.
+  brew:
+    install:
+      all:
+      - calc
+      - coreutils
+      - dysk
+      - fastfetch
+      - fzf
+      - glances
+      - htop
+      - moreutils
+      - ncdu
+      - neovim
+      - nvimpager
+      - pandoc
+      - pass
+      - ranger
+      - ripgrep
+      - rust-parallel
+      - stow
+      - tig
+      - tmux
+      - zenity
+    uninstall:
+      all: []
 
-nix:
-  install:
-  - nixpkgs.htop
-  - nixpkgs.neovim
+    # Variant-specific packages
+    install_kuberblue:
+      all: []
+    uninstall_kuberblue:
+      all: []
+    install_trueblue:
+      all: []
+    uninstall_trueblue:
+      all: []
+    install_build_a_blue_workshop:
+      all: []
+    uninstall_build_a_blue_workshop:
+      all: []
+
+  nix:
+    install:
+      all:
+      - nixpkgs.htop
+      - nixpkgs.neovim
 
