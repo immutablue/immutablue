@@ -2,12 +2,12 @@ immutablue:
   lts_version:
     41: "6.6"
     42: "6.12"
-    42: "6.12"
+    43: "6.12"
 
   zfs_rpm_url:
     41: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-2-8.fc41.noarch.rpm"
     42: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-2-8.fc42.noarch.rpm"
-    43: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-2-8.fc42.noarch.rpm"
+    43: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-3-0.fc43.noarch.rpm"
 
   # Repo URLs to add in the build (they are curled)
   repo_urls:
