@@ -118,13 +118,12 @@ immutablue:
     all:
     - cockpit-files
     - cockpit-machines
-    - cockpit-navigator
+    # - cockpit-navigator
     - cockpit-networkmanager
     - cockpit-ostree
     - cockpit-podman
     - cockpit-storaged
     - cockpit-system
-    - cockpit-navigator
     - rsync
     - rclone
     - smartmontools
