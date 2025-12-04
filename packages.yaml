@@ -42,6 +42,7 @@ immutablue:
     - buildah
     - cmake
     - ddrescue
+    - devpod
     - dialog
     - distrobox
     - e2fsprogs
