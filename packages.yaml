@@ -72,6 +72,7 @@ immutablue:
     - syncthing-tools
     - tailscale
     - tmux
+    - usbip
     - virt-bootstrap
 
   # Everything that is non-nucleus by default
