@@ -59,6 +59,30 @@ then
     dnf5 -y install kernel-longterm{,-core,-modules,-modules-extra,-devel}
 fi
 
+# kernel override to fix issue introduced in:
+# - 6.12.60
+# - 6.17.10
+# https://github.com/torvalds/linux/commit/cfa0904a35fd0231f4d05da0190f0a22ed881cce
+if [[ "${MARCH}" == "x86_64" ]]
+then
+    KERNEL_VERSION=""
+
+    # we need koji 
+    dnf5 install -y koji
+
+    if [[ ${FEDORA_VERSION} -eq 42 ]]
+    then 
+        KERNEL_VERSION="kernel-6.17.9-200.fc42"
+    elif [[ ${FEDORA_VERSION} -eq 43 ]]
+    then
+        KERNEL_VERSION="kernel-6.17.9-300.fc43"
+    fi
+    
+    mkdir /tmp/kernel
+    bash -c "cd /tmp/kernel; koji download-build --arch=x86_64 ${KERNEL_VERSION}"
+    rpm-ostree override replace /tmp/kernel/*.rpm
+fi
+
 # ZFS filesystem support
 # ZFS is installed by default with the LTS kernel, or if explicitly enabled
 if [[ "$DO_INSTALL_ZFS" == "true" ]] || [[ "$DO_INSTALL_LTS" == "true" ]]
