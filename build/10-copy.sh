@@ -38,4 +38,10 @@ do
 done < <(get_immutablue_build_options)
 
 
+# Put in place the correct `/etc/os-release`
+if [[ -f "/etc/os-release" ]]
+then 
+    unlink "/etc/os-release"
+fi
 
+ln -s "/etc/.os-release-${FEDORA_VERSION}" "/etc/os-release" 
