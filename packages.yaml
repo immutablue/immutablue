@@ -84,7 +84,6 @@ immutablue:
     - python3-pip  # since we don't use this in nucleus builds, then we can just put this in gui
     - solaar
     - wl-clipboard
-    42:
     - xrdp
 
 
