@@ -84,6 +84,7 @@ immutablue:
     - python3-pip  # since we don't use this in nucleus builds, then we can just put this in gui
     - solaar
     - wl-clipboard
+    42:
     - xrdp
 
 
@@ -288,6 +289,7 @@ immutablue:
 
   services_enable_sys_gui:
     all:
+    42:
     - xrdp.service
 
   services_enable_sys_kuberblue:
