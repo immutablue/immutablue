@@ -154,23 +154,6 @@ immutablue:
     - tmux
 
 
-  # Since Brew doesn't exist on arm64 we should
-  # layer in these packages we would normally brew
-  # but as system RPMs.
-  rpm_aarch64:
-    all:
-    - calc
-    - coreutils
-    - fastfetch
-    - glances
-    - moreutils
-    - ncdu
-    - pass
-    - ranger
-    - ripgrep
-    - tig
-    - zenity
-
   rpm_x86_64:
     all:
     - podman-bootc
@@ -425,14 +408,13 @@ immutablue:
       - buildah
       - distrobox
 
-  # These are x86_64 only
   # Some packages may be duplicated to what is layered
-  # in as RPMs. This is expected. On x86_64 we mount
-  # the linuxbrew path into distrobox containers which
-  # exposes the brew binaries to the running container.
-  # As well this allows for us to make sure that the
-  # binary is present for certain automations for the
-  # time that exists before brew is setup.
+  # in as RPMs. This is expected. We mount the linuxbrew
+  # path into distrobox containers which exposes the brew
+  # binaries to the running container. As well this allows
+  # for us to make sure that the binary is present for
+  # certain automations for the time that exists before
+  # brew is setup.
   brew:
     install:
       all:
