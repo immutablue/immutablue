@@ -366,17 +366,9 @@ brew_install() {
 
 
 brew_install_all_packages() {
-    # Brew is currently only supported on x86_64 -- but we should make the directory
-    # for other architectures in case of confusion, or dependencies of other tools
-    if [ "$(uname -m)" == "x86_64" ]
-    then 
-        brew_install 
-        brew_install_all_from_yaml $PACKAGES_FILE
-        for f in $PACKAGES_CUSTOM_FMT; do brew_install_all_from_yaml $f; done
-    else 
-        sudo mkdir -p /var/home/linuxbrew/.linuxbrew/bin/
-        sudo bash -c "chown -R $USER:$USER /var/home/linuxbrew/"
-    fi
+    brew_install 
+    brew_install_all_from_yaml $PACKAGES_FILE
+    for f in $PACKAGES_CUSTOM_FMT; do brew_install_all_from_yaml $f; done
 }
 
 
