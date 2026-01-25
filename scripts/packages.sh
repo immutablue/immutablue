@@ -91,10 +91,10 @@ dbox_install_single() {
         return 0
     fi
 
-    bash <(yq "${key}.extra_commands" < $packages_yaml)
+    bash <(yq "${key}.extra_commands" < $packages_yaml) || true
 
-    sudo $pkg_updt_cmd
-    sudo $pkg_inst_cmd $(for pkg in $packages; do printf ' %s' "$pkg"; done)
+    sudo $pkg_updt_cmd || true
+    sudo $pkg_inst_cmd $(for pkg in $packages; do printf ' %s' "$pkg"; done) || true
 
 
     type npm &>/dev/null
@@ -127,7 +127,7 @@ dbox_install_single() {
 
     for bin in $bin_symlink
     do 
-        sudo ln -s /usr/bin/distrobox-host-exec "/usr/local/bin/${bin}"
+        sudo ln -s /usr/bin/distrobox-host-exec "/usr/local/bin/${bin}" || true
     done
 }
 
@@ -181,9 +181,9 @@ dbox_install_all_from_yaml() {
 
         if [ "true" == "$root_mode" ]
         then
-            distrobox enter --root "${name}" -- bash -x -c "source ./scripts/packages.sh && dbox_install_single ${packages_yaml} $i" 
+            distrobox enter --root "${name}" -- bash -x -c "source ./scripts/packages.sh && dbox_install_single ${packages_yaml} $i" || true
         else
-            distrobox enter "${name}" -- bash -x -c "source ./scripts/packages.sh && dbox_install_single ${packages_yaml} $i" 
+            distrobox enter "${name}" -- bash -x -c "source ./scripts/packages.sh && dbox_install_single ${packages_yaml} $i" || true
         fi
 
         (( i++ ))
@@ -203,10 +203,10 @@ flatpak_config() {
         local flatpaks_yaml="$1"
         
 	# Remove flathub if its configured
-	sudo flatpak remote-delete flathub --force
+	sudo flatpak remote-delete flathub --force || true
 
 	# Enabling flathub (unfiltered) for --user
-	flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+	flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo || true
 
         # Add custom Flatpak Repositories
         repos=$(cat <(yq '.immutablue.flatpak_repos[].name' < $flatpaks_yaml) <(yq ".immutablue.flatpak_repos_$(uname -m)[].name" < $flatpaks_yaml))
@@ -235,7 +235,7 @@ flatpak_config() {
 	#flatpak remove --system --noninteractive --all
 
 	# Remove Fedora flatpak repo
-	sudo flatpak remote-delete fedora --force
+	sudo flatpak remote-delete fedora --force || true
 }
 
 
@@ -249,12 +249,12 @@ flatpak_install_all_from_yaml() {
     
     if [ "" != "$flatpaks_add" ]
     then 
-        for flatpak in $flatpaks_add; do flatpak --noninteractive --user install "$flatpak"; done
+        for flatpak in $flatpaks_add; do flatpak --noninteractive --user install "$flatpak" || true; done
     fi
 
     if [ "" != "$flatpaks_rm" ] 
     then 
-        for flatpak in $flatpaks_rm; do flatpak --noninteractive --user uninstall "$flatpak"; done
+        for flatpak in $flatpaks_rm; do flatpak --noninteractive --user uninstall "$flatpak" || true; done
     fi
 
 
@@ -350,7 +350,7 @@ brew_install_all_from_yaml() {
 
     if [ "" != "$brew_add" ]
     then 
-        brew install $(for pkg in $brew_add; do printf '%s ' "$pkg"; done) || true
+        brew install $(for pkg in $brew_add; do printf '%s ' "$pkg"; done)
     fi
 
     if [ "" != "$brew_rm" ] 
@@ -394,7 +394,7 @@ services_unmask_disable_enable_mask_yaml() {
     local unmask
     unmask="$(cat <(yq '.immutablue.services_unmask_user[]' < "${svc_yaml}") <(yq ".immutablue.services_unmask_user_$(uname -m)" < "${svc_yaml}"))"
 
-    systemctl --user daemon-reload
+    systemctl --user daemon-reload || true
     for s in $unmask; do systemctl --user unmask --now "$s"; done
     for s in $disable; do systemctl --user disable --now "$s"; done
     for s in $enable; do systemctl --user enable --now "$s"; done
