@@ -215,9 +215,21 @@ flatpak_config() {
             for repo in $repos; do  flatpak remote-add --user --if-not-exists "$repo" "$(cat <(yq ".immutablue.flatpak_repos[] | select(.name == \"$repo\").url" < "$flatpaks_yaml") <(yq ".immutablue.flatpak_repos_$(uname -m)[] | select(.name == \"$repo\").url" < "$flatpaks_yaml"))" || true; done
         fi
 
-	# Replace Fedora flatpaks with flathub ones
-	flatpak install --user --noninteractive org.gnome.Platform//46
-	flatpak install --user --noninteractive --reinstall flathub "$(flatpak list --app-runtime=org.fedoraproject.Platform --columns=application | tail -n +1)"
+	# Install GNOME Platform from packages.yaml (flatpaks_runtime section)
+	local gnome_platform
+	gnome_platform=$(yq '.immutablue.flatpaks_runtime[]' < "$flatpaks_yaml" | grep -i "org.gnome.Platform" | head -1)
+	if [[ -n "$gnome_platform" && "$gnome_platform" != "null" ]]; then
+		flatpak install --user --noninteractive "$gnome_platform" || true
+	fi
+
+	# Replace Fedora flatpaks with flathub ones (if any exist)
+	local fedora_apps
+	fedora_apps=$(flatpak list --app-runtime=org.fedoraproject.Platform --columns=application 2>/dev/null | grep -v '^$')
+	if [[ -n "$fedora_apps" ]]; then
+		for app in $fedora_apps; do
+			flatpak install --user --noninteractive --reinstall flathub "$app" || true
+		done
+	fi
 
 	# Remove system flatpaks (pre-installed)
 	#flatpak remove --system --noninteractive --all
@@ -291,9 +303,9 @@ brew_install_all_from_yaml() {
         source "/usr/libexec/immutablue/immutablue-header.sh"
     fi
 
-    # Start with base packages
-    brew_add=$(yq '.brew.install[]' < $brew_yaml)
-    brew_rm=$(yq '.brew.uninstall[]' < $brew_yaml)
+    # Start with base packages (filter out "null" from yq when section doesn't exist)
+    brew_add=$(yq '.brew.install[]' < $brew_yaml 2>/dev/null | grep -v '^null$')
+    brew_rm=$(yq '.brew.uninstall[]' < $brew_yaml 2>/dev/null | grep -v '^null$')
     
     # Add variant-specific packages for all detected variants
     if [[ -f "/usr/immutablue/build_options" ]]
@@ -302,15 +314,15 @@ brew_install_all_from_yaml() {
         if type get_immutablue_build_options >/dev/null 2>&1; then
             while read -r option
             do
-                # Try to get variant-specific packages for this option
+                # Try to get variant-specific packages for this option (filter out "null")
                 local variant_add
-                variant_add=$(yq ".brew.install_${option}[]" < $brew_yaml)
+                variant_add=$(yq ".brew.install_${option}[]" < $brew_yaml 2>/dev/null | grep -v '^null$')
                 local variant_rm
-                variant_rm=$(yq ".brew.uninstall_${option}[]" < $brew_yaml)
+                variant_rm=$(yq ".brew.uninstall_${option}[]" < $brew_yaml 2>/dev/null | grep -v '^null$')
                 
                 # Add to the main lists (handles multiple variants automatically)
-                brew_add="$brew_add $variant_add"
-                brew_rm="$brew_rm $variant_rm"
+                [[ -n "$variant_add" ]] && brew_add="$brew_add $variant_add"
+                [[ -n "$variant_rm" ]] && brew_rm="$brew_rm $variant_rm"
             done < <(get_immutablue_build_options)
         else
             # Fallback to manual parsing if header not available
@@ -320,15 +332,15 @@ brew_install_all_from_yaml() {
             
             for option in "${option_array[@]}"
             do
-                # Try to get variant-specific packages for this option
+                # Try to get variant-specific packages for this option (filter out "null")
                 local variant_add
-                variant_add=$(yq ".brew.install_${option}[]" < $brew_yaml)
+                variant_add=$(yq ".brew.install_${option}[]" < $brew_yaml 2>/dev/null | grep -v '^null$')
                 local variant_rm
-                variant_rm=$(yq ".brew.uninstall_${option}[]" < $brew_yaml)
+                variant_rm=$(yq ".brew.uninstall_${option}[]" < $brew_yaml 2>/dev/null | grep -v '^null$')
                 
                 # Add to the main lists (handles multiple variants automatically)
-                brew_add="$brew_add $variant_add"
-                brew_rm="$brew_rm $variant_rm"
+                [[ -n "$variant_add" ]] && brew_add="$brew_add $variant_add"
+                [[ -n "$variant_rm" ]] && brew_rm="$brew_rm $variant_rm"
             done
         fi
     fi

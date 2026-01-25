@@ -1,5 +1,7 @@
 [Unit]
 Description=Immutablue First Login
+# Don't run for system users like gdm (gnome-initial-setup runs as gdm)
+ConditionUser=!gdm
 
 [Service]
 Type=oneshot

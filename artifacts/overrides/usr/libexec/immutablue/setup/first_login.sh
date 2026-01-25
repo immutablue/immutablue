@@ -5,6 +5,13 @@ source /usr/libexec/immutablue/immutablue-header.sh
 # Enhanced first-login script for Immutablue
 # This script is executed during the first user login
 
+# Don't run for system users (UID < 1000) - this prevents running during
+# gnome-initial-setup which runs as the gdm user
+if [[ "$UID" -lt 1000 ]]; then
+    echo "Skipping first-login for system user (UID=$UID)"
+    exit 0
+fi
+
 # Check if the first-login script should run based on settings
 if [[ "$(immutablue-settings .immutablue.run_first_login_script)" != "true" ]]
 then 
