@@ -117,6 +117,7 @@ immutablue:
 
   rpm_trueblue:
     all:
+    - cockpit
     - cockpit-files
     - cockpit-machines
     # - cockpit-navigator
@@ -301,6 +302,7 @@ immutablue:
 
   services_enable_sys_trueblue:
     all:
+    - cockpit.socket
     - zfs-load-keys.service
     - zfs-arc-max.service
 
