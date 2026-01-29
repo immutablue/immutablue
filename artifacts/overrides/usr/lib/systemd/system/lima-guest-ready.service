@@ -1,0 +1,20 @@
+# Lima guest boot completion signal
+# This service creates the marker file that Lima waits for to confirm boot is complete.
+# Only runs when Lima's cidata ISO is mounted (ConditionPathIsMountPoint).
+# Does nothing on bare metal or non-Lima VMs.
+#
+# See: https://lima-vm.io/
+
+[Unit]
+Description=Signal Lima guest boot complete
+ConditionPathIsMountPoint=/mnt/lima-cidata
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/mkdir -p /mnt/lima-cidata/boot
+ExecStart=/usr/bin/touch /mnt/lima-cidata/boot/90-lima-ready.touch
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
