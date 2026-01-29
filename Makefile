@@ -400,6 +400,7 @@ qcow2:
 		--rootfs btrfs \
 		--config /config.toml \
 		$(IMAGE):$(TAG)
+	sudo chown -R $$(id -u):$$(id -g) $(QCOW2_DIR)
 	@echo "qcow2 image built: $(QCOW2_DIR)/qcow2/disk.qcow2"
 
 # Run QCOW2 VM with QEMU
