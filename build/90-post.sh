@@ -40,3 +40,5 @@ chmod -R 777 /etc/immutablue/setup
 # build hugo files
 bash -c "cd /usr/immutablue/docs && hugo build"
 
+# remove debug modules
+ rm -rf /usr/lib/modules/*+debug
