@@ -29,6 +29,7 @@ Immutablue is designed to provide a stable, immutable base OS with flexible appl
 - [Installation Guide](/pages/install/) - How to install Immutablue
 - [Architecture](/pages/architecture/) - Understand the Immutablue architecture
 - [Package Management](/pages/package-management/) - How to manage software
+- [Doctor - System Health Checks](/pages/doctor/) - Diagnose and fix system issues
 - [Maintenance and Troubleshooting](/pages/maintenance-and-troubleshooting/) - Keep your system running smoothly
 
 ## Customization

@@ -185,3 +185,28 @@ enable_libvirt_dry_run:
 status_libvirt:
     immutablue-libvirt-manager -s status
 
+
+# ════════════════════════════════════════════════════════════════════════════
+# SYSTEM HEALTH
+# ════════════════════════════════════════════════════════════════════════════
+
+# Run system health checks
+doctor:
+    /usr/libexec/immutablue/immutablue-doctor
+
+# Run system health checks with verbose output
+doctor_verbose:
+    /usr/libexec/immutablue/immutablue-doctor --verbose
+
+# Run system health checks and attempt to fix issues
+doctor_fix:
+    /usr/libexec/immutablue/immutablue-doctor --fix
+
+# Run system health checks with JSON output (for scripting)
+doctor_json:
+    /usr/libexec/immutablue/immutablue-doctor --json
+
+# Run system health checks with YAML output (for scripting)
+doctor_yaml:
+    /usr/libexec/immutablue/immutablue-doctor --yaml
+
