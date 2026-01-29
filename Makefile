@@ -638,7 +638,7 @@ sbom:
 		-v /run/user/$$(id -u)/podman/podman.sock:/var/run/docker.sock:ro \
 		-v $(PWD)/$(SBOM_DIR):/sbom:z \
 		$(SYFT_IMAGE) \
-		docker-daemon:$(IMAGE):$(TAG) \
+		$(IMAGE):$(TAG) \
 		-o spdx-json=/sbom/sbom-$(TAG)-spdx.json
 	podman run \
 		--rm \
@@ -646,7 +646,7 @@ sbom:
 		-v /run/user/$$(id -u)/podman/podman.sock:/var/run/docker.sock:ro \
 		-v $(PWD)/$(SBOM_DIR):/sbom:z \
 		$(SYFT_IMAGE) \
-		docker-daemon:$(IMAGE):$(TAG) \
+		$(IMAGE):$(TAG) \
 		-o cyclonedx-json=/sbom/sbom-$(TAG)-cyclonedx.json
 	@echo "SBOMs generated in $(SBOM_DIR)/"
 	@ls -la $(SBOM_DIR)/sbom-$(TAG)-*.json
