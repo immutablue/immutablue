@@ -209,7 +209,7 @@ FULL_TAG := $(IMAGE):$(TAG)
 	install_distrobox install_flatpak install_brew \
 	post_install_notes test test_container test_container_qemu test_artifacts test_shellcheck test_setup \
 	test_kuberblue_container test_kuberblue_cluster test_kuberblue_components test_kuberblue_integration test_kuberblue_security test_kuberblue test_kuberblue_chainsaw test_chainsaw \
-	sbom
+	sbom qcow2 run_qcow2
 
 
 list:
@@ -375,6 +375,52 @@ run_iso:
 		docker.io/qemux/qemu-docker
 
 
+# QCOW2 VM Image Generation
+# Generates a bootable qcow2 VM image using bootc-image-builder
+# Usage: make qcow2 (after pushing the image to registry)
+#        make TRUEBLUE=1 qcow2 (for variant builds)
+# Default credentials: immutablue / immutablue
+QCOW2_DIR := ./images/qcow2/$(TAG)
+BOOTC_IMAGE_BUILDER := quay.io/centos-bootc/bootc-image-builder:latest
+
+qcow2:
+	@echo "Building qcow2 VM image for $(IMAGE):$(TAG)..."
+	@mkdir -p $(QCOW2_DIR)
+	sudo podman pull $(IMAGE):$(TAG)
+	sudo podman run \
+		--rm \
+		-it \
+		--privileged \
+		--security-opt label=type:unconfined_t \
+		-v $(QCOW2_DIR):/output:z \
+		-v /var/lib/containers/storage:/var/lib/containers/storage \
+		-v $(PWD)/build/qcow2-config.toml:/config.toml:ro \
+		$(BOOTC_IMAGE_BUILDER) \
+		--type qcow2 \
+		--rootfs btrfs \
+		--config /config.toml \
+		$(IMAGE):$(TAG)
+	@echo "qcow2 image built: $(QCOW2_DIR)/qcow2/disk.qcow2"
+
+# Run QCOW2 VM with QEMU
+# Boots the qcow2 image with KVM acceleration
+# SSH available on localhost:2222
+# Exit with Ctrl-A X
+run_qcow2:
+	@echo "Booting $(QCOW2_DIR)/qcow2/disk.qcow2..."
+	@echo "SSH: ssh -p 2222 immutablue@localhost (password: immutablue)"
+	@echo "Exit: Ctrl-A X"
+	sudo qemu-system-x86_64 \
+		-enable-kvm \
+		-m 4G \
+		-smp 4 \
+		-cpu host \
+		-drive file=$(QCOW2_DIR)/qcow2/disk.qcow2,format=qcow2 \
+		-boot c \
+		-nic user,hostfwd=tcp::2222-:22 \
+		-nographic \
+		-serial mon:stdio
+
 
 rpmostree_upgrade:
 	sudo rpm-ostree update
@@ -390,6 +436,7 @@ clean: manifest_rm
 	rm -rf ./iso
 	rm -rf ./flatpak_refs
 	rm -rf ./sbom
+	rm -rf ./images
 
 
 install_distrobox: 
