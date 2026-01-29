@@ -1,0 +1,8 @@
+# bootc-image-builder configuration for qcow2 VM testing
+# Default credentials for local development/testing only
+# DO NOT use these credentials in production
+
+[[customizations.user]]
+name = "immutablue"
+password = "immutablue"
+groups = ["wheel"]
