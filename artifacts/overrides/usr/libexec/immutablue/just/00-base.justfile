@@ -206,3 +206,7 @@ doctor_fix:
 doctor_json:
     /usr/libexec/immutablue/immutablue-doctor --json
 
+# Run system health checks with YAML output (for scripting)
+doctor_yaml:
+    /usr/libexec/immutablue/immutablue-doctor --yaml
+

@@ -8,6 +8,7 @@
 #
 # Options:
 #   --json      Output results in JSON format
+#   --yaml      Output results in YAML format
 #   --fix       Attempt to fix issues where possible
 #   --verbose   Show detailed output for each check
 #   -h, --help  Show this help message
@@ -40,6 +41,7 @@ INFO="ℹ"
 
 # Global state
 JSON_OUTPUT=false
+YAML_OUTPUT=false
 FIX_MODE=false
 VERBOSE=false
 CHECKS_PASSED=0
@@ -53,6 +55,10 @@ parse_args() {
         case $1 in
             --json)
                 JSON_OUTPUT=true
+                shift
+                ;;
+            --yaml)
+                YAML_OUTPUT=true
                 shift
                 ;;
             --fix)
@@ -88,6 +94,7 @@ Usage: immutablue-doctor [OPTIONS]
 
 Options:
   --json      Output results in JSON format
+  --yaml      Output results in YAML format
   --fix       Attempt to fix issues where possible
   --verbose   Show detailed output for each check
   -h, --help  Show this help message
@@ -102,12 +109,13 @@ Examples:
   immutablue-doctor --verbose    # Run with detailed output
   immutablue-doctor --fix        # Run and attempt to fix issues
   immutablue-doctor --json       # Output as JSON (for scripting)
+  immutablue-doctor --yaml       # Output as YAML (for scripting)
 EOF
 }
 
 # Print functions
 print_header() {
-    if [[ "${JSON_OUTPUT}" == "false" ]]; then
+    if [[ "${JSON_OUTPUT}" == "false" ]] && [[ "${YAML_OUTPUT}" == "false" ]]; then
         echo -e "\n${BOLD}${BLUE}$1${NC}"
         echo "─────────────────────────────────────"
     fi
@@ -118,7 +126,7 @@ print_pass() {
     local message="${2:-}"
     ((CHECKS_PASSED++))
     RESULTS+=("{\"check\":\"${check_name}\",\"status\":\"pass\",\"message\":\"${message}\"}")
-    if [[ "${JSON_OUTPUT}" == "false" ]]; then
+    if [[ "${JSON_OUTPUT}" == "false" ]] && [[ "${YAML_OUTPUT}" == "false" ]]; then
         echo -e "  ${GREEN}${PASS}${NC} ${check_name}"
         if [[ -n "${message}" ]] && [[ "${VERBOSE}" == "true" ]]; then
             echo -e "    ${message}"
@@ -132,7 +140,7 @@ print_fail() {
     local fix_hint="${3:-}"
     ((CHECKS_FAILED++))
     RESULTS+=("{\"check\":\"${check_name}\",\"status\":\"fail\",\"message\":\"${message}\",\"fix\":\"${fix_hint}\"}")
-    if [[ "${JSON_OUTPUT}" == "false" ]]; then
+    if [[ "${JSON_OUTPUT}" == "false" ]] && [[ "${YAML_OUTPUT}" == "false" ]]; then
         echo -e "  ${RED}${FAIL}${NC} ${check_name}"
         if [[ -n "${message}" ]]; then
             echo -e "    ${message}"
@@ -148,7 +156,7 @@ print_warn() {
     local message="${2:-}"
     ((CHECKS_WARNED++))
     RESULTS+=("{\"check\":\"${check_name}\",\"status\":\"warn\",\"message\":\"${message}\"}")
-    if [[ "${JSON_OUTPUT}" == "false" ]]; then
+    if [[ "${JSON_OUTPUT}" == "false" ]] && [[ "${YAML_OUTPUT}" == "false" ]]; then
         echo -e "  ${YELLOW}${WARN}${NC} ${check_name}"
         if [[ -n "${message}" ]]; then
             echo -e "    ${message}"
@@ -158,7 +166,7 @@ print_warn() {
 
 print_info() {
     local message="$1"
-    if [[ "${JSON_OUTPUT}" == "false" ]] && [[ "${VERBOSE}" == "true" ]]; then
+    if [[ "${JSON_OUTPUT}" == "false" ]] && [[ "${YAML_OUTPUT}" == "false" ]] && [[ "${VERBOSE}" == "true" ]]; then
         echo -e "  ${BLUE}${INFO}${NC} ${message}"
     fi
 }
@@ -485,6 +493,32 @@ print_summary() {
         echo ""
         echo "  ]"
         echo "}"
+    elif [[ "${YAML_OUTPUT}" == "true" ]]; then
+        echo "---"
+        echo "version: \"${VERSION}\""
+        echo "image: \"$(immutablue_get_image_full)\""
+        echo "timestamp: \"$(date -Iseconds)\""
+        echo "summary:"
+        echo "  passed: ${CHECKS_PASSED}"
+        echo "  failed: ${CHECKS_FAILED}"
+        echo "  warnings: ${CHECKS_WARNED}"
+        echo "results:"
+        for result in "${RESULTS[@]}"; do
+            # Parse JSON result and convert to YAML
+            local check status message fix
+            check=$(echo "${result}" | sed 's/.*"check":"\([^"]*\)".*/\1/')
+            status=$(echo "${result}" | sed 's/.*"status":"\([^"]*\)".*/\1/')
+            message=$(echo "${result}" | sed 's/.*"message":"\([^"]*\)".*/\1/')
+            fix=$(echo "${result}" | sed 's/.*"fix":"\([^"]*\)".*/\1/' 2>/dev/null || echo "")
+            echo "  - check: \"${check}\""
+            echo "    status: \"${status}\""
+            if [[ -n "${message}" ]]; then
+                echo "    message: \"${message}\""
+            fi
+            if [[ -n "${fix}" ]] && [[ "${fix}" != "${result}" ]]; then
+                echo "    fix: \"${fix}\""
+            fi
+        done
     else
         echo ""
         echo "─────────────────────────────────────"
@@ -513,7 +547,7 @@ print_summary() {
 main() {
     parse_args "$@"
     
-    if [[ "${JSON_OUTPUT}" == "false" ]]; then
+    if [[ "${JSON_OUTPUT}" == "false" ]] && [[ "${YAML_OUTPUT}" == "false" ]]; then
         echo -e "${BOLD}Immutablue Doctor v${VERSION}${NC}"
         echo -e "Checking system health...\n"
     fi

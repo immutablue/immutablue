@@ -30,6 +30,7 @@ immutablue doctor [OPTIONS]
 | `immutablue doctor_verbose` | Run with detailed output |
 | `immutablue doctor_fix` | Run and attempt to fix issues |
 | `immutablue doctor_json` | Output results as JSON (for scripting) |
+| `immutablue doctor_yaml` | Output results as YAML (for scripting) |
 
 ### Command Line Options
 
@@ -44,6 +45,7 @@ You can also run the doctor script directly with options:
 | `--verbose`, `-v` | Show detailed output for each check |
 | `--fix` | Attempt to automatically fix issues where possible |
 | `--json` | Output results in JSON format |
+| `--yaml` | Output results in YAML format |
 | `--help`, `-h` | Show help message |
 | `--version` | Show version information |
 
@@ -194,9 +196,11 @@ immutablue doctor_fix
 
 Always review the output before and after running with `--fix`.
 
-## JSON Output
+## Machine-Readable Output
 
-For scripting and automation, use JSON output:
+For scripting and automation, use JSON or YAML output:
+
+### JSON Output
 
 ```bash
 immutablue doctor_json
@@ -232,6 +236,44 @@ immutablue doctor_json | jq '.summary.failed > 0'
 
 # List failed checks
 immutablue doctor_json | jq '.results[] | select(.status == "fail")'
+```
+
+### YAML Output
+
+```bash
+immutablue doctor_yaml
+```
+
+Example YAML output:
+
+```yaml
+---
+version: "1.0.0"
+image: "immutablue:43-lts"
+timestamp: "2026-01-28T21:30:00-05:00"
+summary:
+  passed: 15
+  failed: 0
+  warnings: 1
+results:
+  - check: "OSTree deployment healthy"
+    status: "pass"
+    message: "Current image: immutablue:43-lts"
+  - check: "No pending deployments"
+    status: "pass"
+```
+
+### Using with yq
+
+```bash
+# Get just the summary
+immutablue doctor_yaml | yq '.summary'
+
+# Check if any failures
+immutablue doctor_yaml | yq '.summary.failed > 0'
+
+# List failed checks
+immutablue doctor_yaml | yq '.results[] | select(.status == "fail")'
 ```
 
 ## Exit Codes
