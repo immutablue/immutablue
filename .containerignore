@@ -1,5 +1,7 @@
 iso
 flatpak_refs
+sbom
+.lima
 docs/public
 docs/.hugo_build.lock
 **/__pycache__/
