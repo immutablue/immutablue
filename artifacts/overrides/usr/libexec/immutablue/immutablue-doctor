@@ -199,7 +199,7 @@ check_ostree_status() {
     
     # Check bootc status if available
     if command -v bootc &>/dev/null; then
-        if bootc status &>/dev/null; then
+        if sudo bootc status &>/dev/null; then
             print_pass "Bootc status healthy"
         else
             print_warn "Bootc status check failed"
@@ -308,8 +308,9 @@ check_network() {
 check_disk_space() {
     print_header "Disk Space"
     
+    # Note: Skip root (/) because on Silverblue/composefs it's a tiny overlay
+    # that always shows 100% used - not meaningful for health checks
     local locations=(
-        "/:Root filesystem"
         "/var:Variable data"
         "/home:Home directories"
     )

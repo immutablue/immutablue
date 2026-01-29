@@ -145,9 +145,10 @@ Monitors disk usage on critical mount points:
 
 | Location | Warning | Critical |
 |----------|---------|----------|
-| `/` (root) | 85% | 95% |
 | `/var` | 85% | 95% |
 | `/home` | 85% | 95% |
+
+> **Note:** The root filesystem (`/`) is skipped because on Silverblue/composefs it's a small overlay that always shows 100% used — not meaningful for health checks.
 
 ### Homebrew (x86_64 only)
 
