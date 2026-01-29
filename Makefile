@@ -379,22 +379,27 @@ run_iso:
 # Generates a bootable qcow2 VM image using bootc-image-builder
 # Usage: make qcow2 (after pushing the image to registry)
 #        make TRUEBLUE=1 qcow2 (for variant builds)
+#        make LIMA=1 qcow2 (include SSH keys for Lima VM access)
 # Default credentials: immutablue / immutablue
 QCOW2_DIR := ./images/qcow2/$(TAG)
 BOOTC_IMAGE_BUILDER := quay.io/centos-bootc/bootc-image-builder:latest
 
+ifndef $(LIMA)
+	LIMA := 0
+endif
+
 qcow2:
 	@echo "Building qcow2 VM image for $(IMAGE):$(TAG)..."
 	@mkdir -p $(QCOW2_DIR)
-	@# Generate config with SSH keys for Lima/SSH access
+	@# Generate bootc-image-builder config
 	@echo "# Auto-generated bootc-image-builder config" > $(QCOW2_DIR)/config.toml
-	@echo "# Includes SSH keys for Lima VM access" >> $(QCOW2_DIR)/config.toml
 	@echo "" >> $(QCOW2_DIR)/config.toml
 	@echo "[[customizations.user]]" >> $(QCOW2_DIR)/config.toml
 	@echo 'name = "immutablue"' >> $(QCOW2_DIR)/config.toml
 	@echo 'password = "immutablue"' >> $(QCOW2_DIR)/config.toml
 	@echo 'groups = ["wheel"]' >> $(QCOW2_DIR)/config.toml
-	@# Add Lima SSH key if it exists
+ifeq ($(LIMA),1)
+	@# Add Lima SSH key for Lima VM access
 	@if [ -f "$$HOME/.lima/_config/user.pub" ]; then \
 		echo "key = \"$$(cat $$HOME/.lima/_config/user.pub)\"" >> $(QCOW2_DIR)/config.toml; \
 		echo "Added Lima SSH key to config"; \
@@ -405,8 +410,9 @@ qcow2:
 		echo "key = \"$$(cat $$HOME/.ssh/id_rsa.pub)\"" >> $(QCOW2_DIR)/config.toml; \
 		echo "Added SSH key (id_rsa) to config"; \
 	else \
-		echo "Warning: No SSH key found. Lima SSH access may not work."; \
+		echo "Warning: LIMA=1 but no SSH key found. Lima SSH access may not work."; \
 	fi
+endif
 	sudo podman pull $(IMAGE):$(TAG)
 	sudo podman run \
 		--rm \
