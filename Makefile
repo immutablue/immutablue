@@ -208,7 +208,8 @@ FULL_TAG := $(IMAGE):$(TAG)
 	build push iso upgrade rebase clean \
 	install_distrobox install_flatpak install_brew \
 	post_install_notes test test_container test_container_qemu test_artifacts test_shellcheck test_setup \
-	test_kuberblue_container test_kuberblue_cluster test_kuberblue_components test_kuberblue_integration test_kuberblue_security test_kuberblue test_kuberblue_chainsaw test_chainsaw
+	test_kuberblue_container test_kuberblue_cluster test_kuberblue_components test_kuberblue_integration test_kuberblue_security test_kuberblue test_kuberblue_chainsaw test_chainsaw \
+	sbom
 
 
 list:
@@ -388,6 +389,7 @@ reboot:
 clean: manifest_rm
 	rm -rf ./iso
 	rm -rf ./flatpak_refs
+	rm -rf ./sbom
 
 
 install_distrobox: 
@@ -618,3 +620,33 @@ _run_kuberblue_chainsaw_test:
 # Chainsaw-only testing: Runs only the Chainsaw declarative tests
 # Convenience target for running just the Chainsaw tests without other Kuberblue tests
 test_chainsaw: test_kuberblue_chainsaw
+
+
+# SBOM Generation
+# Generates Software Bill of Materials using Syft in both SPDX and CycloneDX formats
+# Outputs are placed in ./sbom/ directory
+# Usage: make sbom (after building the image)
+SBOM_DIR := ./sbom
+SYFT_IMAGE := docker.io/anchore/syft:latest
+
+sbom:
+	@echo "Generating SBOM for $(IMAGE):$(TAG)..."
+	@mkdir -p $(SBOM_DIR)
+	podman run \
+		--rm \
+		--security-opt label=disable \
+		-v /run/user/$$(id -u)/podman/podman.sock:/var/run/docker.sock:ro \
+		-v $(PWD)/$(SBOM_DIR):/sbom:z \
+		$(SYFT_IMAGE) \
+		docker-daemon:$(IMAGE):$(TAG) \
+		-o spdx-json=/sbom/sbom-$(TAG)-spdx.json
+	podman run \
+		--rm \
+		--security-opt label=disable \
+		-v /run/user/$$(id -u)/podman/podman.sock:/var/run/docker.sock:ro \
+		-v $(PWD)/$(SBOM_DIR):/sbom:z \
+		$(SYFT_IMAGE) \
+		docker-daemon:$(IMAGE):$(TAG) \
+		-o cyclonedx-json=/sbom/sbom-$(TAG)-cyclonedx.json
+	@echo "SBOMs generated in $(SBOM_DIR)/"
+	@ls -la $(SBOM_DIR)/sbom-$(TAG)-*.json
