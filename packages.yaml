@@ -39,6 +39,7 @@ immutablue:
   rpm:
     all:
     - bashmount
+    - cloud-init
     - buildah
     - cmake
     - ddrescue
@@ -269,6 +270,10 @@ immutablue:
     - sshd.service
     - tailscaled.service
     - lima-guest-ready.service
+    - cloud-init-local.service
+    - cloud-init.service
+    - cloud-config.service
+    - cloud-final.service
     # - docker.service
 
   services_enable_sys_gui:
