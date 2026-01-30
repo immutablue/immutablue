@@ -7,6 +7,14 @@
 # - /usr/immutablue/settings.yaml
 
 immutablue:
+  # Generator output paths for immutablue-lima-gen and immutablue-qcow2-gen
+  # These can be overridden in ~/.config/immutablue/settings.yaml
+  gen:
+    lima:
+      path: "~/.local/share/immutablue/lima"
+    qcow2:
+      path: "~/.local/share/immutablue/images"
+
   # Re-run `immutablue install` after the next 
   # reboot after running `immutablue-update`
   run_install_on_update: true
