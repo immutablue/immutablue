@@ -5,7 +5,12 @@
 # Set ulimits
 if [[ "$(whoami)" != "root" ]]
 then
-    ulimit -n 524288
+    _ulimit_nofile="$(immutablue-settings .immutablue.profile.ulimit_nofile 2>/dev/null)"
+    if [[ -z "${_ulimit_nofile}" ]] || [[ "${_ulimit_nofile}" == "null" ]]; then
+        _ulimit_nofile=524288
+    fi
+    ulimit -n "${_ulimit_nofile}"
+    unset _ulimit_nofile
 fi
 
 

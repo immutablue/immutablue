@@ -49,6 +49,11 @@ immutablue:
     has_internet_host_v4: "9.9.9.9"
     has_internet_host_v6: "2620:fe::fe"
 
+    # Preferred terminal emulator for immutablue_get_terminal_command()
+    # Options: auto, kitty, ptyxis, gnome-terminal
+    # "auto" will try kitty -> ptyxis -> gnome-terminal in order
+    preferred_terminal: "auto"
+
   # Settings for bash profile 
   # - /etc/profile.d/25-immutablue.sh
   profile:
@@ -62,6 +67,9 @@ immutablue:
     # - /usr/bin/fzf-git
     enable_sourcing_fzf_git: true
 
+    # File descriptor limit for non-root users (ulimit -n)
+    ulimit_nofile: 524288
+
 
 services:
   syncthing:
@@ -70,4 +78,17 @@ services:
     # If tailscale fails, or is not used this is 
     # ignored.
     tailscale_mode: true
+
+
+# Kuberblue-specific settings
+# Only used when running a Kuberblue build
+kuberblue:
+  # Installation directory for kuberblue build artifacts
+  install_dir: "/usr/immutablue-build-kuberblue"
+
+  # Configuration directory for kuberblue
+  config_dir: "/etc/kuberblue"
+
+  # UID for the kuberblue system user
+  uid: 970
 
