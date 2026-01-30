@@ -47,6 +47,9 @@ ifndef $(TAG)
 	TAG = $(VERSION)
 endif
 
+# Date tag for versioned snapshots (e.g., 43-20260129)
+DATE_TAG := $(TAG)-$(shell date +%Y%m%d)
+
 ifndef $(SET_AS_LATEST)
 	SET_AS_LATEST = 0
 endif
@@ -285,6 +288,7 @@ build: pre_test
 		--ignorefile ./.containerignore \
 		--no-cache \
 		-t $(IMAGE):$(TAG) \
+		-t $(IMAGE):$(DATE_TAG) \
 		-f ./Containerfile \
 		--build-arg=BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg=FEDORA_VERSION=$(VERSION) \
@@ -306,6 +310,9 @@ endif
 	buildah \
 		push \
 		$(IMAGE):$(TAG)
+	buildah \
+		push \
+		$(IMAGE):$(DATE_TAG)
 
 
 retag:
