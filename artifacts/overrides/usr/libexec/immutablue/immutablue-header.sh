@@ -266,34 +266,58 @@ immutablue_has_internet() {
 
 
 # Detect and return the appropriate terminal command for the current environment
-# This tries multiple terminal emulators in order of preference
+# Respects .immutablue.header.preferred_terminal setting
+# Options: auto, kitty, ptyxis, gnome-terminal
 # returns: The command to launch a terminal, or empty string if none found
 immutablue_get_terminal_command() {
-    # Try kitty terminal first
-    type kitty &>/dev/null
-    if [[ $? -eq 0 ]] 
-    then 
-        echo "kitty"
-        return 0
+    local preferred
+    preferred="$(immutablue-settings .immutablue.header.preferred_terminal 2>/dev/null)"
+    
+    # Default to auto if not set
+    if [[ -z "${preferred}" ]] || [[ "${preferred}" == "null" ]]; then
+        preferred="auto"
     fi
 
-    # Try ptyxis terminal next (GNOME's newer terminal, used in GNOME >= 45)
-    type ptyxis &>/dev/null
-    if [[ $? -eq 0 ]] 
-    then 
-        # Note the -- is needed for ptyxis to pass arguments to the command
-        echo "ptyxis --"
-        return 0
-    fi
-    
-    # Finally try the standard GNOME terminal
-    type gnome-terminal &>/dev/null
-    if [[ $? -eq 0 ]] 
-    then 
-        # Note the -- is needed for gnome-terminal to pass arguments to the command
-        echo "gnome-terminal --"
-        return 0
-    fi
+    # If a specific terminal is requested, try only that one
+    case "${preferred}" in
+        kitty)
+            type kitty &>/dev/null && echo "kitty" && return 0
+            ;;
+        ptyxis)
+            type ptyxis &>/dev/null && echo "ptyxis --" && return 0
+            ;;
+        gnome-terminal)
+            type gnome-terminal &>/dev/null && echo "gnome-terminal --" && return 0
+            ;;
+        auto|*)
+            # Auto mode: try terminals in order of preference
+            # Try kitty terminal first
+            type kitty &>/dev/null
+            if [[ $? -eq 0 ]] 
+            then 
+                echo "kitty"
+                return 0
+            fi
+
+            # Try ptyxis terminal next (GNOME's newer terminal, used in GNOME >= 45)
+            type ptyxis &>/dev/null
+            if [[ $? -eq 0 ]] 
+            then 
+                # Note the -- is needed for ptyxis to pass arguments to the command
+                echo "ptyxis --"
+                return 0
+            fi
+            
+            # Finally try the standard GNOME terminal
+            type gnome-terminal &>/dev/null
+            if [[ $? -eq 0 ]] 
+            then 
+                # Note the -- is needed for gnome-terminal to pass arguments to the command
+                echo "gnome-terminal --"
+                return 0
+            fi
+            ;;
+    esac
 
     # No known terminal found, return empty string
     # This would typically happen in a headless environment
