@@ -1,0 +1,292 @@
+#!/bin/bash
+# immutablue-qcow2-gen - Generate qcow2 VM images for Immutablue
+# 
+# This script generates qcow2 VM disk images to a user-writable location.
+# It uses 'make qcow2' under the hood and supports all standard image build options.
+#
+# Copyright (C) 2025 Immutablue Project
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+set -euo pipefail
+
+# Script directory (for finding Makefile)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IMMUTABLUE_DIR="${SCRIPT_DIR}/.."
+
+# Get default output directory from settings, or use fallback
+get_default_output_dir () {
+	local settings_path
+	if command -v immutablue-settings &>/dev/null; then
+		settings_path="$(immutablue-settings '.immutablue.gen.qcow2.path' 2>/dev/null || true)"
+	fi
+	if [[ -n "${settings_path}" && "${settings_path}" != "null" ]]; then
+		# Expand ~ to $HOME
+		echo "${settings_path/#\~/$HOME}"
+	else
+		echo "${HOME}/.local/share/immutablue/images"
+	fi
+}
+
+DEFAULT_OUTPUT_DIR="$(get_default_output_dir)"
+
+# Build options
+NUCLEUS=0
+LTS=0
+KUBERBLUE=0
+TRUEBLUE=0
+CYAN=0
+LIMA=0
+OUTPUT_DIR=""
+
+show_help () {
+	cat << EOF
+immutablue-qcow2-gen - Generate qcow2 VM images for Immutablue
+
+USAGE:
+    immutablue-qcow2-gen [OPTIONS]
+
+OPTIONS:
+    --nucleus       Build nucleus (no desktop) variant
+    --lts           Build LTS kernel variant
+    --kuberblue     Build Kuberblue (Kubernetes) variant
+    --trueblue      Build Trueblue variant (includes LTS)
+    --cyan          Build Cyan (NVIDIA) variant
+    --lima          Include SSH keys for Lima VM access
+    -o, --output    Output directory (default: ${DEFAULT_OUTPUT_DIR})
+    -h, --help      Show this help message
+    --license       Show license information
+
+EXAMPLES:
+    # Generate default Silverblue qcow2 image
+    immutablue-qcow2-gen
+
+    # Generate LTS + Nucleus variant
+    immutablue-qcow2-gen --lts --nucleus
+
+    # Generate for Lima VM use (includes SSH keys)
+    immutablue-qcow2-gen --trueblue --lima
+
+    # Generate to custom directory
+    immutablue-qcow2-gen --trueblue --output ~/my-vms/
+
+AFTER GENERATION:
+    The script will print instructions on how to use the qcow2 image.
+
+NOTE:
+    This script requires sudo access for bootc-image-builder.
+    The container image must be pushed to the registry first.
+
+LICENSE:
+    AGPL-3.0-or-later
+EOF
+}
+
+show_license () {
+	cat << EOF
+immutablue-qcow2-gen
+Copyright (C) 2025 Immutablue Project
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+EOF
+}
+
+parse_args () {
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+			--nucleus)
+				NUCLEUS=1
+				shift
+				;;
+			--lts)
+				LTS=1
+				shift
+				;;
+			--kuberblue)
+				KUBERBLUE=1
+				shift
+				;;
+			--trueblue)
+				TRUEBLUE=1
+				shift
+				;;
+			--cyan)
+				CYAN=1
+				shift
+				;;
+			--lima)
+				LIMA=1
+				shift
+				;;
+			-o|--output)
+				OUTPUT_DIR="$2"
+				shift 2
+				;;
+			-h|--help)
+				show_help
+				exit 0
+				;;
+			--license)
+				show_license
+				exit 0
+				;;
+			*)
+				echo "Error: Unknown option: $1" >&2
+				echo "Use --help for usage information." >&2
+				exit 1
+				;;
+		esac
+	done
+}
+
+build_make_args () {
+	local args=""
+	[[ "${NUCLEUS}" == "1" ]] && args="${args} NUCLEUS=1"
+	[[ "${LTS}" == "1" ]] && args="${args} LTS=1"
+	[[ "${KUBERBLUE}" == "1" ]] && args="${args} KUBERBLUE=1"
+	[[ "${TRUEBLUE}" == "1" ]] && args="${args} TRUEBLUE=1"
+	[[ "${CYAN}" == "1" ]] && args="${args} CYAN=1"
+	[[ "${LIMA}" == "1" ]] && args="${args} LIMA=1"
+	echo "${args}"
+}
+
+get_tag_string () {
+	local make_args="$1"
+	# Remove LIMA=1 from args for tag-string (LIMA doesn't affect the tag)
+	local tag_args="${make_args// LIMA=1/}"
+	# shellcheck disable=SC2086
+	make -C "${IMMUTABLUE_DIR}" ${tag_args} tag-string 2>/dev/null
+}
+
+main () {
+	parse_args "$@"
+
+	# Set default output directory if not specified
+	if [[ -z "${OUTPUT_DIR}" ]]; then
+		OUTPUT_DIR="${DEFAULT_OUTPUT_DIR}"
+	fi
+
+	# Build make arguments
+	local make_args
+	make_args="$(build_make_args)"
+
+	# Get the tag string for naming
+	local tag_string
+	tag_string="$(get_tag_string "${make_args}")"
+
+	local output_subdir="${OUTPUT_DIR}/immutablue-${tag_string}"
+	local output_file="${output_subdir}/disk.qcow2"
+
+	echo "Generating qcow2 image for: immutablue-${tag_string}"
+	echo "Output directory: ${output_subdir}"
+	echo ""
+
+	# Create output directory
+	mkdir -p "${output_subdir}"
+
+	# Generate config.toml for bootc-image-builder
+	local config_file="${output_subdir}/config.toml"
+	cat > "${config_file}" << 'EOF'
+# Auto-generated bootc-image-builder config
+
+[[customizations.user]]
+name = "immutablue"
+password = "immutablue"
+groups = ["wheel"]
+EOF
+
+	# Add SSH key if LIMA mode
+	if [[ "${LIMA}" == "1" ]]; then
+		if [[ -f "${HOME}/.lima/_config/user.pub" ]]; then
+			echo "key = \"$(cat "${HOME}/.lima/_config/user.pub")\"" >> "${config_file}"
+			echo "Added Lima SSH key to config"
+		elif [[ -f "${HOME}/.ssh/id_ed25519.pub" ]]; then
+			echo "key = \"$(cat "${HOME}/.ssh/id_ed25519.pub")\"" >> "${config_file}"
+			echo "Added SSH key (id_ed25519) to config"
+		elif [[ -f "${HOME}/.ssh/id_rsa.pub" ]]; then
+			echo "key = \"$(cat "${HOME}/.ssh/id_rsa.pub")\"" >> "${config_file}"
+			echo "Added SSH key (id_rsa) to config"
+		else
+			echo "Warning: --lima specified but no SSH key found. SSH access may not work."
+		fi
+	fi
+
+	# Image details
+	local registry="quay.io/immutablue"
+	local image="${registry}/immutablue:${tag_string}"
+
+	echo ""
+	echo "Building qcow2 from image: ${image}"
+	echo "This requires sudo access for bootc-image-builder."
+	echo ""
+
+	# Pull the image first
+	echo "Pulling container image..."
+	sudo podman pull "${image}"
+
+	# Run bootc-image-builder
+	echo "Running bootc-image-builder..."
+	sudo podman run \
+		--rm \
+		-it \
+		--privileged \
+		--security-opt label=type:unconfined_t \
+		-v "${output_subdir}":/output:z \
+		-v /var/lib/containers/storage:/var/lib/containers/storage \
+		-v "${config_file}":/config.toml:ro \
+		quay.io/centos-bootc/bootc-image-builder:latest \
+		--type qcow2 \
+		--rootfs btrfs \
+		--config /config.toml \
+		"${image}"
+
+	# Fix ownership
+	sudo chown -R "$(id -u):$(id -g)" "${output_subdir}"
+
+	# Move the qcow2 to expected location
+	if [[ -f "${output_subdir}/qcow2/disk.qcow2" ]]; then
+		mv "${output_subdir}/qcow2/disk.qcow2" "${output_file}"
+		rmdir "${output_subdir}/qcow2" 2>/dev/null || true
+	fi
+
+	echo ""
+	echo "=============================================="
+	echo "qcow2 image generated successfully!"
+	echo "=============================================="
+	echo ""
+	echo "Image file: ${output_file}"
+	echo ""
+	echo "To use this image with QEMU:"
+	echo ""
+	echo "  qemu-system-x86_64 \\"
+	echo "    -enable-kvm \\"
+	echo "    -m 4G \\"
+	echo "    -smp 4 \\"
+	echo "    -cpu host \\"
+	echo "    -drive file=${output_file},format=qcow2 \\"
+	echo "    -boot c \\"
+	echo "    -nic user,hostfwd=tcp::2222-:22 \\"
+	echo "    -nographic"
+	echo ""
+	echo "  SSH: ssh -p 2222 immutablue@localhost"
+	echo ""
+	echo "To use with virt-manager:"
+	echo "  1. Create a new VM"
+	echo "  2. Import existing disk image"
+	echo "  3. Select: ${output_file}"
+	echo ""
+	echo "Default credentials: immutablue / immutablue"
+	echo ""
+}
+
+main "$@"

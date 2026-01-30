@@ -204,7 +204,7 @@ endif
 
 FULL_TAG := $(IMAGE):$(TAG)
 
-.PHONY: list all all_upgrade install update upgrade install_or_update reboot \
+.PHONY: list tag-string all all_upgrade install update upgrade install_or_update reboot \
 	build push iso upgrade rebase clean \
 	install_distrobox install_flatpak install_brew \
 	post_install_notes test test_container test_container_qemu test_artifacts test_shellcheck test_setup \
@@ -214,6 +214,13 @@ FULL_TAG := $(IMAGE):$(TAG)
 
 list:
 	@LC_ALL=C $(MAKE) -pRrq -f $(firstword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/(^|\n)# Files(\n|$$)/,/(^|\n)# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | grep -E -v -e '^[^[:alnum:]]' -e '^$@$$'
+
+# Output the computed tag string based on current build options
+# Used by immutablue-lima-gen and immutablue-qcow2-gen scripts
+# Usage: make tag-string
+#        make NUCLEUS=1 LTS=1 tag-string  # outputs: 43-nucleus-lts
+tag-string:
+	@echo "$(TAG)"
 
 
 all: build test push

@@ -1,0 +1,238 @@
+#!/bin/bash
+# immutablue-lima-gen - Generate Lima VM configuration for Immutablue
+# 
+# This script generates Lima VM config YAML files to a user-writable location.
+# It uses 'make lima' under the hood and supports all standard image build options.
+#
+# Copyright (C) 2025 Immutablue Project
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+set -euo pipefail
+
+# Script directory (for finding Makefile)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IMMUTABLUE_DIR="${SCRIPT_DIR}/.."
+
+# Get default output directory from settings, or use fallback
+get_default_output_dir () {
+	local settings_path
+	if command -v immutablue-settings &>/dev/null; then
+		settings_path="$(immutablue-settings '.immutablue.gen.lima.path' 2>/dev/null || true)"
+	fi
+	if [[ -n "${settings_path}" && "${settings_path}" != "null" ]]; then
+		# Expand ~ to $HOME
+		echo "${settings_path/#\~/$HOME}"
+	else
+		echo "${HOME}/.local/share/immutablue/lima"
+	fi
+}
+
+DEFAULT_OUTPUT_DIR="$(get_default_output_dir)"
+
+# Build options
+NUCLEUS=0
+LTS=0
+KUBERBLUE=0
+TRUEBLUE=0
+CYAN=0
+OUTPUT_DIR=""
+
+show_help () {
+	cat << EOF
+immutablue-lima-gen - Generate Lima VM configuration for Immutablue
+
+USAGE:
+    immutablue-lima-gen [OPTIONS]
+
+OPTIONS:
+    --nucleus       Build nucleus (no desktop) variant
+    --lts           Build LTS kernel variant
+    --kuberblue     Build Kuberblue (Kubernetes) variant
+    --trueblue      Build Trueblue variant (includes LTS)
+    --cyan          Build Cyan (NVIDIA) variant
+    -o, --output    Output directory (default: ${DEFAULT_OUTPUT_DIR})
+    -h, --help      Show this help message
+    --license       Show license information
+
+EXAMPLES:
+    # Generate default Silverblue Lima config
+    immutablue-lima-gen
+
+    # Generate LTS + Nucleus variant
+    immutablue-lima-gen --lts --nucleus
+
+    # Generate to custom directory
+    immutablue-lima-gen --trueblue --output ~/my-vms/
+
+AFTER GENERATION:
+    The script will print instructions on how to use limactl to start the VM.
+
+LICENSE:
+    AGPL-3.0-or-later
+EOF
+}
+
+show_license () {
+	cat << EOF
+immutablue-lima-gen
+Copyright (C) 2025 Immutablue Project
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+EOF
+}
+
+parse_args () {
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+			--nucleus)
+				NUCLEUS=1
+				shift
+				;;
+			--lts)
+				LTS=1
+				shift
+				;;
+			--kuberblue)
+				KUBERBLUE=1
+				shift
+				;;
+			--trueblue)
+				TRUEBLUE=1
+				shift
+				;;
+			--cyan)
+				CYAN=1
+				shift
+				;;
+			-o|--output)
+				OUTPUT_DIR="$2"
+				shift 2
+				;;
+			-h|--help)
+				show_help
+				exit 0
+				;;
+			--license)
+				show_license
+				exit 0
+				;;
+			*)
+				echo "Error: Unknown option: $1" >&2
+				echo "Use --help for usage information." >&2
+				exit 1
+				;;
+		esac
+	done
+}
+
+build_make_args () {
+	local args=""
+	[[ "${NUCLEUS}" == "1" ]] && args="${args} NUCLEUS=1"
+	[[ "${LTS}" == "1" ]] && args="${args} LTS=1"
+	[[ "${KUBERBLUE}" == "1" ]] && args="${args} KUBERBLUE=1"
+	[[ "${TRUEBLUE}" == "1" ]] && args="${args} TRUEBLUE=1"
+	[[ "${CYAN}" == "1" ]] && args="${args} CYAN=1"
+	echo "${args}"
+}
+
+get_tag_string () {
+	local make_args="$1"
+	# shellcheck disable=SC2086
+	make -C "${IMMUTABLUE_DIR}" ${make_args} tag-string 2>/dev/null
+}
+
+main () {
+	parse_args "$@"
+
+	# Set default output directory if not specified
+	if [[ -z "${OUTPUT_DIR}" ]]; then
+		OUTPUT_DIR="${DEFAULT_OUTPUT_DIR}"
+	fi
+
+	# Build make arguments
+	local make_args
+	make_args="$(build_make_args)"
+
+	# Get the tag string for naming
+	local tag_string
+	tag_string="$(get_tag_string "${make_args}")"
+
+	local instance_name="immutablue-${tag_string}"
+	local output_file="${OUTPUT_DIR}/${instance_name}.yaml"
+
+	echo "Generating Lima config for: ${instance_name}"
+	echo "Output: ${output_file}"
+	echo ""
+
+	# Create output directory
+	mkdir -p "${OUTPUT_DIR}"
+
+	# First, we need a qcow2 image. Check if it exists or needs to be built.
+	local qcow2_dir="${IMMUTABLUE_DIR}/images/qcow2/${tag_string}/qcow2"
+	local qcow2_file="${qcow2_dir}/disk.qcow2"
+
+	if [[ ! -f "${qcow2_file}" ]]; then
+		echo "qcow2 image not found at: ${qcow2_file}"
+		echo "You need to build the qcow2 image first:"
+		echo ""
+		echo "  cd ${IMMUTABLUE_DIR}"
+		# shellcheck disable=SC2086
+		echo "  make ${make_args} LIMA=1 qcow2"
+		echo ""
+		echo "Or use immutablue-qcow2-gen to generate it to a custom location."
+		exit 1
+	fi
+
+	# Generate Lima config using make lima (generates to .lima/)
+	echo "Running: make${make_args} lima"
+	# shellcheck disable=SC2086
+	make -C "${IMMUTABLUE_DIR}" ${make_args} lima
+
+	# The lima config is generated at .lima/immutablue-${tag_string}.yaml
+	local generated_config="${IMMUTABLUE_DIR}/.lima/${instance_name}.yaml"
+
+	if [[ ! -f "${generated_config}" ]]; then
+		echo "Error: Lima config was not generated at expected location: ${generated_config}" >&2
+		exit 1
+	fi
+
+	# Copy to output location
+	cp "${generated_config}" "${output_file}"
+
+	echo ""
+	echo "=============================================="
+	echo "Lima config generated successfully!"
+	echo "=============================================="
+	echo ""
+	echo "Config file: ${output_file}"
+	echo ""
+	echo "To use this VM with limactl:"
+	echo ""
+	echo "  # Start the VM"
+	echo "  limactl start ${output_file}"
+	echo ""
+	echo "  # Open a shell"
+	echo "  limactl shell ${instance_name}"
+	echo ""
+	echo "  # Stop the VM"
+	echo "  limactl stop ${instance_name}"
+	echo ""
+	echo "  # Delete the VM"
+	echo "  limactl delete ${instance_name}"
+	echo ""
+	echo "Default credentials: immutablue / immutablue"
+	echo ""
+}
+
+main "$@"
