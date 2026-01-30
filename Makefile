@@ -47,9 +47,6 @@ ifndef $(TAG)
 	TAG = $(VERSION)
 endif
 
-# Date tag for versioned snapshots (e.g., 43-20260129)
-DATE_TAG := $(TAG)-$(shell date +%Y%m%d)
-
 ifndef $(SET_AS_LATEST)
 	SET_AS_LATEST = 0
 endif
@@ -203,6 +200,9 @@ ifeq ($(TRUEBLUE),1)
     DO_INSTALL_ZFS := true
 endif
 
+# Date tag for versioned snapshots (e.g., 43-lts-20260130)
+# Must be defined after all variant processing so TAG includes variant suffixes
+DATE_TAG := $(TAG)-$(shell date +%Y%m%d)
 
 
 FULL_TAG := $(IMAGE):$(TAG)
