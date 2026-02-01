@@ -35,9 +35,29 @@ make lima-stop
 
 ## Build Options
 
+### Interactive Configuration
+
+Use `qcow2-config` to interactively configure your qcow2 image:
+
+```bash
+make qcow2-config
+```
+
+This prompts for:
+- Username (default: `immutablue`)
+- Password
+- Wheel group membership (sudo access)
+- SSH public key
+
+For Lima builds, use `LIMA=1` to auto-add your SSH key:
+
+```bash
+make LIMA=1 qcow2-config
+```
+
 ### Basic qcow2 Build
 
-Build a qcow2 without Lima SSH keys (password auth only):
+Build a qcow2 without custom configuration (uses defaults):
 
 ```bash
 make qcow2
@@ -45,9 +65,11 @@ make qcow2
 
 Default credentials: `immutablue` / `immutablue`
 
+If a config exists from `qcow2-config`, it will be used automatically.
+
 ### Lima-enabled qcow2 Build
 
-Build a qcow2 with SSH keys for Lima access:
+Build a qcow2 with SSH keys for Lima access (without running `qcow2-config`):
 
 ```bash
 make LIMA=1 qcow2
@@ -77,7 +99,8 @@ make KUBERBLUE=1 LIMA=1 qcow2
 
 | Target | Description |
 |--------|-------------|
-| `make qcow2` | Build qcow2 image (add `LIMA=1` for SSH key support) |
+| `make qcow2-config` | Interactive configuration for qcow2 (add `LIMA=1` for auto SSH key) |
+| `make qcow2` | Build qcow2 image (uses config if exists, or add `LIMA=1` for SSH key support) |
 | `make lima` | Generate Lima YAML configuration |
 | `make lima-start` | Start the Lima VM |
 | `make lima-shell` | Open a shell in the running VM |
@@ -156,8 +179,12 @@ SSH access: `ssh -p 2222 immutablue@localhost` (password: `immutablue`)
 # Build and push the image
 make build push
 
-# Create qcow2 with Lima support
+# Option A: Quick build with LIMA=1 (auto SSH keys)
 make LIMA=1 qcow2
+
+# Option B: Interactive config first
+make LIMA=1 qcow2-config
+make qcow2
 
 # Start Lima VM
 make lima lima-start
@@ -283,17 +310,30 @@ Setting `plain: true` tells Lima:
 
 ### SSH Key Injection
 
-Since we can't use cloud-init, SSH keys are baked into the qcow2 at build time via the bootc-image-builder config. The `LIMA=1` flag triggers this:
+Since we can't use cloud-init, SSH keys are baked into the qcow2 at build time via the bootc-image-builder config. There are two ways to inject SSH keys:
 
-1. Makefile generates a temporary `config.toml` with your SSH public key
-2. bootc-image-builder creates the qcow2 with the `immutablue` user and your SSH key
-3. Lima can then SSH in using your private key
+**Option A: Interactive configuration**
+1. Run `make qcow2-config` (or `make LIMA=1 qcow2-config` for auto SSH key)
+2. Config is saved to `./images/qcow2/<TAG>/config-<TAG>.toml`
+3. Run `make qcow2` to build using that config
+
+**Option B: LIMA=1 flag (quick method)**
+1. Run `make LIMA=1 qcow2` directly
+2. Makefile generates a temporary `config.toml` with your SSH public key
+3. bootc-image-builder creates the qcow2 with the `immutablue` user and your SSH key
+
+In both cases, Lima can then SSH in using your private key.
 
 ### Image Location
 
 qcow2 images are stored at:
 ```
 ./images/qcow2/<TAG>/qcow2/disk.qcow2
+```
+
+qcow2 configuration files (from `qcow2-config`) are stored at:
+```
+./images/qcow2/<TAG>/config-<TAG>.toml
 ```
 
 Lima configurations are stored at:
