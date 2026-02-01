@@ -195,15 +195,21 @@ dbox_install_all_from_yaml() {
 dbox_install_all() {
     if [ -d "$HOME/bin/export" ]; then rm "${HOME}"/bin/export/*; fi
     dbox_install_all_from_yaml $PACKAGES_FILE
-    for f in $PACKAGES_CUSTOM_FMT; do if [ "$f" != "$PACKAGES_CUSTOM_FMT" ]; then dbox_install_all_from_yaml $f; fi; done
+    for f in $PACKAGES_CUSTOM_FMT; do
+        if [[ -f "$f" ]]; then
+            dbox_install_all_from_yaml "$f"
+        fi
+    done
 }
 
 
 flatpak_config() {
         local flatpaks_yaml="$1"
-        
-	# Remove flathub if its configured
-	sudo flatpak remote-delete flathub --force || true
+
+	# Remove flathub if its configured (suppress error if not present)
+	if flatpak remotes --system 2>/dev/null | grep -q "^flathub"; then
+		sudo flatpak remote-delete flathub --force || true
+	fi
 
 	# Enabling flathub (unfiltered) for --user
 	flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo || true
@@ -234,8 +240,10 @@ flatpak_config() {
 	# Remove system flatpaks (pre-installed)
 	#flatpak remove --system --noninteractive --all
 
-	# Remove Fedora flatpak repo
-	sudo flatpak remote-delete fedora --force || true
+	# Remove Fedora flatpak repo (suppress error if not present)
+	if flatpak remotes --system 2>/dev/null | grep -q "^fedora"; then
+		sudo flatpak remote-delete fedora --force || true
+	fi
 }
 
 
@@ -264,16 +272,24 @@ flatpak_install_all_from_yaml() {
 
 flatpak_install_all() {
     if [ ! -f /opt/immutablue/did_initial_flatpak_install ]
-    then 
+    then
         echo "Doing initial flatpak config"
         flatpak_config $PACKAGES_FILE
-        for f in $PACKAGES_CUSTOM_FMT; do flatpak_config $f; done
+        for f in $PACKAGES_CUSTOM_FMT; do
+            if [[ -f "$f" ]]; then
+                flatpak_config "$f"
+            fi
+        done
         sudo mkdir -p /opt/immutablue
         sudo touch /opt/immutablue/did_initial_flatpak_install
     fi
 
-    flatpak_install_all_from_yaml $PACKAGES_FILE 
-    for f in $PACKAGES_CUSTOM_FMT; do flatpak_install_all_from_yaml $f; done
+    flatpak_install_all_from_yaml $PACKAGES_FILE
+    for f in $PACKAGES_CUSTOM_FMT; do
+        if [[ -f "$f" ]]; then
+            flatpak_install_all_from_yaml "$f"
+        fi
+    done
 }
 
 
@@ -366,9 +382,13 @@ brew_install() {
 
 
 brew_install_all_packages() {
-    brew_install 
+    brew_install
     brew_install_all_from_yaml $PACKAGES_FILE
-    for f in $PACKAGES_CUSTOM_FMT; do brew_install_all_from_yaml $f; done
+    for f in $PACKAGES_CUSTOM_FMT; do
+        if [[ -f "$f" ]]; then
+            brew_install_all_from_yaml "$f"
+        fi
+    done
 }
 
 
@@ -396,7 +416,11 @@ services_unmask_disable_enable_mask_yaml() {
 
 services_unmask_disable_enable_mask_all() {
     services_unmask_disable_enable_mask_yaml "$PACKAGES_FILE"
-    for f in $PACKAGES_CUSTOM_FMT; do services_unmask_disable_enable_mask_yaml "$f"; done
+    for f in $PACKAGES_CUSTOM_FMT; do
+        if [[ -f "$f" ]]; then
+            services_unmask_disable_enable_mask_yaml "$f"
+        fi
+    done
 }
 
 
