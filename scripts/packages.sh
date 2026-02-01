@@ -2,10 +2,20 @@
 # We can get smarter with this later I think
 # but we are expecting to run it from the Makefile
 # so it can be relative to it
-PACKAGES_FILE="./packages.yaml"
-# Custom Pattern
-PACKAGES_CUSTOM_FMT="./packages.custom-*.yaml"
-FLATPAK_REFS_FILE="./flatpak_refs/flatpaks"
+if [[ -f ./packages.yaml ]]
+then 
+    PACKAGES_FILE="./packages.yaml"
+
+    # Custom Pattern
+    PACKAGES_CUSTOM_FMT="./packages.custom-*.yaml"
+    FLATPAK_REFS_FILE="./flatpak_refs/flatpaks"
+else 
+    PACKAGES_FILE="/usr/immutablue/packages.yaml"
+
+    # Custom Pattern
+    PACKAGES_CUSTOM_FMT="/usr/immutablue/packages.custom-*.yaml"
+    FLATPAK_REFS_FILE="/usr/flatpak_refs/flatpaks"
+fi
 
 # Source the common stuff
 source ./scripts/common.sh
