@@ -204,65 +204,102 @@ dbox_install_all() {
 
 
 flatpak_config() {
-        local flatpaks_yaml="$1"
+    local flatpaks_yaml="$1"
 
-	# Remove flathub if its configured (suppress error if not present)
-	if flatpak remotes --system 2>/dev/null | grep -q "^flathub"; then
-		sudo flatpak remote-delete flathub --force || true
-	fi
+    # Verify the YAML file exists
+    if [[ ! -f "$flatpaks_yaml" ]]; then
+        echo "Warning: flatpak config file not found: $flatpaks_yaml"
+        return 0
+    fi
 
-	# Enabling flathub (unfiltered) for --user
-	flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo || true
+    # Remove flathub if its configured on system (suppress error if not present)
+    if flatpak remotes --system 2>/dev/null | grep -q "^flathub"; then
+        sudo flatpak remote-delete flathub --force || true
+    fi
 
-        # Add custom Flatpak Repositories
-        repos=$(cat <(yq '.immutablue.flatpak_repos[].name' < $flatpaks_yaml) <(yq ".immutablue.flatpak_repos_$(uname -m)[].name" < $flatpaks_yaml))
-        if [ "" != "$repos" ]
-        then 
-            for repo in $repos; do  flatpak remote-add --user --if-not-exists "$repo" "$(cat <(yq ".immutablue.flatpak_repos[] | select(.name == \"$repo\").url" < "$flatpaks_yaml") <(yq ".immutablue.flatpak_repos_$(uname -m)[] | select(.name == \"$repo\").url" < "$flatpaks_yaml"))" || true; done
-        fi
+    # Enabling flathub (unfiltered) for --user
+    flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo || true
 
-	# Install GNOME Platform from packages.yaml (flatpaks_runtime section)
-	local gnome_platform
-	gnome_platform=$(yq '.immutablue.flatpaks_runtime[]' < "$flatpaks_yaml" | grep -i "org.gnome.Platform" | head -1)
-	if [[ -n "$gnome_platform" && "$gnome_platform" != "null" ]]; then
-		flatpak install --user --noninteractive "$gnome_platform" || true
-	fi
+    # Add custom Flatpak Repositories
+    # Filter out empty and "null" values from yq output
+    local repos
+    repos=$(cat \
+        <(yq '.immutablue.flatpak_repos[].name // empty' < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpak_repos_$(uname -m)[].name // empty" < "$flatpaks_yaml" 2>/dev/null) \
+        | grep -v '^null$' | grep -v '^$' || true)
 
-	# Replace Fedora flatpaks with flathub ones (if any exist)
-	local fedora_apps
-	fedora_apps=$(flatpak list --app-runtime=org.fedoraproject.Platform --columns=application 2>/dev/null | grep -v '^$')
-	if [[ -n "$fedora_apps" ]]; then
-		for app in $fedora_apps; do
-			flatpak install --user --noninteractive --reinstall flathub "$app" || true
-		done
-	fi
+    if [[ -n "$repos" ]]; then
+        for repo in $repos; do
+            local repo_url
+            repo_url=$(cat \
+                <(yq ".immutablue.flatpak_repos[] | select(.name == \"$repo\").url // empty" < "$flatpaks_yaml" 2>/dev/null) \
+                <(yq ".immutablue.flatpak_repos_$(uname -m)[] | select(.name == \"$repo\").url // empty" < "$flatpaks_yaml" 2>/dev/null) \
+                | grep -v '^null$' | grep -v '^$' | head -1 || true)
+            if [[ -n "$repo_url" ]]; then
+                flatpak remote-add --user --if-not-exists "$repo" "$repo_url" || true
+            fi
+        done
+    fi
 
-	# Remove system flatpaks (pre-installed)
-	#flatpak remove --system --noninteractive --all
+    # Install GNOME Platform from packages.yaml (flatpaks_runtime section)
+    local gnome_platform
+    gnome_platform=$(yq '.immutablue.flatpaks_runtime[] // empty' < "$flatpaks_yaml" 2>/dev/null \
+        | grep -v '^null$' | grep -i "org.gnome.Platform" | head -1 || true)
+    if [[ -n "$gnome_platform" ]]; then
+        flatpak install --user --noninteractive "$gnome_platform" || true
+    fi
 
-	# Remove Fedora flatpak repo (suppress error if not present)
-	if flatpak remotes --system 2>/dev/null | grep -q "^fedora"; then
-		sudo flatpak remote-delete fedora --force || true
-	fi
+    # Replace Fedora flatpaks with flathub ones (if any exist)
+    local fedora_apps
+    fedora_apps=$(flatpak list --app-runtime=org.fedoraproject.Platform --columns=application 2>/dev/null | grep -v '^$' || true)
+    if [[ -n "$fedora_apps" ]]; then
+        for app in $fedora_apps; do
+            flatpak install --user --noninteractive --reinstall flathub "$app" || true
+        done
+    fi
+
+    # Remove Fedora flatpak repo (suppress error if not present)
+    if flatpak remotes --system 2>/dev/null | grep -q "^fedora"; then
+        sudo flatpak remote-delete fedora --force || true
+    fi
 }
 
 
 # Arg is yaml file
 flatpak_install_all_from_yaml() {
-    [ $# -ne 1 ] && echo "echo flatpak_install_all_from_yaml <packages.yaml>" && exit 1
+    [ $# -ne 1 ] && echo "flatpak_install_all_from_yaml <packages.yaml>" && exit 1
     local flatpaks_yaml="$1"
 
-    flatpaks_add=$(cat <(yq '.immutablue.flatpaks[]' < $flatpaks_yaml) <(yq ".immutablue.flatpaks_$(uname -m)[]" < $flatpaks_yaml))
-    flatpaks_rm=$(cat <(yq '.immutablue.flatpaks_rm[]' < $flatpaks_yaml) <(yq ".immutablue.flatpaks_rm_$(uname -m)[]" < $flatpaks_yaml))
-    
-    if [ "" != "$flatpaks_add" ]
-    then 
-        for flatpak in $flatpaks_add; do flatpak --noninteractive --user install "$flatpak" || true; done
+    # Verify the YAML file exists
+    if [[ ! -f "$flatpaks_yaml" ]]; then
+        echo "Warning: flatpak YAML file not found: $flatpaks_yaml"
+        return 0
     fi
 
-    if [ "" != "$flatpaks_rm" ] 
-    then 
-        for flatpak in $flatpaks_rm; do flatpak --noninteractive --user uninstall "$flatpak" || true; done
+    # Get flatpaks to install, filtering out null and empty values
+    local flatpaks_add
+    flatpaks_add=$(cat \
+        <(yq '.immutablue.flatpaks[] // empty' < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_$(uname -m)[] // empty" < "$flatpaks_yaml" 2>/dev/null) \
+        | grep -v '^null$' | grep -v '^$' || true)
+
+    # Get flatpaks to remove, filtering out null and empty values
+    local flatpaks_rm
+    flatpaks_rm=$(cat \
+        <(yq '.immutablue.flatpaks_rm[] // empty' < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_rm_$(uname -m)[] // empty" < "$flatpaks_yaml" 2>/dev/null) \
+        | grep -v '^null$' | grep -v '^$' || true)
+
+    if [[ -n "$flatpaks_add" ]]; then
+        for flatpak in $flatpaks_add; do
+            flatpak --noninteractive --user install "$flatpak" || true
+        done
+    fi
+
+    if [[ -n "$flatpaks_rm" ]]; then
+        for flatpak in $flatpaks_rm; do
+            flatpak --noninteractive --user uninstall "$flatpak" || true
+        done
     fi
 
 
