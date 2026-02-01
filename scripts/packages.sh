@@ -42,7 +42,7 @@ post_install_notes() {
 get_yaml_distrobox_length() {
     [ $# -ne 1 ] && echo "$0 <packages.yaml>" && exit 1
     local packages_yaml="$1"
-    local key=".distrobox[].name"
+    local key=".immutablue.distrobox.all[].name"
     local length
     length="$(yq "${key}" < "$packages_yaml" | wc -l)"
     echo "$length"
@@ -63,8 +63,8 @@ dbox_install_single() {
 
     local packages_yaml="$1"
     local index="$2"
-    local key=".distrobox[${index}]"
-    
+    local key=".immutablue.distrobox.all[${index}]"
+
     # Declare and assign separately to avoid masking return values
     local name
     name="$(yq "${key}.name" < "$packages_yaml")"
@@ -159,10 +159,10 @@ dbox_install_all_from_yaml() {
     dbox_count="$(get_yaml_distrobox_length "$packages_yaml")"
 
     while [ $i -lt $dbox_count ]
-    do 
+    do
         echo "$i"
-        local key=".distrobox[${i}]"
-        
+        local key=".immutablue.distrobox.all[${i}]"
+
         local name
         name="$(yq "${key}.name" < "$packages_yaml")"
         
