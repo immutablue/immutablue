@@ -7,6 +7,7 @@ COPY / /
 FROM quay.io/zachpodbielniak/nautilusopenwithcode:${FEDORA_VERSION} AS nautilusopenwithcode
 FROM quay.io/immutablue/immutablue:${FEDORA_VERSION}-deps as build-deps
 FROM quay.io/immutablue/immutablue:${FEDORA_VERSION}-cyan-deps AS cyan-deps
+FROM quay.io/immutablue/linuxbrew:latest AS linuxbrew
 FROM docker.io/mikefarah/yq AS yq
 
 FROM ghcr.io/ublue-os/config:latest AS ublue-config
@@ -32,6 +33,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     --mount=type=bind,from=ublue-config,src=/rpms,dst=/mnt-ublue-config \
     --mount=type=bind,from=cyan-deps,src=/rpms,dst=/mnt-cyan-deps \
     --mount=type=bind,from=build-deps,src=/build,dst=/mnt-build-deps \
+    --mount=type=bind,from=linuxbrew,src=/,dst=/mnt-linuxbrew \
     set -eux && \
     ls -l /mnt-ctx/build && \
     for script in /mnt-ctx/build/*.sh; do bash < "$script"; if [[ $? -ne 0 ]]; then echo "ERROR: $script failed" && exit 1; fi; done && \

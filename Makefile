@@ -230,10 +230,10 @@ all: build test push
 all_upgrade: all update
 
 ifeq ($(REBOOT),1)
-install_targets := install_brew install_distrobox install_flatpak post_install post_install_notes reboot
+install_targets := install_brew install_flatpak post_install post_install_notes reboot
 upgrade: rpmostree_upgrade reboot
-else 
-install_targets := install_brew install_distrobox install_flatpak post_install post_install_notes
+else
+install_targets := install_brew install_flatpak post_install post_install_notes
 upgrade: rpmostree_upgrade
 endif
 

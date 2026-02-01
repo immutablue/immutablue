@@ -413,13 +413,9 @@ brew_install_all_from_yaml() {
 }
 
 
-brew_install() {
-    CI=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-}
-
-
 brew_install_all_packages() {
-    brew_install
+    # Brew is set up by linuxbrew-setup.service on first boot
+    # This function just installs packages from YAML configs
     brew_install_all_from_yaml $PACKAGES_FILE
     for f in $PACKAGES_CUSTOM_FMT; do
         if [[ -f "$f" ]]; then

@@ -264,6 +264,9 @@ immutablue:
     - immutablue-daily.timer
     - immutablue-weekly.timer
     - immutablue-monthly.timer
+    - linuxbrew-setup.service
+    - linuxbrew-update.timer
+    - linuxbrew-upgrade.timer
     # See /usr/libexec/immutablue/system/on_boot/00-on_boot
     # Quadlets are not recognized in the build stage
     # - immutablue-docs.container
