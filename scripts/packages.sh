@@ -485,6 +485,7 @@ brew_install_all_from_yaml() {
     fi
 
     # Assume `brew` is not in $PATH yet
+    local brew_cmd
     brew_cmd="/var/home/linuxbrew/.linuxbrew/bin/brew"
 
     if [ "" != "$brew_add" ]
