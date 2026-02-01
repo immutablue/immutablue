@@ -247,20 +247,20 @@ flatpak_config() {
     # Query both .all[] and .${version}[] entries, plus arch-specific variants
     local repos
     repos=$(cat \
-        <(yq '.immutablue.flatpak_repos.all[].name // empty' < "$flatpaks_yaml" 2>/dev/null) \
-        <(yq ".immutablue.flatpak_repos.${version}[].name // empty" < "$flatpaks_yaml" 2>/dev/null) \
-        <(yq ".immutablue.flatpak_repos_${arch}.all[].name // empty" < "$flatpaks_yaml" 2>/dev/null) \
-        <(yq ".immutablue.flatpak_repos_${arch}.${version}[].name // empty" < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq '.immutablue.flatpak_repos.all[].name' < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpak_repos.${version}[].name" < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpak_repos_${arch}.all[].name" < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpak_repos_${arch}.${version}[].name" < "$flatpaks_yaml" 2>/dev/null) \
         | grep -v '^null$' | grep -v '^$' || true)
 
     if [[ -n "$repos" ]]; then
         for repo in $repos; do
             local repo_url
             repo_url=$(cat \
-                <(yq ".immutablue.flatpak_repos.all[] | select(.name == \"$repo\").url // empty" < "$flatpaks_yaml" 2>/dev/null) \
-                <(yq ".immutablue.flatpak_repos.${version}[] | select(.name == \"$repo\").url // empty" < "$flatpaks_yaml" 2>/dev/null) \
-                <(yq ".immutablue.flatpak_repos_${arch}.all[] | select(.name == \"$repo\").url // empty" < "$flatpaks_yaml" 2>/dev/null) \
-                <(yq ".immutablue.flatpak_repos_${arch}.${version}[] | select(.name == \"$repo\").url // empty" < "$flatpaks_yaml" 2>/dev/null) \
+                <(yq ".immutablue.flatpak_repos.all[] | select(.name == \"$repo\").url" < "$flatpaks_yaml" 2>/dev/null) \
+                <(yq ".immutablue.flatpak_repos.${version}[] | select(.name == \"$repo\").url" < "$flatpaks_yaml" 2>/dev/null) \
+                <(yq ".immutablue.flatpak_repos_${arch}.all[] | select(.name == \"$repo\").url" < "$flatpaks_yaml" 2>/dev/null) \
+                <(yq ".immutablue.flatpak_repos_${arch}.${version}[] | select(.name == \"$repo\").url" < "$flatpaks_yaml" 2>/dev/null) \
                 | grep -v '^null$' | grep -v '^$' | head -1 || true)
             if [[ -n "$repo_url" ]]; then
                 flatpak remote-add --user --if-not-exists "$repo" "$repo_url" || true
@@ -272,8 +272,8 @@ flatpak_config() {
     # Query both .all[] and .${version}[] entries
     local gnome_platform
     gnome_platform=$(cat \
-        <(yq '.immutablue.flatpaks_runtime.all[] // empty' < "$flatpaks_yaml" 2>/dev/null) \
-        <(yq ".immutablue.flatpaks_runtime.${version}[] // empty" < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq '.immutablue.flatpaks_runtime.all[]' < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_runtime.${version}[]" < "$flatpaks_yaml" 2>/dev/null) \
         | grep -v '^null$' | grep -i "org.gnome.Platform" | head -1 || true)
     if [[ -n "$gnome_platform" ]]; then
         flatpak install --user --noninteractive "$gnome_platform" || true
@@ -315,19 +315,19 @@ flatpak_install_all_from_yaml() {
     # Get flatpaks to install from all sections (both .all[] and .${version}[])
     local flatpaks_add
     flatpaks_add=$(cat \
-        <(yq '.immutablue.flatpaks.all[] // empty' < "$flatpaks_yaml" 2>/dev/null) \
-        <(yq ".immutablue.flatpaks.${version}[] // empty" < "$flatpaks_yaml" 2>/dev/null) \
-        <(yq ".immutablue.flatpaks_${arch}.all[] // empty" < "$flatpaks_yaml" 2>/dev/null) \
-        <(yq ".immutablue.flatpaks_${arch}.${version}[] // empty" < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq '.immutablue.flatpaks.all[]' < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks.${version}[]" < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_${arch}.all[]" < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_${arch}.${version}[]" < "$flatpaks_yaml" 2>/dev/null) \
         | grep -v '^null$' | grep -v '^$' || true)
 
     # Get flatpaks to remove from all sections (both .all[] and .${version}[])
     local flatpaks_rm
     flatpaks_rm=$(cat \
-        <(yq '.immutablue.flatpaks_rm.all[] // empty' < "$flatpaks_yaml" 2>/dev/null) \
-        <(yq ".immutablue.flatpaks_rm.${version}[] // empty" < "$flatpaks_yaml" 2>/dev/null) \
-        <(yq ".immutablue.flatpaks_rm_${arch}.all[] // empty" < "$flatpaks_yaml" 2>/dev/null) \
-        <(yq ".immutablue.flatpaks_rm_${arch}.${version}[] // empty" < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq '.immutablue.flatpaks_rm.all[]' < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_rm.${version}[]" < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_rm_${arch}.all[]" < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_rm_${arch}.${version}[]" < "$flatpaks_yaml" 2>/dev/null) \
         | grep -v '^null$' | grep -v '^$' || true)
 
     if [[ -n "$flatpaks_add" ]]; then
@@ -380,17 +380,17 @@ flatpak_make_refs() {
     # Query both .all[] and .${version}[] entries for flatpaks
     local apps
     apps=$(cat \
-        <(yq '.immutablue.flatpaks.all[] // empty' < "$PACKAGES_FILE" 2>/dev/null) \
-        <(yq ".immutablue.flatpaks.${version}[] // empty" < "$PACKAGES_FILE" 2>/dev/null) \
-        <(yq ".immutablue.flatpaks_${arch}.all[] // empty" < "$PACKAGES_FILE" 2>/dev/null) \
-        <(yq ".immutablue.flatpaks_${arch}.${version}[] // empty" < "$PACKAGES_FILE" 2>/dev/null) \
+        <(yq '.immutablue.flatpaks.all[]' < "$PACKAGES_FILE" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks.${version}[]" < "$PACKAGES_FILE" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_${arch}.all[]" < "$PACKAGES_FILE" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_${arch}.${version}[]" < "$PACKAGES_FILE" 2>/dev/null) \
         | grep -v '^null$' | grep -v '^$' || true)
 
     # Query both .all[] and .${version}[] entries for runtimes
     local runtimes
     runtimes=$(cat \
-        <(yq '.immutablue.flatpaks_runtime.all[] // empty' < "$PACKAGES_FILE" 2>/dev/null) \
-        <(yq ".immutablue.flatpaks_runtime.${version}[] // empty" < "$PACKAGES_FILE" 2>/dev/null) \
+        <(yq '.immutablue.flatpaks_runtime.all[]' < "$PACKAGES_FILE" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_runtime.${version}[]" < "$PACKAGES_FILE" 2>/dev/null) \
         | grep -v '^null$' | grep -v '^$' || true)
 
     for app in $apps; do printf "app/%s/%s/stable\n" "$app" "${arch}" >> "$FLATPAK_REFS_FILE"; done
@@ -412,10 +412,24 @@ brew_install_all_from_yaml() {
         source "/usr/libexec/immutablue/immutablue-header.sh"
     fi
 
-    # Start with base packages (filter out "null" from yq when section doesn't exist)
-    brew_add=$(yq '.brew.install[]' < $brew_yaml 2>/dev/null | grep -v '^null$')
-    brew_rm=$(yq '.brew.uninstall[]' < $brew_yaml 2>/dev/null | grep -v '^null$')
-    
+    # Get version for version-specific queries (e.g., 42, 43)
+    local version
+    version=$(immutablue_get_image_version 2>/dev/null || echo "")
+
+    # Start with base packages - query both .all[] and .${version}[]
+    # Using correct path: .immutablue.brew.install.all[] and .immutablue.brew.install.${version}[]
+    local brew_add
+    brew_add=$(cat \
+        <(yq '.immutablue.brew.install.all[]' < "$brew_yaml" 2>/dev/null) \
+        <(yq ".immutablue.brew.install.${version}[]" < "$brew_yaml" 2>/dev/null) \
+        | grep -v '^null$' | grep -v '^$' || true)
+
+    local brew_rm
+    brew_rm=$(cat \
+        <(yq '.immutablue.brew.uninstall.all[]' < "$brew_yaml" 2>/dev/null) \
+        <(yq ".immutablue.brew.uninstall.${version}[]" < "$brew_yaml" 2>/dev/null) \
+        | grep -v '^null$' | grep -v '^$' || true)
+
     # Add variant-specific packages for all detected variants
     if [[ -f "/usr/immutablue/build_options" ]]
     then
@@ -423,12 +437,20 @@ brew_install_all_from_yaml() {
         if type get_immutablue_build_options >/dev/null 2>&1; then
             while read -r option
             do
-                # Try to get variant-specific packages for this option (filter out "null")
+                # Try to get variant-specific packages for this option
+                # Query both .all[] and .${version}[] for the variant
                 local variant_add
-                variant_add=$(yq ".brew.install_${option}[]" < $brew_yaml 2>/dev/null | grep -v '^null$')
+                variant_add=$(cat \
+                    <(yq ".immutablue.brew.install_${option}.all[]" < "$brew_yaml" 2>/dev/null) \
+                    <(yq ".immutablue.brew.install_${option}.${version}[]" < "$brew_yaml" 2>/dev/null) \
+                    | grep -v '^null$' | grep -v '^$' || true)
+
                 local variant_rm
-                variant_rm=$(yq ".brew.uninstall_${option}[]" < $brew_yaml 2>/dev/null | grep -v '^null$')
-                
+                variant_rm=$(cat \
+                    <(yq ".immutablue.brew.uninstall_${option}.all[]" < "$brew_yaml" 2>/dev/null) \
+                    <(yq ".immutablue.brew.uninstall_${option}.${version}[]" < "$brew_yaml" 2>/dev/null) \
+                    | grep -v '^null$' | grep -v '^$' || true)
+
                 # Add to the main lists (handles multiple variants automatically)
                 [[ -n "$variant_add" ]] && brew_add="$brew_add $variant_add"
                 [[ -n "$variant_rm" ]] && brew_rm="$brew_rm $variant_rm"
@@ -438,32 +460,40 @@ brew_install_all_from_yaml() {
             local build_options
             build_options="$(cat /usr/immutablue/build_options)"
             IFS=',' read -ra option_array <<< "${build_options}"
-            
+
             for option in "${option_array[@]}"
             do
-                # Try to get variant-specific packages for this option (filter out "null")
+                # Try to get variant-specific packages for this option
+                # Query both .all[] and .${version}[] for the variant
                 local variant_add
-                variant_add=$(yq ".brew.install_${option}[]" < $brew_yaml 2>/dev/null | grep -v '^null$')
+                variant_add=$(cat \
+                    <(yq ".immutablue.brew.install_${option}.all[]" < "$brew_yaml" 2>/dev/null) \
+                    <(yq ".immutablue.brew.install_${option}.${version}[]" < "$brew_yaml" 2>/dev/null) \
+                    | grep -v '^null$' | grep -v '^$' || true)
+
                 local variant_rm
-                variant_rm=$(yq ".brew.uninstall_${option}[]" < $brew_yaml 2>/dev/null | grep -v '^null$')
-                
+                variant_rm=$(cat \
+                    <(yq ".immutablue.brew.uninstall_${option}.all[]" < "$brew_yaml" 2>/dev/null) \
+                    <(yq ".immutablue.brew.uninstall_${option}.${version}[]" < "$brew_yaml" 2>/dev/null) \
+                    | grep -v '^null$' | grep -v '^$' || true)
+
                 # Add to the main lists (handles multiple variants automatically)
                 [[ -n "$variant_add" ]] && brew_add="$brew_add $variant_add"
                 [[ -n "$variant_rm" ]] && brew_rm="$brew_rm $variant_rm"
             done
         fi
     fi
-    
+
     # Assume `brew` is not in $PATH yet
     export PATH="$HOME/../linuxbrew/.linuxbrew/bin:$PATH"
 
     if [ "" != "$brew_add" ]
-    then 
+    then
         brew install $(for pkg in $brew_add; do printf '%s ' "$pkg"; done)
     fi
 
-    if [ "" != "$brew_rm" ] 
-    then 
+    if [ "" != "$brew_rm" ]
+    then
         brew uninstall $(for pkg in $brew_rm; do printf '%s ' "$pkg"; done) || true
     fi
 }
@@ -493,34 +523,34 @@ services_unmask_disable_enable_mask_yaml() {
     # Query both .all[] and .${version}[] entries for each service section
     local enable
     enable="$(cat \
-        <(yq '.immutablue.services_enable_user.all[] // empty' < "${svc_yaml}" 2>/dev/null) \
-        <(yq ".immutablue.services_enable_user.${version}[] // empty" < "${svc_yaml}" 2>/dev/null) \
-        <(yq ".immutablue.services_enable_user_${arch}.all[] // empty" < "${svc_yaml}" 2>/dev/null) \
-        <(yq ".immutablue.services_enable_user_${arch}.${version}[] // empty" < "${svc_yaml}" 2>/dev/null) \
+        <(yq '.immutablue.services_enable_user.all[]' < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_enable_user.${version}[]" < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_enable_user_${arch}.all[]" < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_enable_user_${arch}.${version}[]" < "${svc_yaml}" 2>/dev/null) \
         | grep -v '^null$' | grep -v '^$' || true)"
 
     local disable
     disable="$(cat \
-        <(yq '.immutablue.services_disable_user.all[] // empty' < "${svc_yaml}" 2>/dev/null) \
-        <(yq ".immutablue.services_disable_user.${version}[] // empty" < "${svc_yaml}" 2>/dev/null) \
-        <(yq ".immutablue.services_disable_user_${arch}.all[] // empty" < "${svc_yaml}" 2>/dev/null) \
-        <(yq ".immutablue.services_disable_user_${arch}.${version}[] // empty" < "${svc_yaml}" 2>/dev/null) \
+        <(yq '.immutablue.services_disable_user.all[]' < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_disable_user.${version}[]" < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_disable_user_${arch}.all[]" < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_disable_user_${arch}.${version}[]" < "${svc_yaml}" 2>/dev/null) \
         | grep -v '^null$' | grep -v '^$' || true)"
 
     local mask
     mask="$(cat \
-        <(yq '.immutablue.services_mask_user.all[] // empty' < "${svc_yaml}" 2>/dev/null) \
-        <(yq ".immutablue.services_mask_user.${version}[] // empty" < "${svc_yaml}" 2>/dev/null) \
-        <(yq ".immutablue.services_mask_user_${arch}.all[] // empty" < "${svc_yaml}" 2>/dev/null) \
-        <(yq ".immutablue.services_mask_user_${arch}.${version}[] // empty" < "${svc_yaml}" 2>/dev/null) \
+        <(yq '.immutablue.services_mask_user.all[]' < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_mask_user.${version}[]" < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_mask_user_${arch}.all[]" < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_mask_user_${arch}.${version}[]" < "${svc_yaml}" 2>/dev/null) \
         | grep -v '^null$' | grep -v '^$' || true)"
 
     local unmask
     unmask="$(cat \
-        <(yq '.immutablue.services_unmask_user.all[] // empty' < "${svc_yaml}" 2>/dev/null) \
-        <(yq ".immutablue.services_unmask_user.${version}[] // empty" < "${svc_yaml}" 2>/dev/null) \
-        <(yq ".immutablue.services_unmask_user_${arch}.all[] // empty" < "${svc_yaml}" 2>/dev/null) \
-        <(yq ".immutablue.services_unmask_user_${arch}.${version}[] // empty" < "${svc_yaml}" 2>/dev/null) \
+        <(yq '.immutablue.services_unmask_user.all[]' < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_unmask_user.${version}[]" < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_unmask_user_${arch}.all[]" < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_unmask_user_${arch}.${version}[]" < "${svc_yaml}" 2>/dev/null) \
         | grep -v '^null$' | grep -v '^$' || true)"
 
     systemctl --user daemon-reload || true
