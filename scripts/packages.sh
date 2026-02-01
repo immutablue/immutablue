@@ -485,16 +485,16 @@ brew_install_all_from_yaml() {
     fi
 
     # Assume `brew` is not in $PATH yet
-    export PATH="$HOME/../linuxbrew/.linuxbrew/bin:$PATH"
+    brew_cmd="/var/home/linuxbrew/.linuxbrew/bin/brew"
 
     if [ "" != "$brew_add" ]
     then
-        brew install $(for pkg in $brew_add; do printf '%s ' "$pkg"; done)
+        ${brew_cmd} install $(for pkg in $brew_add; do printf '%s ' "$pkg"; done) || true
     fi
 
     if [ "" != "$brew_rm" ]
     then
-        brew uninstall $(for pkg in $brew_rm; do printf '%s ' "$pkg"; done) || true
+        ${brew_cmd} uninstall $(for pkg in $brew_rm; do printf '%s ' "$pkg"; done) || true
     fi
 }
 
