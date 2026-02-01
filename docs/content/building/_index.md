@@ -12,6 +12,8 @@ This section covers the architecture of Immutablue and how to create custom buil
 - [Architecture](architecture/) - System architecture and design principles
 - [Build Reference](build-reference/) - Build system technical reference
 - [ISO Generation](iso-generation/) - Generate bootable ISO images
+- [Raw Image Generation](raw-generation/) - Generate raw disk images for USB/cloud
+- [Cloud Images](cloud-images/) - Generate AMI, GCE, VHD, and VMDK images
 - [Customization Guide](customization/) - Create your own Immutablue variant
 - [Build Scripts](build-scripts/) - Understanding the build script structure
 - [Testing](testing/) - Testing framework and validation

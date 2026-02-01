@@ -1,4 +1,10 @@
 iso
+raw
+ami
+gce
+vhd
+vmdk
+anaconda-iso
 flatpak_refs
 sbom
 .lima
