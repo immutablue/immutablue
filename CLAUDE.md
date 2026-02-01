@@ -13,6 +13,16 @@ Immutablue is an easy, modular, and customizable implementation of a base Fedora
 - Modular variant system (Cyan for NVIDIA, Asahi for Apple Silicon, etc.)
 - YAML-based configuration (`settings.yaml`, `packages.yaml`)
 
+## Repository Setup
+
+This repo uses git submodules. After cloning, initialize them recursively:
+
+```bash
+git submodule update --init --recursive
+```
+
+This is required for the Hugo docs theme (`docs/themes/hugo-book`).
+
 ## Build Commands
 
 ### Basic Build
