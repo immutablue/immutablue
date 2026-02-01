@@ -178,9 +178,9 @@ Alternatively, decompress and write in one step using `zstdcat`:
 zstdcat ./raw/immutablue-43.img.zst | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
 ```
 
-{{% notice warning %}}
+{{< hint warning >}}
 **Warning:** `dd` will overwrite the target device without confirmation. Double-check you have the correct device before running the command!
-{{% /notice %}}
+{{< /hint >}}
 
 ## Cloud Provider Usage
 
@@ -210,9 +210,9 @@ gcloud compute images create immutablue-43 \
   --source-uri=gs://your-bucket/immutablue-43.raw.gz
 ```
 
-{{% notice tip %}}
+{{< hint info >}}
 For cloud deployments, consider using the dedicated cloud image formats instead: `make ami` for AWS, `make gce` for Google Cloud. See [Cloud Images](../cloud-images/) for details.
-{{% /notice %}}
+{{< /hint >}}
 
 ## Complete Workflow Example
 

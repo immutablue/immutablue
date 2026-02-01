@@ -102,9 +102,9 @@ aws ec2 import-image \
   --disk-containers "Format=raw,UserBucket={S3Bucket=your-bucket,S3Key=immutablue-43.ami.raw}"
 ```
 
-{{% notice note %}}
+{{< hint info >}}
 AWS import requires the [vmimport service role](https://docs.aws.amazon.com/vm-import/latest/userguide/required-permissions.html) configured on your account.
-{{% /notice %}}
+{{< /hint >}}
 
 ---
 
