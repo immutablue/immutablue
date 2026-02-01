@@ -488,6 +488,14 @@ brew_install_all_from_yaml() {
     local brew_cmd
     brew_cmd="/var/home/linuxbrew/.linuxbrew/bin/brew"
 
+    local set_home
+    set_home=0
+    if [[ -z ${HOME} ]]
+    then 
+        HOME="/var/home/$(id -n -u 1000)"
+        set_home=1
+    fi
+
     if [ "" != "$brew_add" ]
     then
         ${brew_cmd} install $(for pkg in $brew_add; do printf '%s ' "$pkg"; done) || true
@@ -496,6 +504,11 @@ brew_install_all_from_yaml() {
     if [ "" != "$brew_rm" ]
     then
         ${brew_cmd} uninstall $(for pkg in $brew_rm; do printf '%s ' "$pkg"; done) || true
+    fi
+
+    if [[ 1 -eq ${set_home} ]]
+    then 
+        unset HOME 
     fi
 }
 
