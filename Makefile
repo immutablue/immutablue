@@ -456,6 +456,7 @@ _iso_bootc:
 	mv $(ISO_BUILD_DIR)/bootiso/install.iso $(ISO_OUTPUT)
 	@# Cleanup build directory
 	rm -rf $(ISO_BUILD_DIR)
+	sha256sum $(ISO_OUTPUT) > "$(ISO_OUTPUT).CHECKSUM"
 	@echo ""
 	@echo "ISO built: $(ISO_OUTPUT)"
 	@if [ -f "$(ISO_CONFIG)" ]; then \
