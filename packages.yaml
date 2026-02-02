@@ -341,7 +341,7 @@ immutablue:
   distrobox:
     all:
     - name: util
-      image: quay.io/immutablue/dbox-fedora:42
+      image: quay.io/immutablue/dbox-fedora:43
       root: false
       additional_flags_x86_64:
       - -v /var/home/linuxbrew:/var/home/linuxbrew
@@ -366,7 +366,7 @@ immutablue:
       - git
 
     - name: dev
-      image: quay.io/immutablue/dbox-fedora:42
+      image: quay.io/immutablue/dbox-fedora:43
       root: false
       additional_flags_x86_64:
       - -v /var/home/linuxbrew:/var/home/linuxbrew
