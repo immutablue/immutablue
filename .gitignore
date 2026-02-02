@@ -13,3 +13,4 @@ docs/.hugo_build.lock
 __pycache__/
 trees/
 images/
+distroless-images/

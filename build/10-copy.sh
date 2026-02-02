@@ -1,6 +1,9 @@
-#!/bin/bash 
-set -euxo pipefail 
+#!/bin/bash
+set -euxo pipefail
 
+# Define TRUE/FALSE early (before immutablue-header.sh is available)
+TRUE=1
+FALSE=0
 
 mkdir -p "${INSTALL_DIR}"
 cp -a /mnt-ctx/. "${INSTALL_DIR}/"
@@ -11,12 +14,36 @@ echo "${IMMUTABLUE_BUILD_OPTIONS}" > "${INSTALL_DIR}/build_options"
 # things depend on 'yq' heavily for build, so copy it early
 cp /mnt-yq/yq /usr/bin/yq
 
-mkdir -p /usr/lib64/nautilus/extensions-4
-cp /mnt-nautilusopenwithcode/libnautilus-open-with-code.so /usr/lib64/nautilus/extensions-4/libnautilus-open-with-code.so
-cp /mnt-build-deps/blue2go/blue2go /usr/bin/blue2go
-cp /mnt-build-deps/cigar/src/cigar /usr/bin/cigar
+# -----------------------------------
+# Distroless: Copy development tools from devel stage
+# -----------------------------------
+if [[ -d "/mnt-devel-rootfs" ]] && [[ -n "$(ls -A /mnt-devel-rootfs 2>/dev/null)" ]]; then
+    echo "=== Copying distroless devel rootfs ==="
+    cp -avn /mnt-devel-rootfs/. / 2>/dev/null || true
+    echo "Devel rootfs copied"
+fi
+
+# -----------------------------------
+# Copy build artifacts (skip some for distroless)
+# -----------------------------------
+
+# Check if this is a distroless build
+IS_DISTROLESS_BUILD="${FALSE}"
+if echo "${IMMUTABLUE_BUILD_OPTIONS}" | grep -q "distroless"; then
+    IS_DISTROLESS_BUILD="${TRUE}"
+fi
+
+# Nautilus extension (skip for distroless - may not have nautilus)
+if [[ "${IS_DISTROLESS_BUILD}" == "${FALSE}" ]] || [[ -d "/usr/lib64/nautilus" ]]; then
+    mkdir -p /usr/lib64/nautilus/extensions-4
+    cp /mnt-nautilusopenwithcode/libnautilus-open-with-code.so /usr/lib64/nautilus/extensions-4/libnautilus-open-with-code.so 2>/dev/null || true
+fi
+
+# Build tools (copy if available)
+cp /mnt-build-deps/blue2go/blue2go /usr/bin/blue2go 2>/dev/null || true
+cp /mnt-build-deps/cigar/src/cigar /usr/bin/cigar 2>/dev/null || true
 # cp /mnt-build-deps/cpak/cpak /usr/bin/cpak
-cp /mnt-build-deps/zapper/zapper /usr/bin/zapper
+cp /mnt-build-deps/zapper/zapper /usr/bin/zapper 2>/dev/null || true
 
 # the sourcing must come after we bootstrap the above
 if [[ -f "${INSTALL_DIR}/build/99-common.sh" ]]; then source "${INSTALL_DIR}/build/99-common.sh"; fi

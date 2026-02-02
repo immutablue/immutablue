@@ -43,15 +43,38 @@ get_immutablue_build_options() {
 
 is_option_in_build_options() {
     local option="$1"
-    IFS=',' read -ra entry_array <<< "${IMMUTABLUE_BUILD_OPTIONS}" 
+    IFS=',' read -ra entry_array <<< "${IMMUTABLUE_BUILD_OPTIONS}"
     for entry in "${entry_array[@]}"
     do
         if [[ "${option}" == "${entry}" ]]
-        then 
+        then
             echo "${TRUE}"
             return 0
         fi
-    done 
+    done
+    echo "${FALSE}"
+}
+
+# Check if a specific item should be skipped during build
+# Uses the SKIP environment variable which is a CSV list (e.g., SKIP=hugo,tests,docs)
+# param $1: The item to check for (e.g., "hugo", "tests")
+# returns: TRUE if the item should be skipped, FALSE otherwise
+is_skipped() {
+    local item="$1"
+    if [[ -z "${SKIP:-}" ]]
+    then
+        echo "${FALSE}"
+        return 0
+    fi
+    IFS=',' read -ra skip_array <<< "${SKIP}"
+    for entry in "${skip_array[@]}"
+    do
+        if [[ "${item}" == "${entry}" ]]
+        then
+            echo "${TRUE}"
+            return 0
+        fi
+    done
     echo "${FALSE}"
 }
 
