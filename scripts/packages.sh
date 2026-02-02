@@ -488,36 +488,27 @@ brew_install_all_from_yaml() {
     local brew_cmd
     brew_cmd="/var/home/linuxbrew/.linuxbrew/bin/brew"
 
-    local tmp_home
-    if [[ -z ${HOME} ]]
-    then 
-        tmp_home="/var/home/$(id -n -u 1000)"
-    fi
 
     if [ "" != "$brew_add" ]
     then
-        if [[ -z ${tmp_home} ]]
+        if [[ -z ${HOME} ]]
         then 
-            ${brew_cmd} install $(for pkg in $brew_add; do printf '%s ' "$pkg"; done) || true
+            su -c "${brew_cmd} install $(for pkg in $brew_add; do printf '%s ' "$pkg"; done) || true" $(id -n -u 1000)
         else 
-            HOME="${tmp_home}" ${brew_cmd} install $(for pkg in $brew_add; do printf '%s ' "$pkg"; done) || true
+            ${brew_cmd} install $(for pkg in $brew_add; do printf '%s ' "$pkg"; done) || true
         fi
     fi
 
     if [ "" != "$brew_rm" ]
     then
-        if [[ -z ${tmp_home} ]]
+        if [[ -z ${HOME} ]]
         then 
-            ${brew_cmd} uninstall $(for pkg in $brew_rm; do printf '%s ' "$pkg"; done) || true
+            su -c "${brew_cmd} uninstall $(for pkg in $brew_rm; do printf '%s ' "$pkg"; done) || true" $(id -n -u 1000)
         else 
-            HOME="${tmp_home}" ${brew_cmd} uninstall $(for pkg in $brew_rm; do printf '%s ' "$pkg"; done) || true
+            ${brew_cmd} uninstall $(for pkg in $brew_rm; do printf '%s ' "$pkg"; done) || true
         fi
     fi
 
-    if [[ -z "${tmp_home}" ]]
-    then 
-        unset tmp_home
-    fi
 }
 
 
