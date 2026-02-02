@@ -37,8 +37,13 @@ fi
 # set /etc/immutablue/setup to world-writable
 chmod -R 777 /etc/immutablue/setup
 
-# build hugo files
-bash -c "cd /usr/immutablue/docs && hugo build"
+# build hugo files (skip if is_skipped hugo or if docs submodule is not initialized)
+if [[ "$(is_skipped hugo)" == "${FALSE}" ]] && [[ -d "/usr/immutablue/docs/content" ]]
+then
+    bash -c "cd /usr/immutablue/docs && hugo build"
+else
+    echo "Skipping Hugo build (SKIP=${SKIP:-} or docs not initialized)"
+fi
 
 # remove debug modules
  rm -rf /usr/lib/modules/*+debug

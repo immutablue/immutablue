@@ -111,6 +111,19 @@ immutablue:
     all: []
   rpm_bazzite:
     all: []
+
+  # Distroless builds use GNOME OS base and don't use rpm-ostree/dnf
+  # Packages are either pre-compiled in the devel stage or downloaded as static binaries
+  # These entries are placeholders for consistency
+  rpm_distroless:
+    all: []
+  rpm_rm_distroless:
+    all: []
+
+  # Services to enable for distroless builds
+  services_enable_sys_distroless:
+    all: []
+
   rpm_build_a_blue_workshop:
     all:
     - nodejs-npm

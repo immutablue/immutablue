@@ -28,6 +28,13 @@ ifndef $(SKIP_TEST)
 	SKIP_TEST := 0
 endif
 
+# Skip specific build steps (CSV list)
+# Usage: make build SKIP=hugo
+#        make build SKIP=hugo,tests
+ifndef $(SKIP)
+	SKIP :=
+endif
+
 
 ifndef $(PLATFORM)
 	PLATFORM := linux/amd64 
@@ -130,6 +137,32 @@ ifeq ($(BAZZITE),1)
 	BUILD_OPTIONS := gui,bazzite
 endif
 
+# Distroless build using GNOME OS base
+# Minimal system with only essential components
+# Similar to ublue's Dakota project
+ifeq ($(DISTROLESS),1)
+	GUI_FLAVOR := distroless
+	# GNOME OS nightly is the base for distroless builds
+	# Note: GNOME OS doesn't use version tags like Fedora, so we set the full image:tag here
+	BASE_IMAGE := quay.io/gnome_infrastructure/gnome-build-meta
+	BASE_IMAGE_TAG := gnomeos-nightly
+	# GNOME OS devel nightly for development tools (gcc, etc.)
+	BASE_IMAGE_DEVEL := quay.io/gnome_infrastructure/gnome-build-meta:gnomeos-devel-nightly
+	TAG := $(TAG)-distroless
+	# Replace everything with distroless + gui
+	BUILD_OPTIONS := gui,distroless
+	VARIANT := None
+	IS_DISTROLESS := true
+else
+	IS_DISTROLESS := false
+	# For non-distroless, BASE_IMAGE_TAG is the Fedora version
+	BASE_IMAGE_TAG := $(VERSION)
+endif
+
+# Default devel image (fedora for non-distroless - has bash and shares layers with silverblue)
+ifndef $(BASE_IMAGE_DEVEL)
+	BASE_IMAGE_DEVEL := registry.fedoraproject.org/fedora:latest
+endif
 
 
 # Build-time customizations from build options
@@ -212,8 +245,20 @@ FULL_TAG := $(IMAGE):$(TAG)
 	install_distrobox install_flatpak install_brew \
 	post_install_notes test test_container test_container_qemu test_artifacts test_shellcheck test_setup \
 	test_kuberblue_container test_kuberblue_cluster test_kuberblue_components test_kuberblue_integration test_kuberblue_security test_kuberblue test_kuberblue_chainsaw test_chainsaw \
-	sbom qcow2 run_qcow2 lima lima-start lima-shell lima-stop lima-delete run_iso run_iso_qemu run_raw run_raw_qemu push_raw push_ami push_gce push_vhd push_vmdk
+	sbom qcow2 run_qcow2 lima lima-start lima-shell lima-stop lima-delete run_iso run_iso_qemu run_raw run_raw_qemu push_raw push_ami push_gce push_vhd push_vmdk \
+	_check_not_distroless distroless-img run-distroless-img distroless-qcow2 distroless-clean
 
+# Guard target for bootc-image-builder operations
+# bootc-image-builder requires dnf which distroless/GNOME OS does not have
+_check_not_distroless:
+ifeq ($(DISTROLESS),1)
+	@echo "ERROR: This target is not supported for distroless builds."
+	@echo "bootc-image-builder requires dnf which GNOME OS does not have."
+	@echo ""
+	@echo "For distroless, use the container image directly with:"
+	@echo "  podman run -it $(IMAGE):$(TAG)"
+	@exit 1
+endif
 
 list:
 	@LC_ALL=C $(MAKE) -pRrq -f $(firstword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/(^|\n)# Files(\n|$$)/,/(^|\n)# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | grep -E -v -e '^[^[:alnum:]]' -e '^$@$$'
@@ -282,7 +327,32 @@ push-cyan-deps:
 # Build the Immutablue container image
 # This target first runs pre-build tests (shellcheck) to ensure code quality
 # Pre-tests can be skipped by setting SKIP_TEST=1
+# For distroless builds, use podman with --squash-all to flatten ALL layers including base
+# (buildah's --squash only squashes new layers, not base image layers)
 build: pre_test
+ifeq ($(DISTROLESS),1)
+	sudo podman \
+		build \
+		--format oci \
+		--security-opt label=disable \
+		--squash-all \
+		--ignorefile ./.containerignore \
+		--no-cache \
+		-t $(IMAGE):$(TAG) \
+		-f ./Containerfile \
+		--build-arg=BASE_IMAGE=$(BASE_IMAGE) \
+		--build-arg=BASE_IMAGE_TAG=$(BASE_IMAGE_TAG) \
+		--build-arg=BASE_IMAGE_DEVEL=$(BASE_IMAGE_DEVEL) \
+		--build-arg=IS_DISTROLESS=$(IS_DISTROLESS) \
+		--build-arg=FEDORA_VERSION=$(VERSION) \
+		--build-arg=IMAGE_TAG=$(IMAGE_BASE_TAG):$(TAG) \
+		--build-arg=DO_INSTALL_LTS=$(DO_INSTALL_LTS) \
+		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
+		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS) \
+		--build-arg=IMMUTABLUE_BUILD_OPTIONS=$(BUILD_OPTIONS) \
+		--build-arg=SKIP=$(SKIP)
+	sudo podman tag $(IMAGE):$(TAG) $(IMAGE):$(DATE_TAG)
+else
 	buildah \
 		build \
 		--ignorefile ./.containerignore \
@@ -291,12 +361,17 @@ build: pre_test
 		-t $(IMAGE):$(DATE_TAG) \
 		-f ./Containerfile \
 		--build-arg=BASE_IMAGE=$(BASE_IMAGE) \
+		--build-arg=BASE_IMAGE_TAG=$(BASE_IMAGE_TAG) \
+		--build-arg=BASE_IMAGE_DEVEL=$(BASE_IMAGE_DEVEL) \
+		--build-arg=IS_DISTROLESS=$(IS_DISTROLESS) \
 		--build-arg=FEDORA_VERSION=$(VERSION) \
 		--build-arg=IMAGE_TAG=$(IMAGE_BASE_TAG):$(TAG) \
 		--build-arg=DO_INSTALL_LTS=$(DO_INSTALL_LTS) \
 		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
 		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS) \
-		--build-arg=IMMUTABLUE_BUILD_OPTIONS=$(BUILD_OPTIONS)
+		--build-arg=IMMUTABLUE_BUILD_OPTIONS=$(BUILD_OPTIONS) \
+		--build-arg=SKIP=$(SKIP)
+endif
 
 		
 
@@ -347,7 +422,7 @@ ISO_OUTPUT := $(ISO_DIR)/immutablue-$(TAG).iso
 # Shared bootc-image-builder container (used by iso, raw, and qcow2 targets)
 BOOTC_IMAGE_BUILDER := quay.io/centos-bootc/bootc-image-builder:latest
 
-iso:
+iso: _check_not_distroless
 ifeq ($(CLASSIC_ISO),1)
 	@echo "Building classic ISO using build-container-installer..."
 	$(MAKE) _iso_classic
@@ -622,7 +697,7 @@ raw-config:
 
 # Raw image build target using bootc-image-builder
 # If no user is configured, creates a minimal config (may require console access)
-raw:
+raw: _check_not_distroless
 	@echo "Building raw disk image for $(IMAGE):$(TAG)..."
 	@mkdir -p $(RAW_BUILD_DIR)
 	@# Use existing config or create a minimal one
@@ -795,7 +870,7 @@ ami-config:
 	@echo "Run 'make ami' to build the AMI."
 
 # AMI build target
-ami:
+ami: _check_not_distroless
 	@echo "Building AMI for $(IMAGE):$(TAG)..."
 	@mkdir -p $(AMI_BUILD_DIR)
 	@if [ -f "$(AMI_CONFIG)" ]; then \
@@ -913,7 +988,7 @@ gce-config:
 	@echo "Run 'make gce' to build the GCE image."
 
 # GCE build target
-gce:
+gce: _check_not_distroless
 	@echo "Building GCE image for $(IMAGE):$(TAG)..."
 	@mkdir -p $(GCE_BUILD_DIR)
 	@if [ -f "$(GCE_CONFIG)" ]; then \
@@ -1030,7 +1105,7 @@ vhd-config:
 	@echo "Run 'make vhd' to build the VHD image."
 
 # VHD build target
-vhd:
+vhd: _check_not_distroless
 	@echo "Building VHD image for $(IMAGE):$(TAG)..."
 	@mkdir -p $(VHD_BUILD_DIR)
 	@if [ -f "$(VHD_CONFIG)" ]; then \
@@ -1147,7 +1222,7 @@ vmdk-config:
 	@echo "Run 'make vmdk' to build the VMDK image."
 
 # VMDK build target
-vmdk:
+vmdk: _check_not_distroless
 	@echo "Building VMDK image for $(IMAGE):$(TAG)..."
 	@mkdir -p $(VMDK_BUILD_DIR)
 	@if [ -f "$(VMDK_CONFIG)" ]; then \
@@ -1394,7 +1469,7 @@ qcow2-config:
 	@echo "Configuration saved to: $(QCOW2_CONFIG)"
 	@echo "Run 'make qcow2' to build the qcow2 image."
 
-qcow2:
+qcow2: _check_not_distroless
 	@echo "Building qcow2 VM image for $(IMAGE):$(TAG)..."
 	@mkdir -p $(QCOW2_DIR)
 	@# Use existing config or generate one
@@ -1466,6 +1541,96 @@ run_qcow2:
 		-nic user,hostfwd=tcp::2222-:22 \
 		-nographic \
 		-serial mon:stdio
+
+
+# =============================================================================
+# Distroless Bootable Image Generation
+# =============================================================================
+# These targets use `bootc install to-disk` directly from the container
+# instead of bootc-image-builder (which requires dnf).
+# Based on the approach used by ublue's Dakota project.
+
+DISTROLESS_DIR := ./distroless-images
+DISTROLESS_IMG := $(DISTROLESS_DIR)/bootable-$(TAG).img
+DISTROLESS_IMG_SIZE := 50G
+DISTROLESS_FILESYSTEM := btrfs
+
+# Generate a bootable raw disk image for distroless builds
+# Uses bootc install to-filesystem with manual partition setup
+# (bootc install to-disk requires bootupd which GNOME OS doesn't have)
+# Usage: make DISTROLESS=1 distroless-img
+distroless-img:
+ifneq ($(DISTROLESS),1)
+	@echo "ERROR: distroless-img target requires DISTROLESS=1"
+	@echo "Usage: make DISTROLESS=1 distroless-img"
+	@exit 1
+endif
+	@echo "Building bootable disk image for $(IMAGE):$(TAG)..."
+	@mkdir -p $(DISTROLESS_DIR)
+	@rm -f "$(DISTROLESS_IMG)"
+	IMAGE_SIZE=$(DISTROLESS_IMG_SIZE) ./build/distroless/build-disk-image.sh \
+		"$(DISTROLESS_IMG)" \
+		"$(IMAGE):$(TAG)" \
+		"$(DISTROLESS_FILESYSTEM)"
+	sudo chown -R $$(id -u):$$(id -g) $(DISTROLESS_DIR)
+	@echo ""
+	@echo "Bootable image created: $(DISTROLESS_IMG)"
+	@echo "Run with: make DISTROLESS=1 run-distroless-img"
+
+# Run distroless bootable image with QEMU
+# Boots the raw disk image with KVM acceleration
+# Exit with Ctrl-A X
+run-distroless-img:
+ifneq ($(DISTROLESS),1)
+	@echo "ERROR: run-distroless-img target requires DISTROLESS=1"
+	@exit 1
+endif
+	@echo "Booting $(DISTROLESS_IMG)..."
+	@echo "Exit: Ctrl-A X"
+	@if command -v qemu-system-x86_64 >/dev/null 2>&1; then \
+		QEMU="qemu-system-x86_64"; \
+		OVMF="/usr/share/edk2/ovmf/OVMF_CODE_4M.qcow2"; \
+		OVMF_FMT="qcow2"; \
+	else \
+		echo "qemu-system-x86_64 not found. Install qemu or use flatpak."; \
+		exit 1; \
+	fi; \
+	sudo $$QEMU \
+		-machine pc-q35-10.1 \
+		-m 8G \
+		-smp 4 \
+		-cpu host \
+		-enable-kvm \
+		-device virtio-vga \
+		-drive if=pflash,format=$$OVMF_FMT,readonly=on,file=$$OVMF \
+		-drive file=$(DISTROLESS_IMG),format=raw,if=virtio \
+		-nic user,hostfwd=tcp::2222-:22 \
+		-nographic \
+		-serial mon:stdio
+
+# Convert distroless raw image to qcow2
+# Useful for Lima or other tools that prefer qcow2
+distroless-qcow2: distroless-img
+	@echo "Converting $(DISTROLESS_IMG) to qcow2..."
+	qemu-img convert -f raw -O qcow2 $(DISTROLESS_IMG) $(DISTROLESS_DIR)/bootable-$(TAG).qcow2
+	@echo "qcow2 image created: $(DISTROLESS_DIR)/bootable-$(TAG).qcow2"
+
+# Clean distroless images
+distroless-clean:
+	rm -rf $(DISTROLESS_DIR)
+
+# Fix libvirt VM to disable TPM and Secure Boot
+# Usage: make VM=distroless_test fix-virsh
+# This is needed when Cockpit creates a VM with TPM/Secure Boot defaults
+# that don't work with unsigned bootloaders (like distroless images)
+VM ?=
+fix-virsh:
+ifndef VM
+	@echo "ERROR: VM name required"
+	@echo "Usage: make VM=<vm_name> fix-virsh"
+	@exit 1
+endif
+	@./build/distroless/fix-virsh.sh "$(VM)"
 
 
 # Lima VM Management
