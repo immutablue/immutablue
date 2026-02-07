@@ -68,6 +68,7 @@ immutablue:
     - qemu-user-binfmt
     - ramalama
     - ShellCheck
+    - socat
     - stow
     - syncthing
     - syncthing-tools
