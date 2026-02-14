@@ -1,4 +1,10 @@
 iso/
+raw/
+ami/
+gce/
+vhd/
+vmdk/
+anaconda-iso/
 flatpak_refs/
 sbom/
 .lima/
@@ -7,3 +13,4 @@ docs/.hugo_build.lock
 __pycache__/
 trees/
 images/
+distroless-images/

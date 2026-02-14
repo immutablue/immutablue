@@ -13,6 +13,16 @@ Immutablue is an easy, modular, and customizable implementation of a base Fedora
 - Modular variant system (Cyan for NVIDIA, Asahi for Apple Silicon, etc.)
 - YAML-based configuration (`settings.yaml`, `packages.yaml`)
 
+## Repository Setup
+
+This repo uses git submodules. After cloning, initialize them recursively:
+
+```bash
+git submodule update --init --recursive
+```
+
+This is required for the Hugo docs theme (`docs/themes/hugo-book`).
+
 ## Build Commands
 
 ### Basic Build
@@ -65,6 +75,25 @@ make manifest                 # Create multi-arch manifest
 make lima                     # Generate Lima VM config
 make qcow2                    # Generate qcow2 image
 ```
+
+### ISO Generation
+
+```bash
+make iso-config               # Interactive: configure users/SSH keys
+make iso                      # Default: bootc-image-builder ISO
+make CLASSIC_ISO=1 iso        # Classic: build-container-installer ISO
+make TRUEBLUE=1 iso-config    # Configure for variant
+make TRUEBLUE=1 iso           # Variant build with bootc-image-builder
+make run_iso                  # Test ISO in QEMU
+make push_iso                 # Upload ISO to S3
+```
+
+The default `make iso` uses `bootc-image-builder` (same tooling as qcow2), producing an install-to-disk ISO. Use `CLASSIC_ISO=1` for the legacy `build-container-installer` approach which supports flatpak bundling and more Anaconda customization.
+
+**Important**: Run `make iso-config` before `make iso` to configure user accounts. Without it, no users are created in the ISO.
+
+Output: `./iso/immutablue-<tag>.iso`
+Config: `./iso/config-<tag>.toml`
 
 ## Directory Structure
 

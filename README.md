@@ -2,6 +2,14 @@
 
 An easy, modular, and customizable implementation of a base Fedora Silverblue Image with sane defaults.
 
+## Repository Setup
+
+This repo uses git submodules. After cloning, initialize them recursively:
+
+```bash
+git submodule update --init --recursive
+```
+
 ## Getting Started
 
 This is the base image designed for a general use case. If you're happy with the defaults, feel free to download the [iso](https://gitlab.com/immutablue/immutablue/-/releases) in the releases or `rpm-ostree rebase` off this if Fedora Silverblue is *already* installed. **We highly recommend** just downloading the ISO. It's the easiest way to get started.

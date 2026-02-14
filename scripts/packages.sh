@@ -1,14 +1,31 @@
-#!/bin/bash 
+#!/bin/bash
 # We can get smarter with this later I think
 # but we are expecting to run it from the Makefile
 # so it can be relative to it
-PACKAGES_FILE="./packages.yaml"
-# Custom Pattern
-PACKAGES_CUSTOM_FMT="./packages.custom-*.yaml"
-FLATPAK_REFS_FILE="./flatpak_refs/flatpaks"
+if [[ -f ./packages.yaml ]]
+then
+    PACKAGES_FILE="./packages.yaml"
+
+    # Custom Pattern
+    PACKAGES_CUSTOM_FMT="./packages.custom-*.yaml"
+    FLATPAK_REFS_FILE="./flatpak_refs/flatpaks"
+else
+    PACKAGES_FILE="/usr/immutablue/packages.yaml"
+
+    # Custom Pattern
+    PACKAGES_CUSTOM_FMT="/usr/immutablue/packages.custom-*.yaml"
+    FLATPAK_REFS_FILE="/usr/flatpak_refs/flatpaks"
+fi
 
 # Source the common stuff
 source ./scripts/common.sh
+
+# Source the header library for utility functions (immutablue_get_image_version, etc.)
+if [[ -f /usr/libexec/immutablue/immutablue-header.sh ]]; then
+    source /usr/libexec/immutablue/immutablue-header.sh
+elif [[ -f ./artifacts/overrides/usr/libexec/immutablue/immutablue-header.sh ]]; then
+    source ./artifacts/overrides/usr/libexec/immutablue/immutablue-header.sh
+fi
 
 
 post_install_notes() {
@@ -25,7 +42,7 @@ post_install_notes() {
 get_yaml_distrobox_length() {
     [ $# -ne 1 ] && echo "$0 <packages.yaml>" && exit 1
     local packages_yaml="$1"
-    local key=".distrobox[].name"
+    local key=".immutablue.distrobox.all[].name"
     local length
     length="$(yq "${key}" < "$packages_yaml" | wc -l)"
     echo "$length"
@@ -46,8 +63,8 @@ dbox_install_single() {
 
     local packages_yaml="$1"
     local index="$2"
-    local key=".distrobox[${index}]"
-    
+    local key=".immutablue.distrobox.all[${index}]"
+
     # Declare and assign separately to avoid masking return values
     local name
     name="$(yq "${key}.name" < "$packages_yaml")"
@@ -142,10 +159,10 @@ dbox_install_all_from_yaml() {
     dbox_count="$(get_yaml_distrobox_length "$packages_yaml")"
 
     while [ $i -lt $dbox_count ]
-    do 
+    do
         echo "$i"
-        local key=".distrobox[${i}]"
-        
+        local key=".immutablue.distrobox.all[${i}]"
+
         local name
         name="$(yq "${key}.name" < "$packages_yaml")"
         
@@ -195,97 +212,189 @@ dbox_install_all_from_yaml() {
 dbox_install_all() {
     if [ -d "$HOME/bin/export" ]; then rm "${HOME}"/bin/export/*; fi
     dbox_install_all_from_yaml $PACKAGES_FILE
-    for f in $PACKAGES_CUSTOM_FMT; do if [ "$f" != "$PACKAGES_CUSTOM_FMT" ]; then dbox_install_all_from_yaml $f; fi; done
+    for f in $PACKAGES_CUSTOM_FMT; do
+        if [[ -f "$f" ]]; then
+            dbox_install_all_from_yaml "$f"
+        fi
+    done
 }
 
 
 flatpak_config() {
-        local flatpaks_yaml="$1"
-        
-	# Remove flathub if its configured
-	sudo flatpak remote-delete flathub --force || true
+    local flatpaks_yaml="$1"
 
-	# Enabling flathub (unfiltered) for --user
-	flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo || true
+    # Verify the YAML file exists
+    if [[ ! -f "$flatpaks_yaml" ]]; then
+        echo "Warning: flatpak config file not found: $flatpaks_yaml"
+        return 0
+    fi
 
-        # Add custom Flatpak Repositories
-        repos=$(cat <(yq '.immutablue.flatpak_repos[].name' < $flatpaks_yaml) <(yq ".immutablue.flatpak_repos_$(uname -m)[].name" < $flatpaks_yaml))
-        if [ "" != "$repos" ]
-        then 
-            for repo in $repos; do  flatpak remote-add --user --if-not-exists "$repo" "$(cat <(yq ".immutablue.flatpak_repos[] | select(.name == \"$repo\").url" < "$flatpaks_yaml") <(yq ".immutablue.flatpak_repos_$(uname -m)[] | select(.name == \"$repo\").url" < "$flatpaks_yaml"))" || true; done
-        fi
+    # Get the current Fedora version for version-specific queries
+    local version
+    version=$(immutablue_get_image_version 2>/dev/null || echo "")
+    local arch
+    arch=$(uname -m)
 
-	# Install GNOME Platform from packages.yaml (flatpaks_runtime section)
-	local gnome_platform
-	gnome_platform=$(yq '.immutablue.flatpaks_runtime[]' < "$flatpaks_yaml" | grep -i "org.gnome.Platform" | head -1)
-	if [[ -n "$gnome_platform" && "$gnome_platform" != "null" ]]; then
-		flatpak install --user --noninteractive "$gnome_platform" || true
-	fi
+    # Remove flathub if its configured on system (suppress error if not present)
+    if flatpak remotes --system 2>/dev/null | grep -q "^flathub"; then
+        sudo flatpak remote-delete flathub --force || true
+    fi
 
-	# Replace Fedora flatpaks with flathub ones (if any exist)
-	local fedora_apps
-	fedora_apps=$(flatpak list --app-runtime=org.fedoraproject.Platform --columns=application 2>/dev/null | grep -v '^$')
-	if [[ -n "$fedora_apps" ]]; then
-		for app in $fedora_apps; do
-			flatpak install --user --noninteractive --reinstall flathub "$app" || true
-		done
-	fi
+    # Enabling flathub (unfiltered) for --user
+    flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo || true
 
-	# Remove system flatpaks (pre-installed)
-	#flatpak remove --system --noninteractive --all
+    # Add custom Flatpak Repositories
+    # Query both .all[] and .${version}[] entries, plus arch-specific variants
+    local repos
+    repos=$(cat \
+        <(yq '.immutablue.flatpak_repos.all[].name' < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpak_repos.${version}[].name" < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpak_repos_${arch}.all[].name" < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpak_repos_${arch}.${version}[].name" < "$flatpaks_yaml" 2>/dev/null) \
+        | grep -v '^null$' | grep -v '^$' || true)
 
-	# Remove Fedora flatpak repo
-	sudo flatpak remote-delete fedora --force || true
+    if [[ -n "$repos" ]]; then
+        for repo in $repos; do
+            local repo_url
+            repo_url=$(cat \
+                <(yq ".immutablue.flatpak_repos.all[] | select(.name == \"$repo\").url" < "$flatpaks_yaml" 2>/dev/null) \
+                <(yq ".immutablue.flatpak_repos.${version}[] | select(.name == \"$repo\").url" < "$flatpaks_yaml" 2>/dev/null) \
+                <(yq ".immutablue.flatpak_repos_${arch}.all[] | select(.name == \"$repo\").url" < "$flatpaks_yaml" 2>/dev/null) \
+                <(yq ".immutablue.flatpak_repos_${arch}.${version}[] | select(.name == \"$repo\").url" < "$flatpaks_yaml" 2>/dev/null) \
+                | grep -v '^null$' | grep -v '^$' | head -1 || true)
+            if [[ -n "$repo_url" ]]; then
+                flatpak remote-add --user --if-not-exists "$repo" "$repo_url" || true
+            fi
+        done
+    fi
+
+    # Install GNOME Platform from packages.yaml (flatpaks_runtime section)
+    # Query both .all[] and .${version}[] entries
+    local gnome_platform
+    gnome_platform=$(cat \
+        <(yq '.immutablue.flatpaks_runtime.all[]' < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_runtime.${version}[]" < "$flatpaks_yaml" 2>/dev/null) \
+        | grep -v '^null$' | grep -i "org.gnome.Platform" | head -1 || true)
+    if [[ -n "$gnome_platform" ]]; then
+        flatpak install --user --noninteractive "$gnome_platform" || true
+    fi
+
+    # Replace Fedora flatpaks with flathub ones (if any exist)
+    local fedora_apps
+    fedora_apps=$(flatpak list --app-runtime=org.fedoraproject.Platform --columns=application 2>/dev/null | grep -v '^$' || true)
+    if [[ -n "$fedora_apps" ]]; then
+        for app in $fedora_apps; do
+            flatpak install --user --noninteractive --reinstall flathub "$app" || true
+        done
+    fi
+
+    # Remove Fedora flatpak repo (suppress error if not present)
+    if flatpak remotes --system 2>/dev/null | grep -q "^fedora"; then
+        sudo flatpak remote-delete fedora --force || true
+    fi
 }
 
 
 # Arg is yaml file
 flatpak_install_all_from_yaml() {
-    [ $# -ne 1 ] && echo "echo flatpak_install_all_from_yaml <packages.yaml>" && exit 1
+    [ $# -ne 1 ] && echo "flatpak_install_all_from_yaml <packages.yaml>" && exit 1
     local flatpaks_yaml="$1"
 
-    flatpaks_add=$(cat <(yq '.immutablue.flatpaks[]' < $flatpaks_yaml) <(yq ".immutablue.flatpaks_$(uname -m)[]" < $flatpaks_yaml))
-    flatpaks_rm=$(cat <(yq '.immutablue.flatpaks_rm[]' < $flatpaks_yaml) <(yq ".immutablue.flatpaks_rm_$(uname -m)[]" < $flatpaks_yaml))
-    
-    if [ "" != "$flatpaks_add" ]
-    then 
-        for flatpak in $flatpaks_add; do flatpak --noninteractive --user install "$flatpak" || true; done
+    # Verify the YAML file exists
+    if [[ ! -f "$flatpaks_yaml" ]]; then
+        echo "Warning: flatpak YAML file not found: $flatpaks_yaml"
+        return 0
     fi
 
-    if [ "" != "$flatpaks_rm" ] 
-    then 
-        for flatpak in $flatpaks_rm; do flatpak --noninteractive --user uninstall "$flatpak" || true; done
+    # Get the current Fedora version for version-specific queries
+    local version
+    version=$(immutablue_get_image_version 2>/dev/null || echo "")
+    local arch
+    arch=$(uname -m)
+
+    # Get flatpaks to install from all sections (both .all[] and .${version}[])
+    local flatpaks_add
+    flatpaks_add=$(cat \
+        <(yq '.immutablue.flatpaks.all[]' < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks.${version}[]" < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_${arch}.all[]" < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_${arch}.${version}[]" < "$flatpaks_yaml" 2>/dev/null) \
+        | grep -v '^null$' | grep -v '^$' || true)
+
+    # Get flatpaks to remove from all sections (both .all[] and .${version}[])
+    local flatpaks_rm
+    flatpaks_rm=$(cat \
+        <(yq '.immutablue.flatpaks_rm.all[]' < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_rm.${version}[]" < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_rm_${arch}.all[]" < "$flatpaks_yaml" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_rm_${arch}.${version}[]" < "$flatpaks_yaml" 2>/dev/null) \
+        | grep -v '^null$' | grep -v '^$' || true)
+
+    if [[ -n "$flatpaks_add" ]]; then
+        for flatpak in $flatpaks_add; do
+            flatpak --noninteractive --user install "$flatpak" || true
+        done
     fi
 
-
-    
+    if [[ -n "$flatpaks_rm" ]]; then
+        for flatpak in $flatpaks_rm; do
+            flatpak --noninteractive --user uninstall "$flatpak" || true
+        done
+    fi
 }
 
 
 flatpak_install_all() {
     if [ ! -f /opt/immutablue/did_initial_flatpak_install ]
-    then 
+    then
         echo "Doing initial flatpak config"
         flatpak_config $PACKAGES_FILE
-        for f in $PACKAGES_CUSTOM_FMT; do flatpak_config $f; done
+        for f in $PACKAGES_CUSTOM_FMT; do
+            if [[ -f "$f" ]]; then
+                flatpak_config "$f"
+            fi
+        done
         sudo mkdir -p /opt/immutablue
         sudo touch /opt/immutablue/did_initial_flatpak_install
     fi
 
-    flatpak_install_all_from_yaml $PACKAGES_FILE 
-    for f in $PACKAGES_CUSTOM_FMT; do flatpak_install_all_from_yaml $f; done
+    flatpak_install_all_from_yaml $PACKAGES_FILE
+    for f in $PACKAGES_CUSTOM_FMT; do
+        if [[ -f "$f" ]]; then
+            flatpak_install_all_from_yaml "$f"
+        fi
+    done
 }
 
 
 # Used to make flatpak_refs/flatpak file for iso building
 flatpak_make_refs() {
-    [ -f $FLATPAK_REFS_FILE ] && rm $FLATPAK_REFS_FILE
+    [ -f "$FLATPAK_REFS_FILE" ] && rm "$FLATPAK_REFS_FILE"
 
-    apps=$(yq '.immutablue.flatpaks[]' < $PACKAGES_FILE)
-    runtimes=$(yq '.immutablue.flatpaks_runtime[]' < $PACKAGES_FILE)
+    # Get the current Fedora version for version-specific queries
+    local version
+    version=$(immutablue_get_image_version 2>/dev/null || echo "")
+    local arch
+    arch=$(uname -m)
 
-    for app in $apps; do printf "app/%s/%s/stable\n" "$app" "$(uname -m)" >> "$FLATPAK_REFS_FILE"; done
-    for runtime in $runtimes; do printf "runtime/%s\n" $runtime >> $FLATPAK_REFS_FILE; done
+    # Query both .all[] and .${version}[] entries for flatpaks
+    local apps
+    apps=$(cat \
+        <(yq '.immutablue.flatpaks.all[]' < "$PACKAGES_FILE" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks.${version}[]" < "$PACKAGES_FILE" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_${arch}.all[]" < "$PACKAGES_FILE" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_${arch}.${version}[]" < "$PACKAGES_FILE" 2>/dev/null) \
+        | grep -v '^null$' | grep -v '^$' || true)
+
+    # Query both .all[] and .${version}[] entries for runtimes
+    local runtimes
+    runtimes=$(cat \
+        <(yq '.immutablue.flatpaks_runtime.all[]' < "$PACKAGES_FILE" 2>/dev/null) \
+        <(yq ".immutablue.flatpaks_runtime.${version}[]" < "$PACKAGES_FILE" 2>/dev/null) \
+        | grep -v '^null$' | grep -v '^$' || true)
+
+    for app in $apps; do printf "app/%s/%s/stable\n" "$app" "${arch}" >> "$FLATPAK_REFS_FILE"; done
+    for runtime in $runtimes; do printf "runtime/%s\n" "$runtime" >> "$FLATPAK_REFS_FILE"; done
 }
 
 run_all_post_upgrade_scripts() {
@@ -303,10 +412,24 @@ brew_install_all_from_yaml() {
         source "/usr/libexec/immutablue/immutablue-header.sh"
     fi
 
-    # Start with base packages (filter out "null" from yq when section doesn't exist)
-    brew_add=$(yq '.brew.install[]' < $brew_yaml 2>/dev/null | grep -v '^null$')
-    brew_rm=$(yq '.brew.uninstall[]' < $brew_yaml 2>/dev/null | grep -v '^null$')
-    
+    # Get version for version-specific queries (e.g., 42, 43)
+    local version
+    version=$(immutablue_get_image_version 2>/dev/null || echo "")
+
+    # Start with base packages - query both .all[] and .${version}[]
+    # Using correct path: .immutablue.brew.install.all[] and .immutablue.brew.install.${version}[]
+    local brew_add
+    brew_add=$(cat \
+        <(yq '.immutablue.brew.install.all[]' < "$brew_yaml" 2>/dev/null) \
+        <(yq ".immutablue.brew.install.${version}[]" < "$brew_yaml" 2>/dev/null) \
+        | grep -v '^null$' | grep -v '^$' || true)
+
+    local brew_rm
+    brew_rm=$(cat \
+        <(yq '.immutablue.brew.uninstall.all[]' < "$brew_yaml" 2>/dev/null) \
+        <(yq ".immutablue.brew.uninstall.${version}[]" < "$brew_yaml" 2>/dev/null) \
+        | grep -v '^null$' | grep -v '^$' || true)
+
     # Add variant-specific packages for all detected variants
     if [[ -f "/usr/immutablue/build_options" ]]
     then
@@ -314,12 +437,20 @@ brew_install_all_from_yaml() {
         if type get_immutablue_build_options >/dev/null 2>&1; then
             while read -r option
             do
-                # Try to get variant-specific packages for this option (filter out "null")
+                # Try to get variant-specific packages for this option
+                # Query both .all[] and .${version}[] for the variant
                 local variant_add
-                variant_add=$(yq ".brew.install_${option}[]" < $brew_yaml 2>/dev/null | grep -v '^null$')
+                variant_add=$(cat \
+                    <(yq ".immutablue.brew.install_${option}.all[]" < "$brew_yaml" 2>/dev/null) \
+                    <(yq ".immutablue.brew.install_${option}.${version}[]" < "$brew_yaml" 2>/dev/null) \
+                    | grep -v '^null$' | grep -v '^$' || true)
+
                 local variant_rm
-                variant_rm=$(yq ".brew.uninstall_${option}[]" < $brew_yaml 2>/dev/null | grep -v '^null$')
-                
+                variant_rm=$(cat \
+                    <(yq ".immutablue.brew.uninstall_${option}.all[]" < "$brew_yaml" 2>/dev/null) \
+                    <(yq ".immutablue.brew.uninstall_${option}.${version}[]" < "$brew_yaml" 2>/dev/null) \
+                    | grep -v '^null$' | grep -v '^$' || true)
+
                 # Add to the main lists (handles multiple variants automatically)
                 [[ -n "$variant_add" ]] && brew_add="$brew_add $variant_add"
                 [[ -n "$variant_rm" ]] && brew_rm="$brew_rm $variant_rm"
@@ -329,62 +460,111 @@ brew_install_all_from_yaml() {
             local build_options
             build_options="$(cat /usr/immutablue/build_options)"
             IFS=',' read -ra option_array <<< "${build_options}"
-            
+
             for option in "${option_array[@]}"
             do
-                # Try to get variant-specific packages for this option (filter out "null")
+                # Try to get variant-specific packages for this option
+                # Query both .all[] and .${version}[] for the variant
                 local variant_add
-                variant_add=$(yq ".brew.install_${option}[]" < $brew_yaml 2>/dev/null | grep -v '^null$')
+                variant_add=$(cat \
+                    <(yq ".immutablue.brew.install_${option}.all[]" < "$brew_yaml" 2>/dev/null) \
+                    <(yq ".immutablue.brew.install_${option}.${version}[]" < "$brew_yaml" 2>/dev/null) \
+                    | grep -v '^null$' | grep -v '^$' || true)
+
                 local variant_rm
-                variant_rm=$(yq ".brew.uninstall_${option}[]" < $brew_yaml 2>/dev/null | grep -v '^null$')
-                
+                variant_rm=$(cat \
+                    <(yq ".immutablue.brew.uninstall_${option}.all[]" < "$brew_yaml" 2>/dev/null) \
+                    <(yq ".immutablue.brew.uninstall_${option}.${version}[]" < "$brew_yaml" 2>/dev/null) \
+                    | grep -v '^null$' | grep -v '^$' || true)
+
                 # Add to the main lists (handles multiple variants automatically)
                 [[ -n "$variant_add" ]] && brew_add="$brew_add $variant_add"
                 [[ -n "$variant_rm" ]] && brew_rm="$brew_rm $variant_rm"
             done
         fi
     fi
-    
+
     # Assume `brew` is not in $PATH yet
-    export PATH="$HOME/../linuxbrew/.linuxbrew/bin:$PATH"
+    local brew_cmd
+    brew_cmd="/var/home/linuxbrew/.linuxbrew/bin/brew"
+
 
     if [ "" != "$brew_add" ]
-    then 
-        brew install $(for pkg in $brew_add; do printf '%s ' "$pkg"; done)
+    then
+        if [[ -z ${HOME} ]]
+        then 
+            su -c "${brew_cmd} install $(for pkg in $brew_add; do printf '%s ' "$pkg"; done) || true" $(id -n -u 1000)
+        else 
+            ${brew_cmd} install $(for pkg in $brew_add; do printf '%s ' "$pkg"; done) || true
+        fi
     fi
 
-    if [ "" != "$brew_rm" ] 
-    then 
-        brew uninstall $(for pkg in $brew_rm; do printf '%s ' "$pkg"; done) || true
+    if [ "" != "$brew_rm" ]
+    then
+        if [[ -z ${HOME} ]]
+        then 
+            su -c "${brew_cmd} uninstall $(for pkg in $brew_rm; do printf '%s ' "$pkg"; done) || true" $(id -n -u 1000)
+        else 
+            ${brew_cmd} uninstall $(for pkg in $brew_rm; do printf '%s ' "$pkg"; done) || true
+        fi
     fi
-}
 
-
-brew_install() {
-    CI=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 }
 
 
 brew_install_all_packages() {
-    brew_install 
+    # Brew is set up by linuxbrew-setup.service on first boot
+    # This function just installs packages from YAML configs
     brew_install_all_from_yaml $PACKAGES_FILE
-    for f in $PACKAGES_CUSTOM_FMT; do brew_install_all_from_yaml $f; done
+    for f in $PACKAGES_CUSTOM_FMT; do
+        if [[ -f "$f" ]]; then
+            brew_install_all_from_yaml "$f"
+        fi
+    done
 }
 
 
 services_unmask_disable_enable_mask_yaml() {
     local svc_yaml="$1"
+
+    # Get the current Fedora version for version-specific queries
+    local version
+    version=$(immutablue_get_image_version 2>/dev/null || echo "")
+    local arch
+    arch=$(uname -m)
+
+    # Query both .all[] and .${version}[] entries for each service section
     local enable
-    enable="$(cat <(yq '.immutablue.services_enable_user[]' < "${svc_yaml}") <(yq ".immutablue.services_enable_user_$(uname -m)" < "${svc_yaml}"))"
-    
+    enable="$(cat \
+        <(yq '.immutablue.services_enable_user.all[]' < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_enable_user.${version}[]" < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_enable_user_${arch}.all[]" < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_enable_user_${arch}.${version}[]" < "${svc_yaml}" 2>/dev/null) \
+        | grep -v '^null$' | grep -v '^$' || true)"
+
     local disable
-    disable="$(cat <(yq '.immutablue.services_disable_user[]' < "${svc_yaml}") <(yq ".immutablue.services_disable_user_$(uname -m)" < "${svc_yaml}"))"
-    
+    disable="$(cat \
+        <(yq '.immutablue.services_disable_user.all[]' < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_disable_user.${version}[]" < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_disable_user_${arch}.all[]" < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_disable_user_${arch}.${version}[]" < "${svc_yaml}" 2>/dev/null) \
+        | grep -v '^null$' | grep -v '^$' || true)"
+
     local mask
-    mask="$(cat <(yq '.immutablue.services_mask_user[]' < "${svc_yaml}") <(yq ".immutablue.services_mask_user_$(uname -m)" < "${svc_yaml}"))"
-    
+    mask="$(cat \
+        <(yq '.immutablue.services_mask_user.all[]' < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_mask_user.${version}[]" < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_mask_user_${arch}.all[]" < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_mask_user_${arch}.${version}[]" < "${svc_yaml}" 2>/dev/null) \
+        | grep -v '^null$' | grep -v '^$' || true)"
+
     local unmask
-    unmask="$(cat <(yq '.immutablue.services_unmask_user[]' < "${svc_yaml}") <(yq ".immutablue.services_unmask_user_$(uname -m)" < "${svc_yaml}"))"
+    unmask="$(cat \
+        <(yq '.immutablue.services_unmask_user.all[]' < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_unmask_user.${version}[]" < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_unmask_user_${arch}.all[]" < "${svc_yaml}" 2>/dev/null) \
+        <(yq ".immutablue.services_unmask_user_${arch}.${version}[]" < "${svc_yaml}" 2>/dev/null) \
+        | grep -v '^null$' | grep -v '^$' || true)"
 
     systemctl --user daemon-reload || true
     for s in $unmask; do systemctl --user unmask --now "$s"; done
@@ -396,7 +576,11 @@ services_unmask_disable_enable_mask_yaml() {
 
 services_unmask_disable_enable_mask_all() {
     services_unmask_disable_enable_mask_yaml "$PACKAGES_FILE"
-    for f in $PACKAGES_CUSTOM_FMT; do services_unmask_disable_enable_mask_yaml "$f"; done
+    for f in $PACKAGES_CUSTOM_FMT; do
+        if [[ -f "$f" ]]; then
+            services_unmask_disable_enable_mask_yaml "$f"
+        fi
+    done
 }
 
 

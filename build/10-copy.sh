@@ -1,6 +1,9 @@
-#!/bin/bash 
-set -euxo pipefail 
+#!/bin/bash
+set -euxo pipefail
 
+# Define TRUE/FALSE early (before immutablue-header.sh is available)
+TRUE=1
+FALSE=0
 
 mkdir -p "${INSTALL_DIR}"
 cp -a /mnt-ctx/. "${INSTALL_DIR}/"
@@ -11,12 +14,36 @@ echo "${IMMUTABLUE_BUILD_OPTIONS}" > "${INSTALL_DIR}/build_options"
 # things depend on 'yq' heavily for build, so copy it early
 cp /mnt-yq/yq /usr/bin/yq
 
-mkdir -p /usr/lib64/nautilus/extensions-4
-cp /mnt-nautilusopenwithcode/libnautilus-open-with-code.so /usr/lib64/nautilus/extensions-4/libnautilus-open-with-code.so
-cp /mnt-build-deps/blue2go/blue2go /usr/bin/blue2go
-cp /mnt-build-deps/cigar/src/cigar /usr/bin/cigar
+# -----------------------------------
+# Distroless: Copy development tools from devel stage
+# -----------------------------------
+if [[ -d "/mnt-devel-rootfs" ]] && [[ -n "$(ls -A /mnt-devel-rootfs 2>/dev/null)" ]]; then
+    echo "=== Copying distroless devel rootfs ==="
+    cp -avn /mnt-devel-rootfs/. / 2>/dev/null || true
+    echo "Devel rootfs copied"
+fi
+
+# -----------------------------------
+# Copy build artifacts (skip some for distroless)
+# -----------------------------------
+
+# Check if this is a distroless build
+IS_DISTROLESS_BUILD="${FALSE}"
+if echo "${IMMUTABLUE_BUILD_OPTIONS}" | grep -q "distroless"; then
+    IS_DISTROLESS_BUILD="${TRUE}"
+fi
+
+# Nautilus extension (skip for distroless - may not have nautilus)
+if [[ "${IS_DISTROLESS_BUILD}" == "${FALSE}" ]] || [[ -d "/usr/lib64/nautilus" ]]; then
+    mkdir -p /usr/lib64/nautilus/extensions-4
+    cp /mnt-nautilusopenwithcode/libnautilus-open-with-code.so /usr/lib64/nautilus/extensions-4/libnautilus-open-with-code.so 2>/dev/null || true
+fi
+
+# Build tools (copy if available)
+cp /mnt-build-deps/blue2go/blue2go /usr/bin/blue2go 2>/dev/null || true
+cp /mnt-build-deps/cigar/src/cigar /usr/bin/cigar 2>/dev/null || true
 # cp /mnt-build-deps/cpak/cpak /usr/bin/cpak
-cp /mnt-build-deps/zapper/zapper /usr/bin/zapper
+cp /mnt-build-deps/zapper/zapper /usr/bin/zapper 2>/dev/null || true
 
 # the sourcing must come after we bootstrap the above
 if [[ -f "${INSTALL_DIR}/build/99-common.sh" ]]; then source "${INSTALL_DIR}/build/99-common.sh"; fi
@@ -45,3 +72,52 @@ then
 fi
 
 ln -s "/etc/.os-release-${FEDORA_VERSION}" "/etc/os-release" 
+
+
+# The linuxbrew container is mounted at /mnt-linuxbrew
+LINUXBREW_MNT="/mnt-linuxbrew"
+
+if [[ ! -d "${LINUXBREW_MNT}" ]]; then
+    echo "Warning: linuxbrew mount not found at ${LINUXBREW_MNT}, skipping"
+    exit 0
+fi
+
+# Copy the compressed homebrew tarball
+if [[ -f "${LINUXBREW_MNT}/usr/share/homebrew.tar.zst" ]]; then
+    mkdir -p /usr/share
+    cp "${LINUXBREW_MNT}/usr/share/homebrew.tar.zst" /usr/share/homebrew.tar.zst
+    echo "Copied homebrew.tar.zst to /usr/share/"
+else
+    echo "Warning: homebrew.tar.zst not found in linuxbrew container"
+fi
+
+# Copy systemd services and timers
+if [[ -d "${LINUXBREW_MNT}/usr/lib/systemd/system" ]]; then
+    mkdir -p /usr/lib/systemd/system
+    cp -a "${LINUXBREW_MNT}/usr/lib/systemd/system/"linuxbrew-*.service /usr/lib/systemd/system/ 2>/dev/null || true
+    cp -a "${LINUXBREW_MNT}/usr/lib/systemd/system/"linuxbrew-*.timer /usr/lib/systemd/system/ 2>/dev/null || true
+    echo "Copied linuxbrew systemd services and timers"
+fi
+
+# Copy tmpfiles.d configuration
+if [[ -f "${LINUXBREW_MNT}/usr/lib/tmpfiles.d/homebrew.conf" ]]; then
+    mkdir -p /usr/lib/tmpfiles.d
+    cp "${LINUXBREW_MNT}/usr/lib/tmpfiles.d/homebrew.conf" /usr/lib/tmpfiles.d/
+    echo "Copied homebrew tmpfiles.d configuration"
+fi
+
+# Copy shell integration scripts
+if [[ -d "${LINUXBREW_MNT}/etc/profile.d" ]]; then
+    mkdir -p /etc/profile.d
+    cp -a "${LINUXBREW_MNT}/etc/profile.d/"linuxbrew*.sh /etc/profile.d/ 2>/dev/null || true
+    echo "Copied linuxbrew shell integration scripts"
+fi
+
+# Copy security limits configuration
+if [[ -f "${LINUXBREW_MNT}/etc/security/limits.d/30-brew-limits.conf" ]]; then
+    mkdir -p /etc/security/limits.d
+    cp "${LINUXBREW_MNT}/etc/security/limits.d/30-brew-limits.conf" /etc/security/limits.d/
+    echo "Copied brew limits configuration"
+fi
+
+echo "Linuxbrew files copied successfully"

@@ -53,6 +53,16 @@ immutablue_get_image_base() {
     immutablue_get_image_full | awk -F: '{printf "%s\n", $1 }'
 }
 
+# Extract just the Fedora version number from the image tag
+# The version is always the first numeric segment before any hyphen
+# Format example: quay.io/immutablue/immutablue:43-lts
+# returns: 43
+immutablue_get_image_version() {
+    # Get the tag (e.g., "43-lts" or "43") and extract the version number
+    # The version is always the first segment before any hyphen
+    immutablue_get_image_tag | cut -d'-' -f1
+}
+
 
 # Parse and output all build options from the build_options file
 # This provides a list of all the options that were enabled during the build

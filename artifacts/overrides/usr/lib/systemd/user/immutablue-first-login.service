@@ -1,14 +1,28 @@
 [Unit]
 Description=Immutablue First Login
-# Don't run for system users like gdm (gnome-initial-setup runs as gdm)
-ConditionUser=!gdm
 
 [Service]
 Type=oneshot
 RemainAfterExit=true
 StandardOutput=journal
+# Don't run for system users (UID < 1000 or primary GID < 1000) like gdm-greeter
+ExecCondition=/usr/bin/bash -c "[[ $(id -u) -ge 1000 ]] && [[ $(id -g) -ge 1000 ]]"
 ExecCondition=/usr/bin/bash -c "[[ ! -e /home/$(whoami)/.config/.immutablue_did_first_login ]]"
-ExecStartPre=/usr/bin/sleep 15
+# Wait for gnome-initial-setup to complete (creates this file when done)
+# Loop with timeout to avoid blocking forever on non-GNOME systems
+ExecStartPre=/usr/bin/bash -c '\
+    TIMEOUT=300; \
+    ELAPSED=0; \
+    GNOME_SETUP_DONE="$HOME/.config/gnome-initial-setup-done"; \
+    while pgrep -u "$(id -u)" gnome-initial-setup >/dev/null 2>&1; do \
+        sleep 5; \
+        ELAPSED=$((ELAPSED + 5)); \
+        if [[ $ELAPSED -ge $TIMEOUT ]]; then \
+            echo "Timeout waiting for gnome-initial-setup"; \
+            break; \
+        fi; \
+    done; \
+    sleep 5'
 ExecStart=/usr/bin/bash /usr/libexec/immutablue/setup/first_login.sh
 ExecStartPost=/usr/bin/bash -c "touch /home/$(whoami)/.config/.immutablue_did_first_login"
 ExecStartPost=/usr/bin/systemctl --user mask immutablue-first-login.service

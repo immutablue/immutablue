@@ -68,6 +68,7 @@ immutablue:
     - qemu-user-binfmt
     - ramalama
     - ShellCheck
+    - socat
     - stow
     - syncthing
     - syncthing-tools
@@ -111,6 +112,19 @@ immutablue:
     all: []
   rpm_bazzite:
     all: []
+
+  # Distroless builds use GNOME OS base and don't use rpm-ostree/dnf
+  # Packages are either pre-compiled in the devel stage or downloaded as static binaries
+  # These entries are placeholders for consistency
+  rpm_distroless:
+    all: []
+  rpm_rm_distroless:
+    all: []
+
+  # Services to enable for distroless builds
+  services_enable_sys_distroless:
+    all: []
+
   rpm_build_a_blue_workshop:
     all:
     - nodejs-npm
@@ -264,6 +278,9 @@ immutablue:
     - immutablue-daily.timer
     - immutablue-weekly.timer
     - immutablue-monthly.timer
+    - linuxbrew-setup.service
+    - linuxbrew-update.timer
+    - linuxbrew-upgrade.timer
     # See /usr/libexec/immutablue/system/on_boot/00-on_boot
     # Quadlets are not recognized in the build stage
     # - immutablue-docs.container
@@ -338,7 +355,7 @@ immutablue:
   distrobox:
     all:
     - name: util
-      image: quay.io/immutablue/dbox-fedora:42
+      image: quay.io/immutablue/dbox-fedora:43
       root: false
       additional_flags_x86_64:
       - -v /var/home/linuxbrew:/var/home/linuxbrew
@@ -363,7 +380,7 @@ immutablue:
       - git
 
     - name: dev
-      image: quay.io/immutablue/dbox-fedora:42
+      image: quay.io/immutablue/dbox-fedora:43
       root: false
       additional_flags_x86_64:
       - -v /var/home/linuxbrew:/var/home/linuxbrew

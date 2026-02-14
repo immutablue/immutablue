@@ -1,7 +1,16 @@
-#!/bin/bash 
-set -euxo pipefail 
+#!/bin/bash
+set -euxo pipefail
 if [[ -f "${INSTALL_DIR}/build/99-common.sh" ]]; then source "${INSTALL_DIR}/build/99-common.sh"; fi
 if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
+
+# -----------------------------------
+# Distroless builds don't use dnf/yum repos
+# -----------------------------------
+if [[ "$(is_option_in_build_options distroless)" == "${TRUE}" ]]
+then
+    echo "=== Distroless build: skipping yum/dnf repository setup ==="
+    exit 0
+fi
 
 repos=$(cat <(yq '.immutablue.repo_urls[].name' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.repo_urls_$(uname -m)[].name" < ${INSTALL_DIR}/packages.yaml))
 
