@@ -35,6 +35,11 @@ BFS_REGISTRY="${BFS_REGISTRY:-quay.io/immutablue}"
 BFS_TAG="${BFS_TAG:-bfs}"
 ACTION="${1:-build}"
 
+# Prevent git from prompting for credentials on public repos
+export GIT_TERMINAL_PROMPT=0
+export GIT_ASKPASS=""
+export SSH_ASKPASS=""
+
 # =============================================================================
 # Helper functions
 # =============================================================================
