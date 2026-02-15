@@ -246,7 +246,8 @@ FULL_TAG := $(IMAGE):$(TAG)
 	post_install_notes test test_container test_container_qemu test_artifacts test_shellcheck test_setup \
 	test_kuberblue_container test_kuberblue_cluster test_kuberblue_components test_kuberblue_integration test_kuberblue_security test_kuberblue test_kuberblue_chainsaw test_chainsaw \
 	sbom qcow2 run_qcow2 lima lima-start lima-shell lima-stop lima-delete run_iso run_iso_qemu run_raw run_raw_qemu push_raw push_ami push_gce push_vhd push_vmdk \
-	_check_not_distroless distroless-img run-distroless-img distroless-qcow2 distroless-clean
+	_check_not_distroless distroless-img run-distroless-img distroless-qcow2 distroless-clean \
+	bfs bfs-track bfs-status bfs-export-oci bfs-export-tree bfs-shell bfs-clean
 
 # Guard target for bootc-image-builder operations
 # bootc-image-builder requires dnf which distroless/GNOME OS does not have
@@ -1618,6 +1619,89 @@ distroless-qcow2: distroless-img
 # Clean distroless images
 distroless-clean:
 	rm -rf $(DISTROLESS_DIR)
+
+
+# =============================================================================
+# Blue From Scratch (BFS) - BuildStream-based distroless build
+# =============================================================================
+# Builds Immutablue from source using freedesktop-sdk + BuildStream.
+# No Fedora, no RPMs -- compiled from source on the freedesktop-sdk runtime.
+#
+# Prerequisites:
+#   pip install BuildStream buildstream-external
+#   dnf install bubblewrap fuse3
+#
+# Usage:
+#   make DISTROLESS=1 bfs              # Build the full BFS image
+#   make DISTROLESS=1 bfs-track        # Track latest upstream refs
+#   make DISTROLESS=1 bfs-status       # Show element build status
+#   make DISTROLESS=1 bfs-export-oci   # Build and export OCI image
+#   make DISTROLESS=1 bfs-export-tree  # Export filesystem tree
+#   make DISTROLESS=1 bfs-shell        # Open debug shell
+#   make bfs-clean                     # Clean BFS output
+
+BFS_DIR := ./bfs
+BFS_OUTPUT := ./bfs-output
+
+# Build the BFS image using BuildStream
+bfs:
+ifneq ($(DISTROLESS),1)
+	@echo "ERROR: BFS build requires DISTROLESS=1"
+	@echo "Usage: make DISTROLESS=1 bfs"
+	@exit 1
+endif
+	@$(BFS_DIR)/build.sh build
+
+# Track latest upstream source refs
+bfs-track:
+ifneq ($(DISTROLESS),1)
+	@echo "ERROR: BFS track requires DISTROLESS=1"
+	@exit 1
+endif
+	@$(BFS_DIR)/build.sh --track
+
+# Show build status of all elements
+bfs-status:
+ifneq ($(DISTROLESS),1)
+	@echo "ERROR: BFS status requires DISTROLESS=1"
+	@exit 1
+endif
+	@$(BFS_DIR)/build.sh --status
+
+# Build and export OCI image (loadable by podman)
+bfs-export-oci:
+ifneq ($(DISTROLESS),1)
+	@echo "ERROR: BFS export requires DISTROLESS=1"
+	@exit 1
+endif
+	@$(BFS_DIR)/build.sh --export-oci
+	@echo ""
+	@echo "To load and tag for the standard registry:"
+	@echo "  podman load < $(BFS_OUTPUT)/immutablue-bfs.oci.tar"
+	@echo "  podman tag localhost/immutablue-bfs:latest $(IMAGE):$(TAG)"
+
+# Export as filesystem tree for inspection
+bfs-export-tree:
+ifneq ($(DISTROLESS),1)
+	@echo "ERROR: BFS export requires DISTROLESS=1"
+	@exit 1
+endif
+	@$(BFS_DIR)/build.sh --export-tree
+
+# Open debug shell in BuildStream sandbox
+bfs-shell:
+ifneq ($(DISTROLESS),1)
+	@echo "ERROR: BFS shell requires DISTROLESS=1"
+	@exit 1
+endif
+	@$(BFS_DIR)/build.sh --shell
+
+# Clean BFS output artifacts (does not clean BuildStream cache)
+bfs-clean:
+	rm -rf $(BFS_OUTPUT)
+	@echo "BFS output cleaned. BuildStream cache preserved at ~/.cache/buildstream/"
+	@echo "To also clean the BuildStream cache: bst artifact delete --all"
+
 
 # Fix libvirt VM to disable TPM and Secure Boot
 # Usage: make VM=distroless_test fix-virsh

@@ -1,0 +1,10 @@
+NAME="Immutablue BFS"
+VERSION="43"
+ID=immutablue-bfs
+ID_LIKE=linux
+VERSION_ID=43
+PRETTY_NAME="Immutablue BFS 43 (Blue From Scratch)"
+HOME_URL="https://immutablue.gitlab.io"
+BUG_REPORT_URL="https://gitlab.com/immutablue/immutablue/-/issues"
+IMMUTABLUE_VARIANT="bfs"
+IMMUTABLUE_BASE="freedesktop-sdk"

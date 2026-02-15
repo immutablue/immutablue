@@ -1,0 +1,6 @@
+{
+    "image-name": "immutablue-bfs",
+    "image-flavor": "bfs",
+    "image-vendor": "immutablue",
+    "base-image-name": "freedesktop-sdk"
+}
