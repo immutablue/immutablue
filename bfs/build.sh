@@ -65,7 +65,7 @@ _check_prereq () {
 check_prerequisites () {
     _log "Checking prerequisites..."
 
-    _check_prereq bst "BuildStream (pip install BuildStream)"
+    _check_prereq bst "buildstream"
     _check_prereq bwrap "bubblewrap"
     _check_prereq fusermount3 "fuse3"
     _check_prereq git "git"
@@ -80,11 +80,11 @@ check_prerequisites () {
         fi
     done
 
-    # Check for buildstream-external (OCI plugin)
-    if ! python3 -c "import bst_external" 2>/dev/null
+    # Check for buildstream-plugins-community (OCI plugin)
+    if ! python3 -c "import bst_plugins_community" 2>/dev/null
     then
-        _log "WARNING: buildstream-external not found."
-        _log "Install with: pip install buildstream-external"
+        _log "WARNING: buildstream-plugins-community not found."
+        _log "Install with: pip install buildstream-plugins-community"
         _log "OCI image output will not be available without it."
     fi
 

@@ -49,14 +49,15 @@ BFS does **not** replace the existing build paths. The standard Containerfile bu
 ## Prerequisites
 
 ```bash
-# BuildStream and plugins
-pip install BuildStream buildstream-external
+# BuildStream (available as RPM on Fedora)
+sudo dnf install buildstream bubblewrap fuse3
 
-# Sandbox requirements
-sudo dnf install bubblewrap fuse3
+# OCI plugin (needed for image export)
+pip install buildstream-plugins-community
 
 # BuildStream execution backends
-# (install from https://buildstream.build/install.html)
+# These are typically bundled with the buildstream RPM, but if not:
+# https://buildstream.build/install.html
 # - buildbox-casd
 # - buildbox-fuse
 # - buildbox-run-bubblewrap

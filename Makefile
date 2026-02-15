@@ -1628,8 +1628,8 @@ distroless-clean:
 # No Fedora, no RPMs -- compiled from source on the freedesktop-sdk runtime.
 #
 # Prerequisites:
-#   pip install BuildStream buildstream-external
-#   dnf install bubblewrap fuse3
+#   dnf install buildstream bubblewrap fuse3
+#   pip install buildstream-plugins-community
 #
 # Usage:
 #   make DISTROLESS=1 bfs              # Build the full BFS image
