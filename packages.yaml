@@ -41,7 +41,7 @@ immutablue:
     - bashmount
     - bemenu-run
     - buildah
-    - BuildStream
+    - buildstream
     - cloud-init
     - cmake
     - ddrescue
