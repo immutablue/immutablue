@@ -1,3 +1,15 @@
 [submodule "docs"]
 	path = docs
 	url = git@gitlab.com:immutablue/immutablue-docs.git
+[submodule "artifacts/overrides/usr/src/gitlab/crispy"]
+	path = artifacts/overrides/usr/src/gitlab/crispy
+	url = git@gitlab.com:zachpodbielniak/crispy.git
+[submodule "artifacts/overrides/usr/src/gitlab/gst"]
+	path = artifacts/overrides/usr/src/gitlab/gst
+	url = git@gitlab.com:zachpodbielniak/gst.git
+[submodule "artifacts/overrides/usr/src/gitlab/gowl"]
+	path = artifacts/overrides/usr/src/gitlab/gowl
+	url = git@gitlab.com:zachpodbielniak/gowl.git
+[submodule "artifacts/overrides/usr/src/gitlab/yaml-glib"]
+	path = artifacts/overrides/usr/src/gitlab/yaml-glib
+	url = git@gitlab.com:copyleft-games/yaml-glib.git

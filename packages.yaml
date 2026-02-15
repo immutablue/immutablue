@@ -49,7 +49,10 @@ immutablue:
     - fuse-sshfs
     - fzf
     - gcc
+    - gdb
+    - glib2-devel
     - git
+    - json-glib-devel
     - htop
     - libvirt
     - libvirt-dbus
@@ -86,6 +89,7 @@ immutablue:
     - python3-pip  # since we don't use this in nucleus builds, then we can just put this in gui
     - solaar
     - wl-clipboard
+    - wlroots  # runtime dep for gowl (wayland compositor)
     - xrdp
 
 

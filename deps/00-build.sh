@@ -2,16 +2,22 @@
 # deps/00-build.sh
 #
 # Build script for Immutablue dependency builder container.
-# Clones and builds all third-party tools that ship in the final image.
+# Builds all third-party tools and custom C projects that ship in the
+# final image.
 #
 # This script is called from deps/Containerfile and runs inside a
 # Fedora container. All output goes to /build/ which is later consumed
 # by build/10-copy.sh via the /mnt-build-deps mount.
 #
+# Source trees for custom C projects (yaml-glib, crispy, gst, gowl)
+# are COPY'd into /build/ by the Containerfile from the git submodules
+# at artifacts/overrides/usr/src/gitlab/.
+#
 # To add a new dependency:
-#   1. Write a build_<name> function that clones, builds, etc.
+#   1. Write a build_<name> function below
 #   2. Add the name to the BUILDS array
-#   3. Add corresponding cp line in build/10-copy.sh
+#   3. If it has source in a submodule, add COPY to deps/Containerfile
+#   4. Add corresponding cp section in build/10-copy.sh
 
 set -euxo pipefail
 
@@ -27,6 +33,38 @@ PACKAGES=(
 	golang
 	gcc
 	glibc-static
+
+	# build tools (yaml-glib/crispy/gst/gowl)
+	make
+	pkgconf-pkg-config
+
+	# glib/gobject (all four C projects)
+	glib2-devel
+
+	# yaml-glib + gst: YAML + JSON
+	libyaml-devel
+	json-glib-devel
+
+	# gst: X11 rendering
+	libX11-devel
+	libXft-devel
+	fontconfig-devel
+
+	# gst: wayland backend
+	wayland-devel
+	libxkbcommon-devel
+	cairo-devel
+	libdecor-devel
+
+	# gowl: wayland compositor
+	wayland-protocols-devel
+	wlroots-devel
+	libinput-devel
+	libxcb-devel
+	xcb-util-wm-devel
+	libdrm-devel
+	pixman-devel
+	pango-devel
 )
 
 
@@ -34,19 +72,23 @@ PACKAGES=(
 # BUILD REGISTRY
 # ============================================================================
 # Each entry corresponds to a build_<name> function below.
+# Order matters: yaml_glib must come before gst/gowl (they link against it).
 # cpak: add here when ready (Go project, https://github.com/Containerpak/cpak)
 BUILDS=(
 	blue2go
 	cigar
 	zapper
-    crispy
+	yaml_glib
+	crispy
+	gst
+	gowl
 )
 
 
 # ============================================================================
 # BUILD FUNCTIONS
 # ============================================================================
-# Each function is self-contained: clone, build, and any post-processing.
+# Each function is self-contained: clone/build/install and any post-processing.
 # The function name MUST match the BUILDS entry: build_<name>
 
 # blue2go -- Immutablue installer tool for bootc images (bash script)
@@ -65,11 +107,95 @@ build_zapper () {
 	cd "${BUILD_DIR}/zapper" && make all
 }
 
-# cripsy 
-build_crispy () {
-    git clone https://gitlab.com/zachpodbielniak/crispy "${BUILD_DIR}/crispy"
-    cd "${BUILD_DIR}/crispy" && make install-deps && make all install
+# yaml-glib -- GObject YAML parser/builder library
+# Produces: libyaml-glib.so.1.0.0, headers
+# Dependency for: gst, gowl, and future tools
+# Source: /build/yaml-glib (COPY'd from submodule)
+build_yaml_glib () {
+	local src_dir="${BUILD_DIR}/yaml-glib"
+	local stage_dir="${BUILD_DIR}/yaml-glib"
+
+	if [[ ! -d "${src_dir}/src" ]]; then
+		echo "ERROR: yaml-glib source not found at ${src_dir}"
+		echo "Ensure submodules are initialized: git submodule update --init --recursive"
+		exit 1
+	fi
+
+	mkdir -p "${stage_dir}"
+	cd "${src_dir}"
+
+	# Fedora uses lib64 for 64-bit libs; yaml-glib defaults to lib
+	local libdir="lib"
+	if [[ -d /usr/lib64 ]]; then
+		libdir="lib64"
+	fi
+
+	make all PREFIX=/usr
+	make install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}"
+
+	# Also install to the deps container itself so gst/gowl can link against it
+	make install PREFIX=/usr LIBDIR="/usr/${libdir}"
+	ldconfig
 }
+
+# crispy -- C script compiler/runner (GLib/GObject project)
+# Produces: crispy binary, libcrispy.so.0.1.0, headers, pkg-config
+# Source: /build/crispy (COPY'd from submodule)
+build_crispy () {
+	local src_dir="${BUILD_DIR}/crispy"
+	local stage_dir="${BUILD_DIR}/crispy"
+
+	if [[ ! -d "${src_dir}/src" ]]; then
+		echo "ERROR: crispy source not found at ${src_dir}"
+		echo "Ensure submodules are initialized: git submodule update --init --recursive"
+		exit 1
+	fi
+
+	mkdir -p "${stage_dir}"
+	cd "${src_dir}"
+	make DEBUG=1 all PREFIX=/usr
+	make DEBUG=1 install PREFIX=/usr DESTDIR="${stage_dir}"
+}
+
+# gst -- GObject Simple Terminal (terminal emulator)
+# Produces: gst binary, libgst.so.0.1.0, module .so files, headers, pkg-config
+# Source: /build/gst (COPY'd from submodule)
+build_gst () {
+	local src_dir="${BUILD_DIR}/gst"
+	local stage_dir="${BUILD_DIR}/gst"
+
+	if [[ ! -d "${src_dir}/src" ]]; then
+		echo "ERROR: gst source not found at ${src_dir}"
+		echo "Ensure submodules are initialized: git submodule update --init --recursive"
+		exit 1
+	fi
+
+	mkdir -p "${stage_dir}"
+	cd "${src_dir}"
+	make DEBUG=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
+	make DEBUG=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
+}
+
+# gowl -- GObject Wayland Compositor
+# Produces: gowl binary, gowlbar binary, libgowl.so.0.1.0, module .so files,
+#           headers, pkg-config, desktop session file, icons, configs
+# Source: /build/gowl (COPY'd from submodule)
+build_gowl () {
+	local src_dir="${BUILD_DIR}/gowl"
+	local stage_dir="${BUILD_DIR}/gowl"
+
+	if [[ ! -d "${src_dir}/src" ]]; then
+		echo "ERROR: gowl source not found at ${src_dir}"
+		echo "Ensure submodules are initialized: git submodule update --init --recursive"
+		exit 1
+	fi
+
+	mkdir -p "${stage_dir}"
+	cd "${src_dir}"
+	make DEBUG=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=0 BUILD_XWAYLAND=1
+	make DEBUG=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_GIR=0 BUILD_XWAYLAND=1
+}
+
 
 # ============================================================================
 # INFRASTRUCTURE

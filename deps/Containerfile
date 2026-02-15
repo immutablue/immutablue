@@ -2,4 +2,8 @@ ARG FEDORA_VERSION=42
 FROM registry.fedoraproject.org/fedora:${FEDORA_VERSION} as dep-builder
 
 COPY deps/00-build.sh /tmp/00-build.sh
+COPY artifacts/overrides/usr/src/gitlab/yaml-glib /build/yaml-glib
+COPY artifacts/overrides/usr/src/gitlab/crispy /build/crispy
+COPY artifacts/overrides/usr/src/gitlab/gst /build/gst
+COPY artifacts/overrides/usr/src/gitlab/gowl /build/gowl
 RUN bash /tmp/00-build.sh

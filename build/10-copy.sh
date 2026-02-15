@@ -50,6 +50,46 @@ if [[ -f "${INSTALL_DIR}/build/99-common.sh" ]]; then source "${INSTALL_DIR}/bui
 if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 
 
+# -----------------------------------
+# Custom C projects (yaml-glib, crispy, gst, gowl)
+# Staged with DESTDIR in deps container, layout mirrors target filesystem.
+# cp -a preserves symlinks (libfoo.so -> libfoo.so.0 -> libfoo.so.0.1.0)
+# -----------------------------------
+
+# yaml-glib: GObject YAML library (always install, foundational library)
+if [[ -d "/mnt-build-deps/yaml-glib/usr" ]]; then
+    echo "=== Installing yaml-glib from build deps ==="
+    cp -a /mnt-build-deps/yaml-glib/usr/. /usr/
+fi
+
+# crispy: C script compiler/runner (always install, CLI-only, depends on glib2)
+if [[ -d "/mnt-build-deps/crispy/usr" ]]; then
+    echo "=== Installing crispy from build deps ==="
+    cp -a /mnt-build-deps/crispy/usr/. /usr/
+fi
+
+# gst: terminal emulator (skip for nucleus -- no display server)
+if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
+   [[ -d "/mnt-build-deps/gst/usr" ]]; then
+    echo "=== Installing gst from build deps ==="
+    cp -a /mnt-build-deps/gst/usr/. /usr/
+fi
+
+# gowl: wayland compositor (skip for nucleus -- no display server)
+if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
+   [[ -d "/mnt-build-deps/gowl/usr" ]]; then
+    echo "=== Installing gowl from build deps ==="
+    cp -a /mnt-build-deps/gowl/usr/. /usr/
+    # gowl installs config to /etc/gowl/
+    if [[ -d "/mnt-build-deps/gowl/etc" ]]; then
+        cp -a /mnt-build-deps/gowl/etc/. /etc/
+    fi
+fi
+
+# Update shared library cache for new .so files
+ldconfig 2>/dev/null || true
+
+
 # Install overrides for all build options
 while read -r option 
 do 
