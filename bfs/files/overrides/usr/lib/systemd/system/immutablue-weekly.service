@@ -1,0 +1,11 @@
+[Unit]
+Description=Immutablue Weekly Scripts
+
+[Service]
+Type=oneshot
+StandardOutput=journal
+ExecStart=/usr/bin/immutablue-script-orchestrator weekly
+
+[Install]
+WantedBy=multi-user.target
+

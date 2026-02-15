@@ -1,0 +1,37 @@
+# Build output
+build/
+
+# Object files
+*.o
+*.a
+*.so
+*.so.*
+
+# Editor files
+*~
+*.swp
+*.swo
+.*.swp
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Core dumps
+core
+core.*
+
+# Compiled test binaries
+test_*
+!tests/test_*.c
+
+# pkg-config generated
+*.pc
+
+# Temporary files
+*.tmp
+*.bak
+
+# Debug symbols
+*.dSYM/

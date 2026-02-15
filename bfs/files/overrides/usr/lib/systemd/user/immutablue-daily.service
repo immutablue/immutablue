@@ -1,0 +1,11 @@
+[Unit]
+Description=Immutablue Daily Scripts For Users
+
+[Service]
+Type=oneshot
+StandardOutput=journal
+ExecStart=/usr/bin/immutablue-script-orchestrator daily
+
+[Install]
+WantedBy=defalt.target
+

@@ -1,0 +1,7 @@
+# Introduced via the immutablue project.
+# - https://gitlab.com/immutablue/immutablue
+#
+# Include linuxbrew binaries in sudo's secure_path so that
+# brew-installed tools are available when running sudo commands.
+#
+Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/var/home/linuxbrew/.linuxbrew/bin:/var/home/linuxbrew/.linuxbrew/sbin"

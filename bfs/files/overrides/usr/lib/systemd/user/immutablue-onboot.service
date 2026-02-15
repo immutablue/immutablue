@@ -1,0 +1,15 @@
+[Unit]
+Description=Immutablue On Boot (Login) Scripts For Users
+
+[Service]
+Type=simple
+RemainAfterExit=true
+StandardOutput=journal
+ExecStart=/usr/bin/immutablue-script-orchestrator on_boot
+ExecStop=/usr/bin/immutablue-script-orchestrator on_shutdown
+
+[Install]
+WantedBy=default.target
+
+
+

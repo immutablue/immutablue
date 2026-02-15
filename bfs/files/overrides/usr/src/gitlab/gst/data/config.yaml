@@ -1,0 +1,132 @@
+# GST Example Configuration - All Modules Enabled
+# ~/.config/gst/config.yaml
+#
+# This example enables every module with practical defaults.
+# Copy to ~/.config/gst/config.yaml and adjust to taste.
+
+terminal:
+  shell: /bin/bash
+  term: st-256color
+  tabspaces: 8
+
+window:
+  title: gst
+  geometry: 80x24
+  border: 2
+
+font:
+  primary: "Liberation Mono:pixelsize=14"
+  fallback:
+    - "Noto Color Emoji:pixelsize=14"
+    - "Symbols Nerd Font:pixelsize=14"
+
+colors:
+  foreground: "#cdd6f4"  # text
+  background: "#1e1e2e"  # base
+  cursor_fg: "#1e1e2e"   # base
+  cursor_bg: "#f5e0dc"   # rosewater
+
+  palette:
+    # Normal colors
+    - "#45475a"  # surface1 (black)
+    - "#f38ba8"  # red
+    - "#a6e3a1"  # green
+    - "#f9e2af"  # yellow
+    - "#89b4fa"  # blue
+    - "#f5c2e7"  # pink (magenta)
+    - "#94e2d5"  # teal (cyan)
+    - "#bac2de"  # subtext1 (white)
+    # Bright colors
+    - "#585b70"  # surface2 (bright black)
+    - "#f38ba8"  # red
+    - "#a6e3a1"  # green
+    - "#f9e2af"  # yellow
+    - "#89b4fa"  # blue
+    - "#f5c2e7"  # pink
+    - "#94e2d5"  # teal
+    - "#a6adc8"  # subtext0 (bright white)
+
+cursor:
+  shape: block       # block, underline, bar
+  blink: false
+  blink_rate: 500    # milliseconds
+
+selection:
+  word_delimiters: " `'\"()[]{}|"
+
+keybinds:
+  "Ctrl+Shift+c": clipboard_copy
+  "Ctrl+Shift+v": clipboard_paste
+  "Shift+Page_Up": scroll_up
+  "Shift+Page_Down": scroll_down
+  "Ctrl+Shift+Page_Up": scroll_top
+  "Ctrl+Shift+Page_Down": scroll_bottom
+  "Ctrl+Shift+Home": scroll_top
+  "Ctrl+Shift+End": scroll_bottom
+  "Ctrl+Shift+plus": zoom_in
+  "Ctrl+Shift+minus": zoom_out
+  "Ctrl+Shift+0": zoom_reset
+
+mousebinds:
+  "Button4": scroll_up
+  "Button5": scroll_down
+  "Shift+Button4": scroll_up_fast
+  "Shift+Button5": scroll_down_fast
+
+modules:
+  scrollback:
+    enabled: true
+    lines: 10000
+    mouse_scroll_lines: 3
+
+  transparency:
+    enabled: true
+    opacity: 0.9
+
+  urlclick:
+    enabled: true
+    opener: xdg-open
+    regex: "(https?|ftp|file)://[\\w\\-_.~:/?#\\[\\]@!$&'()*+,;=%]+"
+    modifiers: Ctrl
+
+  externalpipe:
+    enabled: true
+    command: "xclip -selection clipboard"
+    key: "Ctrl+Shift+e"
+
+  boxdraw:
+    enabled: true
+    bold_offset: 1
+
+  visualbell:
+    enabled: true
+    duration: 150
+
+  undercurl:
+    enabled: true
+
+  clipboard:
+    enabled: true
+
+  font2:
+    enabled: true
+    fonts:
+      - "Symbols Nerd Font:pixelsize=14"
+      - "Noto Color Emoji:pixelsize=14"
+
+  keyboard_select:
+    enabled: true
+    key: Ctrl+Shift+Escape
+    show_crosshair: true
+    highlight_color: "#ff8800"
+    highlight_alpha: 100
+    search_color: "#ffff00"
+    search_alpha: 150
+
+  kittygfx:
+    enabled: true
+    max_total_ram_mb: 256
+    max_single_image_mb: 64
+    max_placements: 4096
+    allow_file_transfer: false
+    allow_shm_transfer: false

@@ -1,0 +1,81 @@
+#!/bin/bash
+set -euo pipefail
+
+LIBEXEC_DIR="/usr/libexec/immutablue"
+ETC_DIR="/etc/immutablue/scripts"
+
+print_usage() {
+    echo -e "Use this corrently:"
+    echo -e "\t$0 <on_boot|on_shutdown|hourly|daily|weekly|monthly>"
+}
+
+# Validation logic
+if [[ $# -eq 0 ]]
+then
+    print_usage
+    exit 1
+fi
+
+MODE="$1"
+
+# Build Pathes based on uid 
+if [[ "$(id -u)" == "0" ]]
+then 
+    LIBEXEC_DIR="${LIBEXEC_DIR}/system"
+    ETC_DIR="${ETC_DIR}/system"
+else
+    LIBEXEC_DIR="${LIBEXEC_DIR}/user"
+    ETC_DIR="${ETC_DIR}/user"
+fi
+
+
+LIBEXEC_DIR="${LIBEXEC_DIR}/${MODE}"
+ETC_DIR="${ETC_DIR}/${MODE}"
+
+if [[ ! -d "${LIBEXEC_DIR}" ]] 
+then 
+    echo "${LIBEXEC_DIR} does not exist or it not a valid mode"
+    print_usage
+    exit 2
+fi
+
+if [[ ! -d "${ETC_DIR}" ]] 
+then 
+    echo "${ETC_DIR} does not exist or it not a valid mode"
+    print_usage
+    exit 2
+fi
+
+
+# Main logic below
+run_script() {
+    local script="$1"
+
+    if [[ "${script}" =~ \.ignore ]]
+    then 
+        echo "Ignoring script $script as it matched ignore pattern"
+    else
+        if [[ -e "${script}" ]]
+        then
+            bash - < "${script}" || bash -c "echo \"${script} failed with $?\"; true }"
+        fi
+    fi
+}
+
+for script in "${LIBEXEC_DIR}"/* "${ETC_DIR}"/*
+do 
+    run_script "${script}"
+done 
+
+# Allow for scripts in users config dir
+if [[ "$(id -u)" != "0" ]]
+then 
+    if [[ -d "${HOME}/.config/immutablue/scripts/${MODE}" ]] 
+    then 
+        for script in "${HOME}/.config/immutablue/scripts/${MODE}"/*
+        do
+            run_script "${script}"
+        done
+    fi
+fi
+    

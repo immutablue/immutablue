@@ -1,0 +1,317 @@
+#!/bin/bash
+# libvirt-toggle.sh - Toggle libvirt modular system on/off
+# Usage: ./libvirt-toggle.sh [--dry-run] {enable|disable|status}
+
+set -euo pipefail
+
+# Configuration
+LIBVIRT_SERVICES=(
+    "virtqemud"
+    "virtnetworkd" 
+    "virtstoraged"
+    "virtnodedevd"
+    "virtsecretd"
+    "virtlogd"
+    "libvirt-dbus"
+)
+
+REQUIRED_USERS=("$USER" "libvirtdbus")
+GROUP_NAME="libvirt"
+RESTART_NEEDED=false
+DRY_RUN=false
+SUDO_ENABLED=false
+
+# Color codes for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_dry_run() {
+    echo -e "${YELLOW}[DRY-RUN]${NC} $1"
+}
+
+run_command() {
+    if [[ "$DRY_RUN" == true ]]; then
+        log_dry_run "Would run: $*"
+        return 0
+    else
+        "$@"
+    fi
+}
+
+run_sudo_command() {
+    if [[ "$DRY_RUN" == true ]]; then
+        log_dry_run "Would run: sudo $*"
+        return 0
+    elif [[ "$SUDO_ENABLED" == true ]]; then
+        sudo "$@"
+    else
+        "$@"
+    fi
+}
+
+show_help() {
+    cat << EOF
+libvirt-toggle.sh - Toggle libvirt modular system on/off
+
+USAGE:
+    $0 [OPTIONS] COMMAND
+
+OPTIONS:
+    --dry-run         Show what would be done without making changes
+    -s, --sudo        Use sudo for privileged commands instead of running as root
+    -h, --help        Show this help message
+
+COMMANDS:
+    enable            Enable libvirt modular system and setup groups
+    disable           Disable libvirt modular system (preserves groups)  
+    status            Show current service and group status
+
+EXAMPLES:
+    $0 enable                    # Enable libvirt services
+    $0 --dry-run enable         # Show what would be enabled
+    $0 -s enable                # Enable libvirt services using sudo
+    $0 disable                  # Disable libvirt services
+    $0 status                   # Show current status
+
+NOTES:
+    - The enable command performs one-time group setup for libvirt access
+    - A system reboot is required after adding users to groups
+    - The disable command preserves group memberships (one-time setup)
+    - Use --dry-run to preview changes before applying them
+    - Use -s/--sudo to run privileged commands with sudo instead of as root
+
+EOF
+}
+
+check_root() {
+    if [[ "$DRY_RUN" == true ]]; then
+        log_info "Running in dry-run mode (no changes will be made)"
+        return 0
+    fi
+
+    if [[ "$SUDO_ENABLED" == true ]]; then
+        log_info "Running with sudo mode (privileged commands will use sudo)"
+        return 0
+    fi
+
+    if [[ $EUID -ne 0 ]]; then
+        log_error "This script must be run as root (use sudo)"
+        log_info "Or use --dry-run to preview changes without root"
+        log_info "Or use -s/--sudo to run privileged commands with sudo"
+        exit 1
+    fi
+}
+
+check_and_create_group() {
+    if ! getent group "$GROUP_NAME" > /dev/null 2>&1; then
+        if [[ "$DRY_RUN" == true ]]; then
+            log_dry_run "Would create $GROUP_NAME group"
+            RESTART_NEEDED=true
+        else
+            log_info "Creating $GROUP_NAME group..."
+            run_sudo_command groupadd "$GROUP_NAME"
+            RESTART_NEEDED=true
+        fi
+    else
+        log_info "$GROUP_NAME group already exists"
+    fi
+}
+
+add_users_to_group() {
+    local added_users=()
+    
+    for user in "${REQUIRED_USERS[@]}"; do
+        # Skip if user doesn't exist
+        if ! getent passwd "$user" > /dev/null 2>&1; then
+            log_warn "User $user does not exist, skipping..."
+            continue
+        fi
+        
+        # Check if user is already in group
+        if ! groups "$user" | grep -q "\b$GROUP_NAME\b"; then
+            if [[ "$DRY_RUN" == true ]]; then
+                log_dry_run "Would add $user to $GROUP_NAME group"
+                added_users+=("$user")
+                RESTART_NEEDED=true
+            else
+                log_info "Adding $user to $GROUP_NAME group..."
+                run_sudo_command usermod -a -G "$GROUP_NAME" "$user"
+                added_users+=("$user")
+                RESTART_NEEDED=true
+            fi
+        else
+            log_info "User $user already in $GROUP_NAME group"
+        fi
+    done
+    
+    if [[ ${#added_users[@]} -gt 0 ]]; then
+        if [[ "$DRY_RUN" == true ]]; then
+            log_warn "Would add users to $GROUP_NAME group: ${added_users[*]}"
+        else
+            log_warn "Added users to $GROUP_NAME group: ${added_users[*]}"
+        fi
+    fi
+}
+
+enable_libvirt() {
+    log_info "Enabling libvirt modular system..."
+    
+    # Check and setup group membership (one-time setup)
+    check_and_create_group
+    add_users_to_group
+    
+    # Disable legacy libvirtd if running
+    if systemctl is-enabled libvirtd > /dev/null 2>&1; then
+        if [[ "$DRY_RUN" == true ]]; then
+            log_dry_run "Would disable legacy libvirtd service and sockets"
+        else
+            log_info "Disabling legacy libvirtd service..."
+            run_sudo_command systemctl disable --now libvirtd.service libvirtd.socket libvirtd-ro.socket libvirtd-admin.socket || true
+        fi
+    fi
+    
+    # Enable and start modular services
+    log_info "Enabling modular libvirt services..."
+    for service in "${LIBVIRT_SERVICES[@]}"; do
+        if [[ "$DRY_RUN" == true ]]; then
+            log_dry_run "Would enable and start $service"
+        else
+            if run_sudo_command systemctl enable --now "$service"; then
+                log_info "✓ $service enabled and started"
+            else
+                log_error "✗ Failed to enable $service"
+            fi
+        fi
+    done
+    
+    log_info "Libvirt modular system enabled successfully!"
+}
+
+disable_libvirt() {
+    log_info "Disabling libvirt modular system..."
+    
+    # Stop and disable modular services
+    for service in "${LIBVIRT_SERVICES[@]}"; do
+        if systemctl is-enabled "$service" > /dev/null 2>&1; then
+            if [[ "$DRY_RUN" == true ]]; then
+                log_dry_run "Would disable and stop $service"
+            else
+                if run_sudo_command systemctl disable --now "$service"; then
+                    log_info "✓ $service disabled and stopped"
+                else
+                    log_warn "✗ Failed to disable $service"
+                fi
+            fi
+        else
+            log_info "- $service already disabled"
+        fi
+    done
+    
+    log_info "Libvirt modular system disabled successfully!"
+    log_warn "Note: Users remain in $GROUP_NAME group (one-time setup preserved)"
+}
+
+show_status() {
+    log_info "Libvirt service status:"
+    echo ""
+    for service in "${LIBVIRT_SERVICES[@]}"; do
+        status=$(systemctl is-active "$service" 2>/dev/null || echo "inactive")
+        enabled=$(systemctl is-enabled "$service" 2>/dev/null || echo "disabled")
+        if [[ "$status" == "active" ]]; then
+            echo -e "  ${GREEN}●${NC} $service - $status ($enabled)"
+        else
+            echo -e "  ${RED}○${NC} $service - $status ($enabled)"
+        fi
+    done
+    
+    echo ""
+    log_info "$GROUP_NAME group membership:"
+    if getent group "$GROUP_NAME" > /dev/null 2>&1; then
+        members=$(getent group "$GROUP_NAME" | cut -d: -f4)
+        echo "  Members: ${members:-none}"
+    else
+        echo "  Group does not exist"
+    fi
+}
+
+main() {
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --dry-run)
+                DRY_RUN=true
+                shift
+                ;;
+            -s|--sudo)
+                SUDO_ENABLED=true
+                shift
+                ;;
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            enable|disable|status)
+                COMMAND="$1"
+                shift
+                break
+                ;;
+            *)
+                log_error "Unknown option: $1"
+                show_help
+                exit 1
+                ;;
+        esac
+    done
+    
+    # Check if command was provided
+    if [[ -z "${COMMAND:-}" ]]; then
+        log_error "No command specified"
+        show_help
+        exit 1
+    fi
+    
+    check_root
+    
+    case "$COMMAND" in
+        enable)
+            enable_libvirt
+            if [[ "$RESTART_NEEDED" == true ]]; then
+                echo ""
+                if [[ "$DRY_RUN" == true ]]; then
+                    log_warn "════════════════════════════════════════════════════════════════"
+                    log_warn "  RESTART WOULD BE REQUIRED: Group membership changes need a system reboot"
+                    log_warn "  Would need to run 'sudo systemctl reboot' to complete the setup"
+                    log_warn "═══════════════════════════════════════════════════════════════"
+                else
+                    log_warn "════════════════════════════════════════════════════════════════"
+                    log_warn "  RESTART REQUIRED: Group membership changes need a system reboot"
+                    log_warn "  Run 'sudo systemctl reboot' to complete the setup"
+                    log_warn "════════════════════════════════════════════════════════════════"
+                fi
+            fi
+            ;;
+        disable)
+            disable_libvirt
+            ;;
+        status)
+            show_status
+            ;;
+    esac
+}
+
+main "$@"
+

@@ -1,0 +1,15 @@
+[Unit]
+Description=Immutablue First Boot
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+StandardOutput=journal
+ExecCondition=/usr/bin/bash -c "[[ ! -e /etc/immutablue/setup/did_first_boot ]]"
+ExecStart=/usr/bin/bash /usr/libexec/immutablue/setup/first_boot.sh
+ExecStartPost=/usr/bin/touch /etc/immutablue/setup/did_first_boot
+ExecStartPost=/usr/bin/systemctl mask immutablue-first-boot.service
+
+[Install]
+WantedBy=default.target
+

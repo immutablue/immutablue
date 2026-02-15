@@ -1,0 +1,578 @@
+#!/bin/bash
+# immutablue-doctor - Health check utility for Immutablue systems
+#
+# Performs various health checks to verify the system is in a good state.
+# Similar to `brew doctor` or `flutter doctor`.
+#
+# Usage: immutablue-doctor [OPTIONS]
+#
+# Options:
+#   --json      Output results in JSON format
+#   --yaml      Output results in YAML format
+#   --fix       Attempt to fix issues where possible
+#   --verbose   Show detailed output for each check
+#   -h, --help  Show this help message
+#
+# Exit codes:
+#   0 - All checks passed
+#   1 - One or more checks failed
+
+set -uo pipefail
+
+# Source the immutablue header for utility functions
+source /usr/libexec/immutablue/immutablue-header.sh
+
+# Script version
+VERSION="1.0.0"
+
+# Color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+# Symbols
+PASS="✓"
+FAIL="✗"
+WARN="⚠"
+INFO="ℹ"
+
+# Global state
+JSON_OUTPUT=false
+YAML_OUTPUT=false
+FIX_MODE=false
+VERBOSE=false
+CHECKS_PASSED=0
+CHECKS_FAILED=0
+CHECKS_WARNED=0
+RESULTS=()
+
+# Parse command line arguments
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --json)
+                JSON_OUTPUT=true
+                shift
+                ;;
+            --yaml)
+                YAML_OUTPUT=true
+                shift
+                ;;
+            --fix)
+                FIX_MODE=true
+                shift
+                ;;
+            --verbose|-v)
+                VERBOSE=true
+                shift
+                ;;
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+            --version)
+                echo "immutablue-doctor version ${VERSION}"
+                exit 0
+                ;;
+            *)
+                echo "Unknown option: $1"
+                show_help
+                exit 1
+                ;;
+        esac
+    done
+}
+
+show_help() {
+    cat << EOF
+immutablue-doctor - Health check utility for Immutablue systems
+
+Usage: immutablue-doctor [OPTIONS]
+
+Options:
+  --json      Output results in JSON format
+  --yaml      Output results in YAML format
+  --fix       Attempt to fix issues where possible
+  --verbose   Show detailed output for each check
+  -h, --help  Show this help message
+  --version   Show version information
+
+Exit codes:
+  0 - All checks passed
+  1 - One or more checks failed
+
+Examples:
+  immutablue-doctor              # Run all checks
+  immutablue-doctor --verbose    # Run with detailed output
+  immutablue-doctor --fix        # Run and attempt to fix issues
+  immutablue-doctor --json       # Output as JSON (for scripting)
+  immutablue-doctor --yaml       # Output as YAML (for scripting)
+EOF
+}
+
+# Print functions
+print_header() {
+    if [[ "${JSON_OUTPUT}" == "false" ]] && [[ "${YAML_OUTPUT}" == "false" ]]; then
+        echo -e "\n${BOLD}${BLUE}$1${NC}"
+        echo "─────────────────────────────────────"
+    fi
+}
+
+print_pass() {
+    local check_name="$1"
+    local message="${2:-}"
+    ((CHECKS_PASSED++))
+    RESULTS+=("{\"check\":\"${check_name}\",\"status\":\"pass\",\"message\":\"${message}\"}")
+    if [[ "${JSON_OUTPUT}" == "false" ]] && [[ "${YAML_OUTPUT}" == "false" ]]; then
+        echo -e "  ${GREEN}${PASS}${NC} ${check_name}"
+        if [[ -n "${message}" ]] && [[ "${VERBOSE}" == "true" ]]; then
+            echo -e "    ${message}"
+        fi
+    fi
+}
+
+print_fail() {
+    local check_name="$1"
+    local message="${2:-}"
+    local fix_hint="${3:-}"
+    ((CHECKS_FAILED++))
+    RESULTS+=("{\"check\":\"${check_name}\",\"status\":\"fail\",\"message\":\"${message}\",\"fix\":\"${fix_hint}\"}")
+    if [[ "${JSON_OUTPUT}" == "false" ]] && [[ "${YAML_OUTPUT}" == "false" ]]; then
+        echo -e "  ${RED}${FAIL}${NC} ${check_name}"
+        if [[ -n "${message}" ]]; then
+            echo -e "    ${message}"
+        fi
+        if [[ -n "${fix_hint}" ]]; then
+            echo -e "    ${YELLOW}Fix:${NC} ${fix_hint}"
+        fi
+    fi
+}
+
+print_warn() {
+    local check_name="$1"
+    local message="${2:-}"
+    ((CHECKS_WARNED++))
+    RESULTS+=("{\"check\":\"${check_name}\",\"status\":\"warn\",\"message\":\"${message}\"}")
+    if [[ "${JSON_OUTPUT}" == "false" ]] && [[ "${YAML_OUTPUT}" == "false" ]]; then
+        echo -e "  ${YELLOW}${WARN}${NC} ${check_name}"
+        if [[ -n "${message}" ]]; then
+            echo -e "    ${message}"
+        fi
+    fi
+}
+
+print_info() {
+    local message="$1"
+    if [[ "${JSON_OUTPUT}" == "false" ]] && [[ "${YAML_OUTPUT}" == "false" ]] && [[ "${VERBOSE}" == "true" ]]; then
+        echo -e "  ${BLUE}${INFO}${NC} ${message}"
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CHECK FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+check_ostree_status() {
+    print_header "OSTree / Bootc Status"
+    
+    # Check if ostree is healthy
+    if rpm-ostree status &>/dev/null; then
+        local current_image
+        current_image=$(immutablue_get_image_full)
+        print_pass "OSTree deployment healthy" "Current image: ${current_image}"
+    else
+        print_fail "OSTree deployment" "rpm-ostree status failed" "Run 'rpm-ostree status' to see details"
+        return
+    fi
+    
+    # Check for pending updates
+    local pending
+    pending=$(rpm-ostree status | grep -c "pending" || true)
+    if [[ "${pending}" -gt 0 ]]; then
+        print_warn "Pending deployment" "Reboot required to apply updates"
+    else
+        print_pass "No pending deployments"
+    fi
+    
+    # Check bootc status if available
+    if command -v bootc &>/dev/null; then
+        if sudo bootc status &>/dev/null; then
+            print_pass "Bootc status healthy"
+        else
+            print_warn "Bootc status check failed"
+        fi
+    fi
+}
+
+check_services_system() {
+    print_header "System Services"
+    
+    local services=(
+        "tailscaled.service:Tailscale VPN daemon"
+        "sshd.service:SSH daemon"
+    )
+    
+    # Add variant-specific services
+    if [[ "$(immutablue_build_is_trueblue)" == "${TRUE}" ]]; then
+        services+=("cockpit.socket:Cockpit web console")
+    fi
+    
+    if [[ "$(immutablue_build_is_kuberblue)" == "${TRUE}" ]]; then
+        services+=(
+            "cockpit.socket:Cockpit web console"
+            "crio.service:CRI-O container runtime"
+            "kubelet.service:Kubernetes node agent"
+        )
+    fi
+    
+    for service_entry in "${services[@]}"; do
+        local service_name="${service_entry%%:*}"
+        local service_desc="${service_entry##*:}"
+        
+        if systemctl is-active --quiet "${service_name}" 2>/dev/null; then
+            print_pass "${service_desc}" "${service_name} is running"
+        elif systemctl is-enabled --quiet "${service_name}" 2>/dev/null; then
+            print_warn "${service_desc}" "${service_name} is enabled but not running"
+            if [[ "${FIX_MODE}" == "true" ]]; then
+                print_info "Attempting to start ${service_name}..."
+                if sudo systemctl start "${service_name}" 2>/dev/null; then
+                    print_pass "${service_desc} (fixed)" "Started ${service_name}"
+                fi
+            fi
+        else
+            print_info "${service_desc} is not enabled (optional)"
+        fi
+    done
+}
+
+check_services_user() {
+    print_header "User Services"
+    
+    local services=(
+        "syncthing.service:Syncthing file sync"
+    )
+    
+    for service_entry in "${services[@]}"; do
+        local service_name="${service_entry%%:*}"
+        local service_desc="${service_entry##*:}"
+        
+        if systemctl --user is-active --quiet "${service_name}" 2>/dev/null; then
+            print_pass "${service_desc}" "${service_name} is running"
+        elif systemctl --user is-enabled --quiet "${service_name}" 2>/dev/null; then
+            print_warn "${service_desc}" "${service_name} is enabled but not running"
+        else
+            print_info "${service_desc} is not enabled (optional)"
+        fi
+    done
+}
+
+check_network() {
+    print_header "Network Connectivity"
+    
+    # Check IPv4
+    if [[ "$(immutablue_has_internet_v4)" == "${TRUE}" ]]; then
+        print_pass "IPv4 connectivity"
+    else
+        print_warn "No IPv4 connectivity"
+    fi
+    
+    # Check IPv6
+    if [[ "$(immutablue_has_internet_v6)" == "${TRUE}" ]]; then
+        print_pass "IPv6 connectivity"
+    else
+        print_info "No IPv6 connectivity (optional)"
+    fi
+    
+    # Check container registry access
+    if curl -s --connect-timeout 5 https://quay.io/health/instance &>/dev/null; then
+        print_pass "Container registry (quay.io)" "Can reach quay.io"
+    else
+        print_fail "Container registry (quay.io)" "Cannot reach quay.io" "Check firewall and DNS settings"
+    fi
+    
+    # Check Tailscale if installed
+    if command -v tailscale &>/dev/null; then
+        if [[ "$(immutablue_build_has_working_tailscale)" == "${TRUE}" ]]; then
+            local ts_ip
+            ts_ip=$(tailscale ip -4 2>/dev/null || echo "unknown")
+            print_pass "Tailscale connected" "IP: ${ts_ip}"
+        else
+            print_warn "Tailscale not connected" "Run 'tailscale up' to connect"
+        fi
+    fi
+}
+
+check_disk_space() {
+    print_header "Disk Space"
+    
+    # Note: Skip root (/) because on Silverblue/composefs it's a tiny overlay
+    # that always shows 100% used - not meaningful for health checks
+    local locations=(
+        "/var:Variable data"
+        "/home:Home directories"
+    )
+    
+    for loc_entry in "${locations[@]}"; do
+        local path="${loc_entry%%:*}"
+        local desc="${loc_entry##*:}"
+        
+        if [[ -d "${path}" ]]; then
+            local usage
+            local available
+            usage=$(df -h "${path}" 2>/dev/null | awk 'NR==2 {print $5}' | tr -d '%')
+            available=$(df -h "${path}" 2>/dev/null | awk 'NR==2 {print $4}')
+            
+            if [[ -n "${usage}" ]]; then
+                if [[ "${usage}" -ge 95 ]]; then
+                    print_fail "${desc}" "${usage}% used, ${available} available" "Free up disk space"
+                elif [[ "${usage}" -ge 85 ]]; then
+                    print_warn "${desc}" "${usage}% used, ${available} available"
+                else
+                    print_pass "${desc}" "${usage}% used, ${available} available"
+                fi
+            fi
+        fi
+    done
+}
+
+check_brew() {
+    print_header "Homebrew"
+    
+    # Homebrew is x86_64 only
+    local arch
+    arch=$(uname -m)
+    if [[ "${arch}" != "x86_64" ]]; then
+        print_info "Homebrew not available on ${arch}"
+        return
+    fi
+    
+    # Check if brew is installed
+    if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
+        print_pass "Homebrew installed" "/home/linuxbrew/.linuxbrew"
+        
+        # Check if brew command works
+        if command -v brew &>/dev/null; then
+            local brew_version
+            brew_version=$(brew --version 2>/dev/null | head -1 || echo "unknown")
+            print_pass "Homebrew functional" "${brew_version}"
+            
+            # Check for outdated packages
+            local outdated
+            outdated=$(brew outdated 2>/dev/null | wc -l)
+            if [[ "${outdated}" -gt 0 ]]; then
+                print_warn "Outdated brew packages" "${outdated} packages can be updated"
+            else
+                print_pass "Brew packages up to date"
+            fi
+        else
+            print_warn "Homebrew not in PATH" "Source /etc/profile.d/brew.sh or restart shell"
+        fi
+    else
+        print_warn "Homebrew not installed" "Run 'immutablue install_brew' to install"
+    fi
+}
+
+check_flatpak() {
+    print_header "Flatpak"
+    
+    if command -v flatpak &>/dev/null; then
+        print_pass "Flatpak installed"
+        
+        # Check if Flathub is configured
+        if flatpak remote-list 2>/dev/null | grep -q flathub; then
+            print_pass "Flathub remote configured"
+        else
+            print_warn "Flathub not configured" "Run 'flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo'"
+        fi
+        
+        # Count installed flatpaks
+        local count
+        count=$(flatpak list 2>/dev/null | wc -l)
+        print_info "Installed flatpaks: ${count}"
+    else
+        print_fail "Flatpak not installed"
+    fi
+}
+
+check_distrobox() {
+    print_header "Distrobox"
+    
+    if command -v distrobox &>/dev/null; then
+        print_pass "Distrobox installed"
+        
+        # List containers
+        local containers
+        containers=$(distrobox list 2>/dev/null | tail -n +2 | wc -l)
+        if [[ "${containers}" -gt 0 ]]; then
+            print_pass "Distrobox containers" "${containers} container(s) configured"
+        else
+            print_info "No distrobox containers configured"
+        fi
+    else
+        print_warn "Distrobox not found"
+    fi
+}
+
+check_variant_specific() {
+    # Kuberblue checks
+    if [[ "$(immutablue_build_is_kuberblue)" == "${TRUE}" ]]; then
+        print_header "Kuberblue (Kubernetes)"
+        
+        if command -v kubectl &>/dev/null; then
+            print_pass "kubectl installed"
+            
+            # Check if cluster is accessible
+            if kubectl cluster-info &>/dev/null 2>&1; then
+                print_pass "Kubernetes cluster accessible"
+            else
+                print_warn "Kubernetes cluster not accessible" "Check cluster configuration"
+            fi
+        else
+            print_fail "kubectl not installed"
+        fi
+    fi
+    
+    # Trueblue checks
+    if [[ "$(immutablue_build_is_trueblue)" == "${TRUE}" ]]; then
+        print_header "Trueblue (Storage)"
+        
+        # Check ZFS if enabled
+        if [[ "$(immutablue_build_has_zfs)" == "${TRUE}" ]]; then
+            if command -v zpool &>/dev/null; then
+                print_pass "ZFS installed"
+                
+                local pools
+                pools=$(zpool list -H 2>/dev/null | wc -l)
+                if [[ "${pools}" -gt 0 ]]; then
+                    # Check pool health
+                    local unhealthy
+                    unhealthy=$(zpool status 2>/dev/null | grep -c "DEGRADED\|FAULTED\|OFFLINE\|UNAVAIL" || true)
+                    if [[ "${unhealthy}" -gt 0 ]]; then
+                        print_fail "ZFS pool health" "One or more pools have issues" "Run 'zpool status' for details"
+                    else
+                        print_pass "ZFS pools healthy" "${pools} pool(s) online"
+                    fi
+                else
+                    print_info "No ZFS pools configured"
+                fi
+            fi
+        fi
+        
+        # Check Cockpit
+        if curl -s --connect-timeout 2 http://localhost:9090 &>/dev/null; then
+            print_pass "Cockpit web console" "Available at http://localhost:9090"
+        else
+            print_warn "Cockpit not responding"
+        fi
+    fi
+}
+
+print_summary() {
+    if [[ "${JSON_OUTPUT}" == "true" ]]; then
+        echo "{"
+        echo "  \"version\": \"${VERSION}\","
+        echo "  \"image\": \"$(immutablue_get_image_full)\","
+        echo "  \"timestamp\": \"$(date -Iseconds)\","
+        echo "  \"summary\": {"
+        echo "    \"passed\": ${CHECKS_PASSED},"
+        echo "    \"failed\": ${CHECKS_FAILED},"
+        echo "    \"warnings\": ${CHECKS_WARNED}"
+        echo "  },"
+        echo "  \"results\": ["
+        local first=true
+        for result in "${RESULTS[@]}"; do
+            if [[ "${first}" == "true" ]]; then
+                first=false
+            else
+                echo ","
+            fi
+            echo -n "    ${result}"
+        done
+        echo ""
+        echo "  ]"
+        echo "}"
+    elif [[ "${YAML_OUTPUT}" == "true" ]]; then
+        echo "---"
+        echo "version: \"${VERSION}\""
+        echo "image: \"$(immutablue_get_image_full)\""
+        echo "timestamp: \"$(date -Iseconds)\""
+        echo "summary:"
+        echo "  passed: ${CHECKS_PASSED}"
+        echo "  failed: ${CHECKS_FAILED}"
+        echo "  warnings: ${CHECKS_WARNED}"
+        echo "results:"
+        for result in "${RESULTS[@]}"; do
+            # Parse JSON result and convert to YAML
+            local check status message fix
+            check=$(echo "${result}" | sed 's/.*"check":"\([^"]*\)".*/\1/')
+            status=$(echo "${result}" | sed 's/.*"status":"\([^"]*\)".*/\1/')
+            message=$(echo "${result}" | sed 's/.*"message":"\([^"]*\)".*/\1/')
+            fix=$(echo "${result}" | sed 's/.*"fix":"\([^"]*\)".*/\1/' 2>/dev/null || echo "")
+            echo "  - check: \"${check}\""
+            echo "    status: \"${status}\""
+            if [[ -n "${message}" ]]; then
+                echo "    message: \"${message}\""
+            fi
+            if [[ -n "${fix}" ]] && [[ "${fix}" != "${result}" ]]; then
+                echo "    fix: \"${fix}\""
+            fi
+        done
+    else
+        echo ""
+        echo "─────────────────────────────────────"
+        echo -e "${BOLD}Summary${NC}"
+        echo "─────────────────────────────────────"
+        echo -e "  ${GREEN}${PASS} Passed:${NC}   ${CHECKS_PASSED}"
+        echo -e "  ${RED}${FAIL} Failed:${NC}   ${CHECKS_FAILED}"
+        echo -e "  ${YELLOW}${WARN} Warnings:${NC} ${CHECKS_WARNED}"
+        echo ""
+        
+        if [[ "${CHECKS_FAILED}" -gt 0 ]]; then
+            echo -e "${RED}${BOLD}Some checks failed. Review the output above for details.${NC}"
+        elif [[ "${CHECKS_WARNED}" -gt 0 ]]; then
+            echo -e "${YELLOW}${BOLD}System is healthy with some warnings.${NC}"
+        else
+            echo -e "${GREEN}${BOLD}All checks passed! Your system is healthy.${NC}"
+        fi
+        echo ""
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MAIN
+# ═══════════════════════════════════════════════════════════════════════════
+
+main() {
+    parse_args "$@"
+    
+    if [[ "${JSON_OUTPUT}" == "false" ]] && [[ "${YAML_OUTPUT}" == "false" ]]; then
+        echo -e "${BOLD}Immutablue Doctor v${VERSION}${NC}"
+        echo -e "Checking system health...\n"
+    fi
+    
+    # Run all checks
+    check_ostree_status
+    check_services_system
+    check_services_user
+    check_network
+    check_disk_space
+    check_brew
+    check_flatpak
+    check_distrobox
+    check_variant_specific
+    
+    # Print summary
+    print_summary
+    
+    # Exit with appropriate code
+    if [[ "${CHECKS_FAILED}" -gt 0 ]]; then
+        exit 1
+    else
+        exit 0
+    fi
+}
+
+main "$@"

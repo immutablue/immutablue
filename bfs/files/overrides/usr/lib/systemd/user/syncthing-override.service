@@ -1,0 +1,31 @@
+[Unit]
+Description=Syncthing - Open Source Continuous File Synchronization Wrapped By Immutablue
+Documentation=man:syncthing(1)
+StartLimitIntervalSec=60
+StartLimitBurst=4
+
+[Service]
+# Inserting wrapper here for Immutablue with tailscale support
+# Also add a preexec with sleep to give tailscale time to respond
+#
+# The override is done in immutablue/build/90-post.sh
+ExecStartPre=/usr/bin/sleep 15
+ExecStart=/usr/bin/immutablue-wrapper-syncthing
+StandardOutput=journal
+Restart=on-failure
+RestartSec=10
+SuccessExitStatus=3 4
+RestartForceExitStatus=3 4
+
+# Hardening
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=true
+NoNewPrivileges=true
+
+# Elevated permissions to sync ownership (disabled by default),
+# see https://docs.syncthing.net/advanced/folder-sync-ownership
+#AmbientCapabilities=CAP_CHOWN CAP_FOWNER
+
+[Install]
+WantedBy=default.target
+

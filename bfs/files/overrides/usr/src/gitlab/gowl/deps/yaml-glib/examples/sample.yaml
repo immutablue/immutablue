@@ -1,0 +1,18 @@
+name: yaml-glib
+version: 1.0.0
+description: A GLib/GObject-based YAML library
+
+author:
+  name: Zach Podbielniak
+  email: zach@example.com
+
+features:
+  - parsing
+  - generation
+  - json-conversion
+  - schema-validation
+
+settings:
+  debug: false
+  max_depth: 10
+  timeout: 30.5

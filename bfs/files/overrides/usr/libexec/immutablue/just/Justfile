@@ -1,0 +1,14 @@
+
+_default:
+    just --list
+
+
+alias c := choose
+# interactive option to choose
+choose:
+    just --choose
+
+
+import "./00-base.justfile"
+import "./05-hardware-overrides.justfile"
+
