@@ -11,7 +11,7 @@ kind: import
 
 sources:
 - kind: local
-  path: ../artifacts/overrides
+  path: files/overrides
 
 config:
   target: /
