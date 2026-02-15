@@ -100,7 +100,12 @@ track_sources () {
     _log "Tracking latest upstream source refs..."
     cd "${BFS_DIR}"
 
-    # Track all elements recursively
+    # Junction must be tracked first -- other elements depend on it
+    _log "Tracking freedesktop-sdk junction..."
+    bst source track freedesktop-sdk.bst
+
+    # Now track all remaining elements
+    _log "Tracking all elements..."
     bst source track --deps all immutablue/image.bst
 
     _log "Source tracking complete. Review and commit the updated refs."
