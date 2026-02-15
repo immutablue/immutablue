@@ -7,16 +7,18 @@
 kind: stack
 
 depends:
-# From freedesktop-sdk (already built)
-- freedesktop-sdk.bst:components/bash.bst
-- freedesktop-sdk.bst:components/coreutils.bst
-- freedesktop-sdk.bst:components/findutils.bst
-- freedesktop-sdk.bst:components/gawk.bst
-- freedesktop-sdk.bst:components/grep.bst
-- freedesktop-sdk.bst:components/sed.bst
+# From freedesktop-sdk bootstrap
+- freedesktop-sdk.bst:bootstrap/bash.bst
+- freedesktop-sdk.bst:bootstrap/coreutils.bst
+- freedesktop-sdk.bst:bootstrap/findutils.bst
+- freedesktop-sdk.bst:bootstrap/gawk.bst
+- freedesktop-sdk.bst:bootstrap/grep.bst
+- freedesktop-sdk.bst:bootstrap/sed.bst
+- freedesktop-sdk.bst:bootstrap/xz.bst
+
+# From freedesktop-sdk components
 - freedesktop-sdk.bst:components/tar.bst
 - freedesktop-sdk.bst:components/gzip.bst
-- freedesktop-sdk.bst:components/xz.bst
 - freedesktop-sdk.bst:components/git.bst
 - freedesktop-sdk.bst:components/curl.bst
 - freedesktop-sdk.bst:components/openssh.bst

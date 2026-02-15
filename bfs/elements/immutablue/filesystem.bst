@@ -10,7 +10,7 @@
 kind: script
 
 build-depends:
-- freedesktop-sdk.bst:components/coreutils.bst
+- freedesktop-sdk.bst:bootstrap/coreutils.bst
 
 config:
   commands:

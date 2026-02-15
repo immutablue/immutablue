@@ -8,7 +8,7 @@ build-depends:
 - freedesktop-sdk.bst:components/go.bst
 
 depends:
-- freedesktop-sdk.bst:components/bash.bst
+- freedesktop-sdk.bst:bootstrap/bash.bst
 
 sources:
 - kind: git

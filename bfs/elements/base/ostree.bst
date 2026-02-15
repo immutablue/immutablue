@@ -14,7 +14,7 @@ depends:
 - freedesktop-sdk.bst:components/libarchive.bst
 - freedesktop-sdk.bst:components/curl.bst
 - freedesktop-sdk.bst:components/fuse3.bst
-- freedesktop-sdk.bst:components/xz.bst
+- freedesktop-sdk.bst:bootstrap/xz.bst
 - freedesktop-sdk.bst:components/e2fsprogs.bst
 - freedesktop-sdk.bst:components/systemd.bst
 - freedesktop-sdk.bst:components/openssl.bst

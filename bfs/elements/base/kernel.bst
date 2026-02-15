@@ -13,7 +13,7 @@ build-depends:
 - freedesktop-sdk.bst:components/perl.bst
 - freedesktop-sdk.bst:components/openssl.bst
 - freedesktop-sdk.bst:components/kmod.bst
-- freedesktop-sdk.bst:components/elfutils.bst
+- freedesktop-sdk.bst:bootstrap/elfutils.bst
 
 runtime-depends:
 - freedesktop-sdk.bst:components/kmod.bst

@@ -12,7 +12,7 @@ kind: manual
 build-depends:
 - freedesktop-sdk.bst:components/go.bst
 - freedesktop-sdk.bst:components/gpgme.bst
-- freedesktop-sdk.bst:components/bash.bst
+- freedesktop-sdk.bst:bootstrap/bash.bst
 
 depends:
 - freedesktop-sdk.bst:components/systemd.bst

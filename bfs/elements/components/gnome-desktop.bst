@@ -13,25 +13,25 @@ kind: stack
 depends:
 # Core desktop
 - freedesktop-sdk.bst:components/glib.bst
-- freedesktop-sdk.bst:components/gtk.bst
+- freedesktop-sdk.bst:components/gtk3.bst
 - freedesktop-sdk.bst:components/dbus.bst
 - freedesktop-sdk.bst:components/polkit.bst
-- freedesktop-sdk.bst:components/accountsservice.bst
-- freedesktop-sdk.bst:components/NetworkManager.bst
 
 # Display server and compositor
 - freedesktop-sdk.bst:components/wayland.bst
 - freedesktop-sdk.bst:components/wayland-protocols.bst
-- freedesktop-sdk.bst:components/mesa.bst
+# Mesa is in extensions/, not components/
+- freedesktop-sdk.bst:extensions/mesa/mesa.bst
 
 # Audio
 - freedesktop-sdk.bst:components/pipewire.bst
 
-# GDM (display manager) and GNOME Shell are not in freedesktop-sdk,
-# they come from gnome-build-meta. We'll need to add a junction for that
-# or build them directly.
+# accountsservice, NetworkManager, GDM, GNOME Shell, mutter, etc.
+# are NOT in freedesktop-sdk -- they come from gnome-build-meta.
 #
 # TODO: Add gnome-build-meta junction for:
+# - accountsservice
+# - NetworkManager
 # - mutter
 # - gnome-shell
 # - gdm

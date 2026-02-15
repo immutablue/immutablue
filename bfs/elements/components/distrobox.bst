@@ -7,9 +7,9 @@ kind: manual
 
 depends:
 - components/podman.bst
-- freedesktop-sdk.bst:components/bash.bst
+- freedesktop-sdk.bst:bootstrap/bash.bst
 - freedesktop-sdk.bst:components/curl.bst
-- freedesktop-sdk.bst:components/wget.bst
+# wget is not in freedesktop-sdk; curl is sufficient for distrobox
 
 sources:
 - kind: git

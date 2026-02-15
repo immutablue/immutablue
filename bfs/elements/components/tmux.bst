@@ -9,7 +9,7 @@ build-depends:
 - freedesktop-sdk.bst:components/bison.bst
 
 depends:
-- freedesktop-sdk.bst:components/ncurses.bst
+- freedesktop-sdk.bst:bootstrap/ncurses.bst
 - freedesktop-sdk.bst:components/libevent.bst
 
 sources:

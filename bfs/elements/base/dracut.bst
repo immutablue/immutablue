@@ -6,15 +6,15 @@
 kind: manual
 
 build-depends:
-- freedesktop-sdk.bst:components/bash.bst
-- freedesktop-sdk.bst:components/coreutils.bst
+- freedesktop-sdk.bst:bootstrap/bash.bst
+- freedesktop-sdk.bst:bootstrap/coreutils.bst
 
 depends:
 - base/systemd.bst
 - freedesktop-sdk.bst:components/kmod.bst
 - freedesktop-sdk.bst:components/util-linux.bst
-- freedesktop-sdk.bst:components/bash.bst
-- freedesktop-sdk.bst:components/coreutils.bst
+- freedesktop-sdk.bst:bootstrap/bash.bst
+- freedesktop-sdk.bst:bootstrap/coreutils.bst
 
 sources:
 - kind: git

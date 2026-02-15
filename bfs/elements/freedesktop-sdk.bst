@@ -13,3 +13,4 @@ sources:
 - kind: git
   url: freedesktop:freedesktop-sdk/freedesktop-sdk.git
   track: release/24.08
+  ref: 43d327c67bdaf3be9915b20e9c3cfcd33989feaa
