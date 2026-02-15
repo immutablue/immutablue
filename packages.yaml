@@ -39,8 +39,9 @@ immutablue:
   rpm:
     all:
     - bashmount
-    - cloud-init
+    - bemenu-run
     - buildah
+    - cloud-init
     - cmake
     - ddrescue
     - dialog
