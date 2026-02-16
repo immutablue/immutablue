@@ -66,8 +66,12 @@ immutablue:
     - podman-compose
     - powertop
     - pv
+    - python-dulwich
     - python3-gobject
+    - python3-packaging
     - python3-pip
+    - python3-requests
+    - python-tomlkit
     - python3-yaml
     - qemu
     - qemu-user-binfmt
