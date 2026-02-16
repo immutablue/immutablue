@@ -17,3 +17,7 @@ sources:
   track: v2.4.1
   # ref populated by `bst source track`
   ref: 544aed007b9b26a73ca321c17d3f3b8f7172f9d4
+
+variables:
+  # Skip doc/info building (requires makeinfo/texinfo)
+  make-install: make -j1 install DESTDIR="%{install-root}" MAKEINFO=true
