@@ -8,6 +8,7 @@ kind: manual
 build-depends:
 - freedesktop-sdk.bst:bootstrap/bash.bst
 - freedesktop-sdk.bst:bootstrap/coreutils.bst
+- freedesktop-sdk.bst:components/pkg-config.bst
 
 depends:
 - base/systemd.bst
