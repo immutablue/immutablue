@@ -12,6 +12,7 @@ depends:
 - freedesktop-sdk.bst:components/perl.bst
 
 sources:
-- kind: tar
-  url: github:aspiers/stow/releases/download/v2.4.1/stow-2.4.1.tar.gz
+- kind: git
+  url: github:aspiers/stow.git
+  track: v2.4.1
   # ref populated by `bst source track`
