@@ -25,7 +25,12 @@ config:
     ./configure --prefix=%{prefix}
 
   build-commands:
-  - make -j%{max-jobs} MAKEINFO=/bin/true
+  - |
+    make bin/stow bin/chkstow lib/Stow.pm lib/Stow/Util.pm
 
   install-commands:
-  - make -j1 install DESTDIR="%{install-root}" MAKEINFO=/bin/true
+  - |
+    install -Dm755 bin/stow "%{install-root}%{prefix}/bin/stow"
+    install -Dm755 bin/chkstow "%{install-root}%{prefix}/bin/chkstow"
+    install -Dm644 lib/Stow.pm "%{install-root}%{prefix}/share/perl5/Stow.pm"
+    install -Dm644 lib/Stow/Util.pm "%{install-root}%{prefix}/share/perl5/Stow/Util.pm"
