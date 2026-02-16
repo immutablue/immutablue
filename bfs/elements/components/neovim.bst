@@ -16,6 +16,7 @@ sources:
   track: stable
   # ref populated by `bst source track`
 
+  ref: e8b87a554f2b500dd39463cabdcffc10261f1cef
 variables:
   cmake-local: >-
     -DCMAKE_BUILD_TYPE=Release

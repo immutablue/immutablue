@@ -26,6 +26,7 @@ sources:
   track: main
   # ref populated by `bst source track`
 
+  ref: 09faf7844105459a37ec74e8e92aca925456e040
 config:
   build-commands:
   - make -j%{max-jobs} PREFIX=%{prefix}

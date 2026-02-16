@@ -20,6 +20,7 @@ sources:
   track: main
   # ref populated by `bst source track`
 
+  ref: 6ac06b772d77c2743b016852cf364be46462aae8
 config:
   build-commands:
   - |

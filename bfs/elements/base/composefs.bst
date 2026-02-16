@@ -19,6 +19,7 @@ sources:
   track: main
   # ref populated by `bst source track`
 
+  ref: 25d0cd3c5aab450342ee1be37955fcbf7bc8d587
 variables:
   meson-local: >-
     -Dman=disabled

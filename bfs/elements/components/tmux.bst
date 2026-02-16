@@ -18,6 +18,7 @@ sources:
   track: master
   # ref populated by `bst source track`
 
+  ref: d3522c328c5e338ee1b5ff35efbbd4081b62a236
 config:
   configure-commands:
   - sh autogen.sh

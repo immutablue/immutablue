@@ -22,6 +22,7 @@ sources:
   track: main
   # ref populated by `bst source track`
 
+  ref: 697749cdbceba2565e29ad9ff60840e96b40e3e7
 config:
   configure-commands:
   - ./configure --prefix=%{prefix} --sysconfdir=%{sysconfdir}

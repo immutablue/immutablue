@@ -17,6 +17,7 @@ sources:
   track: main
   # ref populated by `bst source track`
 
+  ref: 82ee78ee83623f0bf2d7cf42af6eef812dad345d
 config:
   install-commands:
   - ./install --prefix "%{install-root}%{prefix}"

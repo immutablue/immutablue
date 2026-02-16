@@ -23,6 +23,7 @@ sources:
   url: kernel:v%{kernel-major}.x/linux-%{kernel-version}.tar.xz
   # ref will be populated by `bst source track`
 
+  ref: e98942d17ef7063b3f2d6d7692bf24899e2e021cf832d19b55308ec8e8e08eff
 variables:
   kernel-arch: x86_64
 

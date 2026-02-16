@@ -16,6 +16,7 @@ sources:
   track: master
   # ref populated by `bst source track`
 
+  ref: b56d614ba2f901c64eed454f181badec0b1cedff
 config:
   build-commands:
   - make -j%{max-jobs} bin/fzf
