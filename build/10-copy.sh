@@ -51,7 +51,7 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 
 
 # -----------------------------------
-# Custom C projects (yaml-glib, crispy, gst, gowl)
+# Custom C projects (yaml-glib, crispy, gst, gowl, mcp-glib, mcp-gdb-glib)
 # Staged with DESTDIR in deps container, layout mirrors target filesystem.
 # cp -a preserves symlinks (libfoo.so -> libfoo.so.0 -> libfoo.so.0.1.0)
 # -----------------------------------
@@ -84,6 +84,24 @@ if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
     if [[ -d "/mnt-build-deps/gowl/etc" ]]; then
         cp -a /mnt-build-deps/gowl/etc/. /etc/
     fi
+fi
+
+# mcp-glib: GObject MCP protocol library (always install, foundational library)
+if [[ -d "/mnt-build-deps/mcp-glib/usr" ]]; then
+    echo "=== Installing mcp-glib from build deps ==="
+    cp -a /mnt-build-deps/mcp-glib/usr/. /usr/
+fi
+
+# mcp-gdb-glib: GDB MCP server (always install, depends on mcp-glib)
+if [[ -d "/mnt-build-deps/mcp-gdb-glib/usr" ]]; then
+    echo "=== Installing mcp-gdb-glib from build deps ==="
+    cp -a /mnt-build-deps/mcp-gdb-glib/usr/. /usr/
+fi
+
+# ai-glib: GObject AI provider library (always install)
+if [[ -d "/mnt-build-deps/ai-glib/usr" ]]; then
+    echo "=== Installing ai-glib from build deps ==="
+    cp -a /mnt-build-deps/ai-glib/usr/. /usr/
 fi
 
 # Update shared library cache for new .so files

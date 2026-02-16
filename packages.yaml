@@ -52,17 +52,23 @@ immutablue:
     - fzf
     - gcc
     - gdb
-    - glib2-devel
     - git
-    - json-glib-devel
+    - glib2-devel
     - htop
+    - json-glib-devel
+    - libdex
+    - libdex-devel
+    - libsoup3
+    - libsoup3-devel
     - libvirt
     - libvirt-dbus
+    - libyaml-devel
     - lm_sensors
     - make
     - mbuffer
     - neovim
     - NetworkManager-tui
+    - pkgconf-pkg-config
     - podman-compose
     - powertop
     - pv
@@ -72,6 +78,7 @@ immutablue:
     - qemu
     - qemu-user-binfmt
     - ramalama
+    - readline-devel
     - ShellCheck
     - socat
     - stow
@@ -90,8 +97,23 @@ immutablue:
     - ibus-speech-to-text
     - python3-pip  # since we don't use this in nucleus builds, then we can just put this in gui
     - solaar
+    - cairo-devel
+    - fontconfig-devel
+    - libdecor-devel
+    - libdrm-devel
+    - libinput-devel
+    - libX11-devel
+    - libXft-devel
+    - libxcb-devel
+    - libxkbcommon-devel
+    - pango-devel
+    - pixman-devel
+    - wayland-devel
+    - wayland-protocols-devel
     - wl-clipboard
     - wlroots  # runtime dep for gowl (wayland compositor)
+    - wlroots-devel
+    - xcb-util-wm-devel
     - xrdp
 
 

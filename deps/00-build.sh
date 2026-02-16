@@ -9,9 +9,9 @@
 # Fedora container. All output goes to /build/ which is later consumed
 # by build/10-copy.sh via the /mnt-build-deps mount.
 #
-# Source trees for custom C projects (yaml-glib, crispy, gst, gowl)
-# are COPY'd into /build/ by the Containerfile from the git submodules
-# at artifacts/overrides/usr/src/gitlab/.
+# Source trees for custom C projects (yaml-glib, crispy, gst, gowl,
+# mcp-glib, mcp-gdb-glib, ai-glib) are COPY'd into /build/ by the
+# Containerfile from the git submodules at artifacts/overrides/usr/src/gitlab/.
 #
 # To add a new dependency:
 #   1. Write a build_<name> function below
@@ -34,7 +34,7 @@ PACKAGES=(
 	gcc
 	glibc-static
 
-	# build tools (yaml-glib/crispy/gst/gowl)
+	# build tools (yaml-glib/crispy/g/st/gowl)
 	make
 	pkgconf-pkg-config
 
@@ -65,6 +65,11 @@ PACKAGES=(
 	libdrm-devel
 	pixman-devel
 	pango-devel
+
+	# mcp-glib: MCP protocol library
+	libsoup3-devel
+	libdex-devel
+	readline-devel
 )
 
 
@@ -73,6 +78,7 @@ PACKAGES=(
 # ============================================================================
 # Each entry corresponds to a build_<name> function below.
 # Order matters: yaml_glib must come before gst/gowl (they link against it).
+# mcp_glib must come before mcp_gdb_glib (it links against it).
 # cpak: add here when ready (Go project, https://github.com/Containerpak/cpak)
 BUILDS=(
 	blue2go
@@ -82,6 +88,9 @@ BUILDS=(
 	crispy
 	gst
 	gowl
+	mcp_glib
+	mcp_gdb_glib
+	ai_glib
 )
 
 
@@ -172,8 +181,8 @@ build_gst () {
 
 	mkdir -p "${stage_dir}"
 	cd "${src_dir}"
-	make DEBUG=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
-	make DEBUG=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
+	make DEBUG=1 MCP=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
+	make DEBUG=1 MCP=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
 }
 
 # gowl -- GObject Wayland Compositor
@@ -192,8 +201,96 @@ build_gowl () {
 
 	mkdir -p "${stage_dir}"
 	cd "${src_dir}"
-	make DEBUG=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=0 BUILD_XWAYLAND=1
-	make DEBUG=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_GIR=0 BUILD_XWAYLAND=1
+	make DEBUG=1 MCP=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=0 BUILD_XWAYLAND=1
+	make DEBUG=1 MCP=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_GIR=0 BUILD_XWAYLAND=1
+}
+
+
+# mcp-glib -- GObject MCP (Model Context Protocol) library
+# Produces: libmcp-glib-1.0.so, headers, pkg-config, CLI tools
+#           (mcp-inspect, mcp-call, mcp-read, mcp-prompt, mcp-shell)
+# Dependency for: mcp-gdb-glib
+# Source: /build/mcp-glib (COPY'd from submodule)
+build_mcp_glib () {
+	local src_dir="${BUILD_DIR}/mcp-glib"
+	local stage_dir="${BUILD_DIR}/mcp-glib"
+
+	if [[ ! -d "${src_dir}/src" ]]; then
+		echo "ERROR: mcp-glib source not found at ${src_dir}"
+		echo "Ensure submodules are initialized: git submodule update --init --recursive"
+		exit 1
+	fi
+
+	mkdir -p "${stage_dir}"
+	cd "${src_dir}"
+
+	# Fedora uses lib64 for 64-bit libs; mcp-glib defaults to lib
+	local libdir="lib"
+	if [[ -d /usr/lib64 ]]; then
+		libdir="lib64"
+	fi
+
+	make DEBUG=1 all PREFIX=/usr LIBDIR="/usr/${libdir}"
+	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}"
+
+	# Also install to the deps container itself so mcp-gdb-glib can link against it
+	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}"
+	ldconfig
+}
+
+# mcp-gdb-glib -- GDB MCP server (uses mcp-glib for protocol handling)
+# Produces: gdb-mcp-server binary
+# Source: /build/mcp-gdb-glib (COPY'd from submodule)
+build_mcp_gdb_glib () {
+	local src_dir="${BUILD_DIR}/mcp-gdb-glib"
+	local stage_dir="${BUILD_DIR}/mcp-gdb-glib"
+
+	if [[ ! -d "${src_dir}/src" ]]; then
+		echo "ERROR: mcp-gdb-glib source not found at ${src_dir}"
+		echo "Ensure submodules are initialized: git submodule update --init --recursive"
+		exit 1
+	fi
+
+	mkdir -p "${stage_dir}"
+	cd "${src_dir}"
+
+	# mcp-glib is already built and installed to the container root
+	# by build_mcp_glib(). Use pkg-config to link against the system-installed
+	# version instead of rebuilding the nested submodule.
+	make DEBUG=1 build/gdb-mcp-server \
+		MCP_GLIB_CFLAGS="$(pkg-config --cflags mcp-glib-1.0)" \
+		MCP_GLIB_LIBS="$(pkg-config --libs mcp-glib-1.0)"
+
+	# Manual install to /usr/bin (Makefile hardcodes /usr/local/bin)
+	install -d "${stage_dir}/usr/bin"
+	install -m 755 build/gdb-mcp-server "${stage_dir}/usr/bin/"
+}
+
+
+# ai-glib -- GObject AI provider library (Claude, OpenAI, Gemini, Grok, Ollama)
+# Produces: libai-glib-1.0.so, headers, pkg-config
+# Source: /build/ai-glib (COPY'd from submodule)
+build_ai_glib () {
+	local src_dir="${BUILD_DIR}/ai-glib"
+	local stage_dir="${BUILD_DIR}/ai-glib"
+
+	if [[ ! -d "${src_dir}/src" ]]; then
+		echo "ERROR: ai-glib source not found at ${src_dir}"
+		echo "Ensure submodules are initialized: git submodule update --init --recursive"
+		exit 1
+	fi
+
+	mkdir -p "${stage_dir}"
+	cd "${src_dir}"
+
+	# Fedora uses lib64 for 64-bit libs; ai-glib defaults to lib
+	local libdir="lib"
+	if [[ -d /usr/lib64 ]]; then
+		libdir="lib64"
+	fi
+
+	make DEBUG=1 all PREFIX=/usr LIBDIR="/usr/${libdir}"
+	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}"
 }
 
 

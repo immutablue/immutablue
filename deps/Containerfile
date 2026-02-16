@@ -6,4 +6,7 @@ COPY artifacts/overrides/usr/src/gitlab/yaml-glib /build/yaml-glib
 COPY artifacts/overrides/usr/src/gitlab/crispy /build/crispy
 COPY artifacts/overrides/usr/src/gitlab/gst /build/gst
 COPY artifacts/overrides/usr/src/gitlab/gowl /build/gowl
+COPY artifacts/overrides/usr/src/gitlab/mcp-glib /build/mcp-glib
+COPY artifacts/overrides/usr/src/gitlab/mcp-gdb-glib /build/mcp-gdb-glib
+COPY artifacts/overrides/usr/src/gitlab/ai-glib /build/ai-glib
 RUN bash /tmp/00-build.sh

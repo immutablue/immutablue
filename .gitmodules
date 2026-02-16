@@ -13,3 +13,12 @@
 [submodule "artifacts/overrides/usr/src/gitlab/yaml-glib"]
 	path = artifacts/overrides/usr/src/gitlab/yaml-glib
 	url = git@gitlab.com:copyleft-games/yaml-glib.git
+[submodule "artifacts/overrides/usr/src/gitlab/mcp-glib"]
+	path = artifacts/overrides/usr/src/gitlab/mcp-glib
+	url = git@gitlab.com:copyleft-games/mcp-glib.git
+[submodule "artifacts/overrides/usr/src/gitlab/mcp-gdb-glib"]
+	path = artifacts/overrides/usr/src/gitlab/mcp-gdb-glib
+	url = git@gitlab.com:copyleft-games/mcp-gdb-glib.git
+[submodule "artifacts/overrides/usr/src/gitlab/ai-glib"]
+	path = artifacts/overrides/usr/src/gitlab/ai-glib
+	url = git@gitlab.com:zachpodbielniak/ai-glib.git
