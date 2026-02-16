@@ -25,10 +25,7 @@ config:
     ./configure --prefix=%{prefix}
 
   build-commands:
-  - |
-    touch doc/stow.info
-    mkdir -p doc/manual-split
-    make -j%{max-jobs}
+  - make -j%{max-jobs} MAKEINFO=/bin/true
 
   install-commands:
-  - make -j1 install DESTDIR="%{install-root}"
+  - make -j1 install DESTDIR="%{install-root}" MAKEINFO=/bin/true
