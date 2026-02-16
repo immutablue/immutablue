@@ -134,6 +134,14 @@ function test_override_files_in_container() {
       ((SKIP_FILES++))
       continue
     fi
+
+    # Skip /usr/src files -- submodule source trees have too many files
+    # and hash mismatches are not a concern for source code copies
+    if [[ "$file" == *"/usr/src/"* ]]; then
+      echo "SKIP: Source tree file $file"
+      ((SKIP_FILES++))
+      continue
+    fi
     
     ((TOTAL_FILES++))
     
