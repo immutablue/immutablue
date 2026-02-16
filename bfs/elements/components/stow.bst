@@ -22,7 +22,7 @@ config:
   configure-commands:
   - |
     autoreconf --install
-    %{configure}
+    ./configure --prefix=%{prefix}
 
   build-commands:
   - |
