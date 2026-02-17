@@ -293,6 +293,7 @@ build-deps:
 		build \
 		--ignorefile ./.containerignore \
 		--no-cache \
+		--platform $(PLATFORM) \
 		-t $(DEPS_CONTAINER) \
 		-f ./deps/Containerfile \
 		--build-arg=BASE_IMAGE=$(BASE_IMAGE) \
@@ -314,6 +315,7 @@ build-cyan-deps:
 	buildah \
 		build \
 		--no-cache \
+		--platform $(PLATFORM) \
 		-t $(CYAN_DEPS_CONTAINER) \
 		-f ./deps/cyan/Containerfile \
 		--build-arg=FEDORA_VERSION=$(VERSION)
