@@ -90,25 +90,6 @@ check_shellcheck_installed() {
     fi
 }
 
-# Function to run shellcheck on a file
-run_shellcheck() {
-    local file="$1"
-    local relative_path="${file#$PROJECT_ROOT/}"
-    
-    echo -n "Checking ${relative_path}... "
-    
-    # Run shellcheck with configured options
-    if shellcheck "${SHELLCHECK_OPTS[@]}" "$file"; then
-        echo "PASS"
-        ((SUCCESS_COUNT++))
-        return 0
-    else
-        echo "FAIL"
-        ((FAIL_COUNT++))
-        return 1
-    fi
-}
-
 # Function to find all shell scripts in the project
 find_shell_scripts() {
     local all_scripts=()
@@ -159,31 +140,41 @@ main() {
     echo "Found ${file_count} shell scripts to check"
     echo
     
-    # Loop through all shell scripts and check them
-    for file in "${SHELL_SCRIPTS[@]}"; do
-        if ! run_shellcheck "$file"; then
-            check_failed=true
-            EXIT_CODE=1
-            
-            # If in fix mode, show detailed diagnostic information to help with manual fixes
-            if [[ "$FIX_MODE" == true ]]; then
-                echo "Providing detailed diagnostics for ${file}..."
-                # Show the specific issues that need manual fixes in a more readable format
-                echo "ℹ The following issues need manual fixes:"
-                # Grep for lines that start with "In" and format them with bullet points for better readability
-                shellcheck --severity=warning "${file}" | grep -E "^In.*line" | sed 's/^/  - /'
-                # Note that this doesn't automatically fix issues but helps identify them for manual correction
-            fi
+    # Run shellcheck in batch mode (all files in one invocation)
+    # This is significantly faster than spawning one process per file
+    echo "Running shellcheck on all ${file_count} files (batch mode)..."
+    echo
+    if shellcheck "${SHELLCHECK_OPTS[@]}" "${SHELL_SCRIPTS[@]}"; then
+        SUCCESS_COUNT="${file_count}"
+    else
+        check_failed=true
+        EXIT_CODE=1
+
+        # In fix mode, re-run per-file to identify which ones failed
+        if [[ "$FIX_MODE" == true ]]; then
+            echo
+            echo "Re-checking individually to identify failing files..."
+            for file in "${SHELL_SCRIPTS[@]}"; do
+                local relative_path="${file#"$PROJECT_ROOT"/}"
+                if shellcheck "${SHELLCHECK_OPTS[@]}" "$file" >/dev/null 2>&1; then
+                    ((SUCCESS_COUNT++))
+                else
+                    ((FAIL_COUNT++))
+                    echo "FAIL: ${relative_path}"
+                    shellcheck --severity=warning "$file" | grep -E "^In.*line" | sed 's/^/  - /'
+                fi
+            done
         fi
-    done
-    
+    fi
+
     # Report results
     echo
     echo "=== ShellCheck Validation Results ==="
     echo "Files checked:    ${file_count}"
-    echo "Files passed:     ${SUCCESS_COUNT}"
-    echo "Files failed:     ${FAIL_COUNT}"
-    echo "Files skipped:    ${SKIP_COUNT}"
+    if [[ "$check_failed" == true && "$FIX_MODE" == true ]]; then
+        echo "Files passed:     ${SUCCESS_COUNT}"
+        echo "Files failed:     ${FAIL_COUNT}"
+    fi
     echo
     
     if [[ "$check_failed" == true ]]; then
