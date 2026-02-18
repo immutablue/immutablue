@@ -1,8 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+readonly ROOT_DIR
 readonly MANIFEST_BASE_DIR="/etc/kuberblue/manifests"
 
 # Common constants

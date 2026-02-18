@@ -79,7 +79,8 @@ determine_file_and_deploy(){
     then
         echo "Applying patch from $f"
         # Extract resource type and name from patch filename
-        local patch_basename=$(basename "$f")
+        local patch_basename
+        patch_basename=$(basename "$f")
         if [[ "$patch_basename" == *"default-sc-patch"* ]]; then
             # This is a storage class patch - apply to openebs-hostpath storage class
             kubectl patch storageclass openebs-hostpath --patch-file "$f"

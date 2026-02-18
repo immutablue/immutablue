@@ -102,9 +102,11 @@ copy_recursively /usr/share/zsh/site-functions/_wl-copy /rootfs 2>/dev/null || t
 copy_recursively /usr/share/zsh/site-functions/_wl-paste /rootfs 2>/dev/null || true
 
 # GCC support files
-if [[ -d /usr/share/gcc-* ]]; then
-    copy_recursively /usr/share/gcc-* /rootfs 2>/dev/null || true
-fi
+for gcc_dir in /usr/share/gcc-*; do
+    if [[ -d "$gcc_dir" ]]; then
+        copy_recursively "$gcc_dir" /rootfs 2>/dev/null || true
+    fi
+done
 if [[ -d /usr/include/c++ ]]; then
     copy_recursively /usr/include/c++ /rootfs
 fi

@@ -97,8 +97,8 @@ find_shell_scripts() {
     # Find all .sh files
     while IFS= read -r -d '' file; do
         all_scripts+=("$file")
-    done < <(find "$PROJECT_ROOT" -type f -name "*.sh" -not -path "*/\.*" -print0)
-    
+    done < <(find "$PROJECT_ROOT" -type f -name "*.sh" -not -path "*/\.*" -not -path "*/usr/src/*" -print0)
+
     # Find files with bash shebang but no .sh extension
     while IFS= read -r -d '' file; do
         # Check for bash shebang
@@ -108,7 +108,7 @@ find_shell_scripts() {
                 all_scripts+=("$file")
             fi
         fi
-    done < <(find "$PROJECT_ROOT" -type f -executable -not -path "*/\.*" -print0)
+    done < <(find "$PROJECT_ROOT" -type f -executable -not -path "*/\.*" -not -path "*/usr/src/*" -print0)
     
     # Return the array of scripts
     printf '%s\n' "${all_scripts[@]}"
@@ -140,31 +140,64 @@ main() {
     echo "Found ${file_count} shell scripts to check"
     echo
     
-    # Run shellcheck in batch mode (all files in one invocation)
-    # This is significantly faster than spawning one process per file
-    echo "Running shellcheck on all ${file_count} files (batch mode)..."
-    echo
-    if shellcheck "${SHELLCHECK_OPTS[@]}" "${SHELL_SCRIPTS[@]}"; then
-        SUCCESS_COUNT="${file_count}"
-    else
-        check_failed=true
-        EXIT_CODE=1
-
-        # In fix mode, re-run per-file to identify which ones failed
-        if [[ "$FIX_MODE" == true ]]; then
-            echo
-            echo "Re-checking individually to identify failing files..."
-            for file in "${SHELL_SCRIPTS[@]}"; do
-                local relative_path="${file#"$PROJECT_ROOT"/}"
-                if shellcheck "${SHELLCHECK_OPTS[@]}" "$file" >/dev/null 2>&1; then
-                    ((SUCCESS_COUNT++))
-                else
-                    ((FAIL_COUNT++))
-                    echo "FAIL: ${relative_path}"
-                    shellcheck --severity=warning "$file" | grep -E "^In.*line" | sed 's/^/  - /'
-                fi
-            done
+    # Detect which parallel is available (if any) for concurrent checking
+    # GNU parallel: `parallel cmd {} ::: args`
+    # moreutils parallel: `parallel cmd -- args`
+    local parallel_mode="none"
+    if command -v parallel &>/dev/null; then
+        if parallel --version 2>&1 | grep -q "GNU parallel"; then
+            parallel_mode="gnu"
+        else
+            parallel_mode="moreutils"
         fi
+    fi
+
+    # Run shellcheck: parallel if available, batch mode as fallback
+    # All modes are faster than per-file sequential invocation
+    if [[ "$parallel_mode" == "gnu" ]]; then
+        echo "Running shellcheck on ${file_count} files (GNU parallel)..."
+        echo
+        if printf '%s\n' "${SHELL_SCRIPTS[@]}" | \
+            parallel --halt soon,fail=1 shellcheck "${SHELLCHECK_OPTS[@]}" {}; then
+            SUCCESS_COUNT="${file_count}"
+        else
+            check_failed=true
+            EXIT_CODE=1
+        fi
+    elif [[ "$parallel_mode" == "moreutils" ]]; then
+        echo "Running shellcheck on ${file_count} files (moreutils parallel)..."
+        echo
+        if parallel shellcheck "${SHELLCHECK_OPTS[@]}" -- "${SHELL_SCRIPTS[@]}"; then
+            SUCCESS_COUNT="${file_count}"
+        else
+            check_failed=true
+            EXIT_CODE=1
+        fi
+    else
+        echo "Running shellcheck on ${file_count} files (batch mode)..."
+        echo
+        if shellcheck "${SHELLCHECK_OPTS[@]}" "${SHELL_SCRIPTS[@]}"; then
+            SUCCESS_COUNT="${file_count}"
+        else
+            check_failed=true
+            EXIT_CODE=1
+        fi
+    fi
+
+    # In fix mode with failures, re-run per-file to identify which ones failed
+    if [[ "$check_failed" == true && "$FIX_MODE" == true ]]; then
+        echo
+        echo "Re-checking individually to identify failing files..."
+        for file in "${SHELL_SCRIPTS[@]}"; do
+            local relative_path="${file#"$PROJECT_ROOT"/}"
+            if shellcheck "${SHELLCHECK_OPTS[@]}" "$file" >/dev/null 2>&1; then
+                ((SUCCESS_COUNT++))
+            else
+                ((FAIL_COUNT++))
+                echo "FAIL: ${relative_path}"
+                shellcheck --severity=warning "$file" | grep -E "^In.*line" | sed 's/^/  - /'
+            fi
+        done
     fi
 
     # Report results

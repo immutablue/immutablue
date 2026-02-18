@@ -373,7 +373,8 @@ EOF
   echo "Starting QEMU..."
   
   # Check if kernel exists
-  local kernel_path="/boot/vmlinuz-$(uname -r)"
+  local kernel_path
+  kernel_path="/boot/vmlinuz-$(uname -r)"
   if [[ ! -f "$kernel_path" ]]; then
     echo "ERROR: Kernel not found at $kernel_path"
     echo "Available kernels:"

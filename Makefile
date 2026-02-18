@@ -1772,13 +1772,13 @@ post_install_notes:
 
 # Pre-build test target: Validates shell scripts before building the container
 # This target runs shellcheck against all bash scripts in the project to ensure code quality
-# It runs in report-only mode for CI/CD integration (won't fail the build)
+# Fails the build if any scripts have warnings or errors
 # Can be skipped by setting SKIP_TEST=1
 pre_test:
 	@if [ "$(SKIP_TEST)" = "0" ]; then \
 		echo "Running pre-build shellcheck tests..."; \
 		chmod +x ./tests/test_shellcheck.sh; \
-		./tests/test_shellcheck.sh --report-only; \
+		./tests/test_shellcheck.sh; \
 	else \
 		echo "Skipping pre-build shellcheck tests (SKIP_TEST=1)"; \
 	fi
