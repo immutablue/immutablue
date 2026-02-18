@@ -48,6 +48,7 @@ immutablue:
     - dialog
     - distrobox
     - e2fsprogs
+    - fastfetch
     - fuse-sshfs
     - fzf
     - gcc
