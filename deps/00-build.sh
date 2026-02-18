@@ -65,6 +65,7 @@ PACKAGES=(
 	libdrm-devel
 	pixman-devel
 	pango-devel
+	gdk-pixbuf2-devel
 
 	# mcp-glib: MCP protocol library
 	libsoup3-devel
