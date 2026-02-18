@@ -30,14 +30,7 @@ ROOT_DIR="$(dirname "$TEST_DIR")"
 # and meets the basic requirements for a bootable container
 function test_bootc_lint() {
   echo "Testing bootc container lint on $IMAGE"
-  
-  # First, pull the image
-  # Actually there is no reason to pull the image. We are going to use the local copy
-  # if ! podman pull "$IMAGE"; then
-  #   echo "FAIL: Failed to pull the image"
-  #   return 1
-  # fi
-  
+
   # Run a container with bootc container lint
   # This performs static analysis checks on the container image
   if ! podman run --rm "$IMAGE" bootc container lint; then
@@ -48,42 +41,29 @@ function test_bootc_lint() {
   return 0
 }
 
-# Test for required packages in the container
-# Verifies essential system packages are present
-function test_container_packages() {
-  echo "Testing essential packages in container"
-  # Run a container and check for critical packages
-  if ! podman run --rm "$IMAGE" rpm -q bash systemd make; then
-    echo "FAIL: Essential packages check failed"
-    return 1
-  fi
-  echo "PASS: Essential packages check succeeded"
-  return 0
-}
+# Test container contents using crispy validation script
+# Runs packages, directories, and systemd service checks in a single
+# container invocation instead of spawning one per check
+function test_container_contents() {
+  echo "Testing container contents via crispy"
 
-# Test the directory structure in the container
-# Verifies critical directories for Immutablue functionality
-function test_container_directory_structure() {
-  echo "Testing directory structure in container"
-  # Test for essential directories that must exist for Immutablue to function
-  if ! podman run --rm "$IMAGE" bash -c "test -d /usr/libexec/immutablue && test -d /etc/immutablue"; then
-    echo "FAIL: Directory structure check failed"
+  # Check if the crispy validation script exists
+  local CRISPY_SCRIPT="${TEST_DIR}/crispy/validate_container.c"
+  if [[ ! -f "$CRISPY_SCRIPT" ]]; then
+    echo "FAIL: Missing crispy validation script at ${CRISPY_SCRIPT}"
     return 1
   fi
-  echo "PASS: Directory structure check succeeded"
-  return 0
-}
 
-# Test systemd services in the container
-# Verifies Immutablue services are properly installed
-function test_services_installed() {
-  echo "Testing systemd services in container"
-  # Check for Immutablue systemd services
-  if ! podman run --rm "$IMAGE" bash -c "systemctl list-unit-files | grep immutablue"; then
-    echo "FAIL: Systemd services check failed"
+  # Run all checks (packages, dirs, services) inside one container
+  if ! podman run --rm \
+    -v "${CRISPY_SCRIPT}:/tmp/validate_container.c:ro,z" \
+    "$IMAGE" \
+    crispy --cache-dir /tmp -n /tmp/validate_container.c; then
+    echo "FAIL: Container content validation failed"
     return 1
   fi
-  echo "PASS: Systemd services check succeeded"
+
+  echo "PASS: Container content validation succeeded"
   return 0
 }
 
@@ -91,20 +71,13 @@ function test_services_installed() {
 echo "=== Running Tests ==="
 FAILED=0
 
-# Execute each test and track failures
+# bootc lint still runs separately (needs its own container invocation)
 if ! test_bootc_lint; then
   ((FAILED++))
 fi
 
-if ! test_container_packages; then
-  ((FAILED++))
-fi
-
-if ! test_container_directory_structure; then
-  ((FAILED++))
-fi
-
-if ! test_services_installed; then
+# All other checks consolidated into one container run
+if ! test_container_contents; then
   ((FAILED++))
 fi
 

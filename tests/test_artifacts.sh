@@ -94,112 +94,38 @@ function test_systemd_service_files() {
 }
 
 # Test override files presence and integrity in container
-# This is the main test that verifies file integrity between
-# the repository and the container image using SHA256 checksums
+# Uses a crispy script to verify all file checksums in a single container run
+# instead of spawning a container per file (massive speedup)
 function test_override_files_in_container() {
   echo "Testing override files in container"
-  
-  # Create temporary directory for test operations
-  local TEMP_DIR
-  TEMP_DIR=$(mktemp -d)
-  
+
   # Check if artifacts directory exists
   if [[ ! -d "$ARTIFACTS_DIR" || ! -d "$ARTIFACTS_DIR/overrides" ]]; then
     echo "WARN: Missing required directories, test skipped"
     return 0
   fi
-  
-  # Find all files in the overrides directory
-  echo "Finding all files in overrides directory..."
-  local OVERRIDE_FILES
-  OVERRIDE_FILES=$(find "$ARTIFACTS_DIR/overrides" -type f 2>/dev/null | sort)
-  
-  # Skip if no files are found
-  if [[ -z "$OVERRIDE_FILES" ]]; then
-    echo "INFO: No files found in overrides directory, test skipped"
-    return 0
-  fi
-  
-  # Setup counters for tracking test results
-  local TOTAL_FILES=0
-  local FAILED_FILES=0
-  local SKIP_FILES=0
-  
-  # Process each file found in the overrides directory
-  while IFS= read -r file; do
-    # Skip test files that are not expected to be in the container
-    # This allows adding test-only files to the repository
-    if [[ "$file" == *"/test/"* || "$file" == *"/Justfile" || "$file" == *"/system.conf" || "$file" == */"__pycache__/"* ]]; then
-      echo "SKIP: Test file $file (not expected to be same in the container)"
-      ((SKIP_FILES++))
-      continue
-    fi
 
-    # Skip /usr/src files -- submodule source trees have too many files
-    # and hash mismatches are not a concern for source code copies
-    if [[ "$file" == *"/usr/src/"* ]]; then
-      echo "SKIP: Source tree file $file"
-      ((SKIP_FILES++))
-      continue
-    fi
-    
-    ((TOTAL_FILES++))
-    
-    # Get relative path from artifact root
-    # This path should match the path in the container
-    local rel_path="${file#$ARTIFACTS_DIR/overrides/}"
-    echo "Checking file: /$rel_path"
-    
-    # Calculate SHA256 checksum of the file in the repository
-    local repo_hash
-    repo_hash=$(sha256sum "$file" | awk '{print $1}')
-    
-    # Run a container and calculate SHA256 checksum of the same file
-    # This script checks if the file exists and gets its checksum
-    local container_hash_result
-    container_hash_result=$(podman run --rm "$IMAGE" bash -c "if [[ -f '/$rel_path' ]]; then sha256sum '/$rel_path' | awk '{print \$1}'; else echo 'FILE_NOT_FOUND'; fi" 2>/dev/null)
-    
-    # Check if file exists in container
-    if [[ "$container_hash_result" == "FILE_NOT_FOUND" || -z "$container_hash_result" ]]; then
-      echo "FAIL: File /$rel_path not found in container"
-      ((FAILED_FILES++))
-      continue
-    fi
-    
-    # Compare checksums to verify file integrity
-    if [[ "$repo_hash" != "$container_hash_result" ]]; then
-      echo "FAIL: File /$rel_path has different hash in container"
-      echo "  Repo hash:      $repo_hash"
-      echo "  Container hash: $container_hash_result"
-      ((FAILED_FILES++))
-    else
-      echo "PASS: File /$rel_path has matching hash"
-    fi
-  done <<< "$OVERRIDE_FILES"
-  
-  # Clean up temporary directory
-  rm -rf "$TEMP_DIR"
-  
-  # Report summary statistics
-  echo ""
-  echo "Summary:"
-  echo "- Files checked: $TOTAL_FILES"
-  echo "- Files skipped: $SKIP_FILES"
-  echo "- Files failed:  $FAILED_FILES"
-  
-  # Return results based on test outcomes
-  if [[ $TOTAL_FILES -eq 0 ]]; then
-    echo "INFO: No files tested"
-    return 0
-  fi
-  
-  if [[ $FAILED_FILES -eq 0 ]]; then
-    echo "PASS: All $TOTAL_FILES override files verified in container"
-    return 0
-  else
-    echo "FAIL: $FAILED_FILES out of $TOTAL_FILES override files failed verification"
+  # Check if the crispy validation script exists
+  local CRISPY_SCRIPT="${TEST_DIR}/crispy/validate_artifacts.c"
+  if [[ ! -f "$CRISPY_SCRIPT" ]]; then
+    echo "FAIL: Missing crispy validation script at ${CRISPY_SCRIPT}"
     return 1
   fi
+
+  # Run the crispy script inside a single container with overrides mounted
+  # at /expected. The script compares SHA256 hashes of all files under
+  # /expected against their corresponding paths on the root filesystem.
+  if ! podman run --rm \
+    -v "${ARTIFACTS_DIR}/overrides:/expected:ro,z" \
+    -v "${CRISPY_SCRIPT}:/tmp/validate_artifacts.c:ro,z" \
+    "$IMAGE" \
+    crispy --cache-dir /tmp -n /tmp/validate_artifacts.c /expected; then
+    echo "FAIL: Override file verification failed"
+    return 1
+  fi
+
+  echo "PASS: Override file verification completed"
+  return 0
 }
 
 # Run tests
