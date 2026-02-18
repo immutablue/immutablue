@@ -66,6 +66,7 @@ PACKAGES=(
 	pixman-devel
 	pango-devel
 	gdk-pixbuf2-devel
+	pam-devel
 
 	# mcp-glib: MCP protocol library
 	libsoup3-devel
@@ -204,6 +205,12 @@ build_gowl () {
 	cd "${src_dir}"
 	make DEBUG=1 MCP=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=0 BUILD_XWAYLAND=1
 	make DEBUG=1 MCP=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_GIR=0 BUILD_XWAYLAND=1
+
+	# Install PAM config for screenlock module (/etc/pam.d/gowl)
+	if [[ -f "${src_dir}/data/gowl-screenlock.pam" ]]; then
+		install -d "${stage_dir}/etc/pam.d"
+		install -m 644 "${src_dir}/data/gowl-screenlock.pam" "${stage_dir}/etc/pam.d/gowl"
+	fi
 }
 
 
