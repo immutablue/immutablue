@@ -43,6 +43,7 @@ immutablue:
     - buildah
     - buildstream
     - cloud-init
+    - chafa
     - cmake
     - cmark-devel
     - ddrescue
