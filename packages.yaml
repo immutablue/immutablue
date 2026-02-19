@@ -44,6 +44,7 @@ immutablue:
     - buildstream
     - cloud-init
     - cmake
+    - cmark-devel
     - ddrescue
     - dialog
     - distrobox
