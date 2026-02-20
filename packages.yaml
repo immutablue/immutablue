@@ -409,6 +409,7 @@ immutablue:
       - buildah
       - distrobox
       - git
+      - openssl-devel
 
     - name: dev
       image: quay.io/immutablue/dbox-fedora:43
@@ -438,6 +439,7 @@ immutablue:
       - nodejs
       - cargo
       - code
+      - openssl-devel
 
       packages_x86_64:
       packages_aarch64:
