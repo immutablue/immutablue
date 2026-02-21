@@ -104,6 +104,12 @@ if [[ -d "/mnt-build-deps/ai-glib/usr" ]]; then
     cp -a /mnt-build-deps/ai-glib/usr/. /usr/
 fi
 
+# nerd-fonts: FiraCode, FiraMono, Hack (always install)
+if [[ -d "/mnt-build-deps/nerd_fonts/usr" ]]; then
+    echo "=== Installing nerd-fonts from build deps ==="
+    cp -a /mnt-build-deps/nerd_fonts/usr/. /usr/
+fi
+
 # Update shared library cache for new .so files
 ldconfig 2>/dev/null || true
 

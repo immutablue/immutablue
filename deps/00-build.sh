@@ -72,6 +72,9 @@ PACKAGES=(
 	libsoup3-devel
 	libdex-devel
 	readline-devel
+
+	# nerd-fonts: extraction
+	xz
 )
 
 
@@ -86,6 +89,7 @@ BUILDS=(
 	blue2go
 	cigar
 	zapper
+	nerd_fonts
 	yaml_glib
 	crispy
 	gst
@@ -116,6 +120,27 @@ build_cigar () {
 build_zapper () {
 	git clone https://github.com/hackerschoice/zapper "${BUILD_DIR}/zapper"
 	cd "${BUILD_DIR}/zapper" && make all
+}
+
+# nerd-fonts -- Nerd Font patched versions of FiraCode, FiraMono, and Hack
+# Downloads .tar.xz archives from GitHub releases, extracts .ttf files
+# Produces: /usr/share/fonts/nerd-fonts/{FiraCode,FiraMono,Hack}/*.ttf
+build_nerd_fonts () {
+	local stage_dir="${BUILD_DIR}/nerd_fonts/usr/share/fonts/nerd-fonts"
+	local base_url="https://github.com/ryanoasis/nerd-fonts/releases/latest/download"
+	local fonts=(FiraCode FiraMono Hack)
+
+	mkdir -p "${stage_dir}"
+
+	for font in "${fonts[@]}"
+	do
+		echo "--- Downloading ${font} Nerd Font ---"
+		mkdir -p "${stage_dir}/${font}"
+		curl -fsSL "${base_url}/${font}.tar.xz" | tar -xJ -C "${stage_dir}/${font}"
+
+		# Keep only .ttf files, remove READMEs/licenses
+		find "${stage_dir}/${font}" -type f ! -name '*.ttf' -delete
+	done
 }
 
 # yaml-glib -- GObject YAML parser/builder library

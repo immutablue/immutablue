@@ -47,3 +47,6 @@ fi
 
 # remove debug modules
  rm -rf /usr/lib/modules/*+debug
+
+# rebuild font cache (picks up nerd-fonts and any other new fonts)
+fc-cache -fv
