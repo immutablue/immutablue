@@ -208,8 +208,8 @@ build_gst () {
 
 	mkdir -p "${stage_dir}"
 	cd "${src_dir}"
-	make DEBUG=1 MCP=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
-	make DEBUG=1 MCP=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
+	make DEBUG=1 MCP=1 WEBVIEW=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
+	make DEBUG=1 MCP=1 WEBVIEW=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
 }
 
 # gowl -- GObject Wayland Compositor
