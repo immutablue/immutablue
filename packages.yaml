@@ -57,6 +57,7 @@ immutablue:
     - gdb
     - git
     - glib2-devel
+    - heaptrack
     - htop
     - json-glib-devel
     - libasan
