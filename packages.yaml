@@ -59,10 +59,12 @@ immutablue:
     - glib2-devel
     - htop
     - json-glib-devel
+    - libasan
     - libdex
     - libdex-devel
     - libsoup3
     - libsoup3-devel
+    - libubsan
     - libvirt
     - libvirt-dbus
     - libyaml-devel
