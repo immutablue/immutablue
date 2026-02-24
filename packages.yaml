@@ -61,6 +61,7 @@ immutablue:
     - htop
     - json-glib-devel
     - libasan
+    - libcurl-devel
     - libdex
     - libdex-devel
     - libsoup3
