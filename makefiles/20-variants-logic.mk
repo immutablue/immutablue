@@ -120,10 +120,11 @@ else
     DO_INSTALL_LTS := true
 endif
 
-# ZFS modules
+# ZFS modules (no tag suffix — installs ZFS on top of any variant without renaming)
 ifeq ($(strip $(filter-out 0 00,$(ZFS))),)
 else
     DO_INSTALL_ZFS := true
+    BUILD_OPTIONS := $(BUILD_OPTIONS),zfs
 endif
 
 # ------------------------------------------------------------------------------

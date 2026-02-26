@@ -32,7 +32,6 @@ DESKTOP_VARIANTS := \
 ADDON_VARIANTS := \
 	CYAN|-cyan|cyan \
 	LTS|-lts|lts,zfs \
-	ZFS||zfs \
 	NIX|-nix|nix \
 	KUBERBLUE|-kuberblue|kuberblue
 
