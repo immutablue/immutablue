@@ -191,19 +191,27 @@ immutablue:
 
   rpm_kuberblue:
     all:
+    - age           # SOPS age key generation
     - cockpit
-    - crio
-    - cri-tools1.32
     - fzf
     - glances
     - helm
     - htop
+    - neovim
+    - tailscale     # Host-level mesh networking (optional, toggle in networking.yaml)
+    - tmux
+    42:
+    - cri-tools1.32
     - kubernetes1.32
     - kubernetes1.32-client
     - kubernetes1.32-kubeadm
     - kubernetes1.32-systemd
-    - neovim
-    - tmux
+    43:
+    - cri-tools1.35
+    - kubernetes1.35
+    - kubernetes1.35-client
+    - kubernetes1.35-kubeadm
+    - kubernetes1.35-systemd
 
 
   rpm_x86_64:
@@ -339,6 +347,7 @@ immutablue:
     - sshd.service
     - crio.service
     - kubelet.service
+    - tailscaled.service
 
   services_enable_sys_trueblue:
     all:

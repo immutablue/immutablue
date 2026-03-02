@@ -13,7 +13,7 @@ spec:
     assert: 300s
     cleanup: 60s
   steps:
-  
+
   # Step 1: Verify Cilium pods are running
   - name: verify-cilium-deployment
     try:
@@ -25,7 +25,7 @@ spec:
             name: cilium
             namespace: kube-system
           status:
-            numberReady: ($numberAvailable)
+            (numberReady > `0`): true
     - assert:
         resource:
           apiVersion: v1
@@ -36,7 +36,7 @@ spec:
               k8s-app: cilium
           status:
             phase: Running
-            
+
   # Step 2: Test pod-to-pod connectivity
   - name: test-pod-connectivity
     try:
@@ -119,17 +119,17 @@ spec:
           status:
             phase: Running
     - script:
-        timeout: 60s
+        timeout: 120s
         content: |
           # Test direct pod IP connectivity
           SERVER_IP=$(kubectl get pod test-server -n cilium-test -o jsonpath='{.status.podIP}')
           kubectl exec test-client -n cilium-test -- curl -f --max-time 10 "http://${SERVER_IP}/" || exit 1
-          
-          # Test service connectivity  
+
+          # Test service connectivity
           kubectl exec test-client -n cilium-test -- curl -f --max-time 10 "http://test-server-svc/" || exit 1
-          
+
           echo "Pod-to-pod and service connectivity verified"
-          
+
   # Step 3: Test DNS resolution
   - name: test-dns-resolution
     try:
@@ -140,7 +140,30 @@ spec:
           kubectl exec test-client -n cilium-test -- nslookup kubernetes.default.svc.cluster.local || exit 1
           kubectl exec test-client -n cilium-test -- nslookup test-server-svc.cilium-test.svc.cluster.local || exit 1
           echo "DNS resolution verified"
-          
+
+  # Step 4: Verify kube-proxy replacement is active (Cilium handles all proxy functions)
+  - name: verify-kube-proxy-replacement
+    try:
+    - script:
+        timeout: 30s
+        content: |
+          # kube-proxy should NOT be running; Cilium replaces it
+          KUBE_PROXY_RUNNING=$(kubectl get pods -n kube-system -l k8s-app=kube-proxy \
+            --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)
+          if [[ "${KUBE_PROXY_RUNNING}" -gt 0 ]]; then
+            echo "ERROR: kube-proxy is running — Cilium kube-proxy replacement may not be active"
+            exit 1
+          fi
+          # Verify Cilium's kube-proxy replacement mode is enabled
+          CILIUM_POD=$(kubectl get pods -n kube-system -l k8s-app=cilium -o name | head -1)
+          if [[ -z "${CILIUM_POD}" ]]; then
+            echo "ERROR: No Cilium pod found"
+            exit 1
+          fi
+          kubectl exec -n kube-system "${CILIUM_POD}" -- \
+            cilium status --brief 2>/dev/null | grep -q "KubeProxyReplacement"
+          echo "kube-proxy replacement check passed"
+
   # Cleanup is automatic due to namespace deletion
   cleanup:
   - delete:

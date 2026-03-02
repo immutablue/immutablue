@@ -1,12 +1,17 @@
+[Unit]
+Description=Kuberblue cluster bootstrap and health check
+After=network-online.target crio.service
+Wants=network-online.target
+Requires=crio.service
+
 [Service]
-Type=simple
+Type=oneshot
 RemainAfterExit=true
 StandardOutput=journal
+StandardError=journal
 Environment=JUST_VERBOSE=1
 ExecStart=/usr/bin/kuberblue on_boot
 ExecStop=/usr/bin/kuberblue on_shutdown
 
 [Install]
 WantedBy=multi-user.target
-
-

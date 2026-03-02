@@ -110,6 +110,14 @@ if [[ -d "/mnt-build-deps/nerd_fonts/usr" ]]; then
     cp -a /mnt-build-deps/nerd_fonts/usr/. /usr/
 fi
 
+# mcp-kuberblue-glib: MCP server for kuberblue cluster management
+# Only installed in kuberblue variant builds
+if [[ "$(is_option_in_build_options kuberblue)" == "${TRUE}" ]] && \
+   [[ -d "/mnt-build-deps/mcp-kuberblue-glib/usr" ]]; then
+    echo "=== Installing mcp-kuberblue-glib from build deps ==="
+    cp -a /mnt-build-deps/mcp-kuberblue-glib/usr/. /usr/
+fi
+
 # Update shared library cache for new .so files
 ldconfig 2>/dev/null || true
 

@@ -1,0 +1,33 @@
+# /usr/kuberblue/networking.yaml — kuberblue networking configuration (vendor defaults)
+#
+# Override by copying to /etc/kuberblue/networking.yaml
+
+networking:
+  # CNI plugin: cilium (only supported option)
+  cni: cilium
+
+  # Tailscale mesh networking
+  # When enabled, Tailscale is configured as a host-level daemon BEFORE the cluster
+  # exists. The API server advertise_address can be set to 'tailscale' in cluster.yaml
+  # to advertise on the Tailscale IP, enabling cross-network multi-node clusters.
+  tailscale:
+    enabled: false
+    # Accept routes from subnet routers in the tailnet
+    accept_routes: true
+    # Advertise this node as a subnet router (CIDR)
+    # Set to pod_subnet to make pods reachable from the tailnet
+    advertise_routes: ""
+
+  # Cloudflare Tunnel — public ingress via Cloudflare's network
+  # Runs as a DaemonSet inside the cluster (one cloudflared pod per node).
+  # Requires a Cloudflare account and tunnel token.
+  cloudflare_tunnel:
+    enabled: false
+    # Tunnel token from: cloudflare zero trust → access → tunnels
+    # Store in /etc/kuberblue/ (not here — this is read-only image storage)
+    # token_secret: kuberblue-cloudflare-token  # k8s secret name
+    # namespace: cloudflared
+
+  # Kube-proxy replacement via Cilium (always true — do not change)
+  # Setting this to false would require kube-proxy reinstallation.
+  kube_proxy_replacement: true

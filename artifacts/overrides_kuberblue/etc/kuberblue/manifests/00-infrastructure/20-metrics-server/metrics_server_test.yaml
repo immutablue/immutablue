@@ -1,0 +1,37 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: metrics-server-health
+spec:
+  steps:
+    - name: check-metrics-server-deployment
+      try:
+        - assert:
+            resource:
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: metrics-server
+                namespace: kube-system
+              status:
+                (readyReplicas > `0`): true
+    - name: check-node-metrics-available
+      try:
+        - script:
+            timeout: 120s
+            content: |
+              # Wait for metrics to become available (metrics-server needs time to collect)
+              for i in $(seq 1 12); do
+                if kubectl top nodes --no-headers 2>/dev/null | grep -v "^$" | head -1 | grep -qE "[0-9]+m"; then
+                  TOTAL_NODES=$(kubectl get nodes --no-headers | wc -l)
+                  METRICS_NODES=$(kubectl top nodes --no-headers | grep -v "^$" | wc -l)
+                  echo "Metrics available for ${METRICS_NODES}/${TOTAL_NODES} nodes"
+                  if [[ "${METRICS_NODES}" -ge 1 ]]; then
+                    exit 0
+                  fi
+                fi
+                echo "Waiting for metrics to be available (${i}/12)..."
+                sleep 10
+              done
+              echo "ERROR: Node metrics not available after 120s"
+              exit 1

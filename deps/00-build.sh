@@ -97,6 +97,7 @@ BUILDS=(
 	mcp_glib
 	mcp_gdb_glib
 	ai_glib
+	mcp_kuberblue_glib
 )
 
 
@@ -324,6 +325,36 @@ build_ai_glib () {
 
 	make DEBUG=1 all PREFIX=/usr LIBDIR="/usr/${libdir}"
 	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}"
+}
+
+
+# mcp-kuberblue-glib -- MCP server for kuberblue Kubernetes cluster management
+# Produces: mcp-kuberblue-glib binary at /usr/bin/mcp-kuberblue-glib
+# Depends on: mcp-glib (system), yaml-glib (system), glib2, json-glib
+# Uses SYSTEM_DEPS=1 so it links against system-installed mcp-glib/yaml-glib
+# instead of the submodules in deps/ (which are empty in the COPY'd source tree).
+# Source: /build/mcp-kuberblue-glib (COPY'd from overrides_kuberblue submodule)
+build_mcp_kuberblue_glib () {
+	local src_dir="${BUILD_DIR}/mcp-kuberblue-glib"
+	local stage_dir="${BUILD_DIR}/mcp-kuberblue-glib"
+
+	if [[ ! -d "${src_dir}/src" ]]; then
+		echo "ERROR: mcp-kuberblue-glib source not found at ${src_dir}"
+		echo "Ensure the submodule is initialized in immutablue:"
+		echo "  git submodule update --init artifacts/overrides_kuberblue/usr/src/gitlab/mcp-kuberblue-glib"
+		exit 1
+	fi
+
+	mkdir -p "${stage_dir}"
+	cd "${src_dir}"
+
+	# SYSTEM_DEPS=1: use system-installed mcp-glib and yaml-glib (already built above)
+	if ! make DEBUG=1 SYSTEM_DEPS=1 all PREFIX=/usr; then
+		echo "ERROR: mcp-kuberblue-glib build failed"
+		echo "Verify mcp-glib-1.0 and yaml-glib-1.0 are findable via pkg-config"
+		exit 1
+	fi
+	make DEBUG=1 SYSTEM_DEPS=1 install PREFIX=/usr DESTDIR="${stage_dir}"
 }
 
 

@@ -1,0 +1,79 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cluster-health
+spec:
+  steps:
+    - name: check-control-plane-health
+      try:
+        - script:
+            content: |
+              # Verify API server is responding
+              kubectl get --raw /healthz || exit 1
+              # Verify etcd is healthy
+              kubectl get --raw /healthz/etcd || exit 1
+
+    - name: check-nodes-ready
+      try:
+        - script:
+            content: |
+              # All nodes must be in Ready state
+              NOT_READY=$(kubectl get nodes --no-headers | grep -v " Ready " | wc -l)
+              if [[ "${NOT_READY}" -gt 0 ]]; then
+                echo "ERROR: ${NOT_READY} node(s) not Ready"
+                kubectl get nodes
+                exit 1
+              fi
+              TOTAL=$(kubectl get nodes --no-headers | wc -l)
+              echo "All ${TOTAL} node(s) are Ready"
+
+    - name: check-system-pods-running
+      try:
+        - script:
+            content: |
+              # All kube-system pods should be Running or Completed
+              NOT_READY=$(kubectl get pods -n kube-system --no-headers \
+                | grep -v -E "Running|Completed|Succeeded" | grep -v "^$" | wc -l)
+              if [[ "${NOT_READY}" -gt 0 ]]; then
+                echo "ERROR: ${NOT_READY} system pods not ready"
+                kubectl get pods -n kube-system --no-headers \
+                  | grep -v -E "Running|Completed|Succeeded"
+                exit 1
+              fi
+
+    - name: check-coredns-running
+      try:
+        - assert:
+            resource:
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: coredns
+                namespace: kube-system
+              status:
+                (readyReplicas > `0`): true
+
+    - name: check-dns-resolution
+      try:
+        - script:
+            timeout: 60s
+            content: |
+              # Run a DNS lookup against the cluster DNS
+              kubectl run dns-test-$RANDOM \
+                --image=busybox:1.36 \
+                --restart=Never \
+                --command \
+                -- sh -c "nslookup kubernetes.default.svc.cluster.local && sleep 1"
+              # Give the pod time to complete
+              sleep 10
+              # Check the pod succeeded (Completed status)
+              POD_NAME=$(kubectl get pods --no-headers | grep dns-test | awk '{print $1}')
+              STATUS=$(kubectl get pod "${POD_NAME}" -o jsonpath='{.status.phase}')
+              if [[ "${STATUS}" != "Succeeded" ]]; then
+                echo "ERROR: DNS test pod did not succeed (status: ${STATUS})"
+                kubectl logs "${POD_NAME}" 2>/dev/null || true
+                kubectl delete pod "${POD_NAME}" --ignore-not-found
+                exit 1
+              fi
+              echo "DNS resolution verified"
+              kubectl delete pod "${POD_NAME}" --ignore-not-found

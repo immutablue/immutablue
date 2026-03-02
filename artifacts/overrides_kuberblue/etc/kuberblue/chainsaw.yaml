@@ -5,18 +5,19 @@ metadata:
 spec:
   timeouts:
     apply: 30s
-    assert: 300s
+    assert: 600s    # Extended: Cilium + OpenEBS can take several minutes on first boot
     cleanup: 60s
     delete: 30s
     error: 10s
-    exec: 60s
+    exec: 120s      # Extended: kubectl top needs metrics-server to be ready
   cleanup:
     skipDelete: false
   discovery:
     excludeTestRegex: "^(disabled|skip)-.*"
     includeTestRegex: ".*_test\\.yaml$"
   execution:
-    parallel: 4
+    parallel: 2     # Reduced from 4: cluster-level tests can interfere
     repeatCount: 1
   reporting:
     format: "json"
+    outputDirectory: /var/lib/kuberblue/test-results

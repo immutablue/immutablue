@@ -33,13 +33,29 @@ deploy_helm_repo_and_chart() {
     create_namespace="$(yq ".create_namespace" "$metadata_file")"
     args="$(yq ".args" "$metadata_file")"
 
+    # Validate required fields
+    if [[ "$name" == "null" ]] || [[ -z "$name" ]]; then
+        echo "ERROR: .name is missing in $metadata_file"
+        exit 1
+    fi
+    if [[ "$chart" == "null" ]] || [[ -z "$chart" ]]; then
+        echo "ERROR: .chart is missing in $metadata_file"
+        exit 1
+    fi
+
     # Repo info
     repo_name="$(yq ".repo_name" "$metadata_file")"
     repo_url="$(yq ".repo_url" "$metadata_file")"
 
+    if [[ "$repo_name" == "null" ]] || [[ -z "$repo_name" ]] || \
+       [[ "$repo_url" == "null" ]] || [[ -z "$repo_url" ]]; then
+        echo "ERROR: .repo_name or .repo_url missing in $metadata_file"
+        exit 1
+    fi
+
     # Add and update helm repo
     helm repo add "$repo_name" "$repo_url"
-    helm repo update 
+    helm repo update
     # Ignore all args for now
     if [[ "$create_namespace" == "true" ]]
     then
@@ -52,7 +68,7 @@ deploy_helm_repo_and_chart() {
 determine_file_and_deploy(){
     f="$1"
     if [[ $(basename "$f") == *metadata.yaml ]]
-    then 
+    then
         # Do nothing here, just keep it from attempting deployment.
         # We just need this for deploying helm charts.
        return
@@ -61,6 +77,11 @@ determine_file_and_deploy(){
     then
         # Skip Chainsaw test files - these are local test definitions, not Kubernetes resources
         echo "Skipping Chainsaw test file $(basename "$f")"
+        return
+    fi
+    if [[ $(basename "$f") == README* ]] || [[ $(basename "$f") == *.md ]]
+    then
+        # Skip documentation files
         return
     fi
     if [[ $(basename "$f") == *values.yaml ]]
@@ -89,7 +110,7 @@ determine_file_and_deploy(){
             echo "Patch files must follow naming convention: *default-sc-patch*"
         fi
         return
-    fi 
+    fi
     echo "Deploying $f"
     kubectl apply -f "$f"
     return
@@ -117,12 +138,12 @@ deploy_all_manifests(){
 
 deploy_manifest() {
     f="$1"
-    
+
     # Make sure the file exists
     if [[ ! -f "$f" ]]; then
         echo "File $f does not exist. Cannot deploy."
         return 1
     fi
-    
+
     determine_file_and_deploy "$f"
 }

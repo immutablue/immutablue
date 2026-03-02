@@ -1,0 +1,27 @@
+# /usr/kuberblue/gitops.yaml — Flux CD GitOps configuration (vendor defaults)
+#
+# Override by copying to /etc/kuberblue/gitops.yaml
+
+gitops:
+  # Enable Flux CD bootstrap after cluster init
+  # When enabled, Flux is installed and bootstrapped against the configured repo.
+  # The cluster then manages itself via GitOps rather than the initial manifest deploy.
+  enabled: false
+
+  # Git repository for Flux to manage
+  # Must be accessible from the cluster (SSH or HTTPS)
+  repo:
+    url: ""          # e.g. ssh://git@github.com/org/fleet-infra
+    branch: main
+    path: clusters/my-cluster  # Path within the repo Flux should reconcile
+
+  # Flux bootstrap method: github | gitlab | generic
+  provider: generic
+
+  # Namespace for Flux system components
+  namespace: flux-system
+
+  # Secret containing deploy key or personal access token
+  # Create with: flux create secret git flux-git-auth --url=... --username=... --password=...
+  # Or for SSH: flux create secret git flux-git-auth --url=... --private-key-file=...
+  auth_secret: flux-git-auth

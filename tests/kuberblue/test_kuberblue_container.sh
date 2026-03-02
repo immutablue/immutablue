@@ -33,14 +33,30 @@ if [[ "${KUBERBLUE:-0}" != "1" ]] && [[ "$IMAGE" != *"kuberblue"* ]]; then
   exit 1
 fi
 
+# Detect Fedora version from the image: extract the number before '-kuberblue' in the tag
+FEDORA_VERSION="$(echo "$IMAGE" | grep -oP '\d+(?=-kuberblue)')"
+if [[ -z "$FEDORA_VERSION" ]]; then
+  # Fallback: query the container directly
+  FEDORA_VERSION="$(podman run --rm "$IMAGE" bash -c ". /etc/os-release && echo \$VERSION_ID" 2>/dev/null || echo "43")"
+fi
+
+# Select kubernetes version based on Fedora version
+# Fedora 42 -> kubernetes 1.32, Fedora 43+ -> kubernetes 1.35
+if [[ "$FEDORA_VERSION" == "42" ]]; then
+  K8S_VERSION="1.32"
+else
+  K8S_VERSION="1.35"
+fi
+echo "Detected Fedora $FEDORA_VERSION, using Kubernetes $K8S_VERSION"
+
 # Helper functions
 
 # Test for required Kubernetes binaries in the container
 # Verifies essential Kubernetes packages are present
 function test_kuberblue_binaries() {
   echo "Testing Kubernetes binaries in container"
-  # Run a container and check for critical Kubernetes packages
-  if ! podman run --rm "$IMAGE" rpm -q kubernetes1.32 kubernetes1.32-client kubernetes1.32-kubeadm cri-o cri-tools1.32; then
+  # Run a container and check for critical Kubernetes packages (version-specific)
+  if ! podman run --rm "$IMAGE" rpm -q "kubernetes${K8S_VERSION}" "kubernetes${K8S_VERSION}-client" "kubernetes${K8S_VERSION}-kubeadm" "cri-tools${K8S_VERSION}"; then
     echo "FAIL: Kubernetes binaries check failed"
     echo "ERROR: The required Kubernetes packages are not installed in the container."
     echo "This likely means the image was not built with KUBERBLUE=1."
@@ -73,9 +89,8 @@ function test_kuberblue_files() {
   
   # Test for Kuberblue-specific configuration files
   local required_files=(
-    "/etc/kuberblue/kubeadm.yaml"
+    "/usr/kuberblue/kubeadm.yaml"
     "/etc/kuberblue/manifests/metadata.yaml.tpl"
-    "/etc/kuberblue/manifests/kube-flannel.yaml"
     "/etc/kuberblue/manifests/00-infrastructure/00-cilium/00-metadata.yaml"
     "/etc/kuberblue/manifests/00-infrastructure/10-openebs/00-metadata.yaml"
     "/usr/libexec/kuberblue/99-common.sh"
@@ -249,6 +264,29 @@ if ! test_kuberblue_configs; then
 fi
 
 if ! test_kuberblue_packages; then
+  ((FAILED++))
+fi
+
+# Run crispy-style in-container validation (version-aware)
+function test_kuberblue_crispy() {
+  local CRISPY_SCRIPT="${TEST_DIR}/validate_kuberblue_container.c"
+  echo "Testing Kuberblue container contents via crispy"
+  if [[ ! -f "$CRISPY_SCRIPT" ]]; then
+    echo "FAIL: Missing crispy validation script at ${CRISPY_SCRIPT}"
+    return 1
+  fi
+  if ! podman run --rm \
+    -v "${CRISPY_SCRIPT}:/tmp/validate_kuberblue_container.c:ro,z" \
+    "$IMAGE" \
+    crispy --cache-dir /tmp -n /tmp/validate_kuberblue_container.c; then
+    echo "FAIL: Kuberblue crispy validation failed"
+    return 1
+  fi
+  echo "PASS: Kuberblue crispy validation succeeded"
+  return 0
+}
+
+if ! test_kuberblue_crispy; then
   ((FAILED++))
 fi
 

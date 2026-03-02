@@ -1,0 +1,12 @@
+# Tier 1 core: metrics-server
+# Provides resource usage metrics (CPU/memory) for:
+#   - kubectl top nodes / kubectl top pods
+#   - Horizontal Pod Autoscaler (HPA)
+#   - Vertical Pod Autoscaler (VPA)
+name: metrics-server
+namespace: kube-system
+chart: metrics-server/metrics-server
+create_namespace: false
+repo_name: metrics-server
+repo_url: https://kubernetes-sigs.github.io/metrics-server/
+args:

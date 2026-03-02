@@ -22,14 +22,29 @@ ZEROFS_RELEASE_URL="https://github.com/Barre/ZeroFS/releases/download/v0.0.2/zer
 CHAINSAW_RELEASE_URL_x86_64="https://github.com/kyverno/chainsaw/releases/download/v0.2.12/chainsaw_linux_amd64.tar.gz"
 CHAINSAW_RELEASE_URL_aarch64="https://github.com/kyverno/chainsaw/releases/download/v0.2.12/chainsaw_linux_arm64.tar.gz"
 CHAINSAW_RELEASE_URL=""
+FLUX_RELEASE_URL_x86_64="https://github.com/fluxcd/flux2/releases/download/v2.5.1/flux_2.5.1_linux_amd64.tar.gz"
+FLUX_RELEASE_URL_aarch64="https://github.com/fluxcd/flux2/releases/download/v2.5.1/flux_2.5.1_linux_arm64.tar.gz"
+FLUX_RELEASE_URL=""
+SOPS_RELEASE_URL_x86_64="https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.amd64"
+SOPS_RELEASE_URL_aarch64="https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.arm64"
+SOPS_RELEASE_URL=""
+CRIO_RELEASE_URL_x86_64="https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v1.32.13.tar.gz"
+CRIO_RELEASE_URL_aarch64="https://storage.googleapis.com/cri-o/artifacts/cri-o.arm64.v1.32.13.tar.gz"
+CRIO_RELEASE_URL=""
 
 if [[ "${MARCH}" == "aarch64" ]]
-then 
+then
     HUGO_RELEASE_URL="${HUGO_RELEASE_URL_aarch64}"
     CHAINSAW_RELEASE_URL="${CHAINSAW_RELEASE_URL_aarch64}"
-else 
+    FLUX_RELEASE_URL="${FLUX_RELEASE_URL_aarch64}"
+    SOPS_RELEASE_URL="${SOPS_RELEASE_URL_aarch64}"
+    CRIO_RELEASE_URL="${CRIO_RELEASE_URL_aarch64}"
+else
     HUGO_RELEASE_URL="${HUGO_RELEASE_URL_x86_64}"
     CHAINSAW_RELEASE_URL="${CHAINSAW_RELEASE_URL_x86_64}"
+    FLUX_RELEASE_URL="${FLUX_RELEASE_URL_x86_64}"
+    SOPS_RELEASE_URL="${SOPS_RELEASE_URL_x86_64}"
+    CRIO_RELEASE_URL="${CRIO_RELEASE_URL_x86_64}"
 fi
 
 

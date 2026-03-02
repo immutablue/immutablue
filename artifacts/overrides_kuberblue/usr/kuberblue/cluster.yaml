@@ -1,0 +1,43 @@
+# /usr/kuberblue/cluster.yaml — kuberblue cluster configuration (vendor defaults)
+#
+# This file contains read-only vendor defaults baked into the image.
+# To override any setting, copy this file to /etc/kuberblue/cluster.yaml
+# and modify only the keys you need. /etc/ takes full precedence.
+#
+# Changes to this file require an OS image update (rpm-ostree upgrade).
+# Changes to /etc/kuberblue/cluster.yaml take effect on next boot.
+
+cluster:
+  # Topology mode: single | multi | ha
+  #   single — single control-plane node; control-plane taint removed automatically
+  #   multi  — control-plane + worker nodes; workers join via kubeadm join token
+  #   ha     — three-node HA control-plane with kube-vip VIP; requires ha.vip_address
+  topology: single
+
+  # Node role on this machine: control-plane | worker
+  # In 'single' topology, always control-plane.
+  # In 'multi'/'ha', set to 'worker' on non-control-plane nodes.
+  node_role: control-plane
+
+  # CRI socket path
+  cri_socket: /var/run/crio/crio.sock
+
+  # Advertise address for the API server.
+  # 'auto'          — use the primary interface IP
+  # 'tailscale'     — use the Tailscale IP (requires networking.tailscale.enabled: true)
+  # '192.168.x.x'   — explicit IP address
+  advertise_address: auto
+
+  # Kubernetes networking
+  networking:
+    pod_subnet: 10.244.0.0/16
+    service_subnet: 10.96.0.0/16
+    dns_domain: cluster.local
+
+  # HA mode settings (ignored unless topology: ha)
+  ha:
+    vip_address: ""    # Virtual IP for kube-vip (required for ha topology)
+    vip_interface: ""  # Interface for kube-vip to bind (empty = auto-detect)
+
+  # State directory (writable, survives upgrades)
+  state_dir: /var/lib/kuberblue

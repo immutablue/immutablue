@@ -1,0 +1,9 @@
+# metrics-server helm values
+# See: https://github.com/kubernetes-sigs/metrics-server/tree/master/charts/metrics-server
+
+# Required when TLS certificate is self-signed (standard kubeadm setup)
+args:
+  - --kubelet-insecure-tls
+
+# HA mode: run 2 replicas
+# replicas: 2

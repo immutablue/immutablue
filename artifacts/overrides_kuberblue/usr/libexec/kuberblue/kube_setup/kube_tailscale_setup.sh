@@ -1,0 +1,82 @@
+#!/bin/bash
+# kube_tailscale_setup.sh
+#
+# Configure Tailscale as a host-level mesh networking daemon BEFORE the cluster
+# exists. This runs during system boot (before kubeadm init) so that the
+# Tailscale IP is available for use as the API server advertise address in
+# multi-node and HA topologies.
+#
+# Must be run as root.
+set -euxo pipefail
+
+source /usr/libexec/kuberblue/variables.sh
+
+if [[ "${KUBERBLUE_TAILSCALE_ENABLED}" != "true" ]]; then
+    echo "Tailscale not enabled in networking.yaml — skipping."
+    exit 0
+fi
+
+if ! command -v tailscale &>/dev/null; then
+    echo "ERROR: tailscale binary not found. Install tailscale package first."
+    exit 1
+fi
+
+# Ensure tailscaled is running
+if ! systemctl is-active --quiet tailscaled; then
+    systemctl enable --now tailscaled
+fi
+
+# Wait for tailscaled to be ready
+i=0
+until tailscale status &>/dev/null; do
+    i=$((i + 1))
+    if [[ ${i} -ge 12 ]]; then
+        echo "ERROR: tailscaled not ready after 60s"
+        exit 1
+    fi
+    echo "Waiting for tailscaled... (${i}/12)"
+    sleep 5
+done
+
+# Check if already authenticated (tailscale ip -4 succeeds only when logged in)
+if tailscale ip -4 &>/dev/null; then
+    echo "Tailscale already authenticated."
+else
+    echo "Tailscale not authenticated."
+
+    if [[ -f /etc/kuberblue/tailscale-authkey ]]; then
+        # Trim whitespace/newlines from authkey
+        AUTH_KEY="$(tr -d '[:space:]' < /etc/kuberblue/tailscale-authkey)"
+        if [[ -z "${AUTH_KEY}" ]]; then
+            echo "ERROR: /etc/kuberblue/tailscale-authkey exists but is empty"
+            exit 1
+        fi
+        tailscale up --authkey="${AUTH_KEY}" --accept-routes
+    else
+        echo "ERROR: Tailscale enabled but no authkey found at /etc/kuberblue/tailscale-authkey"
+        echo "Provide a pre-auth key or run 'tailscale up' manually before boot."
+        exit 1
+    fi
+fi
+
+# Configure route advertising if requested
+ADVERTISE_ROUTES="$(kuberblue_config_get networking.yaml .networking.tailscale.advertise_routes "")"
+ACCEPT_ROUTES="$(kuberblue_config_get networking.yaml .networking.tailscale.accept_routes "true")"
+
+TS_ARGS="--accept-routes=${ACCEPT_ROUTES}"
+if [[ -n "${ADVERTISE_ROUTES}" ]] && [[ "${ADVERTISE_ROUTES}" != "null" ]]; then
+    TS_ARGS="${TS_ARGS} --advertise-routes=${ADVERTISE_ROUTES}"
+fi
+
+tailscale up ${TS_ARGS}
+
+TS_IP="$(tailscale ip -4 2>/dev/null | head -1)"
+if [[ -z "${TS_IP}" ]]; then
+    echo "ERROR: Tailscale authenticated but could not retrieve IPv4 address"
+    exit 1
+fi
+echo "Tailscale ready. Node IP: ${TS_IP}"
+
+# Store Tailscale IP for use by kubeadm config generation
+mkdir -p "${STATE_DIR}"
+echo "${TS_IP}" > "${STATE_DIR}/tailscale-ip"

@@ -281,11 +281,30 @@ fi
 
 # Special packages for kuberblue builds
 if [[ "$(is_option_in_build_options kuberblue)" == "${TRUE}" ]]
-then 
+then
+    # Chainsaw: Kubernetes integration test runner (kyverno/chainsaw)
     curl -Lo /tmp/chainsaw.tar.gz "${CHAINSAW_RELEASE_URL}"
     tar -xzf /tmp/chainsaw.tar.gz -C /usr/bin/ chainsaw
     chmod a+x /usr/bin/chainsaw
     rm /tmp/chainsaw.tar.gz
+
+    # Flux CLI: GitOps continuous delivery for Kubernetes
+    curl -Lo /tmp/flux.tar.gz "${FLUX_RELEASE_URL}"
+    tar -xzf /tmp/flux.tar.gz -C /usr/bin/ flux
+    chmod a+x /usr/bin/flux
+    rm /tmp/flux.tar.gz
+
+    # CRIO: container runtime for Kubernetes (GCS bucket, binary at cri-o/bin/crio)
+    curl -Lo /tmp/crio.tar.gz "${CRIO_RELEASE_URL}"
+    tar -xzf /tmp/crio.tar.gz -C /usr/bin/ --strip-components=2 cri-o/bin/crio
+    chmod a+x /usr/bin/crio
+    mkdir -p /usr/lib/systemd/system
+    tar -xzf /tmp/crio.tar.gz -C /usr/lib/systemd/system/ --strip-components=2 cri-o/contrib/crio.service
+    rm /tmp/crio.tar.gz
+
+    # SOPS: secret operations for Kubernetes (not in Fedora repos — binary release)
+    curl -Lo /usr/bin/sops "${SOPS_RELEASE_URL}"
+    chmod a+x /usr/bin/sops
 fi
 
 # Special installation for the build-a-blue-workshop variant
