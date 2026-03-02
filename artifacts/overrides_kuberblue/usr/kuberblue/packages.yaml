@@ -14,7 +14,7 @@ packages:
       description: "CNI + kube-proxy replacement"
       manifest: 00-infrastructure/00-cilium
     - name: openebs
-      description: "Container-native storage (hostpath)"
+      description: "Container-native storage (hostpath LocalPV, default StorageClass)"
       manifest: 00-infrastructure/10-openebs
     - name: metrics-server
       description: "Resource usage metrics for HPA/kubectl top"
@@ -36,8 +36,16 @@ packages:
     - name: monitoring
       description: "Grafana + Loki + Mimir + Tempo + Alloy"
       manifest: 50-monitoring
-      enabled: true
+      enabled: false
     - name: kube-vip
       description: "HA virtual IP for control-plane (required for ha topology)"
       manifest: 00-infrastructure/40-kube-vip
+      enabled: false
+    - name: mayastor
+      description: "OpenEBS Replicated PV (NVMe-oF HA storage; requires storage.nodes disk config)"
+      manifest: 00-infrastructure/11-mayastor
+      enabled: false
+    - name: velero
+      description: "Kubernetes backup and restore (snapshots cluster state + PVs to object storage)"
+      manifest: 50-backup/00-velero
       enabled: false

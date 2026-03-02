@@ -41,3 +41,44 @@ cluster:
 
   # State directory (writable, survives upgrades)
   state_dir: /var/lib/kuberblue
+
+# Storage configuration
+# Controls persistent volume backend. Ignored unless the relevant optional
+# package is enabled in packages.yaml (mayastor, openebs-lvm, etc.)
+storage:
+  # Backend: hostpath | mayastor | lvm
+  #   hostpath — LocalPV hostpath (default; single-node only, no replication)
+  #   mayastor  — OpenEBS Replicated PV via NVMe-oF (HA; requires nodes below)
+  #   lvm       — OpenEBS LVM LocalPV (flexible sizing; no replication)
+  backend: hostpath
+
+  # Disk pool configuration — required when backend: mayastor
+  # node names MUST exactly match Kubernetes node names (i.e. system hostnames).
+  # Run `kubectl get nodes` after init to verify names.
+  # Each node entry needs exactly one of: disk (block device) or zvol (ZFS zvol path).
+  nodes: []
+  # Example — dedicated block device per node:
+  # nodes:
+  #   - name: node1          # must match `kubectl get nodes` NAME column
+  #     disk: /dev/nvme1n1   # raw block device; will be owned exclusively by Mayastor
+  #   - name: node2
+  #     disk: /dev/nvme1n1
+  #   - name: node3
+  #     disk: /dev/nvme1n1
+  #
+  # Example — ZFS zvol per node (ZFS-on-root, single disk):
+  # nodes:
+  #   - name: node1
+  #     zvol: rpool/mayastor  # kuberblue creates the zvol if it does not exist
+  #   - name: node2
+  #     zvol: rpool/mayastor
+  #   - name: node3
+  #     zvol: rpool/mayastor
+
+  # Zvol size — used when kuberblue creates zvols automatically
+  # Ignored when disk: is specified.
+  zvol_size: 200G
+
+  # Default replica count for the openebs-replicated StorageClass.
+  # Must be <= number of storage nodes. Minimum 3 for full HA.
+  replica_count: 3
