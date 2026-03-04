@@ -39,6 +39,7 @@ immutablue:
   rpm:
     all:
     - bashmount
+    - bear
     - bemenu-run
     - buildah
     - buildstream
@@ -77,6 +78,7 @@ immutablue:
     - mbuffer
     - neovim
     - NetworkManager-tui
+    - pipewire-devel
     - pkgconf-pkg-config
     - podman-compose
     - powertop
