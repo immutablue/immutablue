@@ -73,8 +73,10 @@ PACKAGES=(
 	libdex-devel
 	readline-devel
 
-	# podomation: email source module (IMAP/SMTP)
+	# podomation: email source module (IMAP/SMTP), db modules (SQLite, PostgreSQL)
 	libetpan-devel
+	sqlite-devel
+	libpq-devel
 
 	# nerd-fonts: extraction
 	xz
