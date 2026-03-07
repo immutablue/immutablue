@@ -105,7 +105,9 @@ endif
 BOOTC_IMAGE_BUILDER := quay.io/centos-bootc/bootc-image-builder:latest
 SYFT_IMAGE := docker.io/anchore/syft:latest
 DEPS_CONTAINER := $(IMAGE):$(VERSION)-deps
+DEPS_CONTAINER_DATE := $(IMAGE):$(VERSION)-deps-$(shell date +%Y%m%d)
 CYAN_DEPS_CONTAINER := $(IMAGE):$(VERSION)-cyan-deps
+CYAN_DEPS_CONTAINER_DATE := $(IMAGE):$(VERSION)-cyan-deps-$(shell date +%Y%m%d)
 
 # ------------------------------------------------------------------------------
 # Output Directories

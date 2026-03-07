@@ -14,6 +14,7 @@ build-deps:
 		--no-cache \
 		--platform $(PLATFORM) \
 		-t $(DEPS_CONTAINER) \
+		-t $(DEPS_CONTAINER_DATE) \
 		-f ./deps/Containerfile \
 		--build-arg=BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg=FEDORA_VERSION=$(VERSION) \
@@ -25,6 +26,7 @@ build-deps:
 
 push-deps:
 	buildah push $(DEPS_CONTAINER)
+	buildah push $(DEPS_CONTAINER_DATE)
 
 # ------------------------------------------------------------------------------
 # NVIDIA/Cyan Dependency Build
@@ -35,11 +37,13 @@ build-cyan-deps:
 		--no-cache \
 		--platform $(PLATFORM) \
 		-t $(CYAN_DEPS_CONTAINER) \
+		-t $(CYAN_DEPS_CONTAINER_DATE) \
 		-f ./deps/cyan/Containerfile \
 		--build-arg=FEDORA_VERSION=$(VERSION)
 
 push-cyan-deps:
 	buildah push $(CYAN_DEPS_CONTAINER)
+	buildah push $(CYAN_DEPS_CONTAINER_DATE)
 
 # ------------------------------------------------------------------------------
 # Main Container Build
