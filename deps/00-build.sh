@@ -73,6 +73,9 @@ PACKAGES=(
 	libdex-devel
 	readline-devel
 
+	# podomation: email source module (IMAP/SMTP)
+	libetpan-devel
+
 	# nerd-fonts: extraction
 	xz
 )
@@ -97,6 +100,7 @@ BUILDS=(
 	mcp_glib
 	mcp_gdb_glib
 	ai_glib
+	podomation
 	mcp_kuberblue_glib
 )
 
@@ -325,6 +329,28 @@ build_ai_glib () {
 
 	make DEBUG=1 all PREFIX=/usr LIBDIR="/usr/${libdir}"
 	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}"
+}
+
+
+# podomation -- Podman automation DSL engine (GLib/GObject project)
+# Produces: podomation binary, libpodomation-1.0.so.1.0.0, module .so files,
+#           headers, pkg-config
+# Bundles its own deps (yaml-glib, crispy, mcp-glib, ai-glib) as static libs.
+# Source: /build/podomation (COPY'd from submodule)
+build_podomation () {
+	local src_dir="${BUILD_DIR}/podomation"
+	local stage_dir="${BUILD_DIR}/podomation"
+
+	if [[ ! -d "${src_dir}/src" ]]; then
+		echo "ERROR: podomation source not found at ${src_dir}"
+		echo "Ensure submodules are initialized: git submodule update --init --recursive"
+		exit 1
+	fi
+
+	mkdir -p "${stage_dir}"
+	cd "${src_dir}"
+	make DEBUG=1 all PREFIX=/usr
+	make DEBUG=1 install PREFIX=/usr DESTDIR="${stage_dir}"
 }
 
 

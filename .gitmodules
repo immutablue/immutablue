@@ -25,3 +25,6 @@
 [submodule "artifacts/overrides_kuberblue/usr/src/gitlab/mcp-kuberblue-glib"]
 	path = artifacts/overrides_kuberblue/usr/src/gitlab/mcp-kuberblue-glib
 	url = git@gitlab.com:immutablue/mcp-kuberblue-glib.git
+[submodule "artifacts/overrides/usr/src/gitlab/podomation"]
+	path = artifacts/overrides/usr/src/gitlab/podomation
+	url = git@gitlab.com:zachpodbielniak/podomation.git

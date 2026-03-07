@@ -104,6 +104,12 @@ if [[ -d "/mnt-build-deps/ai-glib/usr" ]]; then
     cp -a /mnt-build-deps/ai-glib/usr/. /usr/
 fi
 
+# podomation: Podman automation DSL engine (always install)
+if [[ -d "/mnt-build-deps/podomation/usr" ]]; then
+    echo "=== Installing podomation from build deps ==="
+    cp -a /mnt-build-deps/podomation/usr/. /usr/
+fi
+
 # nerd-fonts: FiraCode, FiraMono, Hack (always install)
 if [[ -d "/mnt-build-deps/nerd_fonts/usr" ]]; then
     echo "=== Installing nerd-fonts from build deps ==="
