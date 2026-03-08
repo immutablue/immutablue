@@ -69,6 +69,7 @@ immutablue:
     - libpq-devel
     - libsoup3
     - libsoup3-devel
+    - libssh2-devel
     - libubsan
     - libvirt
     - libvirt-dbus
