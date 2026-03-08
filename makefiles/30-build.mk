@@ -5,6 +5,51 @@
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
+# Smart Build Targets
+# ------------------------------------------------------------------------------
+# build-smart and build-deps-smart check remote image freshness before building.
+# They produce identical results to build/build-deps but skip unnecessary work:
+#   pull  — remote image is newer than local; pull it
+#   local — local image is current; skip rebuild
+#   build — no image anywhere; fall through to normal build
+#
+# build-smart is NOT the default (all: build test push remains unchanged).
+# Use all-smart for a full smart pipeline.
+# ------------------------------------------------------------------------------
+
+build-deps-smart:
+	@action=$$(./scripts/check-image-freshness.sh "$(DEPS_CONTAINER)"); \
+	case "$$action" in \
+		pull) \
+			echo "==> Remote deps image is newer, pulling $(DEPS_CONTAINER)..."; \
+			buildah pull "$(DEPS_CONTAINER)" \
+			;; \
+		local) \
+			echo "==> Local deps image is current, skipping rebuild" \
+			;; \
+		build) \
+			echo "==> No cached deps image found, building..."; \
+			$(MAKE) build-deps push-deps \
+			;; \
+	esac
+
+build-smart: pre_test
+	@action=$$(./scripts/check-image-freshness.sh "$(IMAGE):$(TAG)"); \
+	case "$$action" in \
+		pull) \
+			echo "==> Remote image is newer, pulling $(IMAGE):$(TAG)..."; \
+			buildah pull "$(IMAGE):$(TAG)" \
+			;; \
+		local) \
+			echo "==> Local image is current, skipping rebuild" \
+			;; \
+		build) \
+			echo "==> No cached image found, building..."; \
+			$(MAKE) build \
+			;; \
+	esac
+
+# ------------------------------------------------------------------------------
 # Dependency Container Builds
 # ------------------------------------------------------------------------------
 build-deps:
@@ -25,21 +70,6 @@ build-deps:
 
 push-deps:
 	buildah push $(DEPS_CONTAINER)
-
-# ------------------------------------------------------------------------------
-# NVIDIA/Cyan Dependency Build
-# ------------------------------------------------------------------------------
-build-cyan-deps:
-	buildah \
-		build \
-		--no-cache \
-		--platform $(PLATFORM) \
-		-t $(CYAN_DEPS_CONTAINER) \
-		-f ./deps/cyan/Containerfile \
-		--build-arg=FEDORA_VERSION=$(VERSION)
-
-push-cyan-deps:
-	buildah push $(CYAN_DEPS_CONTAINER)
 
 # ------------------------------------------------------------------------------
 # Main Container Build

@@ -104,8 +104,9 @@ endif
 # ------------------------------------------------------------------------------
 BOOTC_IMAGE_BUILDER := quay.io/centos-bootc/bootc-image-builder:latest
 SYFT_IMAGE := docker.io/anchore/syft:latest
+# Single deps container: contains both /build (GLib libraries) and /rpms (NVIDIA modules).
+# Each variant mounts only what it needs via --mount=type=bind,from=build-deps,...
 DEPS_CONTAINER := $(IMAGE):$(VERSION)-deps
-CYAN_DEPS_CONTAINER := $(IMAGE):$(VERSION)-cyan-deps
 
 # ------------------------------------------------------------------------------
 # Output Directories

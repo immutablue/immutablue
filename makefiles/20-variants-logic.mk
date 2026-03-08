@@ -114,10 +114,11 @@ endif
 # ------------------------------------------------------------------------------
 # These handle the standalone flags that modify behavior
 
-# LTS kernel
+# LTS kernel — also enables ZFS (LTS always ships with ZFS)
 ifeq ($(strip $(filter-out 0 00,$(LTS))),)
 else
     DO_INSTALL_LTS := true
+    DO_INSTALL_ZFS := true
 endif
 
 # ZFS modules (no tag suffix — installs ZFS on top of any variant without renaming)

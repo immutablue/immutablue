@@ -9,6 +9,9 @@
 # ------------------------------------------------------------------------------
 all: build test push
 all_upgrade: all update
+# Smart pipeline: checks image freshness before building; identical end result to all.
+# Not the default — use 'make all' for a guaranteed clean build from scratch.
+all-smart: build-deps-smart build-smart test push
 
 ifeq ($(REBOOT),1)
 install_targets := install_flatpak install_distrobox post_install post_install_notes reboot
