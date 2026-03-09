@@ -73,10 +73,11 @@ PACKAGES=(
 	libdex-devel
 	readline-devel
 
-	# podomation: email source module (IMAP/SMTP), db modules (SQLite, PostgreSQL)
+	# podomation: email source module (IMAP/SMTP), db modules (SQLite, PostgreSQL), ssh modules
 	libetpan-devel
 	sqlite-devel
 	libpq-devel
+    libssh2-devel
 
 	# nerd-fonts: extraction
 	xz
