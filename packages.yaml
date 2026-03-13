@@ -60,6 +60,7 @@ immutablue:
     - glib2-devel
     - heaptrack
     - htop
+    - innoextract
     - json-glib-devel
     - libasan
     - libcurl-devel
@@ -98,6 +99,7 @@ immutablue:
     - syncthing-tools
     - tailscale
     - tmux
+    - unrar
     - usbip
     - virt-bootstrap
 
