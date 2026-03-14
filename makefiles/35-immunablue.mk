@@ -26,6 +26,12 @@ immunablue-sign:
 		exit 1; \
 	fi
 	@echo "=== Immunablue: Signing $(IMAGE):$(TAG) ==="
+	@if [ -z "$$COSIGN_PASSWORD" ]; then \
+		echo "WARNING: COSIGN_PASSWORD not set. cosign will prompt for key password."; \
+		echo "To avoid the prompt, set: export COSIGN_PASSWORD='your-password'"; \
+		echo "Then run: make IMMUNABLUE=1 all"; \
+		echo ""; \
+	fi
 	cosign sign --key $(IMMUNABLUE_COSIGN_PRIVKEY) $(IMAGE):$(TAG)
 	@echo "=== Image signed successfully ==="
 
