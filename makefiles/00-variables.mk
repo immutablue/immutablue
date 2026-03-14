@@ -89,6 +89,10 @@ ifndef ZFS
     DO_INSTALL_ZFS := false
 endif
 
+ifndef IMMUNABLUE
+    IMMUNABLUE := 0
+endif
+
 # ------------------------------------------------------------------------------
 # Distroless Configuration
 # ------------------------------------------------------------------------------

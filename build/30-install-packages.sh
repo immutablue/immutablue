@@ -68,7 +68,7 @@ fi
 if [[ "$DO_INSTALL_LTS" == "true" ]]
 then 
     # Download the LTS kernel repository configuration
-    curl -Lo "/etc/yum.repos.d/kwizart-kernel-longterm-${LTS_VERSION}-fedora-${FEDORA_VERSION}.repo" "${LTS_REPO_URL}"
+    curl -fLo "/etc/yum.repos.d/kwizart-kernel-longterm-${LTS_VERSION}-fedora-${FEDORA_VERSION}.repo" "${LTS_REPO_URL}"
     
     # Remove the standard kernel packages
     # The protect_running_kernel=false option allows removing the currently running kernel
@@ -213,7 +213,7 @@ fi
 
 # Install a modern build of Hugo for the documentation site
 # Fedora repositories have an older version, so we download a newer release directly
-curl -Lo /tmp/hugo.tar.gz "${HUGO_RELEASE_URL}"
+immunablue_verified_curl /tmp/hugo.tar.gz "${HUGO_RELEASE_URL}" "${IMMUNABLUE_HUGO_SHA256:-}" "hugo"
 tar -xzf /tmp/hugo.tar.gz -C /usr/bin/ hugo
 rm /tmp/hugo.tar.gz
 # Verify the Hugo installation
@@ -222,20 +222,22 @@ hugo version
 # Install fzf-git for improved git command-line experience
 # This provides fuzzy finding for git commands
 # https://github.com/junegunn/fzf-git.sh
-curl -Lo /usr/bin/fzf-git "${FZF_GIT_URL}"
+immunablue_verified_curl /usr/bin/fzf-git "${FZF_GIT_URL}" "${IMMUNABLUE_FZF_GIT_SHA256:-}" "fzf-git"
 chmod a+x /usr/bin/fzf-git
 
 # Install Starship prompt for a better terminal experience
 # https://starship.rs/
-curl -Lo "/tmp/install_starship.sh" "${STARSHIP_URL}"
+immunablue_verified_curl "/tmp/install_starship.sh" "${STARSHIP_URL}" "${IMMUNABLUE_STARSHIP_SHA256:-}" "starship-installer"
 sh "/tmp/install_starship.sh" -y -b "/usr/bin/"
 rm "/tmp/install_starship.sh"
 
 # Install just command runner
-# We install this manually as it somehow breaks the iso installer 
+# We install this manually as it somehow breaks the iso installer
 # if its installed as a system level package
 mkdir -p /tmp/just
-curl -L "${JUST_RELEASE_URL}" | tar xz -C /tmp/just
+immunablue_verified_curl /tmp/just.tar.gz "${JUST_RELEASE_URL}" "${IMMUNABLUE_JUST_SHA256:-}" "just"
+tar xz -C /tmp/just < /tmp/just.tar.gz
+rm /tmp/just.tar.gz
 mv /tmp/just/just /usr/bin/just
 chmod +x /usr/bin/just
 rm -rf /tmp/just
@@ -265,7 +267,7 @@ fi
 # Special packages for trueblue builds
 if [[ "$(is_option_in_build_options trueblue)" == "${TRUE}" ]]
 then 
-    curl -Lo /tmp/zerofs.tar.gz "${ZEROFS_RELEASE_URL}"
+    immunablue_verified_curl /tmp/zerofs.tar.gz "${ZEROFS_RELEASE_URL}" "${IMMUNABLUE_ZEROFS_SHA256:-}" "zerofs"
     zerofs_file="zerofs-amd64"
 
     if [[ "${MARCH}" == "aarch64" ]]
@@ -283,19 +285,19 @@ fi
 if [[ "$(is_option_in_build_options kuberblue)" == "${TRUE}" ]]
 then
     # Chainsaw: Kubernetes integration test runner (kyverno/chainsaw)
-    curl -Lo /tmp/chainsaw.tar.gz "${CHAINSAW_RELEASE_URL}"
+    immunablue_verified_curl /tmp/chainsaw.tar.gz "${CHAINSAW_RELEASE_URL}" "${IMMUNABLUE_CHAINSAW_SHA256:-}" "chainsaw"
     tar -xzf /tmp/chainsaw.tar.gz -C /usr/bin/ chainsaw
     chmod a+x /usr/bin/chainsaw
     rm /tmp/chainsaw.tar.gz
 
     # Flux CLI: GitOps continuous delivery for Kubernetes
-    curl -Lo /tmp/flux.tar.gz "${FLUX_RELEASE_URL}"
+    immunablue_verified_curl /tmp/flux.tar.gz "${FLUX_RELEASE_URL}" "${IMMUNABLUE_FLUX_SHA256:-}" "flux"
     tar -xzf /tmp/flux.tar.gz -C /usr/bin/ flux
     chmod a+x /usr/bin/flux
     rm /tmp/flux.tar.gz
 
     # CRIO: container runtime for Kubernetes (GCS bucket, binary at cri-o/bin/crio)
-    curl -Lo /tmp/crio.tar.gz "${CRIO_RELEASE_URL}"
+    immunablue_verified_curl /tmp/crio.tar.gz "${CRIO_RELEASE_URL}" "${IMMUNABLUE_CRIO_SHA256:-}" "crio"
     tar -xzf /tmp/crio.tar.gz -C /usr/bin/ --strip-components=2 cri-o/bin/crio
     chmod a+x /usr/bin/crio
     mkdir -p /usr/lib/systemd/system
@@ -303,7 +305,7 @@ then
     rm /tmp/crio.tar.gz
 
     # SOPS: secret operations for Kubernetes (not in Fedora repos — binary release)
-    curl -Lo /usr/bin/sops "${SOPS_RELEASE_URL}"
+    immunablue_verified_curl /usr/bin/sops "${SOPS_RELEASE_URL}" "${IMMUNABLUE_SOPS_SHA256:-}" "sops"
     chmod a+x /usr/bin/sops
 fi
 
@@ -416,11 +418,13 @@ m nixbld32 nixbld
 EOF
 
     # Install nix
-    curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | \
-        sh -s -- install linux \
+    # Download installer first (never pipe curl to sh without verification)
+    immunablue_verified_curl /tmp/nix-installer.sh "https://install.determinate.systems/nix" "${IMMUNABLUE_NIX_SHA256:-}" "nix-installer"
+    sh /tmp/nix-installer.sh install linux \
         --extra-conf "sandbox = false" \
         --init none \
         --no-confirm
+    rm -f /tmp/nix-installer.sh
     
     # Create systemd service for nix-daemon
     cp /nix/var/nix/profiles/default/lib/systemd/system/nix-daemon.service /etc/systemd/system/

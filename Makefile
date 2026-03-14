@@ -23,6 +23,7 @@ include makefiles/10-variants-data.mk
 include makefiles/20-variants-logic.mk
 include makefiles/99-utils.mk
 include makefiles/30-build.mk
+include makefiles/35-immunablue.mk
 include makefiles/40-images.mk
 include makefiles/50-tests.mk
 include makefiles/60-vm.mk
@@ -85,11 +86,20 @@ help:
 	@echo "  NIX=1              Nix package manager"
 	@echo "  KUBERBLUE=1        Kubernetes support"
 	@echo "  TRUEBLUE=1         ZFS + LTS"
+	@echo "  IMMUNABLUE=1       Security hardening (verified downloads, checksums)"
+	@echo ""
+	@echo "Security (IMMUNABLUE=1):"
+	@echo "  immunablue-sign          Sign image with your cosign key"
+	@echo "  immunablue-verify        Verify image signature"
+	@echo "  immunablue-update-pins   Update base image digest pins"
+	@echo "  immunablue-check-pins    Check if digest pins are current"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make CYAN=1 build"
 	@echo "  make TRUEBLUE=1 LTS=1 build"
 	@echo "  make KUBERBLUE=1 test"
+	@echo "  make IMMUNABLUE=1 build"
+	@echo "  make IMMUNABLUE=1 CYAN=1 build"
 	@echo ""
 	@echo "Options:"
 	@echo "  SKIP_TEST=1        Skip tests"

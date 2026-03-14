@@ -21,29 +21,43 @@ do
 done < <(get_immutablue_build_options)
 
 
+# immunablue-safe repo download: use -f (fail on HTTP errors), only curl non-empty URLs
+download_repo() {
+    local dest="$1"
+    local url="$2"
+    if [[ -z "${url}" ]] || [[ "${url}" == "null" ]]; then
+        return 0
+    fi
+    if [[ "${IMMUNABLUE_ACTIVE}" == "true" ]]; then
+        curl -fLo "${dest}" "${url}"
+    else
+        curl -Lo "${dest}" "${url}" || true
+    fi
+}
+
 # iterate and download any that have appropriate urls for their base options
 for repo in $repos
-do 
-    curl -Lo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls[] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")" || true
+do
+    download_repo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls[] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")"
 done
 
 for repo in $repos
-do 
-    curl -Lo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls_$(uname -m)[] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")" || true 
+do
+    download_repo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls_$(uname -m)[] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")"
 done
 
 
 # iterate and download any that have appropriate urls for build options
-while read -r option 
-do 
+while read -r option
+do
     for repo in $repos
-    do 
-        curl -Lo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls_${option}[] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")" || true
+    do
+        download_repo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls_${option}[] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")"
     done
 
     for repo in $repos
-    do 
-        curl -Lo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls_${option}_$(uname -m)[] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")" || true 
+    do
+        download_repo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls_${option}_$(uname -m)[] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")"
     done
 done < <(get_immutablue_build_options)
 

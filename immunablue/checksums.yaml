@@ -1,0 +1,74 @@
+# Immunablue Binary Checksums
+# SHA256 hashes for all externally downloaded binaries.
+#
+# Update with: make immunablue-update-checksums
+#
+# NEVER update blindly. Verify each new hash against upstream
+# release pages, GPG-signed checksum files, or cosign attestations.
+#
+# Format: <name>.<arch>.sha256 where arch is x86_64, aarch64, or all
+
+hugo:
+  version: "0.148.1"
+  x86_64:
+    sha256: "d23dd2a7836cdeed4aef7b791248ea939b3ff343e40d474ed8362309363a24b8"
+  aarch64:
+    sha256: "66c4e88a3351aa0f36365a8ad93bbd34dd87b47601c0d7f3fe7a2008ad4b5b9b"
+
+just:
+  version: "1.42.3"
+  x86_64:
+    sha256: "675cdb913c698a7888bbaac74d65619f636686bca7ebfb90d2bd274252231a47"
+  aarch64:
+    sha256: "e09a503ae877416d6fe2156009140e7e7deb95f897095b24a1d7150146390e65"
+
+zerofs:
+  version: "0.0.2"
+  all:
+    sha256: "c7a5127a6fc6135975710082a91fc306564f3f704f5cc4bcb1420170d0043f46"
+
+chainsaw:
+  version: "0.2.12"
+  x86_64:
+    sha256: "d6bfb17ba47af2db85edc0365288f92b5e1a4566f7ff130ec9b326f96856e209"
+  aarch64:
+    sha256: "72a6273d6da16a04e29e0fae232631b084852d21ddf25f88ed3d3de480125d30"
+
+flux:
+  version: "2.5.1"
+  x86_64:
+    sha256: "f64c85db4b94aefcdf6e0f2825c32573fc2bd234e5489ff332fee62776973ec3"
+  aarch64:
+    sha256: "35b6160d6b3c9ec3bbfe3f526927e713d877c274e7debffd13e270e47221a79f"
+
+sops:
+  version: "3.9.4"
+  x86_64:
+    sha256: "5488e32bc471de7982ad895dd054bbab3ab91c417a118426134551e9626e4e85"
+  aarch64:
+    sha256: "16564c6b181d88505d9e0dfef62771894293d85cde5884d9b1a843859eee174b"
+
+crio:
+  version: "1.32.13"
+  x86_64:
+    sha256: "27e2bf049f589a568d45c4fdd0eaf119680176c202bd09219f8726ba37f9c21e"
+  aarch64:
+    sha256: "f40004183d93bb203231385b5dd07a32e17eced47213817c1958ccc9eea73f70"
+
+# Live URLs: these checksums change when upstream pushes updates.
+# When a build fails due to checksum mismatch, verify the new content
+# is legitimate before updating the hash.
+fzf_git:
+  note: "Downloads from HEAD of main branch — hash changes on every upstream commit"
+  all:
+    sha256: "29e1bc0e97748d70597641af88ab68fd55051dad17da3b394722a05ae86601cb"
+
+starship_installer:
+  note: "Installer script from starship.rs — hash changes on new releases"
+  all:
+    sha256: "eb6f59c6d1fb193fa28d6fc33a546a0df59539bb90bc8a6e043bda1589549d26"
+
+nix_installer:
+  note: "Determinate Systems Nix installer — hash changes on new releases"
+  all:
+    sha256: "7351ceef6f923635cd8549d23ef4219e1479857a7ee4f4e5ddacacc824a173c7"

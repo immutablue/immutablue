@@ -127,6 +127,14 @@ else
     BUILD_OPTIONS := $(BUILD_OPTIONS),zfs
 endif
 
+# IMMUNABLUE security hardening (no tag suffix — hardening is transparent to image naming)
+# Adds verified binary downloads, checksum enforcement, and build-time integrity checks.
+# Combinable with all variants: make IMMUNABLUE=1 build, make IMMUNABLUE=1 CYAN=1 build, etc.
+ifeq ($(strip $(filter-out 0 00,$(IMMUNABLUE))),)
+else
+    BUILD_OPTIONS := $(BUILD_OPTIONS),immunablue
+endif
+
 # ------------------------------------------------------------------------------
 # Computed Values
 # ------------------------------------------------------------------------------

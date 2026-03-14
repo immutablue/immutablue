@@ -1,0 +1,40 @@
+# Immunablue Base Image Digest Pins
+# Pinned SHA256 digests for all base images used in the build.
+#
+# Update with: make immunablue-update-pins
+#
+# When IMMUNABLUE=1, the build system verifies that current remote
+# digests match these pins. If they don't, someone changed the image
+# upstream — investigate before updating.
+#
+# Generated: 2026-03-14
+
+# Main base images (used via BASE_IMAGE arg)
+base_images:
+  silverblue:
+    image: "quay.io/fedora-ostree-desktops/silverblue"
+    tag: "43"
+    digest: "sha256:d3b3eee32bfb9dd6a22f5ad166531dede0e6f5999007dc2939d7311cba5c54ed"
+  fedora:
+    image: "registry.fedoraproject.org/fedora"
+    tag: "43"
+    digest: "sha256:f4a8e09e74e128e58abcd999534063ab171fd6f3b63a297faedb9504dd9a63cc"
+
+# Build infrastructure images (hardcoded FROM lines in Containerfile)
+infra_images:
+  linuxbrew:
+    image: "quay.io/immutablue/linuxbrew"
+    tag: "latest"
+    digest: "sha256:0e755be95971e495cafb8578e745688f8af658c597051167824f66562eabde69"
+  yq:
+    image: "docker.io/mikefarah/yq"
+    tag: "latest"
+    digest: "sha256:a4c2cafdf4674b2dc3c6ac457fe1486d55d7d93edb3ed4459637afda3c286af6"
+  ublue_config:
+    image: "ghcr.io/ublue-os/config"
+    tag: "latest"
+    digest: "sha256:b7464c991152399a40ff5ce8991b3456c3bc0622cdbe51ca247cac8671b103ca"
+  fedora_devel:
+    image: "registry.fedoraproject.org/fedora"
+    tag: "latest"
+    digest: "sha256:f4a8e09e74e128e58abcd999534063ab171fd6f3b63a297faedb9504dd9a63cc"

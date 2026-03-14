@@ -201,3 +201,91 @@ get_nix_install_packages() {
     get_yaml_array '.immutablue.nix.install'
 }
 
+
+# ==============================================================================
+# Immunablue: Verified Download Functions
+# ==============================================================================
+# When 'immunablue' is in BUILD_OPTIONS, all binary downloads are verified
+# against SHA256 checksums from immunablue/checksums.yaml.
+# ==============================================================================
+
+IMMUNABLUE_CHECKSUMS_FILE="/mnt-ctx/immunablue/checksums.yaml"
+IMMUNABLUE_ACTIVE=""
+
+# Detect if immunablue is enabled
+if [[ "$(is_option_in_build_options immunablue)" == "${TRUE}" ]]; then
+    IMMUNABLUE_ACTIVE="true"
+    echo "IMMUNABLUE: Security hardening ENABLED"
+
+    if [[ ! -f "${IMMUNABLUE_CHECKSUMS_FILE}" ]]; then
+        echo "IMMUNABLUE FATAL: checksums.yaml not found at ${IMMUNABLUE_CHECKSUMS_FILE}"
+        exit 1
+    fi
+
+    # Load all checksums into variables for fast lookup
+    IMMUNABLUE_HUGO_SHA256=$(yq ".hugo.${MARCH}.sha256" < "${IMMUNABLUE_CHECKSUMS_FILE}")
+    IMMUNABLUE_JUST_SHA256=$(yq ".just.${MARCH}.sha256" < "${IMMUNABLUE_CHECKSUMS_FILE}")
+    IMMUNABLUE_FZF_GIT_SHA256=$(yq ".fzf_git.all.sha256" < "${IMMUNABLUE_CHECKSUMS_FILE}")
+    IMMUNABLUE_STARSHIP_SHA256=$(yq ".starship_installer.all.sha256" < "${IMMUNABLUE_CHECKSUMS_FILE}")
+    IMMUNABLUE_ZEROFS_SHA256=$(yq ".zerofs.all.sha256" < "${IMMUNABLUE_CHECKSUMS_FILE}")
+    IMMUNABLUE_CHAINSAW_SHA256=$(yq ".chainsaw.${MARCH}.sha256" < "${IMMUNABLUE_CHECKSUMS_FILE}")
+    IMMUNABLUE_FLUX_SHA256=$(yq ".flux.${MARCH}.sha256" < "${IMMUNABLUE_CHECKSUMS_FILE}")
+    IMMUNABLUE_SOPS_SHA256=$(yq ".sops.${MARCH}.sha256" < "${IMMUNABLUE_CHECKSUMS_FILE}")
+    IMMUNABLUE_CRIO_SHA256=$(yq ".crio.${MARCH}.sha256" < "${IMMUNABLUE_CHECKSUMS_FILE}")
+    IMMUNABLUE_NIX_SHA256=$(yq ".nix_installer.all.sha256" < "${IMMUNABLUE_CHECKSUMS_FILE}")
+fi
+
+# immunablue_verify_sha256 <file_path> <expected_sha256> <label>
+# Verifies a downloaded file's SHA256 against an expected value.
+# Exits with error on mismatch. No-op if immunablue is not active.
+immunablue_verify_sha256() {
+    local file_path="$1"
+    local expected="$2"
+    local label="${3:-$(basename "$file_path")}"
+
+    if [[ "${IMMUNABLUE_ACTIVE}" != "true" ]]; then
+        return 0
+    fi
+
+    if [[ -z "${expected}" ]] || [[ "${expected}" == "null" ]]; then
+        echo "IMMUNABLUE ERROR: No checksum found for ${label}"
+        echo "Add the SHA256 hash to immunablue/checksums.yaml"
+        exit 1
+    fi
+
+    local actual
+    actual=$(sha256sum "${file_path}" | awk '{print $1}')
+
+    if [[ "${actual}" != "${expected}" ]]; then
+        echo "IMMUNABLUE ERROR: SHA256 verification FAILED for ${label}"
+        echo "  Expected: ${expected}"
+        echo "  Got:      ${actual}"
+        echo ""
+        echo "The remote file has changed since the checksum was recorded."
+        echo "If expected (version update), update immunablue/checksums.yaml"
+        echo "after verifying the new content is legitimate."
+        rm -f "${file_path}"
+        exit 1
+    fi
+
+    echo "IMMUNABLUE: SHA256 verified — ${label}"
+}
+
+# immunablue_verified_curl <output_path> <url> <expected_sha256> [<label>]
+# Downloads a file via curl and verifies its SHA256 checksum.
+# When immunablue is not active, performs a standard curl download.
+immunablue_verified_curl() {
+    local output="$1"
+    local url="$2"
+    local expected_sha256="${3:-}"
+    local label="${4:-$(basename "$output")}"
+
+    if [[ "${IMMUNABLUE_ACTIVE}" == "true" ]]; then
+        # Use -f (fail on HTTP errors) — no silent failures
+        curl -fLo "${output}" "${url}"
+        immunablue_verify_sha256 "${output}" "${expected_sha256}" "${label}"
+    else
+        curl -Lo "${output}" "${url}"
+    fi
+}
+
