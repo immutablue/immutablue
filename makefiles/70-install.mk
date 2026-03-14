@@ -7,7 +7,13 @@
 # ------------------------------------------------------------------------------
 # Composite Targets
 # ------------------------------------------------------------------------------
+# When IMMUNABLUE=1, sign the image after push (cosign signs the registry image).
+# Sign runs after push because cosign uploads the signature blob to the registry.
+ifeq ($(strip $(filter-out 0 00,$(IMMUNABLUE))),)
 all: build test push
+else
+all: build test push immunablue-sign
+endif
 all_upgrade: all update
 
 ifeq ($(REBOOT),1)
