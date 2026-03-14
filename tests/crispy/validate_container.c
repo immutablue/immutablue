@@ -215,7 +215,7 @@ check_custom_libraries(void)
         "/usr/lib64/libgst.so",
 
         /* gowl */
-        "/usr/lib64/libgowl.so.0.2.0",
+        "/usr/lib64/libgowl.so.0.2.2",
         "/usr/lib64/libgowl.so",
 
         /* mcp-glib */
