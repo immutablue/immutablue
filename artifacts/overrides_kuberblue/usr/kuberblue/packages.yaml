@@ -45,6 +45,10 @@ packages:
       description: "OpenEBS Replicated PV (NVMe-oF HA storage; requires storage.nodes disk config)"
       manifest: 00-infrastructure/11-mayastor
       enabled: false
+    - name: cert-manager
+      description: "X.509 certificate management (Let's Encrypt, self-signed, CA issuers)"
+      manifest: 00-infrastructure/50-cert-manager
+      enabled: false
     - name: velero
       description: "Kubernetes backup and restore (snapshots cluster state + PVs to object storage)"
       manifest: 50-backup/00-velero

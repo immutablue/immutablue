@@ -17,16 +17,36 @@ networking:
     # Advertise this node as a subnet router (CIDR)
     # Set to pod_subnet to make pods reachable from the tailnet
     advertise_routes: ""
+    # Tailscale ACL tag for this node (e.g. tag:kuberblue-cp)
+    # Used by auto-discovery in multi-node topologies
+    tag: ""
+    # Expose the API server on the Tailscale interface
+    # Allows kubectl access from any device on the tailnet
+    api_server_on_tailnet: false
+    # Kubernetes secret name containing the Tailscale auth key
+    # If set, the key is read from this secret instead of /etc/kuberblue/tailscale-authkey
+    auth_key_secret: ""
+
+  # Cilium CNI advanced settings
+  cilium:
+    # Routing mode: tunnel | native
+    #   tunnel — VXLAN/Geneve encapsulation (works everywhere, slight overhead)
+    #   native — direct routing (requires L2 adjacency or BGP, lower overhead)
+    routing_mode: tunnel
+    # WireGuard encryption for pod-to-pod traffic: disabled | wireguard
+    #   disabled  — no encryption (default; trust the network)
+    #   wireguard — transparent WireGuard encryption between nodes
+    encryption: disabled
 
   # Cloudflare Tunnel — public ingress via Cloudflare's network
   # Runs as a DaemonSet inside the cluster (one cloudflared pod per node).
   # Requires a Cloudflare account and tunnel token.
   cloudflare_tunnel:
     enabled: false
-    # Tunnel token from: cloudflare zero trust → access → tunnels
-    # Store in /etc/kuberblue/ (not here — this is read-only image storage)
-    # token_secret: kuberblue-cloudflare-token  # k8s secret name
-    # namespace: cloudflared
+    # Kubernetes secret name containing the Cloudflare tunnel token
+    token_secret: kuberblue-cloudflare-token
+    # Namespace for the cloudflared DaemonSet
+    namespace: cloudflared
 
   # Kube-proxy replacement via Cilium (always true — do not change)
   # Setting this to false would require kube-proxy reinstallation.
