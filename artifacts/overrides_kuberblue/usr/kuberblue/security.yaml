@@ -1,0 +1,39 @@
+# /usr/kuberblue/security.yaml — security and secrets configuration (vendor defaults)
+#
+# Override by copying to /etc/kuberblue/security.yaml
+
+security:
+  # SOPS+Age secret management
+  sops:
+    # Enable SOPS+Age secret management
+    # When enabled, an Age key pair is generated on first boot and stored at:
+    #   private key: age_key_path (mode 0640, root:kuberblue)
+    #   public key:  age_key_path with .pub extension (mode 0644)
+    # The public key is also exported as a Kubernetes secret in flux-system namespace
+    # so Flux can decrypt SOPS-encrypted manifests in the GitOps repo.
+    enabled: false
+    # Path to the Age private key file
+    age_key_path: /var/lib/kuberblue/secrets/age.key
+    # Age recipient public key (from operators or other nodes who can encrypt for this cluster)
+    # Format: age1... string
+    age_recipient: ""
+    # Automatically generate an Age key pair on first boot if one does not exist
+    auto_generate_key: true
+
+  # Kubeconfig distribution policy
+  kubeconfig:
+    # Who gets a copy of the kubeconfig:
+    #   service-user-only — only the kuberblue service user
+    #   all-users         — all users in allowed_groups
+    distribution: service-user-only
+    # Groups whose members may receive kubeconfig (when distribution: all-users)
+    allowed_groups: [kuberblue]
+
+  # Administrative user/group for kuberblue-managed resources
+  admin:
+    # System user that owns kuberblue state and runs kubectl
+    user: kuberblue
+    # Primary group for kuberblue files
+    group: kuberblue
+    # UID for the kuberblue service user
+    uid: 970

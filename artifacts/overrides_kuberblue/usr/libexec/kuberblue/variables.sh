@@ -56,5 +56,8 @@ KUBERBLUE_TAILSCALE_ENABLED="$(kuberblue_config_get cni.yaml .networking.tailsca
 # GitOps shortcuts
 KUBERBLUE_GITOPS_ENABLED="$(kuberblue_config_get gitops.yaml .gitops.enabled "false")"
 
-# Secrets shortcuts
-KUBERBLUE_SECRETS_ENABLED="$(kuberblue_config_get secrets.yaml .secrets.enabled "false")"
+# Security shortcuts
+KUBERBLUE_SOPS_ENABLED="$(kuberblue_config_get security.yaml .security.sops.enabled "false")"
+KUBERBLUE_ADMIN_USER="$(kuberblue_config_get security.yaml .security.admin.user "kuberblue")"
+KUBERBLUE_ADMIN_GROUP="$(kuberblue_config_get security.yaml .security.admin.group "kuberblue")"
+KUBERBLUE_ADMIN_UID="$(kuberblue_config_get security.yaml .security.admin.uid "970")"

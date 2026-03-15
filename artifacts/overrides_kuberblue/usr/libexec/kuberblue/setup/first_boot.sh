@@ -50,7 +50,7 @@ if [[ "${KUBERBLUE_NODE_ROLE}" == "control-plane" ]]; then
     KUBECONFIG="${KUBECONFIG}" /usr/libexec/kuberblue/kube_setup/kube_post_install.sh
 
     # SOPS+Age key setup (after cluster is ready)
-    if [[ "${KUBERBLUE_SECRETS_ENABLED}" == "true" ]]; then
+    if [[ "${KUBERBLUE_SOPS_ENABLED}" == "true" ]]; then
         echo "Setting up SOPS+Age secrets..."
         KUBECONFIG="${KUBECONFIG}" /usr/libexec/kuberblue/kube_setup/kube_sops_setup.sh
     fi
