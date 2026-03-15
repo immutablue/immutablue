@@ -78,6 +78,7 @@ PACKAGES=(
 	sqlite-devel
 	libpq-devel
     libssh2-devel
+    libvirt-devel
 
 	# nerd-fonts: extraction
 	xz

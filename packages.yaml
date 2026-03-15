@@ -74,6 +74,7 @@ immutablue:
     - libubsan
     - libvirt
     - libvirt-dbus
+    - libvirt-devel
     - libyaml-devel
     - lm_sensors
     - make
