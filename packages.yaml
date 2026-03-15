@@ -201,7 +201,7 @@ immutablue:
     - helm
     - htop
     - neovim
-    - tailscale     # Host-level mesh networking (optional, toggle in networking.yaml)
+    - tailscale     # Host-level mesh networking (optional, toggle in cni.yaml)
     - tmux
     42:
     - cri-tools1.32

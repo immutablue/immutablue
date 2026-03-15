@@ -24,7 +24,7 @@ fi
 # If advertise_address is 'tailscale', verify we actually have a Tailscale IP
 if [[ "${KUBERBLUE_ADVERTISE_ADDR}" == "tailscale" ]] && [[ ! -f "${STATE_DIR}/tailscale-ip" ]]; then
     echo "ERROR: advertise_address=tailscale but Tailscale IP not available"
-    echo "Ensure networking.tailscale.enabled=true and an authkey is configured"
+    echo "Ensure networking.tailscale.enabled=true in cni.yaml and an authkey is configured"
     exit 1
 fi
 

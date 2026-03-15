@@ -12,7 +12,7 @@ set -euxo pipefail
 source /usr/libexec/kuberblue/variables.sh
 
 if [[ "${KUBERBLUE_TAILSCALE_ENABLED}" != "true" ]]; then
-    echo "Tailscale not enabled in networking.yaml — skipping."
+    echo "Tailscale not enabled in cni.yaml — skipping."
     exit 0
 fi
 
@@ -60,8 +60,8 @@ else
 fi
 
 # Configure route advertising if requested
-ADVERTISE_ROUTES="$(kuberblue_config_get networking.yaml .networking.tailscale.advertise_routes "")"
-ACCEPT_ROUTES="$(kuberblue_config_get networking.yaml .networking.tailscale.accept_routes "true")"
+ADVERTISE_ROUTES="$(kuberblue_config_get cni.yaml .networking.tailscale.advertise_routes "")"
+ACCEPT_ROUTES="$(kuberblue_config_get cni.yaml .networking.tailscale.accept_routes "true")"
 
 TS_ARGS="--accept-routes=${ACCEPT_ROUTES}"
 if [[ -n "${ADVERTISE_ROUTES}" ]] && [[ "${ADVERTISE_ROUTES}" != "null" ]]; then

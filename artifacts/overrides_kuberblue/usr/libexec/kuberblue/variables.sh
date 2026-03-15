@@ -50,8 +50,8 @@ KUBERBLUE_NODE_ROLE="$(kuberblue_config_get cluster.yaml .cluster.node_role "con
 KUBERBLUE_ADVERTISE_ADDR="$(kuberblue_config_get cluster.yaml .cluster.advertise_address "auto")"
 
 # Networking shortcuts
-KUBERBLUE_CNI="$(kuberblue_config_get networking.yaml .networking.cni "cilium")"
-KUBERBLUE_TAILSCALE_ENABLED="$(kuberblue_config_get networking.yaml .networking.tailscale.enabled "false")"
+KUBERBLUE_CNI="$(kuberblue_config_get cni.yaml .networking.cni "cilium")"
+KUBERBLUE_TAILSCALE_ENABLED="$(kuberblue_config_get cni.yaml .networking.tailscale.enabled "false")"
 
 # GitOps shortcuts
 KUBERBLUE_GITOPS_ENABLED="$(kuberblue_config_get gitops.yaml .gitops.enabled "false")"

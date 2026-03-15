@@ -1,6 +1,6 @@
-# /usr/kuberblue/networking.yaml — kuberblue networking configuration (vendor defaults)
+# /usr/kuberblue/cni.yaml — kuberblue networking configuration (vendor defaults)
 #
-# Override by copying to /etc/kuberblue/networking.yaml
+# Override by copying to /etc/kuberblue/cni.yaml
 
 networking:
   # CNI plugin: cilium (only supported option)

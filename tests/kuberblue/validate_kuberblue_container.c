@@ -266,7 +266,7 @@ check_kuberblue_files(void)
         /* cluster config (in /usr/kuberblue, not /etc) */
         "/usr/kuberblue/kubeadm.yaml",
         "/usr/kuberblue/cluster.yaml",
-        "/usr/kuberblue/networking.yaml",
+        "/usr/kuberblue/cni.yaml",
         /* manifests */
         "/etc/kuberblue/manifests/metadata.yaml.tpl",
         "/etc/kuberblue/manifests/00-infrastructure/00-cilium/00-metadata.yaml",
