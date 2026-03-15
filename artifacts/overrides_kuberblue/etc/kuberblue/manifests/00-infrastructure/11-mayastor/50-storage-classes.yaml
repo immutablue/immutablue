@@ -1,0 +1,38 @@
+# Mayastor Replicated StorageClasses for Kuberblue
+#
+# openebs-replicated-3: 3-replica HA storage (default for HA topologies)
+# openebs-replicated-2: 2-replica storage (less critical workloads)
+#
+# DiskPool CRs are generated at deploy time from cluster.yaml storage.nodes[]
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: openebs-replicated-3
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: io.openebs.csi-mayastor
+parameters:
+  # 3-replica: data survives loss of 2 nodes
+  repl: "3"
+  protocol: nvmf
+  ioTimeout: "30"
+  fsType: ext4
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: openebs-replicated-2
+provisioner: io.openebs.csi-mayastor
+parameters:
+  # 2-replica: data survives loss of 1 node (less critical workloads)
+  repl: "2"
+  protocol: nvmf
+  ioTimeout: "30"
+  fsType: ext4
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate

@@ -1,0 +1,7 @@
+# Cloudflare Tunnel (cloudflared) — kubectl apply manifests
+# No Helm chart; resources are applied directly via kubectl.
+name: cloudflared
+namespace: cloudflared
+install_type: kubectl
+create_namespace: true
+# No chart/repo fields — this is not a Helm deployment.

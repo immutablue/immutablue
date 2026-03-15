@@ -1,0 +1,80 @@
+# OpenEBS Mayastor Configuration for Kuberblue HA Storage
+#
+# This chart deploys OpenEBS with the Mayastor (Replicated PV) engine enabled.
+# Requires dedicated block devices or ZFS zvols on each storage node.
+# Configure storage nodes in /etc/kuberblue/cluster.yaml under storage.nodes[].
+
+engines:
+  local:
+    lvm:
+      enabled: false
+    zfs:
+      enabled: false
+  replicated:
+    mayastor:
+      enabled: true
+
+# Mayastor io_engine (data-plane) resources
+# io_engine runs on each storage node and handles NVMe-oF replication
+mayastor:
+  io_engine:
+    resources:
+      limits:
+        cpu: "2"
+        memory: 2Gi
+        hugepages-2Mi: 2Gi
+      requests:
+        cpu: "1"
+        memory: 1Gi
+        hugepages-2Mi: 2Gi
+    # Number of reactor cores for io_engine
+    reactorCount: 2
+    # Target NVMe queue depth
+    nvmeQueueDepth: 32
+
+  # Mayastor control-plane (CSI controller + REST API)
+  csi:
+    controller:
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+
+  # REST API gateway
+  apiRest:
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  # Mayastor etcd cluster for persistent metadata
+  etcd:
+    replicaCount: 3
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    persistence:
+      enabled: true
+      size: 2Gi
+      storageClassName: openebs-hostpath
+
+# Disable LocalPV (already deployed by 10-openebs)
+localpv:
+  enabled: false
+
+# Allow scheduling on all nodes (including control-plane for HA topology)
+tolerations:
+  - operator: "Exists"
+
+analytics:
+  enabled: false

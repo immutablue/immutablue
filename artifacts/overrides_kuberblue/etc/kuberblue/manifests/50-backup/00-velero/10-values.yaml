@@ -1,0 +1,94 @@
+# Velero Backup Configuration for Kuberblue
+#
+# Velero backs up Kubernetes resources and persistent volumes to S3-compatible
+# object storage. Configure the backup location and credentials below.
+#
+# Before deploying:
+#   1. Create an S3 bucket for backups
+#   2. Create a credentials secret:
+#      kubectl create namespace velero
+#      kubectl create secret generic velero-s3-credentials \
+#        --namespace velero \
+#        --from-file=cloud=<credentials-file>
+#
+# Credentials file format (AWS/S3-compatible):
+#   [default]
+#   aws_access_key_id=<ACCESS_KEY>
+#   aws_secret_access_key=<SECRET_KEY>
+
+# Velero server configuration
+resources:
+  limits:
+    cpu: "1"
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+# Deploy node-agent (formerly restic) for file-level PV backup
+deployNodeAgent: true
+
+nodeAgent:
+  resources:
+    limits:
+      cpu: "1"
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  # Run on all nodes (including control-plane)
+  tolerations:
+    - operator: "Exists"
+
+# S3-compatible backup storage location
+configuration:
+  backupStorageLocation:
+    - name: default
+      provider: aws
+      bucket: kuberblue-backups
+      config:
+        # S3-compatible endpoint (MinIO, Wasabi, Backblaze B2, R2, etc.)
+        # For AWS S3: leave blank or set to s3.amazonaws.com
+        s3Url: ""
+        region: us-east-1
+        s3ForcePathStyle: "true"
+      credential:
+        name: velero-s3-credentials
+        key: cloud
+
+  volumeSnapshotLocation:
+    - name: default
+      provider: aws
+      config:
+        region: us-east-1
+      credential:
+        name: velero-s3-credentials
+        key: cloud
+
+  # Feature flags
+  features: "EnableCSI"
+
+# Install CRDs
+installCRDs: true
+
+# Default backup schedule (daily at 2am, retain 30 days)
+schedules:
+  daily-backup:
+    disabled: false
+    schedule: "0 2 * * *"
+    useOwnerReferencesInBackup: false
+    template:
+      ttl: 720h0m0s
+      includedNamespaces:
+        - "*"
+      excludedNamespaces:
+        - kube-system
+        - velero
+      snapshotVolumes: true
+      storageLocation: default
+      volumeSnapshotLocations:
+        - default
+
+# Allow scheduling on all nodes
+tolerations:
+  - operator: "Exists"
