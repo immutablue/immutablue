@@ -470,8 +470,6 @@ immutablue:
       cargo_packages:
       bin_export:
       - code
-      # Needed for nvim support
-      - ld
       - cargo
       bin_export_aarch64:
       - pandoc
