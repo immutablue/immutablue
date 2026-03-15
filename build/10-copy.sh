@@ -143,6 +143,16 @@ do
 done < <(get_immutablue_build_options)
 
 
+# Remove test YAML files from production kuberblue images.
+# chainsaw.yaml and *_test.yaml manifests are only needed in dev/staging builds.
+# When KUBERBLUE=1 but KUBERBLUE_DEV=1 is not set, strip them from the image.
+if [[ "$(is_option_in_build_options kuberblue)" == "${TRUE}" ]] && \
+   [[ "$(is_option_in_build_options kuberblue_dev)" != "${TRUE}" ]]; then
+    find /etc/kuberblue/manifests/ -name "*_test.yaml" -delete 2>/dev/null || true
+    find /etc/kuberblue/ -name "chainsaw.yaml" -delete 2>/dev/null || true
+fi
+
+
 # Put in place the correct `/etc/os-release`
 if [[ -f "/etc/os-release" ]]
 then 

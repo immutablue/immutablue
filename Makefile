@@ -84,6 +84,7 @@ help:
 	@echo "  ZFS=1              ZFS modules"
 	@echo "  NIX=1              Nix package manager"
 	@echo "  KUBERBLUE=1        Kubernetes support"
+	@echo "  KUBERBLUE_DEV=1    Kuberblue dev/staging (includes chainsaw + test YAMLs)"
 	@echo "  TRUEBLUE=1         ZFS + LTS"
 	@echo ""
 	@echo "Examples:"

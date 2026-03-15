@@ -33,7 +33,8 @@ ADDON_VARIANTS := \
 	CYAN|-cyan|cyan \
 	LTS|-lts|lts,zfs \
 	NIX|-nix|nix \
-	KUBERBLUE|-kuberblue|kuberblue
+	KUBERBLUE|-kuberblue|kuberblue \
+	KUBERBLUE_DEV|-dev|kuberblue_dev
 
 # ------------------------------------------------------------------------------
 # Special Variants

@@ -283,10 +283,14 @@ fi
 if [[ "$(is_option_in_build_options kuberblue)" == "${TRUE}" ]]
 then
     # Chainsaw: Kubernetes integration test runner (kyverno/chainsaw)
-    curl -Lo /tmp/chainsaw.tar.gz "${CHAINSAW_RELEASE_URL}"
-    tar -xzf /tmp/chainsaw.tar.gz -C /usr/bin/ chainsaw
-    chmod a+x /usr/bin/chainsaw
-    rm /tmp/chainsaw.tar.gz
+    # Only installed in dev/staging builds (KUBERBLUE_DEV=1)
+    if [[ "$(is_option_in_build_options kuberblue_dev)" == "${TRUE}" ]]
+    then
+        curl -Lo /tmp/chainsaw.tar.gz "${CHAINSAW_RELEASE_URL}"
+        tar -xzf /tmp/chainsaw.tar.gz -C /usr/bin/ chainsaw
+        chmod a+x /usr/bin/chainsaw
+        rm /tmp/chainsaw.tar.gz
+    fi
 
     # Flux CLI: GitOps continuous delivery for Kubernetes
     curl -Lo /tmp/flux.tar.gz "${FLUX_RELEASE_URL}"

@@ -80,6 +80,10 @@ ifndef LTS
     DO_INSTALL_LTS := false
 endif
 
+ifndef KUBERBLUE_DEV
+    KUBERBLUE_DEV := 0
+endif
+
 ifndef DO_INSTALL_AKMODS
     DO_INSTALL_AKMODS := false
 endif
