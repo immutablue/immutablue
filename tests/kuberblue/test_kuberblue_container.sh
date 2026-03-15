@@ -90,6 +90,10 @@ function test_kuberblue_files() {
   # Test for Kuberblue-specific configuration files
   local required_files=(
     "/usr/kuberblue/cluster.yaml"
+    "/usr/kuberblue/cni.yaml"
+    "/usr/kuberblue/security.yaml"
+    "/usr/kuberblue/gitops.yaml"
+    "/usr/kuberblue/packages.yaml"
     "/etc/kuberblue/manifests/metadata.yaml.tpl"
     "/etc/kuberblue/manifests/00-infrastructure/00-cilium/00-metadata.yaml"
     "/etc/kuberblue/manifests/00-infrastructure/10-openebs/00-metadata.yaml"
@@ -116,6 +120,14 @@ function test_kuberblue_files() {
     "kube_reset.sh"
     "kube_untaint_master.sh"
     "run_command_as_kuberblue_user.sh"
+    "kube_state.sh"
+    "kube_status.sh"
+    "kube_doctor.sh"
+    "kube_join.sh"
+    "kube_refresh_token.sh"
+    "kube_override.sh"
+    "kube_sops.sh"
+    "kube_upgrade.sh"
   )
   
   for script in "${kube_setup_scripts[@]}"; do
@@ -126,6 +138,69 @@ function test_kuberblue_files() {
   done
   
   echo "PASS: Kuberblue files check succeeded"
+  return 0
+}
+
+# Test for Kuberblue V2 file layout changes
+# Verifies renamed/new configs, generated kubeadm, new manifest directories
+function test_kuberblue_v2_files() {
+  echo "Testing Kuberblue V2 file layout"
+
+  # Config renames: cni.yaml and security.yaml must exist (not networking.yaml, secrets.yaml)
+  if ! podman run --rm "$IMAGE" bash -c '
+    FAIL=0
+    # cni.yaml should exist
+    if [[ ! -f /usr/kuberblue/cni.yaml ]]; then
+      echo "FAIL: /usr/kuberblue/cni.yaml not found"
+      FAIL=1
+    fi
+    # security.yaml should exist
+    if [[ ! -f /usr/kuberblue/security.yaml ]]; then
+      echo "FAIL: /usr/kuberblue/security.yaml not found"
+      FAIL=1
+    fi
+    # Old names should NOT exist
+    if [[ -f /usr/kuberblue/networking.yaml ]]; then
+      echo "FAIL: /usr/kuberblue/networking.yaml should not exist (renamed to cni.yaml)"
+      FAIL=1
+    fi
+    if [[ -f /usr/kuberblue/secrets.yaml ]]; then
+      echo "FAIL: /usr/kuberblue/secrets.yaml should not exist (renamed to security.yaml)"
+      FAIL=1
+    fi
+    # kubeadm.yaml should NOT be in /usr/kuberblue/ (generated at runtime now)
+    if [[ -f /usr/kuberblue/kubeadm.yaml ]]; then
+      echo "FAIL: /usr/kuberblue/kubeadm.yaml should not exist (generated at runtime)"
+      FAIL=1
+    fi
+    exit $FAIL
+  '; then
+    echo "FAIL: V2 config rename validation failed"
+    return 1
+  fi
+
+  # New manifest directories must exist
+  if ! podman run --rm "$IMAGE" bash -c '
+    FAIL=0
+    DIRS=(
+      "/etc/kuberblue/manifests/00-infrastructure/11-mayastor"
+      "/etc/kuberblue/manifests/10-networking/00-tailscale-operator"
+      "/etc/kuberblue/manifests/10-networking/10-cloudflared"
+      "/etc/kuberblue/manifests/50-backup/00-velero"
+    )
+    for dir in "${DIRS[@]}"; do
+      if [[ ! -d "$dir" ]]; then
+        echo "FAIL: Manifest directory $dir not found"
+        FAIL=1
+      fi
+    done
+    exit $FAIL
+  '; then
+    echo "FAIL: V2 manifest directory check failed"
+    return 1
+  fi
+
+  echo "PASS: Kuberblue V2 file layout check succeeded"
   return 0
 }
 
@@ -248,6 +323,10 @@ if ! test_kuberblue_binaries; then
 fi
 
 if ! test_kuberblue_files; then
+  ((FAILED++))
+fi
+
+if ! test_kuberblue_v2_files; then
   ((FAILED++))
 fi
 
