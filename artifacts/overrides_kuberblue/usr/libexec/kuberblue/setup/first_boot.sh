@@ -3,10 +3,12 @@ set -euo pipefail
 
 source /usr/libexec/kuberblue/99-common.sh
 source /usr/libexec/kuberblue/variables.sh
+source /usr/libexec/kuberblue/kube_setup/kube_state.sh
 
 FIRST_BOOT_MARKER="/etc/kuberblue/did_first_boot"
 
 mkdir -p /etc/kuberblue "${STATE_DIR}"
+kuberblue_state_init
 
 if [[ -f "${FIRST_BOOT_MARKER}" ]]; then
     echo "First boot already completed. Skipping init."
@@ -19,6 +21,7 @@ echo "=== Kuberblue first boot: topology=${KUBERBLUE_TOPOLOGY}, role=${KUBERBLUE
 if [[ "${KUBERBLUE_TAILSCALE_ENABLED}" == "true" ]]; then
     echo "Setting up Tailscale..."
     /usr/libexec/kuberblue/kube_setup/kube_tailscale_setup.sh
+    kuberblue_state_set "tailscale-configured" "true"
 fi
 
 # If advertise_address is 'tailscale', verify we actually have a Tailscale IP
@@ -32,6 +35,9 @@ fi
 if [[ "${KUBERBLUE_NODE_ROLE}" == "control-plane" ]]; then
     echo "Initializing Kubernetes control-plane..."
     /usr/libexec/kuberblue/kube_setup/kube_init.sh
+
+    kuberblue_state_set "node-role" "control-plane"
+    kuberblue_state_set "cluster-initialized" "true"
 
     touch "${FIRST_BOOT_MARKER}"
     export KUBECONFIG=/etc/kubernetes/admin.conf
@@ -53,12 +59,14 @@ if [[ "${KUBERBLUE_NODE_ROLE}" == "control-plane" ]]; then
     if [[ "${KUBERBLUE_SOPS_ENABLED}" == "true" ]]; then
         echo "Setting up SOPS+Age secrets..."
         KUBECONFIG="${KUBECONFIG}" /usr/libexec/kuberblue/kube_setup/kube_sops_setup.sh
+        kuberblue_state_set "sops-configured" "true"
     fi
 
     # Flux bootstrap (after core manifests are deployed)
     if [[ "${KUBERBLUE_GITOPS_ENABLED}" == "true" ]]; then
         echo "Bootstrapping Flux CD..."
         KUBECONFIG="${KUBECONFIG}" /usr/libexec/kuberblue/kube_setup/kube_flux_bootstrap.sh
+        kuberblue_state_set "flux-bootstrapped" "true"
     fi
 
     # Generate join token for multi/ha topologies
@@ -80,6 +88,10 @@ elif [[ "${KUBERBLUE_NODE_ROLE}" == "worker" ]]; then
         fi
         echo "Joining cluster as worker node..."
         bash "${STATE_DIR}/worker-join-command"
+
+        kuberblue_state_set "node-role" "worker"
+        kuberblue_state_set "cluster-initialized" "true"
+
         touch "${FIRST_BOOT_MARKER}"
     else
         echo "ERROR: node_role is 'worker' but no join command found at ${STATE_DIR}/worker-join-command"
