@@ -46,8 +46,64 @@ KUBERBLUE_UID="$(kuberblue_config_get settings.yaml .kuberblue.uid "970")"
 
 # Cluster config shortcuts (from /usr/kuberblue/cluster.yaml or /etc/ override)
 KUBERBLUE_TOPOLOGY="$(kuberblue_config_get cluster.yaml .cluster.topology "single")"
-KUBERBLUE_NODE_ROLE="$(kuberblue_config_get cluster.yaml .cluster.node_role "control-plane")"
+KUBERBLUE_NODE_ROLE_RAW="$(kuberblue_config_get cluster.yaml .cluster.node_role "control-plane")"
 KUBERBLUE_ADVERTISE_ADDR="$(kuberblue_config_get cluster.yaml .cluster.advertise_address "auto")"
+
+# kuberblue_detect_node_role — auto-detect the node role when configured as 'auto'
+#
+# Detection order:
+#   1. If cluster-initialized state exists → use stored node-role
+#   2. If /etc/kubernetes/admin.conf exists → control-plane
+#   3. If Tailscale available and a CP node is already tagged → worker
+#   4. Default: worker (multi/ha) or control-plane (single)
+#
+# Returns the detected role on stdout.
+kuberblue_detect_node_role () {
+    local topology
+    topology="$(kuberblue_config_get cluster.yaml .cluster.topology "single")"
+
+    # 1. Check persistent state from a previous boot
+    local state_dir="${STATE_DIR:-/var/lib/kuberblue}"
+    local state_file="${state_dir}/state/node-role"
+    if [[ -f "${state_file}" ]]; then
+        cat "${state_file}"
+        return 0
+    fi
+
+    # 2. If admin.conf exists, this node was previously a control-plane
+    if [[ -f /etc/kubernetes/admin.conf ]]; then
+        echo "control-plane"
+        return 0
+    fi
+
+    # 3. If Tailscale is available, check for an existing CP in the tailnet
+    if command -v tailscale &>/dev/null && tailscale ip -4 &>/dev/null 2>&1; then
+        local ts_tag
+        ts_tag="$(kuberblue_config_get cni.yaml .networking.tailscale.tag "")"
+        if [[ -n "${ts_tag}" ]] && [[ "${ts_tag}" != "null" ]]; then
+            # If we can see a peer with the CP tag, we are a worker
+            if tailscale status --json 2>/dev/null \
+                | yq -e '.Peer[] | select(.Tags // [] | .[] == "tag:'"${ts_tag}"'")' &>/dev/null; then
+                echo "worker"
+                return 0
+            fi
+        fi
+    fi
+
+    # 4. Default based on topology
+    if [[ "${topology}" == "single" ]]; then
+        echo "control-plane"
+    else
+        echo "worker"
+    fi
+}
+
+# Resolve node role — use auto-detection if configured as 'auto'
+if [[ "${KUBERBLUE_NODE_ROLE_RAW}" == "auto" ]]; then
+    KUBERBLUE_NODE_ROLE="$(kuberblue_detect_node_role)"
+else
+    KUBERBLUE_NODE_ROLE="${KUBERBLUE_NODE_ROLE_RAW}"
+fi
 
 # Networking shortcuts
 KUBERBLUE_CNI="$(kuberblue_config_get cni.yaml .networking.cni "cilium")"
