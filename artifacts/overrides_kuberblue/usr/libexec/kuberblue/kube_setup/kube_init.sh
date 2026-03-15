@@ -9,7 +9,7 @@ mkdir -p "${STATE_DIR}"
 # Step 1: Generate the runtime kubeadm config from /usr/kuberblue/ + /etc/ overrides
 /usr/libexec/kuberblue/kube_setup/kube_generate_kubeadm_config.sh
 
-GENERATED_KUBEADM="${STATE_DIR}/kubeadm-generated.yaml"
+GENERATED_KUBEADM="${STATE_DIR}/generated/kubeadm-config.yaml"
 INIT_LOG="${STATE_DIR}/kubeadm-init.log"
 
 if [[ ! -f "${GENERATED_KUBEADM}" ]]; then

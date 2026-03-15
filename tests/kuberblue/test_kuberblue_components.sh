@@ -346,16 +346,16 @@ function test_configuration_files() {
         return 1
     fi
     
-    # Test kubeadm configuration (located in /usr/kuberblue, not /etc/kuberblue)
-    local kubeadm_config="/usr/kuberblue/kubeadm.yaml"
-    if ! podman run --rm "$IMAGE" test -f "$kubeadm_config"; then
-        echo "FAIL: Kubeadm configuration not found at $kubeadm_config"
+    # Test cluster configuration (located in /usr/kuberblue, not /etc/kuberblue)
+    local cluster_config="/usr/kuberblue/cluster.yaml"
+    if ! podman run --rm "$IMAGE" test -f "$cluster_config"; then
+        echo "FAIL: Cluster configuration not found at $cluster_config"
         return 1
     fi
-    
-    # Validate YAML syntax (handle multi-document YAML files)
-    if ! podman run --rm "$IMAGE" python3 -c "import yaml; [doc for doc in yaml.safe_load_all(open('$kubeadm_config'))]" 2>/dev/null; then
-        echo "FAIL: Kubeadm configuration has invalid YAML syntax"
+
+    # Validate YAML syntax
+    if ! podman run --rm "$IMAGE" python3 -c "import yaml; list(yaml.safe_load_all(open('$cluster_config')))" 2>/dev/null; then
+        echo "FAIL: Cluster configuration has invalid YAML syntax"
         return 1
     fi
     

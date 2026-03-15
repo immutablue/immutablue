@@ -89,7 +89,7 @@ function test_kuberblue_files() {
   
   # Test for Kuberblue-specific configuration files
   local required_files=(
-    "/usr/kuberblue/kubeadm.yaml"
+    "/usr/kuberblue/cluster.yaml"
     "/etc/kuberblue/manifests/metadata.yaml.tpl"
     "/etc/kuberblue/manifests/00-infrastructure/00-cilium/00-metadata.yaml"
     "/etc/kuberblue/manifests/00-infrastructure/10-openebs/00-metadata.yaml"
