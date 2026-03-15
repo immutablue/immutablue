@@ -138,8 +138,6 @@ if [[ "${KUBERBLUE_TOPOLOGY}" == "ha" ]] && [[ "${KUBERBLUE_NODE_ROLE}" == "cont
         kuberblue_state_set "cluster-initialized" "true"
         kuberblue_state_set "ha-role" "init-cp"
 
-        touch "${FIRST_BOOT_MARKER}"
-
         cp_post_init
 
         # Upload certs so other CPs can join with --control-plane
@@ -166,6 +164,9 @@ if [[ "${KUBERBLUE_TOPOLOGY}" == "ha" ]] && [[ "${KUBERBLUE_NODE_ROLE}" == "cont
         fi
 
         echo "HA first control-plane initialized. Other CPs can now join."
+
+        # Mark first boot complete ONLY after entire flow succeeds
+        touch "${FIRST_BOOT_MARKER}"
 
     else
         # --- Non-first control-plane: join existing HA cluster ---
@@ -215,8 +216,10 @@ if [[ "${KUBERBLUE_TOPOLOGY}" == "ha" ]] && [[ "${KUBERBLUE_NODE_ROLE}" == "cont
         kuberblue_state_set "cluster-initialized" "true"
         kuberblue_state_set "ha-role" "join-cp"
 
-        touch "${FIRST_BOOT_MARKER}"
         echo "HA control-plane join complete."
+
+        # Mark first boot complete ONLY after entire flow succeeds
+        touch "${FIRST_BOOT_MARKER}"
     fi
 
 # --- Single / Multi control-plane init ---
@@ -227,14 +230,15 @@ elif [[ "${KUBERBLUE_NODE_ROLE}" == "control-plane" ]]; then
     kuberblue_state_set "node-role" "control-plane"
     kuberblue_state_set "cluster-initialized" "true"
 
-    touch "${FIRST_BOOT_MARKER}"
-
     cp_post_init
 
     # Generate join token for multi-node topologies
     if [[ "${KUBERBLUE_TOPOLOGY}" == "multi" ]]; then
         cp_generate_and_serve_token
     fi
+
+    # Mark first boot complete ONLY after entire flow succeeds
+    touch "${FIRST_BOOT_MARKER}"
 
 # --- Worker node join ---
 elif [[ "${KUBERBLUE_NODE_ROLE}" == "worker" ]]; then
