@@ -207,7 +207,7 @@ check_kuberblue_binaries(void)
         "/usr/bin/sops",
         /* GitOps / CI tooling */
         "/usr/bin/flux",
-        "/usr/bin/chainsaw",
+        /* NOTE: chainsaw is dev-only (KUBERBLUE_DEV=1) — not present in production builds */
         NULL
     };
 
