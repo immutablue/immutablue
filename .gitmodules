@@ -28,3 +28,6 @@
 [submodule "artifacts/overrides/usr/src/gitlab/podomation"]
 	path = artifacts/overrides/usr/src/gitlab/podomation
 	url = git@gitlab.com:zachpodbielniak/podomation.git
+[submodule "artifacts/overrides/usr/src/gitlab/bacon"]
+	path = artifacts/overrides/usr/src/gitlab/bacon
+	url = git@gitlab.com:zachpodbielniak/bacon.git

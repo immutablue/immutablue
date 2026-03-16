@@ -166,6 +166,10 @@ check_custom_binaries(void)
         "/usr/bin/mcp-shell",
         "/usr/bin/gdb-mcp-server",
 
+        /* bacon shell + language server */
+        "/usr/bin/bacon",
+        "/usr/bin/bacon-language-server",
+
         /* gui tools (skipped on nucleus, but present on standard builds) */
         "/usr/bin/gst",
         "/usr/bin/gowl",
@@ -223,6 +227,10 @@ check_custom_libraries(void)
 
         /* ai-glib */
         "/usr/lib64/libai-glib-1.0.so",
+
+        /* bacon */
+        "/usr/lib64/libbacon-1.0.so.0.1.0",
+        "/usr/lib64/libbacon-1.0.so",
         NULL
     };
 
