@@ -74,6 +74,12 @@ case "${COMMAND}" in
     mcp-serve)
         exec just --justfile "${JUSTFILE}" kube_mcp_serve "$@"
         ;;
+    on_boot|on-boot)
+        exec just --justfile "${JUSTFILE}" on_boot "$@"
+        ;;
+    on_shutdown|on-shutdown)
+        exec just --justfile "${JUSTFILE}" on_shutdown "$@"
+        ;;
     help|--help|-h)
         kuberblue_help
         ;;

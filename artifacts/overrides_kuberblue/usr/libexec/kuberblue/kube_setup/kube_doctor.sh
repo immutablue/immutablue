@@ -74,8 +74,9 @@ fi
 
 # 5. StorageClass exists
 if command -v kubectl &>/dev/null; then
-    sc_count="$(kubectl get sc --no-headers 2>/dev/null | wc -l || echo 0)"
-    if [[ "${sc_count}" -gt 0 ]]; then
+    sc_count="$(kubectl get sc --no-headers 2>/dev/null | wc -l 2>/dev/null)" || sc_count=0
+    sc_count="${sc_count//[[:space:]]/}"
+    if [[ "${sc_count:-0}" -gt 0 ]]; then
         check_pass "StorageClass exists (${sc_count} found)"
     else
         check_warn "No StorageClass found — persistent storage unavailable"
