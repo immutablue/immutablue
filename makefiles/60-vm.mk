@@ -29,7 +29,7 @@ qcow2: _check_not_distroless
 	fi
 	sudo podman pull $(IMAGE):$(TAG)
 	sudo podman run \
-		--rm -it --privileged \
+		--rm -i --privileged \
 		--security-opt label=type:unconfined_t \
 		-v $(QCOW2_DIR):/output:z \
 		-v /var/lib/containers/storage:/var/lib/containers/storage \
