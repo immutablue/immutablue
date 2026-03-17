@@ -166,6 +166,21 @@ _run_kuberblue_chainsaw_test:
 
 test_chainsaw: test_kuberblue_chainsaw
 
+test_kuberblue_lima:
+	@$(MAKE) KUBERBLUE=1 _run_kuberblue_lima_test
+
+_run_kuberblue_lima_test:
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		if ! command -v limactl &>/dev/null; then \
+			echo "SKIP: limactl not found — install Lima to run VM smoke tests"; \
+		else \
+			chmod +x ./tests/kuberblue/test_kuberblue_lima.sh; \
+			./tests/kuberblue/test_kuberblue_lima.sh; \
+		fi; \
+	else \
+		echo "Skipping Kuberblue Lima VM tests (SKIP_TEST=1)"; \
+	fi
+
 # ------------------------------------------------------------------------------
 # SBOM Generation
 # ------------------------------------------------------------------------------
