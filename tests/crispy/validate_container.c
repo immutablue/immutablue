@@ -215,7 +215,7 @@ check_custom_libraries(void)
         "/usr/lib64/libcrispy.so",
 
         /* gst */
-        "/usr/lib64/libgst.so.0.3.3",
+        "/usr/lib64/libgst.so.0.3.4",
         "/usr/lib64/libgst.so",
 
         /* gowl */
