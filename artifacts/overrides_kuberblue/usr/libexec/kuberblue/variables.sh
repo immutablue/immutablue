@@ -52,7 +52,7 @@ kuberblue_config_get () {
 # Subsequent calls return the cached value.
 _kuberblue_lazy () {
     local varname="$1" file="$2" path="$3" default="${4:-}"
-    local current="${!varname:-__KUBERBLUE_UNSET__}"
+    local current="${!varname-__KUBERBLUE_UNSET__}"
     if [[ "${current}" == "__KUBERBLUE_UNSET__" ]]; then
         printf -v "${varname}" '%s' "$(kuberblue_config_get "${file}" "${path}" "${default}")"
     fi

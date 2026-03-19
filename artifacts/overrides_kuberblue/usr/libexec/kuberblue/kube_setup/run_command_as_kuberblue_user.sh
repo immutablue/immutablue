@@ -9,7 +9,8 @@ RETRY_INTERVAL=10
 echo "${MSG}"
 
 i=0
-until su -l -c "${CMD}" kuberblue; do
+KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/admin.conf}"
+until su -l -c "KUBECONFIG=${KUBECONFIG} ${CMD}" kuberblue; do
     i=$((i + 1))
     if [[ ${i} -ge ${MAX_RETRIES} ]]; then
         echo "ERROR: Command failed after ${MAX_RETRIES} attempts: ${CMD}"

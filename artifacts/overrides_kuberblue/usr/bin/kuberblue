@@ -21,6 +21,7 @@ Commands:
   refresh-token [--ttl <dur>]
                         Generate a new worker join token (CP only)
   get-config            Copy admin kubeconfig to current user
+  sops-setup            Generate Age key pair and configure SOPS
   encrypt <file>...     Encrypt files with SOPS + Age
   decrypt <file>...     Decrypt files with SOPS + Age
   mcp-serve             Start the MCP server (Phase 6)
@@ -64,6 +65,9 @@ case "${COMMAND}" in
         ;;
     get-config)
         exec just --justfile "${JUSTFILE}" kube_get_config "$@"
+        ;;
+    sops-setup)
+        exec just --justfile "${JUSTFILE}" kube_sops_setup "$@"
         ;;
     encrypt)
         exec just --justfile "${JUSTFILE}" kube_encrypt "$@"

@@ -20,7 +20,10 @@ if [[ -z "${STATE_DIR:-}" ]]; then
     source /usr/libexec/kuberblue/variables.sh
 fi
 
-KUBE_VIP_IMAGE="${KUBE_VIP_IMAGE:-ghcr.io/kube-vip/kube-vip:v0.8.7}"
+# kube-vip image version — configurable via cluster.yaml (.cluster.ha.kube_vip_version)
+# Keep the default fallback up to date when bumping versions.
+_kube_vip_version="$(kuberblue_config_get cluster.yaml .cluster.ha.kube_vip_version "v0.8.7")"
+KUBE_VIP_IMAGE="${KUBE_VIP_IMAGE:-ghcr.io/kube-vip/kube-vip:${_kube_vip_version}}"
 KUBE_VIP_MANIFEST="/etc/kubernetes/manifests/kube-vip.yaml"
 
 # kuberblue_vip_detect_interface

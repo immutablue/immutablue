@@ -1,8 +1,9 @@
 #!/bin/bash
 # kube_upgrade.sh — upgrade Kubernetes on this node
 #
-# Usage: kube_upgrade.sh [<version>]
+# Usage: kube_upgrade.sh [--force|-f] [<version>]
 #   If no version specified, uses the version from kubeadm.
+#   --force/-f skips interactive confirmation prompts.
 #
 # For control-plane: check etcd → drain → kubeadm upgrade apply → uncordon
 # For worker: kubeadm upgrade node
@@ -12,8 +13,18 @@ source /usr/libexec/kuberblue/99-common.sh
 source /usr/libexec/kuberblue/variables.sh
 source /usr/libexec/kuberblue/kube_setup/kube_state.sh
 
+# Parse flags
+FORCE=false
+TARGET_VERSION=""
+for arg in "$@"; do
+    case "${arg}" in
+        --force|-f) FORCE=true ;;
+        -*) echo "Unknown flag: ${arg}"; exit 1 ;;
+        *) TARGET_VERSION="${arg}" ;;
+    esac
+done
+
 # Determine version
-TARGET_VERSION="${1:-}"
 if [[ -z "${TARGET_VERSION}" ]]; then
     TARGET_VERSION="$(kubeadm version -o short 2>/dev/null || true)"
     if [[ -z "${TARGET_VERSION}" ]]; then
@@ -33,10 +44,14 @@ if command -v kubectl &>/dev/null; then
     node_status="$(kubectl get nodes "${node_name}" --no-headers 2>/dev/null | awk '{print $2}' || true)"
     if [[ "${node_status}" != "Ready" && -n "${node_status}" ]]; then
         echo "WARNING: Node ${node_name} status is '${node_status}', not 'Ready'"
-        read -r -p "Continue anyway? (yes/no): " confirm
-        if [[ "${confirm}" != "yes" ]]; then
-            echo "Aborted."
-            exit 0
+        if [[ "${FORCE}" != "true" ]]; then
+            read -r -p "Continue anyway? (yes/no): " confirm
+            if [[ "${confirm}" != "yes" ]]; then
+                echo "Aborted."
+                exit 0
+            fi
+        else
+            echo "Continuing (--force set)."
         fi
     fi
 fi

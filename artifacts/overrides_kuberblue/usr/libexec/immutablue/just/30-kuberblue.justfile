@@ -86,6 +86,9 @@ kube_refresh_token *FLAGS:
 kube_override file:
     sudo /usr/libexec/kuberblue/kube_setup/kube_override.sh {{file}}
 
+kube_sops_setup:
+    sudo /usr/libexec/kuberblue/kube_setup/kube_sops_setup.sh
+
 kube_encrypt *FILES:
     sudo /usr/libexec/kuberblue/kube_setup/kube_sops.sh encrypt {{FILES}}
 

@@ -7,6 +7,7 @@ set -euo pipefail
 
 source /usr/libexec/kuberblue/variables.sh
 
+export KUBECONFIG="/etc/kubernetes/admin.conf"
 DRAIN_TIMEOUT="${KUBERBLUE_DRAIN_TIMEOUT:-60s}"
 
 echo "=== Kuberblue shutdown: draining node ==="

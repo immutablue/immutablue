@@ -45,13 +45,19 @@ if [[ "${GITOPS_ENABLED}" == "true" ]]; then
 
     echo "Bootstrapping Flux against ${REPO_URL} (${REPO_BRANCH}:${REPO_PATH})"
 
-    flux bootstrap git \
-        --url="${REPO_URL}" \
-        --branch="${REPO_BRANCH}" \
-        --path="${REPO_PATH}" \
-        --secret-name="${AUTH_SECRET}" \
-        --namespace="${FLUX_NS}" \
+    local -a flux_cmd=(flux bootstrap git
+        --url="${REPO_URL}"
+        --branch="${REPO_BRANCH}"
+        --path="${REPO_PATH}"
+        --secret-ref="${AUTH_SECRET}"
+        --namespace="${FLUX_NS}"
         --components-extra=image-reflector-controller,image-automation-controller
+    )
+    if [[ -n "${PROVIDER}" ]] && [[ "${PROVIDER}" != "null" ]]; then
+        flux_cmd+=(--provider="${PROVIDER}")
+    fi
+
+    "${flux_cmd[@]}"
 else
     # Passive install: install Flux without bootstrapping a repo
     echo "Installing Flux (passive — no GitOps repo configured)"

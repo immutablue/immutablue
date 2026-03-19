@@ -161,7 +161,7 @@ kuberblue_token_fetch () {
 
         # --insecure: Tailscale serve uses a self-signed cert by default
         # --connect-timeout: don't hang forever if CP isn't ready yet
-        join_cmd="$(curl --silent --fail --connect-timeout 10 "${token_url}" 2>/dev/null)" || true
+        join_cmd="$(curl --silent --fail --insecure --connect-timeout 10 "${token_url}" 2>/dev/null)" || true
 
         if [[ -z "${join_cmd}" ]]; then
             echo "Waiting for token to be available at ${token_url}... (${attempt}/${max_retries})"

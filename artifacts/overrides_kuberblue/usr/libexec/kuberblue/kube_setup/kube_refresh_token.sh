@@ -48,7 +48,7 @@ echo "Generating join token with TTL=${TTL}..."
 JOIN_CMD="$(kubeadm token create --print-join-command --ttl "${TTL}")"
 
 # Store join command
-JOIN_CMD_FILE="${STATE_DIR}/state/worker-join-command"
+JOIN_CMD_FILE="${STATE_DIR}/worker-join-command"
 mkdir -p "$(dirname "${JOIN_CMD_FILE}")"
 printf '%s\n' "${JOIN_CMD}" > "${JOIN_CMD_FILE}"
 chmod 0640 "${JOIN_CMD_FILE}"

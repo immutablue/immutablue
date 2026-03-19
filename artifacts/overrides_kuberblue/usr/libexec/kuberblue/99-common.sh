@@ -104,10 +104,11 @@ kubeadm_join_safe () {
         echo "ERROR: kubeadm_join_safe: no endpoint found in join command" >&2
         return 1
     fi
-    # Must contain exactly one colon separating host from port
-    if ! [[ "${endpoint}" =~ ^[a-zA-Z0-9._-]+:[0-9]+$ ]]; then
+    # Validate endpoint: hostname:port, IPv4:port, or [IPv6]:port
+    if ! [[ "${endpoint}" =~ ^[a-zA-Z0-9._-]+:[0-9]+$ ]] \
+        && ! [[ "${endpoint}" =~ ^\[[0-9a-fA-F:]+\]:[0-9]+$ ]]; then
         echo "ERROR: kubeadm_join_safe: invalid endpoint '${endpoint}'" >&2
-        echo "Expected format: hostname:port or ip:port" >&2
+        echo "Expected format: hostname:port, ip:port, or [ipv6]:port" >&2
         return 1
     fi
 

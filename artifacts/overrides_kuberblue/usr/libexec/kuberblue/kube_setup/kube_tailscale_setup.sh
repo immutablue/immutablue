@@ -51,7 +51,7 @@ else
             echo "ERROR: /etc/kuberblue/tailscale-authkey exists but is empty"
             exit 1
         fi
-        tailscale up --authkey="${AUTH_KEY}" --accept-routes
+        tailscale up --authkey="${AUTH_KEY}"
     else
         echo "ERROR: Tailscale enabled but no authkey found at /etc/kuberblue/tailscale-authkey"
         echo "Provide a pre-auth key or run 'tailscale up' manually before boot."

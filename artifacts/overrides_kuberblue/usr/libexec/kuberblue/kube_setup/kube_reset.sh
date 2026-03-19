@@ -77,16 +77,19 @@ fi
 # Step 5: Remove kuberblue user kubeconfig
 echo "Removing kubeconfig..."
 if id "${ADMIN_USER}" &>/dev/null; then
-    admin_home="$(eval echo "~${ADMIN_USER}")"
+    admin_home="$(getent passwd "${ADMIN_USER}" | cut -d: -f6)"
     rm -rf "${admin_home}/.kube/config"
 fi
 rm -rf /root/.kube/config
 
-# Step 6: Clean CNI state
+# Step 6: Clean CNI state (Flannel + Cilium)
 echo "Cleaning CNI state..."
 rm -rf /etc/cni/net.d/*
 rm -rf /run/flannel/
 rm -rf /var/lib/cni/
+rm -rf /var/run/cilium/
+rm -rf /sys/fs/bpf/tc/
+rm -rf /var/lib/cilium/
 
 # Step 7: Flush iptables rules
 echo "Flushing iptables rules..."

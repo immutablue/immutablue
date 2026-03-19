@@ -46,7 +46,7 @@ fi
 
 # 3. Cilium health
 if command -v cilium &>/dev/null; then
-    if cilium status --brief 2>/dev/null; then
+    if cilium status --brief &>/dev/null; then
         check_pass "Cilium is healthy"
     else
         check_warn "Cilium status check failed (cilium status --brief)"

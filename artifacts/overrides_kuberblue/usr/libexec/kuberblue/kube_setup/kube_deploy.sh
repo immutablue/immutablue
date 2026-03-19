@@ -161,7 +161,7 @@ deploy_helm_repo_and_chart() {
     if [[ ! -e "$metadata_file" ]]
     then
         echo "Missing metadata.yaml with values file. Cannot continue."
-        exit 1
+        return 1
     fi
     # Deployment info
     local name chart namespace create_namespace args
@@ -174,11 +174,11 @@ deploy_helm_repo_and_chart() {
     # Validate required fields
     if [[ "$name" == "null" ]] || [[ -z "$name" ]]; then
         echo "ERROR: .name is missing in $metadata_file"
-        exit 1
+        return 1
     fi
     if [[ "$chart" == "null" ]] || [[ -z "$chart" ]]; then
         echo "ERROR: .chart is missing in $metadata_file"
-        exit 1
+        return 1
     fi
 
     # Repo info
@@ -189,7 +189,7 @@ deploy_helm_repo_and_chart() {
     if [[ "$repo_name" == "null" ]] || [[ -z "$repo_name" ]] || \
        [[ "$repo_url" == "null" ]] || [[ -z "$repo_url" ]]; then
         echo "ERROR: .repo_name or .repo_url missing in $metadata_file"
-        exit 1
+        return 1
     fi
 
     # Decrypt values file if SOPS-encrypted
@@ -210,6 +210,10 @@ deploy_helm_repo_and_chart() {
     if [[ "$create_namespace" == "true" ]]; then
         helm_cmd+=(--create-namespace)
     fi
+    if [[ -n "$args" ]] && [[ "$args" != "null" ]]; then
+        # shellcheck disable=SC2206
+        helm_cmd+=($args)
+    fi
 
     # Execute helm upgrade with rollback on failure
     echo "Helm upgrade: ${name} (chart: ${chart}, namespace: ${namespace}, timeout: ${HELM_TIMEOUT})"
@@ -229,7 +233,7 @@ deploy_helm_repo_and_chart() {
 # --- kubectl apply with rollout status wait ---
 kubectl_apply_and_wait() {
     local file="$1"
-    local namespace
+    local rollout_failed=0
 
     # Decrypt if SOPS-encrypted
     local apply_file
@@ -238,43 +242,54 @@ kubectl_apply_and_wait() {
     echo "Deploying $apply_file via kubectl apply"
     kubectl apply -f "$apply_file"
 
-    # Extract namespace from the manifest (use first document if multi-doc)
-    namespace="$(yq -e '.metadata.namespace // "default"' "$apply_file" 2>/dev/null | head -1)" || namespace="default"
+    # Extract per-resource name, namespace, and kind from each YAML document
+    # This handles multi-doc YAML correctly instead of using a single namespace
+    local doc_index=0
+    local doc_count
+    doc_count="$(yq 'document_index' "$apply_file" 2>/dev/null | tail -1)" || doc_count=0
+    doc_count=$((doc_count + 1))
 
-    # Wait for Deployments to become available
-    local kind
-    # Handle multi-document YAML: check all documents
-    for kind in $(yq -e '.kind' "$apply_file" 2>/dev/null); do
+    while [[ ${doc_index} -lt ${doc_count} ]]; do
+        local kind res_name res_ns
+        kind="$(yq "select(document_index == ${doc_index}) | .kind" "$apply_file" 2>/dev/null)" || kind=""
+        res_name="$(yq "select(document_index == ${doc_index}) | .metadata.name" "$apply_file" 2>/dev/null)" || res_name=""
+        res_ns="$(yq "select(document_index == ${doc_index}) | .metadata.namespace // \"default\"" "$apply_file" 2>/dev/null)" || res_ns="default"
+
+        if [[ -z "$res_name" ]] || [[ "$res_name" == "null" ]]; then
+            doc_index=$((doc_index + 1))
+            continue
+        fi
+
         case "$kind" in
             Deployment)
-                local dep_name
-                dep_name="$(yq -e 'select(.kind == "Deployment") | .metadata.name' "$apply_file" 2>/dev/null | head -1)"
-                if [[ -n "$dep_name" ]] && [[ "$dep_name" != "null" ]]; then
-                    echo "Waiting for Deployment ${dep_name} rollout..."
-                    kubectl rollout status deployment/"${dep_name}" \
-                        --namespace "${namespace}" --timeout="${HELM_TIMEOUT}" || true
+                echo "Waiting for Deployment ${res_name} rollout in ${res_ns}..."
+                if ! kubectl rollout status deployment/"${res_name}" \
+                    --namespace "${res_ns}" --timeout="${HELM_TIMEOUT}"; then
+                    echo "WARNING: rollout check failed for Deployment/${res_name} in ${res_ns}"
+                    rollout_failed=1
                 fi
                 ;;
             DaemonSet)
-                local ds_name
-                ds_name="$(yq -e 'select(.kind == "DaemonSet") | .metadata.name' "$apply_file" 2>/dev/null | head -1)"
-                if [[ -n "$ds_name" ]] && [[ "$ds_name" != "null" ]]; then
-                    echo "Waiting for DaemonSet ${ds_name} rollout..."
-                    kubectl rollout status daemonset/"${ds_name}" \
-                        --namespace "${namespace}" --timeout="${HELM_TIMEOUT}" || true
+                echo "Waiting for DaemonSet ${res_name} rollout in ${res_ns}..."
+                if ! kubectl rollout status daemonset/"${res_name}" \
+                    --namespace "${res_ns}" --timeout="${HELM_TIMEOUT}"; then
+                    echo "WARNING: rollout check failed for DaemonSet/${res_name} in ${res_ns}"
+                    rollout_failed=1
                 fi
                 ;;
             StatefulSet)
-                local sts_name
-                sts_name="$(yq -e 'select(.kind == "StatefulSet") | .metadata.name' "$apply_file" 2>/dev/null | head -1)"
-                if [[ -n "$sts_name" ]] && [[ "$sts_name" != "null" ]]; then
-                    echo "Waiting for StatefulSet ${sts_name} rollout..."
-                    kubectl rollout status statefulset/"${sts_name}" \
-                        --namespace "${namespace}" --timeout="${HELM_TIMEOUT}" || true
+                echo "Waiting for StatefulSet ${res_name} rollout in ${res_ns}..."
+                if ! kubectl rollout status statefulset/"${res_name}" \
+                    --namespace "${res_ns}" --timeout="${HELM_TIMEOUT}"; then
+                    echo "WARNING: rollout check failed for StatefulSet/${res_name} in ${res_ns}"
+                    rollout_failed=1
                 fi
                 ;;
         esac
+        doc_index=$((doc_index + 1))
     done
+
+    return "${rollout_failed}"
 }
 
 
@@ -347,7 +362,9 @@ deploy_all_manifests(){
         for f in "${manifest_dir}"*.yaml "${manifest_dir}"*.json; do
             # Skip if the file doesn't exist (happens when no matches for one of the patterns)
             [ -e "$f" ] || continue
-            determine_file_and_deploy "$f"
+            if kuberblue_is_manifest_enabled "$f"; then
+                determine_file_and_deploy "$f"
+            fi
         done
     fi
 

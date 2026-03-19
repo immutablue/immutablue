@@ -196,7 +196,7 @@ if [[ "${KUBERBLUE_TOPOLOGY}" == "ha" ]] && [[ "${KUBERBLUE_NODE_ROLE}" == "cont
                 echo "ERROR: Could not fetch certificate key after ${max_retries} attempts" >&2
                 exit 1
             fi
-            cert_key="$(curl --silent --fail --connect-timeout 10 \
+            cert_key="$(curl --silent --fail --insecure --connect-timeout 10 \
                 "https://${cp_ip}/kuberblue/ha-cert-key" 2>/dev/null)" || true
             if [[ -z "${cert_key}" ]]; then
                 echo "Waiting for certificate key... (${attempt}/${max_retries})"
