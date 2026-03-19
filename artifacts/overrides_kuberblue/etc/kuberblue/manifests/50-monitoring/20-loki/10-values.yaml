@@ -67,8 +67,10 @@ loki:
   # Ruler configuration (for alerting rules)
   ruler:
     enable_api: true
-    enable_alertmanager_v2: true
-    alertmanager_url: http://mimir-alertmanager.monitoring:8080/alertmanager
+    # Alertmanager integration disabled — Mimir alertmanager is not enabled.
+    # To enable, set alertmanager.enabled: true in Mimir values and uncomment:
+    # enable_alertmanager_v2: true
+    # alertmanager_url: http://mimir-alertmanager.monitoring:8080/alertmanager
     storage:
       type: local
       local:

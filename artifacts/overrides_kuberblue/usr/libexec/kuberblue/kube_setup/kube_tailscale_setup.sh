@@ -11,7 +11,7 @@ set -euxo pipefail
 
 source /usr/libexec/kuberblue/variables.sh
 
-if [[ "${KUBERBLUE_TAILSCALE_ENABLED}" != "true" ]]; then
+if [[ "$(kuberblue_tailscale_enabled)" != "true" ]]; then
     echo "Tailscale not enabled in cni.yaml — skipping."
     exit 0
 fi

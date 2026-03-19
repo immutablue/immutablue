@@ -15,6 +15,7 @@
 set -euxo pipefail
 
 source /usr/libexec/kuberblue/variables.sh
+kuberblue_load_all
 
 STATE_DIR="${STATE_DIR:-/var/lib/kuberblue}"
 GENERATED_DIR="${STATE_DIR}/generated"

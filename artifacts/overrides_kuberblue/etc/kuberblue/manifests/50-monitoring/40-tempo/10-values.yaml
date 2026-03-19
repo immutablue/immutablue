@@ -70,15 +70,7 @@ tempo:
     grpc_listen_port: 9095
     log_level: info
   
-  # Multi-tenancy disabled for simplicity
-  multitenancyEnabled: false
-  
-  # Ingester configuration
-  ingester:
-    max_block_duration: 30m
-    max_block_bytes: 1073741824
-
-# Readiness probe matches server port (3200)
+# Pod annotations (prometheus scrape + readiness probe on port 3200)
 podAnnotations:
   prometheus.io/scrape: "true"
   prometheus.io/port: "3200"
@@ -165,9 +157,6 @@ networkPolicy:
 serviceAccount:
   create: true
   automountServiceAccountToken: true
-
-# Pod annotations
-podAnnotations: {}
 
 # Node selector
 nodeSelector: {}

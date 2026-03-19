@@ -67,16 +67,17 @@ data:
           datasourceUid: loki
       editable: true
     
-    # Alertmanager (if enabled in Mimir)
-    - name: Alertmanager
-      type: alertmanager
-      uid: alertmanager
-      url: http://mimir-alertmanager:8080
-      access: proxy
-      jsonData:
-        implementation: mimir
-      editable: true
-    
+    # Alertmanager — disabled; Mimir alertmanager is not enabled.
+    # To add, enable alertmanager in Mimir values first, then uncomment:
+    # - name: Alertmanager
+    #   type: alertmanager
+    #   uid: alertmanager
+    #   url: http://mimir-alertmanager:8080
+    #   access: proxy
+    #   jsonData:
+    #     implementation: mimir
+    #   editable: true
+
     # Self-monitoring - Grafana metrics
     - name: Grafana
       type: prometheus

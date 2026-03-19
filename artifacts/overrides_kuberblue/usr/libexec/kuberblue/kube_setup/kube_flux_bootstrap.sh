@@ -18,7 +18,7 @@ if ! command -v flux &>/dev/null; then
     exit 1
 fi
 
-GITOPS_ENABLED="${KUBERBLUE_GITOPS_ENABLED}"
+GITOPS_ENABLED="$(kuberblue_gitops_enabled)"
 FLUX_NS="$(kuberblue_config_get gitops.yaml .gitops.namespace "flux-system")"
 
 if [[ "${GITOPS_ENABLED}" == "true" ]]; then

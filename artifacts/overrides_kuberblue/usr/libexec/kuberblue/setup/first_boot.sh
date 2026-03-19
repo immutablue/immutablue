@@ -15,6 +15,9 @@ if [[ -f "${FIRST_BOOT_MARKER}" ]]; then
     exit 0
 fi
 
+# First boot needs all config values — load eagerly
+kuberblue_load_all
+
 echo "=== Kuberblue first boot: topology=${KUBERBLUE_TOPOLOGY}, role=${KUBERBLUE_NODE_ROLE} ==="
 
 # --- Tailscale (host-level, must run before kubeadm) ---
@@ -208,9 +211,9 @@ if [[ "${KUBERBLUE_TOPOLOGY}" == "ha" ]] && [[ "${KUBERBLUE_NODE_ROLE}" == "cont
             exit 1
         fi
 
-        # Join as control-plane
+        # Join as control-plane (safe parse — no eval on network data)
         echo "Joining HA cluster as control-plane..."
-        eval "${join_cmd} --control-plane --certificate-key ${cert_key}"
+        kubeadm_join_safe "${join_cmd}" --control-plane --certificate-key "${cert_key}"
 
         kuberblue_state_set "node-role" "control-plane"
         kuberblue_state_set "cluster-initialized" "true"
@@ -259,7 +262,7 @@ elif [[ "${KUBERBLUE_NODE_ROLE}" == "worker" ]]; then
         join_cmd="$(<"${STATE_DIR}/worker-join-command")"
 
         echo "Joining cluster as worker node..."
-        eval "${join_cmd}"
+        kubeadm_join_safe "${join_cmd}"
 
         kuberblue_state_set "node-role" "worker"
         kuberblue_state_set "cluster-initialized" "true"
@@ -273,7 +276,7 @@ elif [[ "${KUBERBLUE_NODE_ROLE}" == "worker" ]]; then
             exit 1
         fi
         echo "Joining cluster as worker node..."
-        bash "${STATE_DIR}/worker-join-command"
+        kubeadm_join_safe "$(<"${STATE_DIR}/worker-join-command")"
 
         kuberblue_state_set "node-role" "worker"
         kuberblue_state_set "cluster-initialized" "true"

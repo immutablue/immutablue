@@ -88,7 +88,7 @@ fi
 # 6. Flux controllers healthy
 if kuberblue_state_check "flux-bootstrapped"; then
     if command -v flux &>/dev/null; then
-        if flux check --pre 2>/dev/null; then
+        if flux check 2>/dev/null; then
             check_pass "Flux controllers are healthy"
         else
             check_warn "Flux health check returned warnings"

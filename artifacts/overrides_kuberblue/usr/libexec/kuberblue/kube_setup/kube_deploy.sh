@@ -2,9 +2,20 @@
 
 set -euxo pipefail
 
+source /usr/libexec/kuberblue/variables.sh
+
 # Check if manifests is empty
 manifest_dir="/etc/kuberblue/manifests/"
 HELM_TIMEOUT="${HELM_TIMEOUT:-10m}"
+
+# Track all SOPS temp files for cleanup
+_sops_tmpfiles=()
+_sops_cleanup() {
+    for f in "${_sops_tmpfiles[@]}"; do
+        rm -f "$f"
+    done
+}
+trap _sops_cleanup EXIT
 
 if [[ ! -d "$manifest_dir" ]]
 then
@@ -17,6 +28,94 @@ then
     echo "Manifest dir is empty. Nothing to do."
     exit 0
 fi
+
+
+# --- Package tier filtering ---
+# Reads packages.yaml to enforce the tier system:
+#   Tier 1 (core)     — always deploy, regardless of enabled flag
+#   Tier 2 (optional) — only deploy when enabled: true
+#   Tier 3 (custom)   — user files not listed in packages.yaml deploy unconditionally
+
+declare -A _ENABLED_MANIFESTS
+declare -A _DISABLED_MANIFESTS
+_PACKAGES_LOADED="false"
+
+kuberblue_load_packages() {
+    if [[ "$_PACKAGES_LOADED" == "true" ]]; then
+        return
+    fi
+
+    local packages_file=""
+    for dir in "${SYSTEM_CONFIG_DIR}" "${VENDOR_CONFIG_DIR}"; do
+        if [[ -f "${dir}/packages.yaml" ]]; then
+            packages_file="${dir}/packages.yaml"
+            break
+        fi
+    done
+
+    if [[ -z "$packages_file" ]]; then
+        echo "WARNING: packages.yaml not found; deploying all manifests"
+        _PACKAGES_LOADED="true"
+        return
+    fi
+
+    echo "Loading package tiers from $packages_file"
+
+    # Tier 1 (core): always enabled
+    local core_count
+    core_count="$(yq '.packages.core | length' "$packages_file")"
+    local i
+    for (( i = 0; i < core_count; i++ )); do
+        local mpath
+        mpath="$(yq ".packages.core[$i].manifest" "$packages_file")"
+        if [[ -n "$mpath" ]] && [[ "$mpath" != "null" ]]; then
+            _ENABLED_MANIFESTS["$mpath"]=1
+        fi
+    done
+
+    # Tier 2 (optional): respect enabled flag
+    local opt_count
+    opt_count="$(yq '.packages.optional | length' "$packages_file")"
+    for (( i = 0; i < opt_count; i++ )); do
+        local mpath enabled pkg_name
+        mpath="$(yq ".packages.optional[$i].manifest" "$packages_file")"
+        enabled="$(yq ".packages.optional[$i].enabled" "$packages_file")"
+        pkg_name="$(yq ".packages.optional[$i].name" "$packages_file")"
+        if [[ -z "$mpath" ]] || [[ "$mpath" == "null" ]]; then
+            continue
+        fi
+        if [[ "$enabled" == "true" ]]; then
+            _ENABLED_MANIFESTS["$mpath"]=1
+        else
+            _DISABLED_MANIFESTS["$mpath"]="$pkg_name"
+        fi
+    done
+
+    _PACKAGES_LOADED="true"
+}
+
+# kuberblue_is_manifest_enabled <file_path>
+# Returns 0 if the file should be deployed, 1 if it belongs to a disabled package.
+kuberblue_is_manifest_enabled() {
+    local file="$1"
+    local rel_path="${file#"$manifest_dir"}"
+
+    # If no packages were loaded, deploy everything
+    if [[ ${#_ENABLED_MANIFESTS[@]} -eq 0 ]] && [[ ${#_DISABLED_MANIFESTS[@]} -eq 0 ]]; then
+        return 0
+    fi
+
+    # Check if file belongs to a disabled package
+    local mpath
+    for mpath in "${!_DISABLED_MANIFESTS[@]}"; do
+        if [[ "$rel_path" == "$mpath"/* ]] || [[ "$rel_path" == "$mpath" ]]; then
+            echo "Skipping disabled package: ${_DISABLED_MANIFESTS[$mpath]} ($mpath)"
+            return 1
+        fi
+    done
+
+    return 0
+}
 
 
 # --- SOPS decryption helper ---
@@ -36,8 +135,7 @@ kuberblue_sops_decrypt_if_needed() {
 
         local tmpfile
         tmpfile="$(mktemp /tmp/kuberblue-sops-XXXXXX.yaml)"
-        # Ensure temp file is cleaned up on script exit
-        trap 'rm -f '"$tmpfile" EXIT
+        _sops_tmpfiles+=("$tmpfile")
 
         if ! SOPS_AGE_KEY_FILE="$age_key" sops --decrypt "$file" > "$tmpfile"; then
             echo "ERROR: Failed to decrypt SOPS file: $file" >&2
@@ -216,15 +314,22 @@ determine_file_and_deploy(){
     fi
     if [[ "$base" == *patch.yaml ]] || [[ "$base" == *patch.json ]]; then
         echo "Applying patch from $f"
-        # Extract resource type and name from patch filename
-        local patch_basename
-        patch_basename=$(basename "$f")
-        if [[ "$patch_basename" == *"default-sc-patch"* ]]; then
-            # This is a storage class patch - apply to openebs-hostpath storage class
-            kubectl patch storageclass openebs-hostpath --patch-file "$f"
+        local metadata_file
+        metadata_file="$(dirname "$f")/00-metadata.yaml"
+        local patch_kind="" patch_name=""
+
+        # Read patch target from metadata.yaml (.patches.<filename>.kind / .name)
+        if [[ -f "$metadata_file" ]]; then
+            patch_kind="$(yq ".patches.\"${base}\".kind // \"\"" "$metadata_file" 2>/dev/null)"
+            patch_name="$(yq ".patches.\"${base}\".name // \"\"" "$metadata_file" 2>/dev/null)"
+        fi
+
+        if [[ -n "$patch_kind" ]] && [[ -n "$patch_name" ]] \
+            && [[ "$patch_kind" != "null" ]] && [[ "$patch_name" != "null" ]]; then
+            kubectl patch "$patch_kind" "$patch_name" --patch-file "$f"
         else
-            echo "WARNING: Unknown patch file format: $f"
-            echo "Patch files must follow naming convention: *default-sc-patch*"
+            echo "WARNING: No patch target defined for $base in $metadata_file"
+            echo "Add a .patches.\"${base}\" entry with kind and name fields."
         fi
         return
     fi
@@ -234,7 +339,10 @@ determine_file_and_deploy(){
 }
 
 deploy_all_manifests(){
-    # First process manifests in the root directory
+    # Load package tier configuration before deploying
+    kuberblue_load_packages
+
+    # First process manifests in the root directory (not under any package path)
     if compgen -G "${manifest_dir}*.yaml" > /dev/null || compgen -G "${manifest_dir}*.json" > /dev/null; then
         for f in "${manifest_dir}"*.yaml "${manifest_dir}"*.json; do
             # Skip if the file doesn't exist (happens when no matches for one of the patterns)
@@ -245,10 +353,13 @@ deploy_all_manifests(){
 
     # Process manifests in subdirectories using find to handle any level of nesting
     # Skip .tpl files from find as well
-    find "${manifest_dir}" -mindepth 2 -type f \( -name "*.yaml" -o -name "*.json" \) \
-        ! -name "*.tpl" | sort | while read -r f; do
-        determine_file_and_deploy "$f"
-    done
+    # Filter out disabled packages before deploying
+    while IFS= read -r f; do
+        if kuberblue_is_manifest_enabled "$f"; then
+            determine_file_and_deploy "$f"
+        fi
+    done < <(find "${manifest_dir}" -mindepth 2 -type f \( -name "*.yaml" -o -name "*.json" \) \
+        ! -name "*.tpl" | sort)
 
     # Post-deploy validation: check for non-Running/non-Succeeded pods
     echo ""
@@ -275,3 +386,27 @@ deploy_manifest() {
 
     determine_file_and_deploy "$f"
 }
+
+# --- Entry point for direct execution ---
+# When called as an executable (not sourced), dispatch subcommands:
+#   kube_deploy.sh deploy_all          - deploy all manifests
+#   kube_deploy.sh deploy <file>       - deploy a single manifest
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    set -euxo pipefail
+    case "${1:-}" in
+        deploy_all)
+            deploy_all_manifests
+            ;;
+        deploy)
+            if [[ -z "${2:-}" ]]; then
+                echo "Usage: $0 deploy <file_path>"
+                exit 1
+            fi
+            deploy_manifest "$2"
+            ;;
+        *)
+            echo "Usage: $0 {deploy_all|deploy <file>}"
+            exit 1
+            ;;
+    esac
+fi

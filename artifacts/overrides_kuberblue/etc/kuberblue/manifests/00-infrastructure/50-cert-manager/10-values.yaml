@@ -1,0 +1,67 @@
+# cert-manager Configuration
+# X.509 certificate management for Kuberblue
+
+# Install CRDs with the Helm chart
+crds:
+  enabled: true
+
+# Replica count (single-node friendly)
+replicaCount: 1
+
+# Resources
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+# Webhook configuration
+webhook:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi
+
+# CA Injector
+cainjector:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Start readiness probe
+startupapicheck:
+  enabled: true
+
+# Pod Security
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+
+# Service Monitor (disabled — Alloy-first architecture)
+prometheus:
+  servicemonitor:
+    enabled: false
+
+# Service account
+serviceAccount:
+  create: true
+  automountServiceAccountToken: true

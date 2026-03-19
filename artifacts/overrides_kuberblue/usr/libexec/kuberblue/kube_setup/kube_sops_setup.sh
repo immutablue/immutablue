@@ -14,7 +14,7 @@ set -euxo pipefail
 
 source /usr/libexec/kuberblue/variables.sh
 
-if [[ "${KUBERBLUE_SOPS_ENABLED}" != "true" ]]; then
+if [[ "$(kuberblue_sops_enabled)" != "true" ]]; then
     echo "SOPS secrets not enabled in security.yaml — skipping."
     exit 0
 fi

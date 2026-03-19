@@ -8,3 +8,10 @@ repo_name: openebs
 repo_url: https://openebs.github.io/openebs
 # Arguments to be passed that are not set in values.yaml. Prefer values file.
 args:
+
+# Patch targets — maps patch filenames to their target resource.
+# Each entry: <patch-file-basename>: { kind: <K8s kind>, name: <resource name> }
+patches:
+  50-default-sc-patch.json:
+    kind: storageclass
+    name: openebs-hostpath

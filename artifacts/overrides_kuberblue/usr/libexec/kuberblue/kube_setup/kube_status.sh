@@ -13,8 +13,8 @@ echo "=== Kuberblue Status ==="
 echo ""
 
 # Topology and node role
-topology="${KUBERBLUE_TOPOLOGY}"
-node_role="$(kuberblue_state_get node-role "${KUBERBLUE_NODE_ROLE}")"
+topology="$(kuberblue_topology)"
+node_role="$(kuberblue_state_get node-role "$(kuberblue_node_role)")"
 cluster_init="$(kuberblue_state_get cluster-initialized "false")"
 
 echo "Topology:            ${topology}"
@@ -23,7 +23,7 @@ echo "Cluster Initialized: ${cluster_init}"
 echo ""
 
 # Storage backend
-storage_backend="$(kuberblue_config_get packages.yaml .packages.storage "openebs")"
+storage_backend="$(kuberblue_config_get cluster.yaml .storage.backend "hostpath")"
 echo "Storage Backend:     ${storage_backend}"
 echo ""
 

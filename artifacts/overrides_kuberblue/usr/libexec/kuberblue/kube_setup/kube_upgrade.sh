@@ -25,7 +25,7 @@ fi
 echo "=== Kuberblue Upgrade ==="
 echo "Target version: ${TARGET_VERSION}"
 
-node_role="$(kuberblue_state_get node-role "${KUBERBLUE_NODE_ROLE}")"
+node_role="$(kuberblue_state_get node-role "$(kuberblue_node_role)")"
 node_name="$(hostname)"
 
 # Safety check: verify node is Ready

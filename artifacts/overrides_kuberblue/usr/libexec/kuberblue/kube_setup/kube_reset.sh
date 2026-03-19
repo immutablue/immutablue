@@ -22,6 +22,8 @@ for arg in "$@"; do
     esac
 done
 
+kuberblue_load_all
+
 FIRST_BOOT_MARKER="/etc/kuberblue/did_first_boot"
 ADMIN_USER="${KUBERBLUE_ADMIN_USER}"
 

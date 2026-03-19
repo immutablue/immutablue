@@ -48,8 +48,8 @@ fi
 echo "=== Joining cluster as worker node ==="
 echo "Join command: ${join_cmd}"
 
-# Run kubeadm join
-eval "${join_cmd}"
+# Run kubeadm join (safe parse — no eval on untrusted data)
+kubeadm_join_safe "${join_cmd}"
 
 # Write state markers
 kuberblue_state_set "node-role" "worker"

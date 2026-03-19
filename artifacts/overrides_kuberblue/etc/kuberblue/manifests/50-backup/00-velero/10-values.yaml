@@ -41,15 +41,25 @@ nodeAgent:
     - operator: "Exists"
 
 # S3-compatible backup storage location
+# ===================================================================
+# USER MUST OVERRIDE these values before deploying:
+#   bucket  — name of the S3 bucket for backups (create it first)
+#   s3Url   — endpoint of your S3-compatible provider
+#             (leave empty for AWS S3; set for MinIO/Wasabi/B2/R2)
+#   region  — AWS region or provider-equivalent region string
+# Deployment will push backups to the configured bucket. If the bucket
+# does not exist or credentials are missing, Velero backups will fail
+# silently. Verify with: velero backup-location get
+# ===================================================================
 configuration:
   backupStorageLocation:
     - name: default
       provider: aws
-      bucket: kuberblue-backups
+      bucket: kuberblue-backups       # OVERRIDE: set to your actual S3 bucket name
       config:
         # S3-compatible endpoint (MinIO, Wasabi, Backblaze B2, R2, etc.)
         # For AWS S3: leave blank or set to s3.amazonaws.com
-        s3Url: ""
+        s3Url: ""                      # OVERRIDE: set to your S3-compatible endpoint
         region: us-east-1
         s3ForcePathStyle: "true"
       credential:

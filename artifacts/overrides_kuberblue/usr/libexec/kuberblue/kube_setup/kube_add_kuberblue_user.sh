@@ -9,7 +9,7 @@ if ! id kuberblue &>/dev/null; then
     useradd \
         --system \
         --user-group \
-        --uid "${KUBERBLUE_UID}" \
+        --uid "$(kuberblue_uid)" \
         --shell /bin/bash \
         --home-dir /var/home/kuberblue \
         --create-home \

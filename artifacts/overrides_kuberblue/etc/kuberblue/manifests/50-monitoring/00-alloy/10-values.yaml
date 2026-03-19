@@ -305,14 +305,15 @@ controller:
         hostPath:
           path: /var/lib/docker/containers
 
-# Resources
+# Resources — Alloy collects metrics, logs, and traces as a DaemonSet.
+# 128Mi is too low and will OOM on busy nodes.
 resources:
   requests:
-    cpu: 25m
-    memory: 64Mi
+    cpu: 50m
+    memory: 256Mi
   limits:
-    cpu: 100m
-    memory: 128Mi
+    cpu: 500m
+    memory: 512Mi
 
 # Service for OTLP receiver
 service:
@@ -334,12 +335,17 @@ podSecurityContext:
   runAsGroup: 0
   fsGroup: 0
 
-# Container security
+# Container security — minimized privileges
+# SYS_PTRACE is needed for /proc-based process discovery.
+# Journal access works via volume mounts; privileged mode is NOT required.
 containerSecurityContext:
-  privileged: true  # Required for journal access
+  privileged: false
+  allowPrivilegeEscalation: false
   capabilities:
+    drop:
+      - ALL
     add:
-      - SYS_TIME  # For journal access
+      - SYS_PTRACE
 
 # Monitoring
 serviceMonitor:

@@ -30,7 +30,7 @@ if [[ -z "${TTL}" ]]; then
 fi
 
 # Verify this is a control-plane node
-node_role="$(kuberblue_state_get node-role "${KUBERBLUE_NODE_ROLE}")"
+node_role="$(kuberblue_state_get node-role "$(kuberblue_node_role)")"
 if [[ "${node_role}" != "control-plane" ]]; then
     echo "ERROR: refresh-token can only be run on a control-plane node."
     echo "Current node role: ${node_role}"

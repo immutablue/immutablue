@@ -21,10 +21,12 @@ oauth:
   clientId: ""
   clientSecret: ""
 
-# Use existing secret for OAuth credentials (preferred over inline values)
-# Set this to the name of a pre-created secret containing client_id and client_secret
+# API server proxy mode controls authentication for K8s API access over tailnet.
+# "true"   — authenticated: users must authenticate via Tailscale ACL grants (recommended)
+# "noauth" — unauthenticated: ANY device on the tailnet gets full K8s API access
+#            WARNING: "noauth" is a significant security risk. Only use for testing.
 apiServerProxyConfig:
-  mode: "noauth"
+  mode: "true"
 
 # Operator resource limits
 operator:

@@ -1,0 +1,11 @@
+# /usr/kuberblue/settings.yaml — kuberblue global settings (vendor defaults)
+#
+# Override by copying to /etc/kuberblue/settings.yaml and editing as needed.
+# Per-key fallthrough applies: unset keys inherit from this file.
+
+kuberblue:
+  # Directory where kuberblue build artifacts are installed
+  install_dir: /usr/immutablue-build-kuberblue
+
+  # UID for the kuberblue system user/group
+  uid: 970
