@@ -211,8 +211,9 @@ deploy_helm_repo_and_chart() {
         helm_cmd+=(--create-namespace)
     fi
     if [[ -n "$args" ]] && [[ "$args" != "null" ]]; then
-        # shellcheck disable=SC2206
-        helm_cmd+=($args)
+        local -a extra_args
+        read -ra extra_args <<< "$args"
+        helm_cmd+=("${extra_args[@]}")
     fi
 
     # Execute helm upgrade with rollback on failure

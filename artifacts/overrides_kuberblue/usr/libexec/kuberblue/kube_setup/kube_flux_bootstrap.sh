@@ -45,7 +45,7 @@ if [[ "${GITOPS_ENABLED}" == "true" ]]; then
 
     echo "Bootstrapping Flux against ${REPO_URL} (${REPO_BRANCH}:${REPO_PATH})"
 
-    local -a flux_cmd=(flux bootstrap git
+    flux_cmd=(flux bootstrap git
         --url="${REPO_URL}"
         --branch="${REPO_BRANCH}"
         --path="${REPO_PATH}"

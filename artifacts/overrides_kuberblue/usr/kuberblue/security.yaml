@@ -16,11 +16,14 @@ security:
     age_key_path: /var/lib/kuberblue/secrets/age.key
     # Age recipient public key (from operators or other nodes who can encrypt for this cluster)
     # Format: age1... string
+    # Read by: kube_sops.sh (encryption recipient; derived from key file if empty)
     age_recipient: ""
     # Automatically generate an Age key pair on first boot if one does not exist
+    # Read by: kube_sops_setup.sh (key generation logic)
     auto_generate_key: true
 
   # Kubeconfig distribution policy
+  # Read by: kube_put_config.sh (kubeconfig distribution after cluster init)
   kubeconfig:
     # Who gets a copy of the kubeconfig:
     #   service-user-only — only the kuberblue service user
@@ -35,5 +38,5 @@ security:
     user: kuberblue
     # Primary group for kuberblue files
     group: kuberblue
-    # UID for the kuberblue service user
-    uid: 970
+    # NOTE: UID is defined in settings.yaml (kuberblue.uid) — that is the
+    # canonical source of truth. Do not duplicate it here.

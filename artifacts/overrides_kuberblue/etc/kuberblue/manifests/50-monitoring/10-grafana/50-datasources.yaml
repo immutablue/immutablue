@@ -78,12 +78,6 @@ data:
     #     implementation: mimir
     #   editable: true
 
-    # Self-monitoring - Grafana metrics
-    - name: Grafana
-      type: prometheus
-      uid: grafana-metrics
-      url: http://mimir-query-frontend:8080/prometheus
-      access: proxy
-      jsonData:
-        httpMethod: POST
-      editable: true
+    # Self-monitoring: Grafana's own metrics are scraped by Alloy and stored
+    # in Mimir alongside all other metrics. Use the Mimir datasource above
+    # to query them (no separate datasource needed).

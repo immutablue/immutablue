@@ -70,7 +70,9 @@ kuberblue_gitops_enabled ()    { _kuberblue_lazy KUBERBLUE_GITOPS_ENABLED gitops
 kuberblue_sops_enabled ()      { _kuberblue_lazy KUBERBLUE_SOPS_ENABLED  security.yaml .security.sops.enabled         "false"; }
 kuberblue_admin_user ()        { _kuberblue_lazy KUBERBLUE_ADMIN_USER    security.yaml .security.admin.user            "kuberblue"; }
 kuberblue_admin_group ()       { _kuberblue_lazy KUBERBLUE_ADMIN_GROUP   security.yaml .security.admin.group           "kuberblue"; }
-kuberblue_admin_uid ()         { _kuberblue_lazy KUBERBLUE_ADMIN_UID     security.yaml .security.admin.uid             "970"; }
+# NOTE: canonical UID is in settings.yaml (kuberblue.uid). This accessor
+# is kept for backward compatibility; it falls through to the default "970".
+kuberblue_admin_uid ()         { _kuberblue_lazy KUBERBLUE_ADMIN_UID     settings.yaml .kuberblue.uid                 "970"; }
 
 # kuberblue_detect_node_role — auto-detect the node role when configured as 'auto'
 #

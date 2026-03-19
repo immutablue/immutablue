@@ -2,14 +2,14 @@
 # kube_join.sh — join a worker node to an existing kuberblue cluster
 #
 # Usage: kube_join.sh [<join-command>]
-#   If no argument, reads from /var/lib/kuberblue/state/worker-join-command
+#   If no argument, reads from ${STATE_DIR}/worker-join-command
 set -euo pipefail
 
 source /usr/libexec/kuberblue/99-common.sh
 source /usr/libexec/kuberblue/variables.sh
 source /usr/libexec/kuberblue/kube_setup/kube_state.sh
 
-JOIN_CMD_FILE="${STATE_DIR}/state/worker-join-command"
+JOIN_CMD_FILE="${STATE_DIR}/worker-join-command"
 
 # Check if already joined
 if kuberblue_state_check "cluster-initialized"; then

@@ -63,12 +63,12 @@ fi
 ADVERTISE_ROUTES="$(kuberblue_config_get cni.yaml .networking.tailscale.advertise_routes "")"
 ACCEPT_ROUTES="$(kuberblue_config_get cni.yaml .networking.tailscale.accept_routes "true")"
 
-TS_ARGS="--accept-routes=${ACCEPT_ROUTES}"
+ts_args=(--accept-routes="${ACCEPT_ROUTES}")
 if [[ -n "${ADVERTISE_ROUTES}" ]] && [[ "${ADVERTISE_ROUTES}" != "null" ]]; then
-    TS_ARGS="${TS_ARGS} --advertise-routes=${ADVERTISE_ROUTES}"
+    ts_args+=(--advertise-routes="${ADVERTISE_ROUTES}")
 fi
 
-tailscale up ${TS_ARGS}
+tailscale up "${ts_args[@]}"
 
 TS_IP="$(tailscale ip -4 2>/dev/null | head -1)"
 if [[ -z "${TS_IP}" ]]; then

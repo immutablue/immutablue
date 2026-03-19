@@ -7,7 +7,14 @@ set -euo pipefail
 
 source /usr/libexec/kuberblue/variables.sh
 
-export KUBECONFIG="/etc/kubernetes/admin.conf"
+if [[ -f "/etc/kubernetes/admin.conf" ]]; then
+    export KUBECONFIG="/etc/kubernetes/admin.conf"
+elif [[ -f "/var/home/kuberblue/.kube/config" ]]; then
+    export KUBECONFIG="/var/home/kuberblue/.kube/config"
+else
+    echo "WARNING: No kubeconfig found, skipping drain"
+    exit 0
+fi
 DRAIN_TIMEOUT="${KUBERBLUE_DRAIN_TIMEOUT:-60s}"
 
 echo "=== Kuberblue shutdown: draining node ==="

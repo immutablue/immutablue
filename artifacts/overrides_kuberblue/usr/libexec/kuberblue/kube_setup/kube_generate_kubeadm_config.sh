@@ -113,9 +113,9 @@ if [[ "${KUBERBLUE_TOPOLOGY}" == "ha" ]]; then
         echo "ERROR: topology=ha requires cluster.ha.vip_address to be set" >&2
         exit 1
     fi
+    export VIP_VALUE="${VIP_ADDR}:6443"
     yq -i \
-        --arg vip "${VIP_ADDR}:6443" \
-        '(select(.kind == "ClusterConfiguration") | .controlPlaneEndpoint) = $vip' \
+        '(select(.kind == "ClusterConfiguration") | .controlPlaneEndpoint) = strenv(VIP_VALUE)' \
         "${GENERATED_KUBEADM}"
 fi
 

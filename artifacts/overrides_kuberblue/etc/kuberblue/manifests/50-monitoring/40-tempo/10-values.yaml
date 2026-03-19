@@ -118,7 +118,7 @@ serviceMonitor:
 tempoQuery:
   enabled: true
   repository: grafana/tempo-query
-  tag: latest
+  tag: "2.6.1"
   pullPolicy: IfNotPresent
   
   resources:
