@@ -45,16 +45,17 @@ if [[ "${GITOPS_ENABLED}" == "true" ]]; then
 
     echo "Bootstrapping Flux against ${REPO_URL} (${REPO_BRANCH}:${REPO_PATH})"
 
-    flux_cmd=(flux bootstrap git
-        --url="${REPO_URL}"
-        --branch="${REPO_BRANCH}"
-        --path="${REPO_PATH}"
-        --secret-ref="${AUTH_SECRET}"
-        --namespace="${FLUX_NS}"
-        --components-extra=image-reflector-controller,image-automation-controller
+    flux_cmd=(
+        flux bootstrap git
+        "--url=${REPO_URL}"
+        "--branch=${REPO_BRANCH}"
+        "--path=${REPO_PATH}"
+        "--secret-ref=${AUTH_SECRET}"
+        "--namespace=${FLUX_NS}"
+        "--components-extra=image-reflector-controller,image-automation-controller"
     )
     if [[ -n "${PROVIDER}" ]] && [[ "${PROVIDER}" != "null" ]]; then
-        flux_cmd+=(--provider="${PROVIDER}")
+        flux_cmd+=("--provider=${PROVIDER}")
     fi
 
     "${flux_cmd[@]}"
