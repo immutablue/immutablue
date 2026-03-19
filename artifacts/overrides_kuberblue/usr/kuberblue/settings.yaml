@@ -4,7 +4,9 @@
 # Per-key fallthrough applies: unset keys inherit from this file.
 
 kuberblue:
-  # Directory where kuberblue build artifacts are installed
+  # Directory where kuberblue build artifacts are installed at image build time.
+  # This is NOT the same as the Justfile install_dir (/usr/immutablue), which is
+  # the base immutablue install path used by run_post_install.sh.
   install_dir: /usr/immutablue-build-kuberblue
 
   # UID for the kuberblue system user/group

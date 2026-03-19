@@ -68,11 +68,14 @@ kubeadm reset --force 2>/dev/null || echo "WARNING: kubeadm reset returned non-z
 echo "Removing first-boot marker..."
 rm -f "${FIRST_BOOT_MARKER}"
 
-# Step 4: Clear ALL state markers
+# Step 4: Clear ALL state markers and stale token files
 echo "Clearing state markers..."
 if [[ -d "${KUBERBLUE_STATE_DIR}" ]]; then
     rm -rf "${KUBERBLUE_STATE_DIR}"
 fi
+rm -f "${STATE_DIR}/worker-join-command" \
+      "${STATE_DIR}/ha-certificate-key" \
+      "${STATE_DIR}/tailscale-ip"
 
 # Step 5: Remove kuberblue user kubeconfig
 echo "Removing kubeconfig..."

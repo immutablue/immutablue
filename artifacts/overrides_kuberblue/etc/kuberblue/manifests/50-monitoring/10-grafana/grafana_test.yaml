@@ -87,15 +87,15 @@ spec:
           fi
 
           # Test Grafana health endpoint (no auth needed)
-          curl -sf http://grafana.monitoring:3000/api/health || exit 1
+          curl -sf http://grafana.monitoring:80/api/health || exit 1
           echo "Grafana health check passed"
 
           # Test datasources API (requires auth)
-          curl -sf -u "admin:${GRAFANA_PASSWORD}" http://grafana.monitoring:3000/api/datasources || exit 1
+          curl -sf -u "admin:${GRAFANA_PASSWORD}" http://grafana.monitoring:80/api/datasources || exit 1
           echo "Grafana datasources API accessible"
 
           # Verify datasources are configured
-          DATASOURCES=$(curl -s -u "admin:${GRAFANA_PASSWORD}" http://grafana.monitoring:3000/api/datasources | grep -c '"type"')
+          DATASOURCES=$(curl -s -u "admin:${GRAFANA_PASSWORD}" http://grafana.monitoring:80/api/datasources | grep -c '"type"')
           if [ "$DATASOURCES" -lt 3 ]; then
             echo "ERROR: Expected at least 3 datasources, found $DATASOURCES"
             exit 1
@@ -112,23 +112,23 @@ spec:
           GRAFANA_PASSWORD=$(kubectl get secret grafana -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d)
 
           # Get datasource IDs
-          MIMIR_ID=$(curl -s -u "admin:${GRAFANA_PASSWORD}" http://grafana.monitoring:3000/api/datasources/name/Mimir | jq -r '.id')
-          LOKI_ID=$(curl -s -u "admin:${GRAFANA_PASSWORD}" http://grafana.monitoring:3000/api/datasources/name/Loki | jq -r '.id')
-          TEMPO_ID=$(curl -s -u "admin:${GRAFANA_PASSWORD}" http://grafana.monitoring:3000/api/datasources/name/Tempo | jq -r '.id')
+          MIMIR_ID=$(curl -s -u "admin:${GRAFANA_PASSWORD}" http://grafana.monitoring:80/api/datasources/name/Mimir | jq -r '.id')
+          LOKI_ID=$(curl -s -u "admin:${GRAFANA_PASSWORD}" http://grafana.monitoring:80/api/datasources/name/Loki | jq -r '.id')
+          TEMPO_ID=$(curl -s -u "admin:${GRAFANA_PASSWORD}" http://grafana.monitoring:80/api/datasources/name/Tempo | jq -r '.id')
 
           # Test Mimir datasource
           curl -u "admin:${GRAFANA_PASSWORD}" -X POST \
             -H "Content-Type: application/json" \
             -d '{"from":"now-5m","to":"now","queries":[{"refId":"A","expr":"up"}]}' \
-            http://grafana.monitoring:3000/api/ds/query || echo "Mimir query test completed"
+            http://grafana.monitoring:80/api/ds/query || echo "Mimir query test completed"
 
           # Test Loki datasource
           curl -u "admin:${GRAFANA_PASSWORD}" -X GET \
-            "http://grafana.monitoring:3000/api/datasources/proxy/${LOKI_ID}/loki/api/v1/labels" || echo "Loki query test completed"
+            "http://grafana.monitoring:80/api/datasources/proxy/${LOKI_ID}/loki/api/v1/labels" || echo "Loki query test completed"
 
           # Test Tempo datasource
           curl -u "admin:${GRAFANA_PASSWORD}" -X GET \
-            "http://grafana.monitoring:3000/api/datasources/proxy/${TEMPO_ID}/api/echo" || echo "Tempo query test completed"
+            "http://grafana.monitoring:80/api/datasources/proxy/${TEMPO_ID}/api/echo" || echo "Tempo query test completed"
 
           echo "All datasource connectivity tests completed"
             

@@ -107,7 +107,7 @@ spec:
           METRIC_QUERY='node_load1'
           RESPONSE=$(curl -s -u "admin:${GRAFANA_PASSWORD}" -G \
             --data-urlencode "query=${METRIC_QUERY}" \
-            http://grafana.monitoring:3000/api/datasources/proxy/uid/mimir/api/v1/query || echo "{}")
+            http://grafana.monitoring:80/api/datasources/proxy/uid/mimir/api/v1/query || echo "{}")
 
           if echo "$RESPONSE" | grep -q "\"status\":\"success\""; then
             echo "Metrics are flowing correctly through Alloy -> Mimir -> Grafana"
@@ -162,7 +162,7 @@ spec:
           QUERY='{namespace="monitoring",pod="log-generator"}'
           RESPONSE=$(curl -s -u "admin:${GRAFANA_PASSWORD}" -G \
             --data-urlencode "query=${QUERY}" \
-            "http://grafana.monitoring:3000/api/datasources/proxy/uid/loki/loki/api/v1/query_range?limit=10" || echo "{}")
+            "http://grafana.monitoring:80/api/datasources/proxy/uid/loki/loki/api/v1/query_range?limit=10" || echo "{}")
 
           if echo "$RESPONSE" | grep -q "Integration test log message"; then
             echo "Logs are flowing correctly through Alloy -> Loki -> Grafana"
@@ -226,7 +226,7 @@ spec:
 
           # Query Tempo through Grafana to verify traces are available
           RESPONSE=$(curl -s -u "admin:${GRAFANA_PASSWORD}" \
-            "http://grafana.monitoring:3000/api/datasources/proxy/uid/tempo/api/search?limit=10" || echo "{}")
+            "http://grafana.monitoring:80/api/datasources/proxy/uid/tempo/api/search?limit=10" || echo "{}")
 
           if echo "$RESPONSE" | grep -q "traces"; then
             echo "Traces are flowing correctly through Alloy -> Tempo -> Grafana"
@@ -250,7 +250,7 @@ spec:
           for ds in Mimir Loki Tempo; do
             echo "Testing $ds datasource..."
             RESPONSE=$(curl -s -u "admin:${GRAFANA_PASSWORD}" \
-              "http://grafana.monitoring:3000/api/datasources/name/$ds" || echo "{}")
+              "http://grafana.monitoring:80/api/datasources/name/$ds" || echo "{}")
 
             if echo "$RESPONSE" | grep -q "\"name\":\"$ds\""; then
               echo "$ds datasource is configured"
@@ -274,7 +274,7 @@ spec:
           GRAFANA_PASSWORD=$(kubectl get secret grafana -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d)
 
           DASHBOARDS=$(curl -s -u "admin:${GRAFANA_PASSWORD}" \
-            "http://grafana.monitoring:3000/api/search?type=dash-db" || echo "[]")
+            "http://grafana.monitoring:80/api/search?type=dash-db" || echo "[]")
 
           if echo "$DASHBOARDS" | grep -q "Kubernetes Overview"; then
             echo "Kubernetes Overview dashboard is loaded"

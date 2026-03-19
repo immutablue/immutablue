@@ -104,7 +104,7 @@ spec:
         timeout: 60s
         content: |
           # Just verify Mimir is healthy and accepting connections
-          curl -sf http://mimir-gateway.monitoring:8080/ready
+          curl -sf http://mimir-gateway.monitoring:80/ready
             
   # Step 4: Verify persistent volumes
   - name: verify-persistent-storage
