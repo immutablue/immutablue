@@ -35,4 +35,5 @@ ALL_PHONY_TARGETS := list tag-string all all_upgrade install update upgrade inst
 	sbom qcow2 qcow2-config run_qcow2 lima lima-start lima-shell lima-stop lima-delete run_iso run_iso_qemu run_raw run_raw_qemu push_raw push_ami push_gce push_vhd push_vmdk \
 	_check_not_distroless distroless-img run-distroless-img distroless-qcow2 distroless-clean \
 	build-deps push-deps build-cyan-deps push-cyan-deps retag flatpak_refs/flatpaks push_iso \
-	run_all_tests pre_test post_install install_services fix-virsh manifest manifest_rm
+	run_all_tests pre_test post_install install_services fix-virsh manifest manifest_rm \
+	update-gitlab-src
