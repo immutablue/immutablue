@@ -2,9 +2,11 @@
 set -euxo pipefail
 
 source /usr/libexec/kuberblue/variables.sh
+source /usr/libexec/kuberblue/kube_setup/kube_state.sh
 
 STATE_DIR="${STATE_DIR:-/var/lib/kuberblue}"
 mkdir -p "${STATE_DIR}"
+kuberblue_state_init
 
 # Step 1: Generate the runtime kubeadm config from /usr/kuberblue/ + /etc/ overrides
 /usr/libexec/kuberblue/kube_setup/kube_generate_kubeadm_config.sh
@@ -33,5 +35,9 @@ if ! kubeadm init \
     echo "ERROR: kubeadm init failed (see ${INIT_LOG})"
     exit 1
 fi
+
+# Mark cluster as initialized so other commands (refresh-token, status) know
+kuberblue_state_set "cluster-initialized" "true"
+kuberblue_state_set "node-role" "control-plane"
 
 echo "kubeadm init complete. Log: ${INIT_LOG}"
