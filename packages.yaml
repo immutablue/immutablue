@@ -96,6 +96,7 @@ immutablue:
     - ShellCheck
     - socat
     - stow
+    - strace
     - syncthing
     - syncthing-tools
     - tailscale
