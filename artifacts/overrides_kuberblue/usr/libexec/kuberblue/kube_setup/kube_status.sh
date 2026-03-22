@@ -9,6 +9,17 @@ source /usr/libexec/kuberblue/99-common.sh
 source /usr/libexec/kuberblue/variables.sh
 source /usr/libexec/kuberblue/kube_setup/kube_state.sh
 
+# Resolve KUBECONFIG if not already set
+if [[ -z "${KUBECONFIG:-}" ]]; then
+    if [[ -f /etc/kubernetes/admin.conf ]]; then
+        export KUBECONFIG=/etc/kubernetes/admin.conf
+    elif [[ -f "${HOME}/.kube/config" ]]; then
+        export KUBECONFIG="${HOME}/.kube/config"
+    elif [[ -f /var/lib/kuberblue/kubeconfig ]]; then
+        export KUBECONFIG=/var/lib/kuberblue/kubeconfig
+    fi
+fi
+
 echo "=== Kuberblue Status ==="
 echo ""
 
