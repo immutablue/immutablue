@@ -27,14 +27,7 @@ qcow2: _check_not_distroless
 		echo "Tip: Run 'make qcow2-config' for interactive configuration"; \
 		./scripts/generate-image-config.sh qcow2 $(QCOW2_DIR)/config.toml --non-interactive; \
 	fi
-	@echo "Syncing image to root storage..."
-	@if podman image exists $(IMAGE):$(TAG) 2>/dev/null; then \
-		echo "Copying locally-built image to root podman storage..."; \
-		podman save $(IMAGE):$(TAG) | sudo podman load; \
-	else \
-		echo "No local image found — pulling from registry..."; \
-		sudo podman pull $(IMAGE):$(TAG); \
-	fi
+	sudo podman pull $(IMAGE):$(TAG)
 	sudo podman run \
 		--rm -i --privileged \
 		--security-opt label=type:unconfined_t \
