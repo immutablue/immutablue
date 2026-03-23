@@ -27,15 +27,26 @@ qcow2: _check_not_distroless
 		echo "Tip: Run 'make qcow2-config' for interactive configuration"; \
 		./scripts/generate-image-config.sh qcow2 $(QCOW2_DIR)/config.toml --non-interactive; \
 	fi
-	sudo podman pull $(IMAGE):$(TAG)
+	@echo "Ensuring $(IMAGE):$(TAG) is available in root container storage..."
+	@if sudo podman image exists $(IMAGE):$(TAG); then \
+		echo "Image already in root storage, skipping transfer."; \
+	elif podman image exists $(IMAGE):$(TAG); then \
+		echo "Image found in rootless storage, transferring to root storage via buildah push..."; \
+		buildah push $(IMAGE):$(TAG) \
+			"containers-storage:[overlay@/var/lib/containers/storage+/run/containers/storage]$(IMAGE):$(TAG)"; \
+	else \
+		echo "Image not found locally, pulling from registry..."; \
+		sudo podman pull $(IMAGE):$(TAG); \
+	fi
 	sudo podman run \
 		--rm -i --privileged \
+		--pull=never \
 		--security-opt label=type:unconfined_t \
 		-v $(QCOW2_DIR):/output:z \
 		-v /var/lib/containers/storage:/var/lib/containers/storage \
 		-v $(QCOW2_DIR)/config.toml:/config.toml:ro \
 		$(BOOTC_IMAGE_BUILDER) \
-		--type qcow2 --rootfs btrfs --config /config.toml \
+		--type qcow2 --rootfs btrfs --config /config.toml --local \
 		$(IMAGE):$(TAG)
 	sudo chown -R $$(id -u):$$(id -g) $(QCOW2_DIR)
 	@echo "qcow2 image built: $(QCOW2_DIR)/qcow2/disk.qcow2"
