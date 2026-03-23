@@ -374,6 +374,7 @@ immutablue:
   services_mask_sys_kuberblue:
     all:
     - systemd-resolved.service
+    - systemd-zram-setup@.service
 
   services_unmask_sys:
     all: []
