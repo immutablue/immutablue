@@ -9,6 +9,8 @@ source /usr/libexec/kuberblue/99-common.sh
 source /usr/libexec/kuberblue/variables.sh
 source /usr/libexec/kuberblue/kube_setup/kube_state.sh
 
+export KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/admin.conf}"
+
 # Parse arguments
 TTL=""
 while [[ $# -gt 0 ]]; do

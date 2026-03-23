@@ -68,12 +68,22 @@ resolve_advertise_address () {
 ADVERTISE_ADDR="$(resolve_advertise_address)"
 
 # Read config values
+# NOTE: Cilium Helm values (10-values.yaml) hardcode clusterPoolIPv4PodCIDRList
+# to 10.244.0.0/16. If pod_subnet is changed, warn the operator.
 CLUSTER_NAME="$(kuberblue_config_get cluster.yaml .cluster.name "kuberblue")"
 POD_SUBNET="$(kuberblue_config_get cluster.yaml .cluster.networking.pod_subnet "10.244.0.0/16")"
 SVC_SUBNET="$(kuberblue_config_get cluster.yaml .cluster.networking.service_subnet "10.96.0.0/16")"
 DNS_DOMAIN="$(kuberblue_config_get cluster.yaml .cluster.networking.dns_domain "cluster.local")"
 CRI_SOCKET="$(kuberblue_config_get cluster.yaml .cluster.cri_socket "/var/run/crio/crio.sock")"
 NODE_NAME="$(hostname)"
+
+# Validate pod_subnet matches Cilium's hardcoded CIDR
+CILIUM_EXPECTED_CIDR="10.244.0.0/16"
+if [[ "${POD_SUBNET}" != "${CILIUM_EXPECTED_CIDR}" ]]; then
+    echo "WARNING: pod_subnet=${POD_SUBNET} does not match Cilium's hardcoded"
+    echo "  clusterPoolIPv4PodCIDRList (${CILIUM_EXPECTED_CIDR}) in 00-cilium/10-values.yaml."
+    echo "  Update the Cilium values file to match or pods will use the wrong CIDR."
+fi
 
 # Build InitConfiguration
 cat > "${GENERATED_KUBEADM}" <<YAML

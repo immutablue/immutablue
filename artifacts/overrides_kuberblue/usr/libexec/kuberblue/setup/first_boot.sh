@@ -219,6 +219,13 @@ if [[ "${KUBERBLUE_TOPOLOGY}" == "ha" ]] && [[ "${KUBERBLUE_NODE_ROLE}" == "cont
         kuberblue_state_set "cluster-initialized" "true"
         kuberblue_state_set "ha-role" "join-cp"
 
+        # Non-first CPs need the kuberblue user and kubeconfig for kubectl access,
+        # but NOT the full cp_post_init (which would re-deploy manifests, re-bootstrap
+        # Flux, etc. — those are only needed on the first CP).
+        export KUBECONFIG=/etc/kubernetes/admin.conf
+        /usr/libexec/kuberblue/kube_setup/kube_add_kuberblue_user.sh
+        /usr/libexec/kuberblue/kube_setup/kube_put_config.sh
+
         echo "HA control-plane join complete."
 
         # Mark first boot complete ONLY after entire flow succeeds

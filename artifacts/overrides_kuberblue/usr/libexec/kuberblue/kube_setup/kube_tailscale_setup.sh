@@ -38,9 +38,19 @@ until tailscale status &>/dev/null; do
     sleep 5
 done
 
+# Build the full argument list for a single `tailscale up` call.
+# This avoids redundant re-authentication when the authkey was just used.
+ADVERTISE_ROUTES="$(kuberblue_config_get cni.yaml .networking.tailscale.advertise_routes "")"
+ACCEPT_ROUTES="$(kuberblue_config_get cni.yaml .networking.tailscale.accept_routes "true")"
+
+ts_args=(--accept-routes="${ACCEPT_ROUTES}")
+if [[ -n "${ADVERTISE_ROUTES}" ]] && [[ "${ADVERTISE_ROUTES}" != "null" ]]; then
+    ts_args+=(--advertise-routes="${ADVERTISE_ROUTES}")
+fi
+
 # Check if already authenticated (tailscale ip -4 succeeds only when logged in)
 if tailscale ip -4 &>/dev/null; then
-    echo "Tailscale already authenticated."
+    echo "Tailscale already authenticated. Updating route settings..."
 else
     echo "Tailscale not authenticated."
 
@@ -51,21 +61,12 @@ else
             echo "ERROR: /etc/kuberblue/tailscale-authkey exists but is empty"
             exit 1
         fi
-        tailscale up --authkey="${AUTH_KEY}"
+        ts_args+=(--authkey="${AUTH_KEY}")
     else
         echo "ERROR: Tailscale enabled but no authkey found at /etc/kuberblue/tailscale-authkey"
         echo "Provide a pre-auth key or run 'tailscale up' manually before boot."
         exit 1
     fi
-fi
-
-# Configure route advertising if requested
-ADVERTISE_ROUTES="$(kuberblue_config_get cni.yaml .networking.tailscale.advertise_routes "")"
-ACCEPT_ROUTES="$(kuberblue_config_get cni.yaml .networking.tailscale.accept_routes "true")"
-
-ts_args=(--accept-routes="${ACCEPT_ROUTES}")
-if [[ -n "${ADVERTISE_ROUTES}" ]] && [[ "${ADVERTISE_ROUTES}" != "null" ]]; then
-    ts_args+=(--advertise-routes="${ADVERTISE_ROUTES}")
 fi
 
 tailscale up "${ts_args[@]}"
