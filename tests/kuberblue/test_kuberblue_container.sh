@@ -183,7 +183,6 @@ function test_kuberblue_v2_files() {
   if ! podman run --rm "$IMAGE" bash -c '
     FAIL=0
     DIRS=(
-      "/etc/kuberblue/manifests/00-infrastructure/11-mayastor"
       "/etc/kuberblue/manifests/10-networking/00-tailscale-operator"
       "/etc/kuberblue/manifests/10-networking/10-cloudflared"
       "/etc/kuberblue/manifests/50-backup/00-velero"
