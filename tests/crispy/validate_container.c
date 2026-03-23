@@ -18,6 +18,13 @@
 
 #include <glib.h>
 
+/* detect whether this is a GUI variant (has gst/gowl) vs server-only (kuberblue) */
+static gboolean
+is_gui_variant(void)
+{
+    return g_file_test("/usr/bin/gst", G_FILE_TEST_EXISTS);
+}
+
 /* run a command and capture stdout, return TRUE on success */
 static gboolean
 run_command(
@@ -165,19 +172,24 @@ check_custom_binaries(void)
         "/usr/bin/mcp-prompt",
         "/usr/bin/mcp-shell",
         "/usr/bin/gdb-mcp-server",
+        NULL
+    };
 
-        /* gui tools (skipped on nucleus, but present on standard builds) */
+    /* gui-only binaries, skipped on server variants (kuberblue) */
+    static const gchar *gui_binaries[] = {
         "/usr/bin/gst",
         "/usr/bin/gowl",
         "/usr/bin/gowlbar",
         NULL
     };
 
+    gboolean gui;
     gint failed;
     gint i;
 
     g_print("\n--- Custom Binary Checks ---\n");
     failed = 0;
+    gui = is_gui_variant();
 
     for (i = 0; binaries[i] != NULL; i++)
     {
@@ -192,6 +204,27 @@ check_custom_binaries(void)
         }
     }
 
+    if (gui)
+    {
+        for (i = 0; gui_binaries[i] != NULL; i++)
+        {
+            if (g_file_test(gui_binaries[i], G_FILE_TEST_IS_EXECUTABLE))
+            {
+                g_print("PASS: %s\n", gui_binaries[i]);
+            }
+            else
+            {
+                g_print("FAIL: %s (missing or not executable)\n",
+                        gui_binaries[i]);
+                failed++;
+            }
+        }
+    }
+    else
+    {
+        g_print("SKIP: GUI binaries (non-GUI variant)\n");
+    }
+
     return failed;
 }
 
@@ -200,7 +233,7 @@ check_custom_binaries(void)
 static gint
 check_custom_libraries(void)
 {
-    /* check both the versioned .so and the unversioned symlink */
+    /* core libraries (always installed) */
     static const gchar *libraries[] = {
         /* yaml-glib */
         "/usr/lib64/libyaml-glib.so.1.0.0",
@@ -210,14 +243,6 @@ check_custom_libraries(void)
         "/usr/lib64/libcrispy.so.0.2.0",
         "/usr/lib64/libcrispy.so",
 
-        /* gst */
-        "/usr/lib64/libgst.so.0.3.4",
-        "/usr/lib64/libgst.so",
-
-        /* gowl */
-        "/usr/lib64/libgowl.so.0.2.3",
-        "/usr/lib64/libgowl.so",
-
         /* mcp-glib */
         "/usr/lib64/libmcp-glib-1.0.so",
 
@@ -226,11 +251,25 @@ check_custom_libraries(void)
         NULL
     };
 
+    /* gui-only libraries, skipped on server variants (kuberblue) */
+    static const gchar *gui_libraries[] = {
+        /* gst */
+        "/usr/lib64/libgst.so.0.3.4",
+        "/usr/lib64/libgst.so",
+
+        /* gowl */
+        "/usr/lib64/libgowl.so.0.2.3",
+        "/usr/lib64/libgowl.so",
+        NULL
+    };
+
+    gboolean gui;
     gint failed;
     gint i;
 
     g_print("\n--- Custom Library Checks ---\n");
     failed = 0;
+    gui = is_gui_variant();
 
     for (i = 0; libraries[i] != NULL; i++)
     {
@@ -245,6 +284,26 @@ check_custom_libraries(void)
         }
     }
 
+    if (gui)
+    {
+        for (i = 0; gui_libraries[i] != NULL; i++)
+        {
+            if (g_file_test(gui_libraries[i], G_FILE_TEST_EXISTS))
+            {
+                g_print("PASS: %s\n", gui_libraries[i]);
+            }
+            else
+            {
+                g_print("FAIL: %s (missing)\n", gui_libraries[i]);
+                failed++;
+            }
+        }
+    }
+    else
+    {
+        g_print("SKIP: GUI libraries (non-GUI variant)\n");
+    }
+
     return failed;
 }
 
@@ -255,15 +314,22 @@ check_directories(void)
     static const gchar *dirs[] = {
         "/usr/libexec/immutablue",
         "/etc/immutablue",
+        NULL
+    };
+
+    /* gui-only directories */
+    static const gchar *gui_dirs[] = {
         "/etc/gowl",
         NULL
     };
 
+    gboolean gui;
     gint failed;
     gint i;
 
     g_print("\n--- Directory Checks ---\n");
     failed = 0;
+    gui = is_gui_variant();
 
     for (i = 0; dirs[i] != NULL; i++)
     {
@@ -276,6 +342,26 @@ check_directories(void)
             g_print("FAIL: %s missing\n", dirs[i]);
             failed++;
         }
+    }
+
+    if (gui)
+    {
+        for (i = 0; gui_dirs[i] != NULL; i++)
+        {
+            if (g_file_test(gui_dirs[i], G_FILE_TEST_IS_DIR))
+            {
+                g_print("PASS: %s exists\n", gui_dirs[i]);
+            }
+            else
+            {
+                g_print("FAIL: %s missing\n", gui_dirs[i]);
+                failed++;
+            }
+        }
+    }
+    else
+    {
+        g_print("SKIP: GUI directories (non-GUI variant)\n");
     }
 
     return failed;
