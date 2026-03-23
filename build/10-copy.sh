@@ -137,7 +137,10 @@ do
     if [[ -d "${build_overrides}" ]]
     then
         cp -a "${build_overrides}/." /
-    else 
+        # Ensure all .sh files retain execute permission after copy
+        # (rootless buildah bind mounts can strip execute bits)
+        find /usr/libexec/kuberblue -name '*.sh' -exec chmod +x {} + 2>/dev/null || true
+    else
         echo "no overrides for ${option}"
     fi
 done < <(get_immutablue_build_options)

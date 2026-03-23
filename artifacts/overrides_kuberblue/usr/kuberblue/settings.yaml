@@ -10,4 +10,5 @@ kuberblue:
   install_dir: /usr/immutablue-build-kuberblue
 
   # UID for the kuberblue system user/group
-  uid: 970
+  # NOTE: 970 conflicts with pipewire on Fedora 43. Use 960 instead.
+  uid: 960
