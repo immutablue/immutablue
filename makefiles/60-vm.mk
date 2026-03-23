@@ -128,6 +128,10 @@ lima-start:
 		echo "Lima config not found. Run 'make lima' first."; \
 		exit 1; \
 	fi
+	@if limactl list --format '{{.Name}}' 2>/dev/null | grep -q "^$(LIMA_INSTANCE)$$"; then \
+		echo "Existing instance '$(LIMA_INSTANCE)' found, deleting before fresh start..."; \
+		limactl delete $(LIMA_INSTANCE) --force; \
+	fi
 	@echo "Starting Lima VM $(LIMA_INSTANCE)..."
 	limactl start $(LIMA_YAML)
 	@echo ""
