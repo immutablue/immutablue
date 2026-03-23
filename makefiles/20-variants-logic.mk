@@ -56,7 +56,7 @@ ifeq ($(strip $(filter-out 0 00,$(NUCLEUS))),)
 else
     BASE_IMAGE := quay.io/fedora-ostree-desktops/base-atomic
     TAG := $(TAG)-nucleus
-    BUILD_OPTIONS := nucleus
+    BUILD_OPTIONS := nucleus$(BUILD_OPTIONS)
     VARIANT := Server
 endif
 
