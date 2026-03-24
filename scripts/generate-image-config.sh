@@ -201,6 +201,10 @@ generate_lima_config() {
     cat > "$output" <<EOF
 # Auto-generated bootc-image-builder config (LIMA=1)
 
+[[customizations.filesystem]]
+mountpoint = "/"
+minsize = "40 GiB"
+
 [[customizations.user]]
 name = "immutablue"
 password = "immutablue"
