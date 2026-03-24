@@ -8,9 +8,12 @@ RETRY_INTERVAL=10
 
 echo "${MSG}"
 
+# Use the kuberblue user's own kubeconfig copy — NOT /etc/kubernetes/admin.conf
+# which is root:root 0600 and unreadable by the kuberblue user.
+KUBERBLUE_KUBECONFIG="/var/home/kuberblue/.kube/config"
+
 i=0
-export KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/admin.conf}"
-until su -l -s /bin/bash kuberblue -c "export KUBECONFIG='${KUBECONFIG}'; ${CMD}"; do
+until su -l -s /bin/bash kuberblue -c "export KUBECONFIG='${KUBERBLUE_KUBECONFIG}'; ${CMD}"; do
     i=$((i + 1))
     if [[ ${i} -ge ${MAX_RETRIES} ]]; then
         echo "ERROR: Command failed after ${MAX_RETRIES} attempts: ${CMD}"
