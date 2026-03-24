@@ -44,18 +44,20 @@ WORKER_AUTO_JOIN="$(kuberblue_config_get cluster.yaml .cluster.multi.worker_auto
 cp_post_init () {
     export KUBECONFIG=/etc/kubernetes/admin.conf
 
-    echo "Waiting for node to become Ready..."
-    sleep 5
-    wait_for_node_ready_state
-
-    # In single-node topology, untaint the control-plane so workloads can schedule
+    # Untaint before deploying so workloads can schedule on the control-plane
     if [[ "${KUBERBLUE_TOPOLOGY}" == "single" ]]; then
         echo "Single-node topology: removing control-plane taint..."
         /usr/libexec/kuberblue/kube_setup/kube_untaint_master.sh
     fi
 
-    # Run post-install (user setup, deploy core manifests)
+    # Deploy core manifests (Cilium CNI, OpenEBS, metrics-server) before waiting
+    # for node Ready — the node cannot become Ready without Cilium installed first.
     KUBECONFIG="${KUBECONFIG}" /usr/libexec/kuberblue/kube_setup/kube_post_install.sh
+
+    # Now wait for the node to become Ready (Cilium makes this happen)
+    echo "Waiting for node to become Ready..."
+    sleep 5
+    wait_for_node_ready_state
 
     # SOPS+Age key setup (after cluster is ready)
     if [[ "${KUBERBLUE_SOPS_ENABLED}" == "true" ]]; then
@@ -234,11 +236,15 @@ if [[ "${KUBERBLUE_TOPOLOGY}" == "ha" ]] && [[ "${KUBERBLUE_NODE_ROLE}" == "cont
 
 # --- Single / Multi control-plane init ---
 elif [[ "${KUBERBLUE_NODE_ROLE}" == "control-plane" ]]; then
-    echo "Initializing Kubernetes control-plane..."
-    /usr/libexec/kuberblue/kube_setup/kube_init.sh
-
-    kuberblue_state_set "node-role" "control-plane"
-    kuberblue_state_set "cluster-initialized" "true"
+    if kuberblue_state_check "cluster-initialized"; then
+        echo "Cluster already initialized (kubeadm ran on a previous boot) — skipping kubeadm init"
+        export KUBECONFIG=/etc/kubernetes/admin.conf
+    else
+        echo "Initializing Kubernetes control-plane..."
+        /usr/libexec/kuberblue/kube_setup/kube_init.sh
+        kuberblue_state_set "node-role" "control-plane"
+        kuberblue_state_set "cluster-initialized" "true"
+    fi
 
     cp_post_init
 
