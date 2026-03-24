@@ -246,6 +246,11 @@ immutablue:
     - gnome-software-rpm-ostree
     - gnome-shell-extension-background-logo
 
+  rpm_rm_kuberblue:
+    all:
+    - zram-generator
+    - zram-generator-defaults
+
   # Temp files to be removed during build stage (errors out build)
   file_rm:
     all: []
