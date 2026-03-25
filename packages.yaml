@@ -261,6 +261,9 @@ immutablue:
   file_rm_kuberblue:
     all:
     - /etc/resolv.conf
+    - /usr/lib/systemd/system-generators/zram-generator
+    - /usr/lib/systemd/zram-generator.conf
+    - /usr/lib/systemd/zram-generator.conf.d
 
 
 
@@ -354,7 +357,6 @@ immutablue:
     - cockpit.socket
     - sshd.service
     - crio.service
-    - kubelet.service
     - tailscaled.service
 
   services_enable_sys_trueblue:
@@ -373,6 +375,7 @@ immutablue:
   services_disable_sys_kuberblue:
     all:
     - firewalld.service
+    - kubelet.service
 
   services_mask_sys:
     all: []
@@ -380,6 +383,8 @@ immutablue:
     all:
     - systemd-resolved.service
     - systemd-zram-setup@.service
+    - systemd-zram-setup@zram0.service
+    - kubelet.service
 
   services_unmask_sys:
     all: []

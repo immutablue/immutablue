@@ -7,9 +7,25 @@ set -uxo pipefail
 
 echo "invoking kuberblue boot script..."
 
+# --- Debug: show kubelet state at boot ---
+echo "=== kubelet status at boot ==="
+ls -la /etc/systemd/system/kubelet.service 2>&1 || echo "(no override in /etc)"
+systemctl is-enabled kubelet.service 2>&1 || true
+systemctl is-active kubelet.service 2>&1 || true
+echo "=== end kubelet debug ==="
+
 # --- Phase 1: Environment prep (non-fatal) ---
 
-# Disable swap — kubelet requires it off.
+# Kill zram devices and disable ALL swap — kubelet refuses to start with swap on.
+# Belt-and-suspenders: even if build-time removal worked, nuke it at runtime too.
+if command -v zramctl &>/dev/null; then
+    for dev in /dev/zram*; do
+        [ -e "$dev" ] || continue
+        swapoff "$dev" 2>/dev/null || true
+        zramctl --reset "$(basename "$dev")" 2>/dev/null || true
+        echo "Disabled zram device: $dev"
+    done
+fi
 swapoff -a || echo "WARNING: swapoff -a failed (may be no swap to disable)"
 
 # Fix DNS and NetworkManager config

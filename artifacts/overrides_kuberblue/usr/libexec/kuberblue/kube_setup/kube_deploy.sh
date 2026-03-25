@@ -6,7 +6,7 @@ source /usr/libexec/kuberblue/variables.sh
 
 # Check if manifests is empty
 manifest_dir="/etc/kuberblue/manifests/"
-HELM_TIMEOUT="${HELM_TIMEOUT:-10m}"
+HELM_TIMEOUT="${HELM_TIMEOUT:-15m}"
 
 # Track all SOPS temp files for cleanup
 _sops_tmpfiles=()
@@ -200,10 +200,11 @@ deploy_helm_repo_and_chart() {
     helm repo add "$repo_name" "$repo_url"
     helm repo update "$repo_name"
 
-    # Build helm command with --wait and --timeout
+    # Build helm command WITHOUT --wait. We handle readiness checks manually
+    # because helm --wait blocks forever on LoadBalancer services without an
+    # external IP (e.g. Cilium ingress on bare metal before IP pool is configured).
     local helm_cmd=(helm upgrade -i "${name}" "${chart}"
         --namespace "${namespace}"
-        --wait
         --timeout "${HELM_TIMEOUT}"
         -f "$values_file"
     )
@@ -216,15 +217,58 @@ deploy_helm_repo_and_chart() {
         helm_cmd+=("${extra_args[@]}")
     fi
 
-    # Execute helm upgrade with rollback on failure
+    # Clear stuck helm releases (pending-install/pending-upgrade) before attempting upgrade.
+    # These states occur when a previous helm operation was interrupted or timed out,
+    # leaving the release in an unrecoverable state that blocks all future operations.
+    local release_status
+    release_status="$(helm status "${name}" --namespace "${namespace}" -o json 2>/dev/null \
+        | python3 -c "import json,sys; print(json.load(sys.stdin)['info']['status'])" 2>/dev/null)" || release_status=""
+    if [[ "$release_status" == "pending-install" ]] || [[ "$release_status" == "pending-upgrade" ]] || [[ "$release_status" == "pending-rollback" ]]; then
+        echo "WARNING: Release ${name} is stuck in '${release_status}'. Cleaning up..."
+        helm uninstall "${name}" --namespace "${namespace}" --no-hooks 2>/dev/null || true
+        sleep 5
+    fi
+
+    # Execute helm upgrade
     echo "Helm upgrade: ${name} (chart: ${chart}, namespace: ${namespace}, timeout: ${HELM_TIMEOUT})"
     if ! "${helm_cmd[@]}"; then
         echo "ERROR: Helm upgrade failed for ${name}. Attempting rollback..."
         if helm rollback "${name}" --namespace "${namespace}" --wait --timeout "${HELM_TIMEOUT}" 2>/dev/null; then
             echo "Rollback of ${name} succeeded. Previous revision restored."
         else
-            echo "WARNING: Rollback of ${name} failed or no previous revision exists."
+            echo "WARNING: Rollback of ${name} failed. Cleaning up stuck release..."
+            helm uninstall "${name}" --namespace "${namespace}" --no-hooks 2>/dev/null || true
         fi
+        return 1
+    fi
+
+    # Wait for Deployments and DaemonSets to be ready (skip LoadBalancer IP checks).
+    echo "Waiting for ${name} workloads to become ready..."
+    local wait_failed=0
+    while IFS= read -r deploy; do
+        [[ -z "$deploy" ]] && continue
+        echo "  Waiting for Deployment/${deploy}..."
+        if ! kubectl rollout status "deployment/${deploy}" \
+            --namespace "${namespace}" --timeout="${HELM_TIMEOUT}"; then
+            echo "  WARNING: Deployment/${deploy} not ready"
+            wait_failed=1
+        fi
+    done < <(kubectl get deploy -n "${namespace}" -l "app.kubernetes.io/part-of=${name}" \
+        -o jsonpath='{.items[*].metadata.name}' 2>/dev/null | tr ' ' '\n')
+
+    while IFS= read -r ds; do
+        [[ -z "$ds" ]] && continue
+        echo "  Waiting for DaemonSet/${ds}..."
+        if ! kubectl rollout status "daemonset/${ds}" \
+            --namespace "${namespace}" --timeout="${HELM_TIMEOUT}"; then
+            echo "  WARNING: DaemonSet/${ds} not ready"
+            wait_failed=1
+        fi
+    done < <(kubectl get ds -n "${namespace}" -l "app.kubernetes.io/part-of=${name}" \
+        -o jsonpath='{.items[*].metadata.name}' 2>/dev/null | tr ' ' '\n')
+
+    if [[ ${wait_failed} -ne 0 ]]; then
+        echo "ERROR: Some workloads for ${name} did not become ready."
         return 1
     fi
     echo "Helm deploy of ${name} succeeded."

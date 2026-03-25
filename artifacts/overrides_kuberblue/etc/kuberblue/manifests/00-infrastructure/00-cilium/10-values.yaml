@@ -49,6 +49,7 @@ nodeinit:
 
 operator:
   enabled: true
+  replicas: 1
   image:
     useDigest: false
 

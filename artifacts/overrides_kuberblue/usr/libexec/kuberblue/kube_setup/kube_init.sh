@@ -25,6 +25,12 @@ if ! yq '.' "${GENERATED_KUBEADM}" > /dev/null 2>&1; then
     exit 1
 fi
 
+# Unmask kubelet — it's masked at build time to prevent it from starting
+# before kubeadm creates its config. Now that we're about to run kubeadm
+# init (which enables + starts kubelet after writing config), unmask it.
+systemctl unmask kubelet.service
+systemctl reset-failed kubelet.service || true
+
 # Step 2: Run kubeadm init
 # --skip-phases=addon/kube-proxy: Cilium replaces kube-proxy entirely.
 # This is correct and intentional — Cilium handles proxy functionality.
