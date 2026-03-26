@@ -5,9 +5,9 @@
 # fully bootstrapped single-node Kubernetes cluster. No manual steps.
 #
 # Usage:
-#   ./test-kuberblue.sh            # qcow2 → lima → wait → shell
-#   ./test-kuberblue.sh --build    # build image → qcow2 → lima → wait → shell
-#   ./test-kuberblue.sh --skip-qcow2  # reuse existing qcow2 → lima → wait → shell
+#   ./test-kuberblue.sh            # qcow2 -> lima -> wait -> shell
+#   ./test-kuberblue.sh --build    # build image -> qcow2 -> lima -> wait -> shell
+#   ./test-kuberblue.sh --skip-qcow2  # reuse existing qcow2 -> lima -> wait -> shell
 #   ./test-kuberblue.sh --no-wait  # skip waiting for provisioning
 
 set -euo pipefail
@@ -40,14 +40,12 @@ done
 
 cd "$(dirname "$0")"
 
-# ── Build container image ──────────────────────────────────────────
+# -- Build container image ---------------------------------------------------
 if [[ "$BUILD" -eq 1 ]]; then
     echo "=== Step 1/5: Building container image ==="
     make "${MAKE_FLAGS[@]}" build
 
     # Force-refresh root storage so qcow2 step doesn't use a stale image.
-    # The Makefile's qcow2 target checks "does image exist in root storage?"
-    # and skips transfer if ANY version exists — even an old one.
     echo "=== Step 1b: Syncing image to root storage ==="
     if sudo podman image exists "$IMAGE" 2>/dev/null; then
         echo "Removing stale image from root storage..."
@@ -57,33 +55,60 @@ if [[ "$BUILD" -eq 1 ]]; then
     podman save "$IMAGE" | sudo podman load
 fi
 
-# ── Build qcow2 ───────────────────────────────────────────────────
+# -- Build qcow2 -------------------------------------------------------------
 if [[ "$SKIP_QCOW2" -eq 0 ]]; then
     echo "=== Step 2/5: Building qcow2 disk image ==="
     make "${MAKE_FLAGS[@]}" LIMA=1 qcow2
 fi
 
-# ── Generate Lima config ──────────────────────────────────────────
+# -- Generate Lima config -----------------------------------------------------
 echo "=== Step 3/5: Generating Lima config ==="
 make "${MAKE_FLAGS[@]}" lima
 
-# ── Start Lima VM ─────────────────────────────────────────────────
+# -- Start Lima VM ------------------------------------------------------------
 echo "=== Step 4/5: Starting Lima VM ==="
 if limactl list --format '{{.Name}}' 2>/dev/null | grep -q "^${LIMA_INSTANCE}$"; then
     echo "Deleting existing instance '${LIMA_INSTANCE}'..."
     limactl delete "${LIMA_INSTANCE}" --force
 fi
-limactl start --tty=false "${LIMA_YAML}"
 
-# ── Wait for provisioning ────────────────────────────────────────
+# In plain mode, Lima can't detect the "running" state because there's no guest
+# agent. limactl start will timeout — but the hostagent daemon + QEMU keep
+# running in the background. We use a short timeout and then verify SSH directly.
+echo "Starting VM (plain mode — timeout is expected, VM keeps running)..."
+set +e
+limactl start --tty=false --timeout 90s "${LIMA_YAML}" 2>&1
+LIMA_RC=$?
+set -e
+
+# Verify the VM is actually running by checking SSH
+echo ""
+echo "Verifying SSH connectivity..."
+SSH_OK=0
+for i in $(seq 1 30); do
+    if limactl shell "$LIMA_INSTANCE" -- true 2>/dev/null; then
+        SSH_OK=1
+        echo "SSH is up!"
+        break
+    fi
+    sleep 2
+done
+
+if [[ "$SSH_OK" -eq 0 ]]; then
+    echo "ERROR: VM did not become SSH-accessible after start."
+    echo "Lima exit code was: $LIMA_RC"
+    echo "Check: limactl list"
+    echo "Logs: ~/.lima/${LIMA_INSTANCE}/serial.log"
+    exit 1
+fi
+
+# -- Wait for provisioning ----------------------------------------------------
 if [[ "$NO_WAIT" -eq 0 ]]; then
     echo ""
     echo "=== Step 5/5: Waiting for kuberblue provisioning ==="
     echo "(watching kuberblue-onboot.service — this takes 10-15 minutes)"
     echo ""
 
-    # Poll until the service finishes (active=inactive means succeeded,
-    # active=failed means something broke, active=activating means still running)
     MAX_WAIT=1200  # 20 minutes
     ELAPSED=0
     INTERVAL=10
@@ -94,7 +119,6 @@ if [[ "$NO_WAIT" -eq 0 ]]; then
 
         case "$STATE" in
             inactive)
-                # Check if it actually succeeded (ExecMainStatus=0)
                 EXIT_CODE=$(limactl shell "$LIMA_INSTANCE" -- \
                     systemctl show kuberblue-onboot.service --property=ExecMainStatus --value 2>/dev/null || echo "?")
                 if [[ "$EXIT_CODE" == "0" ]]; then
@@ -115,13 +139,12 @@ if [[ "$NO_WAIT" -eq 0 ]]; then
                 break
                 ;;
             activating|active)
-                # Show a brief status line
                 LAST_LOG=$(limactl shell "$LIMA_INSTANCE" -- \
                     journalctl -u kuberblue-onboot.service --no-pager -n 1 -o cat 2>/dev/null || echo "...")
-                printf "\r[%3ds] %s" "$ELAPSED" "${LAST_LOG:0:80}"
+                printf "\r\033[K[%3ds] %s" "$ELAPSED" "${LAST_LOG:0:80}"
                 ;;
             *)
-                printf "\r[%3ds] waiting for service to start..." "$ELAPSED"
+                printf "\r\033[K[%3ds] waiting for service to start..." "$ELAPSED"
                 ;;
         esac
 
@@ -132,7 +155,6 @@ if [[ "$NO_WAIT" -eq 0 ]]; then
     if [[ $ELAPSED -ge $MAX_WAIT ]]; then
         echo ""
         echo "=== TIMEOUT: Provisioning did not complete within ${MAX_WAIT}s ==="
-        echo "Check logs: limactl shell $LIMA_INSTANCE -- journalctl -u kuberblue-onboot.service --no-pager"
     fi
 
     # Show cluster status
@@ -145,7 +167,7 @@ if [[ "$NO_WAIT" -eq 0 ]]; then
     echo ""
 fi
 
-# ── Drop into shell ──────────────────────────────────────────────
+# -- Drop into shell -----------------------------------------------------------
 echo "=== Entering Lima shell (exit with 'exit' or Ctrl-D) ==="
 echo ""
 exec limactl shell "$LIMA_INSTANCE"
