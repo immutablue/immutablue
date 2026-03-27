@@ -10,5 +10,6 @@ choose:
 
 
 import "./00-base.justfile"
+import "./03-power.justfile"
 import "./05-hardware-overrides.justfile"
 

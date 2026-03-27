@@ -110,6 +110,12 @@ if [[ -d "/mnt-build-deps/podomation/usr" ]]; then
     cp -a /mnt-build-deps/podomation/usr/. /usr/
 fi
 
+# bacon: GLib/GObject login shell (always install)
+if [[ -d "/mnt-build-deps/bacon/usr" ]]; then
+    echo "=== Installing bacon from build deps ==="
+    cp -a /mnt-build-deps/bacon/usr/. /usr/
+fi
+
 # nerd-fonts: FiraCode, FiraMono, Hack (always install)
 if [[ -d "/mnt-build-deps/nerd_fonts/usr" ]]; then
     echo "=== Installing nerd-fonts from build deps ==="

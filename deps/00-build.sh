@@ -78,6 +78,7 @@ PACKAGES=(
 	sqlite-devel
 	libpq-devel
     libssh2-devel
+    libvirt-devel
 
 	# nerd-fonts: extraction
 	xz
@@ -104,6 +105,7 @@ BUILDS=(
 	mcp_gdb_glib
 	ai_glib
 	podomation
+	bacon
 	mcp_kuberblue_glib
 )
 
@@ -354,6 +356,27 @@ build_podomation () {
 	cd "${src_dir}"
 	make DEBUG=1 all PREFIX=/usr
 	make DEBUG=1 install PREFIX=/usr DESTDIR="${stage_dir}"
+}
+
+
+# bacon -- GLib/GObject-native login shell with modular extensibility
+# Produces: bacon binary, libbacon-1.0.so, module .so files, headers, pkg-config
+# Bundles its own deps (crispy, yaml-glib) as submodules in deps/
+# Source: /build/bacon (COPY'd from submodule)
+build_bacon () {
+	local src_dir="${BUILD_DIR}/bacon"
+	local stage_dir="${BUILD_DIR}/bacon"
+
+	if [[ ! -d "${src_dir}/src" ]]; then
+		echo "ERROR: bacon source not found at ${src_dir}"
+		echo "Ensure submodules are initialized: git submodule update --init --recursive"
+		exit 1
+	fi
+
+	mkdir -p "${stage_dir}"
+	cd "${src_dir}"
+	make DEBUG=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=0
+	make DEBUG=1 install install-lsp PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_GIR=0
 }
 
 

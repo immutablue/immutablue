@@ -175,6 +175,13 @@ check_custom_binaries(void)
         NULL
     };
 
+        /* bacon shell + language server */
+        "/usr/bin/bacon",
+        "/usr/bin/bacon-language-server",
+
+        NULL
+    };
+
     /* gui-only binaries, skipped on server variants (kuberblue) */
     static const gchar *gui_binaries[] = {
         "/usr/bin/gst",
@@ -248,6 +255,10 @@ check_custom_libraries(void)
 
         /* ai-glib */
         "/usr/lib64/libai-glib-1.0.so",
+
+        /* bacon */
+        "/usr/lib64/libbacon-1.0.so.0.1.0",
+        "/usr/lib64/libbacon-1.0.so",
         NULL
     };
 

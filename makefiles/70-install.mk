@@ -59,6 +59,17 @@ reboot:
 	sudo systemctl reboot
 
 # ------------------------------------------------------------------------------
+# Source Updates
+# ------------------------------------------------------------------------------
+GITLAB_SRC_DIRS := $(wildcard artifacts/overrides*/usr/src/gitlab/*/)
+update-gitlab-src:
+	@for dir in $(GITLAB_SRC_DIRS); do \
+		echo "Updating $${dir}..."; \
+		git -C "$${dir}" checkout master; \
+		git -C "$${dir}" pull --recurse-submodules; \
+	done
+
+# ------------------------------------------------------------------------------
 # Cleanup
 # ------------------------------------------------------------------------------
 clean: manifest_rm
