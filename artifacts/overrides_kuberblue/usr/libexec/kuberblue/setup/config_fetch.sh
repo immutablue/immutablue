@@ -229,7 +229,8 @@ decrypt_sops_files() {
         basename="$(basename "$sops_file")"
         # Decrypt in place: foo.sops.yaml -> foo.yaml
         local decrypted_name="${basename/.sops/}"
-        local decrypted_path="$(dirname "$sops_file")/${decrypted_name}"
+        local decrypted_path
+        decrypted_path="$(dirname "$sops_file")/${decrypted_name}"
 
         echo "Decrypting: $basename -> $decrypted_name"
         if SOPS_AGE_KEY_FILE="$age_key_file" sops --decrypt "$sops_file" > "$decrypted_path"; then
