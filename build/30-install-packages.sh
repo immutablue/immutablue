@@ -293,13 +293,13 @@ then
     fi
 
     # Flux CLI: GitOps continuous delivery for Kubernetes
-    curl -Lo /tmp/flux.tar.gz "${FLUX_RELEASE_URL}"
+    curl -fLo /tmp/flux.tar.gz "${FLUX_RELEASE_URL}"
     tar -xzf /tmp/flux.tar.gz -C /usr/bin/ flux
     chmod a+x /usr/bin/flux
     rm /tmp/flux.tar.gz
 
     # CRIO: container runtime for Kubernetes (GCS bucket, binary at cri-o/bin/crio)
-    curl -Lo /tmp/crio.tar.gz "${CRIO_RELEASE_URL}"
+    curl -fLo /tmp/crio.tar.gz "${CRIO_RELEASE_URL}"
     tar -xzf /tmp/crio.tar.gz -C /usr/bin/ --strip-components=2 cri-o/bin/crio
     chmod a+x /usr/bin/crio
     mkdir -p /usr/lib/systemd/system
@@ -307,7 +307,7 @@ then
     rm /tmp/crio.tar.gz
 
     # SOPS: secret operations for Kubernetes (not in Fedora repos — binary release)
-    curl -Lo /usr/bin/sops "${SOPS_RELEASE_URL}"
+    curl -fLo /usr/bin/sops "${SOPS_RELEASE_URL}"
     chmod a+x /usr/bin/sops
 fi
 

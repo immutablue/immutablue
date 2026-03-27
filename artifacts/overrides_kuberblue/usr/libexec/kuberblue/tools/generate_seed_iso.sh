@@ -73,8 +73,11 @@ validate_no_injection() {
 }
 
 if [[ -n "$CONFIG_URL" ]]; then validate_no_injection "CONFIG_URL" "$CONFIG_URL"; fi
+if [[ -n "$CONFIG_REF" ]]; then validate_no_injection "CONFIG_REF" "$CONFIG_REF"; fi
+if [[ -n "$CONFIG_PATH" ]]; then validate_no_injection "CONFIG_PATH" "$CONFIG_PATH"; fi
 if [[ -n "$CONFIG_TOKEN" ]]; then validate_no_injection "CONFIG_TOKEN" "$CONFIG_TOKEN"; fi
 if [[ -n "$AGE_KEY" ]]; then validate_no_injection "AGE_KEY" "$AGE_KEY"; fi
+if [[ -n "$HOSTNAME_VAL" ]]; then validate_no_injection "HOSTNAME_VAL" "$HOSTNAME_VAL"; fi
 
 # Check for ISO generation tool
 ISO_CMD=""
