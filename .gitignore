@@ -14,3 +14,4 @@ __pycache__/
 trees/
 images/
 distroless-images/
+.claude/
