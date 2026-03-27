@@ -1,0 +1,24 @@
+---
+# kuberblue.provision — Main task orchestrator
+
+- name: Validate required parameters
+  ansible.builtin.assert:
+    that:
+      - kuberblue_config_url | length > 0
+      - kuberblue_qcow2_path | length > 0
+    fail_msg: "kuberblue_config_url and kuberblue_qcow2_path are required"
+
+- name: Resolve Age key from file
+  when: kuberblue_age_key_file | length > 0 and kuberblue_age_key | length == 0
+  ansible.builtin.set_fact:
+    kuberblue_age_key: "{{ lookup('file', kuberblue_age_key_file) }}"
+
+- name: Generate cloud-init seed ISO
+  ansible.builtin.include_tasks: seed_iso.yaml
+
+- name: Provision VM
+  ansible.builtin.include_tasks: "{{ kuberblue_provisioner }}.yaml"
+
+- name: Wait for provisioning to complete
+  when: kuberblue_wait_for_provisioning
+  ansible.builtin.include_tasks: wait.yaml

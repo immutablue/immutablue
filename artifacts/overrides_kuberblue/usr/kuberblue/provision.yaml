@@ -1,0 +1,47 @@
+# /usr/kuberblue/provision.yaml — bootstrap provisioning configuration (vendor defaults)
+#
+# Controls how kuberblue fetches its configuration at first boot.
+# Override by copying to /etc/kuberblue/provision.yaml or by passing
+# kernel command line parameters (kuberblue.*).
+#
+# Parameter resolution order:
+#   1. Kernel cmdline (kuberblue.config=...) — highest priority
+#   2. Cloud-init user-data (kuberblue.config: ...) — if cloud-init is present
+#   3. /etc/kuberblue/provision.yaml — runtime override
+#   4. /usr/kuberblue/provision.yaml — this file (vendor default)
+#
+# When config is empty (default), no remote fetch occurs and kuberblue
+# uses whatever config files already exist in /etc/kuberblue/ (baked into
+# the image or manually placed). This preserves backward compatibility.
+
+provision:
+  # Git repository URL containing cluster configuration
+  # Examples:
+  #   https://github.com/org/kuberblue-configs
+  #   https://gitlab.com/org/kuberblue-configs
+  #   ssh://git@github.com/org/kuberblue-configs (requires deploy key in image)
+  config: ""
+
+  # Git branch or tag to checkout (default: main)
+  config_ref: main
+
+  # Subdirectory within the repo containing this cluster's config
+  # Example: clusters/my-homelab
+  config_path: "."
+
+  # Deploy token for private repos (HTTPS only)
+  # For GitLab: Project > Settings > Repository > Deploy Tokens (read_repository scope)
+  # For GitHub: Settings > Developer Settings > Personal Access Tokens (repo scope)
+  # Leave empty for public repos
+  config_token: ""
+
+  # SOPS Age private key for decrypting secrets in the config repo
+  # Generate with: age-keygen
+  # Leave empty if not using SOPS encryption
+  age_key: ""
+
+  # Cloud-init integration
+  cloud_init:
+    # Enable cloud-init service for config injection
+    # When true, kuberblue reads cloud-init user-data for bootstrap params
+    enabled: false

@@ -1,0 +1,35 @@
+---
+# Provision kuberblue VM using Lima
+
+- name: Check for existing Lima instance
+  ansible.builtin.command:
+    cmd: "limactl list --format '{{ '{{' }}.Name{{ '}}' }}'"
+  register: lima_instances
+  changed_when: false
+
+- name: Delete existing Lima instance
+  when: kuberblue_lima_instance in lima_instances.stdout_lines
+  ansible.builtin.command:
+    cmd: "limactl delete {{ kuberblue_lima_instance }} --force"
+  changed_when: true
+
+- name: Generate Lima config
+  ansible.builtin.template:
+    src: lima.yaml.j2
+    dest: "/tmp/{{ kuberblue_lima_instance }}.yaml"
+    mode: "0644"
+
+- name: Start Lima VM (timeout is expected in plain mode)
+  ansible.builtin.command:
+    cmd: "limactl start --tty=false --timeout 90s /tmp/{{ kuberblue_lima_instance }}.yaml"
+  register: lima_start
+  failed_when: false
+  changed_when: true
+
+- name: Wait for SSH connectivity
+  ansible.builtin.command:
+    cmd: "limactl shell {{ kuberblue_lima_instance }} -- true"
+  register: ssh_check
+  retries: 30
+  delay: 2
+  until: ssh_check.rc == 0

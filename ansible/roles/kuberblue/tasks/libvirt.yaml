@@ -1,0 +1,66 @@
+---
+# Provision kuberblue VM using libvirt
+
+- name: Check for existing libvirt VM
+  ansible.builtin.command:
+    cmd: "virsh dominfo {{ kuberblue_vm_hostname }}"
+  register: virsh_info
+  failed_when: false
+  changed_when: false
+
+- name: Destroy existing VM
+  when: virsh_info.rc == 0
+  block:
+    - name: Stop VM if running
+      ansible.builtin.command:
+        cmd: "virsh destroy {{ kuberblue_vm_hostname }}"
+      failed_when: false
+      changed_when: true
+
+    - name: Undefine VM
+      ansible.builtin.command:
+        cmd: "virsh undefine {{ kuberblue_vm_hostname }} --remove-all-storage"
+      changed_when: true
+
+- name: Copy qcow2 to libvirt images directory
+  ansible.builtin.copy:
+    src: "{{ kuberblue_qcow2_path }}"
+    dest: "/var/lib/libvirt/images/{{ kuberblue_vm_hostname }}.qcow2"
+    remote_src: true
+    mode: "0644"
+
+- name: Create VM with virt-install
+  ansible.builtin.command:
+    cmd: >-
+      virt-install
+      --name {{ kuberblue_vm_hostname }}
+      --memory {{ kuberblue_vm_memory_gb * 1024 }}
+      --vcpus {{ kuberblue_vm_cpus }}
+      --disk /var/lib/libvirt/images/{{ kuberblue_vm_hostname }}.qcow2,format=qcow2
+      --disk {{ kuberblue_seed_iso_path }},device=cdrom
+      --os-variant fedora-unknown
+      --network network={{ kuberblue_libvirt_network }}
+      --graphics none
+      --noautoconsole
+      --boot hd
+  changed_when: true
+
+- name: Wait for VM to get an IP
+  ansible.builtin.command:
+    cmd: >-
+      virsh domifaddr {{ kuberblue_vm_hostname }}
+  register: vm_ip_check
+  retries: 30
+  delay: 5
+  until: vm_ip_check.stdout | regex_search('\\d+\\.\\d+\\.\\d+\\.\\d+')
+
+- name: Extract VM IP address
+  ansible.builtin.set_fact:
+    kuberblue_vm_ip: "{{ vm_ip_check.stdout | regex_search('(\\d+\\.\\d+\\.\\d+\\.\\d+)', '\\1') | first }}"
+
+- name: Wait for SSH
+  ansible.builtin.wait_for:
+    host: "{{ kuberblue_vm_ip }}"
+    port: 22
+    delay: 5
+    timeout: 120

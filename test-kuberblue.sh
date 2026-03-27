@@ -9,6 +9,8 @@
 #   ./test-kuberblue.sh --build    # build image -> qcow2 -> lima -> wait -> shell
 #   ./test-kuberblue.sh --skip-qcow2  # reuse existing qcow2 -> lima -> wait -> shell
 #   ./test-kuberblue.sh --no-wait  # skip waiting for provisioning
+#   ./test-kuberblue.sh --config URL --config-path clusters/foo  # config-as-code
+#   ./test-kuberblue.sh --config URL --config-token TOKEN --age-key-file ./age.key
 
 set -euo pipefail
 
@@ -20,23 +22,53 @@ IMAGE="quay.io/immutablue/immutablue:43-kuberblue-nucleus"
 BUILD=0
 SKIP_QCOW2=0
 NO_WAIT=0
+CONFIG_URL=""
+CONFIG_REF="main"
+CONFIG_PATH="."
+CONFIG_TOKEN=""
+AGE_KEY=""
+AGE_KEY_FILE=""
 
-for arg in "$@"; do
-    case "$arg" in
-        --build)      BUILD=1 ;;
-        --skip-qcow2) SKIP_QCOW2=1 ;;
-        --no-wait)    NO_WAIT=1 ;;
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --build)        BUILD=1; shift ;;
+        --skip-qcow2)  SKIP_QCOW2=1; shift ;;
+        --no-wait)      NO_WAIT=1; shift ;;
+        --config)       CONFIG_URL="$2"; shift 2 ;;
+        --config-ref)   CONFIG_REF="$2"; shift 2 ;;
+        --config-path)  CONFIG_PATH="$2"; shift 2 ;;
+        --config-token) CONFIG_TOKEN="$2"; shift 2 ;;
+        --age-key)      AGE_KEY="$2"; shift 2 ;;
+        --age-key-file) AGE_KEY_FILE="$2"; shift 2 ;;
         -h|--help)
-            echo "Usage: $0 [--build] [--skip-qcow2] [--no-wait]"
+            echo "Usage: $0 [options]"
             echo ""
-            echo "  --build       Build container image before qcow2"
-            echo "  --skip-qcow2  Reuse existing qcow2 disk image"
-            echo "  --no-wait     Skip waiting for provisioning, go straight to shell"
+            echo "Build options:"
+            echo "  --build           Build container image before qcow2"
+            echo "  --skip-qcow2     Reuse existing qcow2 disk image"
+            echo "  --no-wait        Skip waiting for provisioning, go straight to shell"
+            echo ""
+            echo "Config-as-code options:"
+            echo "  --config URL      Git repo URL for kuberblue-configs"
+            echo "  --config-ref REF  Git branch/tag (default: main)"
+            echo "  --config-path P   Subdirectory within repo (default: .)"
+            echo "  --config-token T  Deploy token for private repos"
+            echo "  --age-key KEY     SOPS Age private key"
+            echo "  --age-key-file F  Read Age key from file"
             exit 0
             ;;
-        *) echo "Unknown option: $arg"; echo "Usage: $0 [--build] [--skip-qcow2] [--no-wait]"; exit 1 ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
+
+# Resolve age key from file
+if [[ -n "$AGE_KEY_FILE" ]] && [[ -z "$AGE_KEY" ]]; then
+    if [[ ! -f "$AGE_KEY_FILE" ]]; then
+        echo "ERROR: Age key file not found: $AGE_KEY_FILE"
+        exit 1
+    fi
+    AGE_KEY="$(cat "$AGE_KEY_FILE")"
+fi
 
 cd "$(dirname "$0")"
 
@@ -64,6 +96,57 @@ fi
 # -- Generate Lima config -----------------------------------------------------
 echo "=== Step 3/5: Generating Lima config ==="
 make "${MAKE_FLAGS[@]}" lima
+
+# -- Inject config-as-code params via cloud-init seed ISO ---------------------
+if [[ -n "$CONFIG_URL" ]]; then
+    echo "=== Step 3b: Generating cloud-init seed ISO for config-as-code ==="
+    SEED_DIR="$(mktemp -d /tmp/kuberblue-seed-XXXXXX)"
+    trap 'rm -rf "$SEED_DIR"' EXIT
+
+    cat > "${SEED_DIR}/user-data" <<USERDATA
+#cloud-config
+kuberblue:
+  config: "${CONFIG_URL}"
+  config_ref: "${CONFIG_REF}"
+  config_path: "${CONFIG_PATH}"
+USERDATA
+    if [[ -n "$CONFIG_TOKEN" ]]; then
+        echo "  config_token: \"${CONFIG_TOKEN}\"" >> "${SEED_DIR}/user-data"
+    fi
+    if [[ -n "$AGE_KEY" ]]; then
+        echo "  age_key: \"${AGE_KEY}\"" >> "${SEED_DIR}/user-data"
+    fi
+
+    cat > "${SEED_DIR}/meta-data" <<METADATA
+instance-id: kuberblue-test
+local-hostname: ${LIMA_INSTANCE}
+METADATA
+
+    SEED_ISO=".lima/${LIMA_INSTANCE}-seed.iso"
+    if command -v genisoimage &>/dev/null; then
+        genisoimage -output "$SEED_ISO" -volid cidata -joliet -rock \
+            "${SEED_DIR}/user-data" "${SEED_DIR}/meta-data" 2>/dev/null
+    elif command -v mkisofs &>/dev/null; then
+        mkisofs -output "$SEED_ISO" -volid cidata -joliet -rock \
+            "${SEED_DIR}/user-data" "${SEED_DIR}/meta-data" 2>/dev/null
+    elif command -v xorriso &>/dev/null; then
+        xorriso -as mkisofs -output "$SEED_ISO" -volid cidata -joliet -rock \
+            "${SEED_DIR}/user-data" "${SEED_DIR}/meta-data" 2>/dev/null
+    else
+        echo "ERROR: No ISO tool found (need genisoimage, mkisofs, or xorriso)"
+        exit 1
+    fi
+
+    # Append additional disk to Lima YAML for the seed ISO
+    cat >> "${LIMA_YAML}" <<LIMADISK
+
+additionalDisks:
+  - name: "cidata"
+    format: raw
+LIMADISK
+    echo "Seed ISO generated: $SEED_ISO"
+    echo "Config-as-code: $CONFIG_URL ($CONFIG_REF:$CONFIG_PATH)"
+fi
 
 # -- Start Lima VM ------------------------------------------------------------
 echo "=== Step 4/5: Starting Lima VM ==="

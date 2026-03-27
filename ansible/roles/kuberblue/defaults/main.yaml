@@ -1,0 +1,57 @@
+---
+# kuberblue.provision — Ansible role defaults
+#
+# Override these in your playbook or group_vars.
+
+# --- Required ---
+# Git repo URL containing cluster config (kuberblue-configs pattern)
+kuberblue_config_url: ""
+
+# --- Optional ---
+# Git branch/tag for config repo
+kuberblue_config_ref: "main"
+
+# Path within repo for this cluster's config
+kuberblue_config_path: "."
+
+# Deploy token for private repos (leave empty for public)
+kuberblue_config_token: ""
+
+# SOPS Age private key (string or file path)
+kuberblue_age_key: ""
+kuberblue_age_key_file: ""
+
+# --- VM Configuration ---
+# Provisioner: lima | libvirt
+kuberblue_provisioner: "lima"
+
+# Path to kuberblue qcow2 image
+kuberblue_qcow2_path: ""
+
+# VM resources
+kuberblue_vm_cpus: 4
+kuberblue_vm_memory_gb: 8
+kuberblue_vm_disk_gb: 50
+
+# VM hostname
+kuberblue_vm_hostname: "kuberblue"
+
+# Lima instance name (only for lima provisioner)
+kuberblue_lima_instance: "kuberblue"
+
+# libvirt network (only for libvirt provisioner)
+kuberblue_libvirt_network: "default"
+
+# --- Provisioning ---
+# Wait for kuberblue-onboot.service to complete
+kuberblue_wait_for_provisioning: true
+
+# Max wait time in seconds (provisioning can take 15+ minutes)
+kuberblue_wait_timeout: 1200
+
+# SSH user for connecting to the VM
+kuberblue_ssh_user: "immutablue"
+
+# --- Seed ISO ---
+# Where to generate the cloud-init seed ISO
+kuberblue_seed_iso_path: "/tmp/kuberblue-seed.iso"

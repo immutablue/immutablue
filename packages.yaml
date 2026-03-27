@@ -201,6 +201,7 @@ immutablue:
     - helm
     - htop
     - neovim
+    - sops          # SOPS secret decryption for config-as-code
     - tailscale     # Host-level mesh networking (optional, toggle in cni.yaml)
     - tmux
     42:
@@ -358,6 +359,8 @@ immutablue:
     - sshd.service
     - crio.service
     - tailscaled.service
+    - cloud-init-local.service  # Config injection via cloud-init NoCloud datasource
+    - cloud-init.service
 
   services_enable_sys_trueblue:
     all:

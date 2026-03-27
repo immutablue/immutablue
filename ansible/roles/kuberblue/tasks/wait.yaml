@@ -1,0 +1,41 @@
+---
+# Wait for kuberblue provisioning to complete
+
+- name: Set SSH command prefix based on provisioner
+  ansible.builtin.set_fact:
+    _kb_ssh_prefix: "{{ 'limactl shell ' + kuberblue_lima_instance + ' --' if kuberblue_provisioner == 'lima' else 'ssh -o StrictHostKeyChecking=no ' + kuberblue_ssh_user + '@' + kuberblue_vm_ip }}"
+
+- name: Wait for kuberblue-onboot.service to complete
+  ansible.builtin.shell: |
+    {{ _kb_ssh_prefix }} systemctl show kuberblue-onboot.service --property=ActiveState --value
+  register: onboot_state
+  retries: "{{ (kuberblue_wait_timeout / 10) | int }}"
+  delay: 10
+  until: >-
+    onboot_state.stdout in ['inactive', 'failed']
+  changed_when: false
+
+- name: Check provisioning exit code
+  ansible.builtin.shell: |
+    {{ _kb_ssh_prefix }} systemctl show kuberblue-onboot.service --property=ExecMainStatus --value
+  register: onboot_exit
+  changed_when: false
+
+- name: Assert provisioning succeeded
+  ansible.builtin.assert:
+    that:
+      - onboot_state.stdout == 'inactive'
+      - onboot_exit.stdout == '0'
+    fail_msg: >-
+      kuberblue provisioning failed (state={{ onboot_state.stdout }}, exit={{ onboot_exit.stdout }}).
+      Check: journalctl -u kuberblue-onboot.service --no-pager
+
+- name: Get cluster status
+  ansible.builtin.shell: |
+    {{ _kb_ssh_prefix }} sudo kubectl --kubeconfig /etc/kubernetes/admin.conf get nodes -o wide
+  register: cluster_nodes
+  changed_when: false
+
+- name: Display cluster status
+  ansible.builtin.debug:
+    msg: "{{ cluster_nodes.stdout_lines }}"

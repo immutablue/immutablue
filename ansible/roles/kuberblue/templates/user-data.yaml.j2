@@ -1,0 +1,11 @@
+#cloud-config
+kuberblue:
+  config: "{{ kuberblue_config_url }}"
+  config_ref: "{{ kuberblue_config_ref }}"
+  config_path: "{{ kuberblue_config_path }}"
+{% if kuberblue_config_token | length > 0 %}
+  config_token: "{{ kuberblue_config_token }}"
+{% endif %}
+{% if kuberblue_age_key | length > 0 %}
+  age_key: "{{ kuberblue_age_key }}"
+{% endif %}

@@ -7,6 +7,12 @@ set -uxo pipefail
 
 echo "invoking kuberblue boot script..."
 
+# --- Phase 0: Config fetch (non-fatal) ---
+# If kuberblue.config is set (kernel cmdline or cloud-init), fetch cluster
+# configuration from the remote git repo before anything else runs.
+# This is a no-op when no config source is specified (local-only deploys).
+/usr/libexec/kuberblue/setup/config_fetch.sh || echo "WARNING: config_fetch.sh failed (continuing with local config)"
+
 # --- Debug: show kubelet state at boot ---
 echo "=== kubelet status at boot ==="
 ls -la /etc/systemd/system/kubelet.service 2>&1 || echo "(no override in /etc)"
