@@ -1,37 +1,58 @@
-# OpenEBS Configuration for Kuberblue Development Environment
+# OpenEBS Configuration for Kuberblue
+#
+# Default: lightweight LocalPV (hostpath) only.
+#
+# To enable Mayastor (replicated NVMe-oF HA storage), override this file via
+# the kuberblue /etc/ override mechanism with:
+#
+#   engines:
+#     replicated:
+#       mayastor:
+#         enabled: true
+#   localpv:
+#     enabled: false
+#
+# Mayastor requires dedicated block devices or ZFS zvols on each storage node.
+# Configure storage nodes in /etc/kuberblue/cluster.yaml under storage.nodes[].
+# See the openebs chart docs for full mayastor tuning options (io_engine, etcd, etc).
+
 engines:
   local:
     lvm:
-      enabled: false  # Not needed for development
+      enabled: false
     zfs:
-      enabled: false  # Not needed for development
+      enabled: false
   replicated:
     mayastor:
-      enabled: false  # Too resource-intensive for development
+      enabled: false
 
-# Enable Local PV for simple development storage
-localpv:
+# LocalPV provisioner configuration
+# These values are nested under localpv-provisioner as required by the
+# openebs/openebs umbrella chart.
+localpv-provisioner:
+  # Enable Local PV for simple hostpath storage
   enabled: true
-  
-# Reduced resources for development environment
-resources:
-  limits:
-    cpu: 200m
-    memory: 256Mi
-  requests:
-    cpu: 100m
-    memory: 128Mi
 
-# Allow deployment on all nodes (including control plane for single-node setups)
-tolerations:
-  - operator: "Exists"
+  # Reduced resources for development environment
+  localpv:
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
 
-# Basic analytics disabled for development
-analytics:
-  enabled: false
+  # Allow deployment on all nodes (including control plane for single-node setups)
+  tolerations:
+    - operator: "Exists"
 
-# Default storage class configuration
-defaultStorageClass:
-  enabled: true
-  name: "openebs-hostpath"
-  isDefaultClass: true
+  # Basic analytics disabled for development
+  analytics:
+    enabled: false
+
+  # Default storage class configuration
+  hostpathClass:
+    enabled: true
+    name: "openebs-hostpath"
+    isDefaultClass: true

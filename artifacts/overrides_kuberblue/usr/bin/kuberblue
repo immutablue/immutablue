@@ -1,4 +1,95 @@
 #!/bin/bash
-set -euo pipefail 
-exec immutablue "$@"
+set -euo pipefail
 
+JUSTFILE="/usr/libexec/immutablue/just/30-kuberblue.justfile"
+
+kuberblue_help () {
+    cat <<'EOF'
+kuberblue — Kubernetes lifecycle manager for immutablue
+
+Usage: kuberblue <command> [options]
+
+Commands:
+  init                  Initialize the control-plane (kubeadm init)
+  join [<cmd>]          Join this node to an existing cluster as a worker
+  reset [--force] [--purge-secrets]
+                        Reset Kubernetes on this node
+  upgrade [<version>]   Upgrade Kubernetes to a new version
+  status                Show cluster and node status
+  doctor                Run health checks (PASS/WARN/FAIL)
+  override <file>       Create a user config override in /etc/kuberblue/
+  refresh-token [--ttl <dur>]
+                        Generate a new worker join token (CP only)
+  get-config            Copy admin kubeconfig to current user
+  sops-setup            Generate Age key pair and configure SOPS
+  encrypt <file>...     Encrypt files with SOPS + Age
+  decrypt <file>...     Decrypt files with SOPS + Age
+  mcp-serve             Start the MCP server (Phase 6)
+  help                  Show this help message
+
+EOF
+}
+
+if [[ $# -lt 1 ]]; then
+    kuberblue_help
+    exit 1
+fi
+
+COMMAND="$1"
+shift
+
+case "${COMMAND}" in
+    init)
+        exec just --justfile "${JUSTFILE}" kube_init "$@"
+        ;;
+    join)
+        exec just --justfile "${JUSTFILE}" kube_join "$@"
+        ;;
+    reset)
+        exec just --justfile "${JUSTFILE}" kube_reset "$@"
+        ;;
+    upgrade)
+        exec just --justfile "${JUSTFILE}" kube_upgrade "$@"
+        ;;
+    status)
+        exec just --justfile "${JUSTFILE}" kube_status "$@"
+        ;;
+    doctor)
+        exec just --justfile "${JUSTFILE}" kube_doctor "$@"
+        ;;
+    override)
+        exec just --justfile "${JUSTFILE}" kube_override "$@"
+        ;;
+    refresh-token)
+        exec just --justfile "${JUSTFILE}" kube_refresh_token "$@"
+        ;;
+    get-config)
+        exec just --justfile "${JUSTFILE}" kube_get_config "$@"
+        ;;
+    sops-setup)
+        exec just --justfile "${JUSTFILE}" kube_sops_setup "$@"
+        ;;
+    encrypt)
+        exec just --justfile "${JUSTFILE}" kube_encrypt "$@"
+        ;;
+    decrypt)
+        exec just --justfile "${JUSTFILE}" kube_decrypt "$@"
+        ;;
+    mcp-serve)
+        exec just --justfile "${JUSTFILE}" kube_mcp_serve "$@"
+        ;;
+    on_boot|on-boot)
+        exec just --justfile "${JUSTFILE}" on_boot "$@"
+        ;;
+    on_shutdown|on-shutdown)
+        exec just --justfile "${JUSTFILE}" on_shutdown "$@"
+        ;;
+    help|--help|-h)
+        kuberblue_help
+        ;;
+    *)
+        echo "Unknown command: ${COMMAND}"
+        echo "Run 'kuberblue help' for usage."
+        exit 1
+        ;;
+esac

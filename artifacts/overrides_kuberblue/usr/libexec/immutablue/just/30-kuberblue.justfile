@@ -21,8 +21,8 @@ on_boot:
 on_shutdown: 
     sudo /usr/libexec/kuberblue/setup/on_shutdown.sh
 
-kube_reset:
-    sudo /usr/libexec/kuberblue/kube_setup/kube_reset.sh
+kube_reset *FLAGS:
+    sudo /usr/libexec/kuberblue/kube_setup/kube_reset.sh {{FLAGS}}
 
 kube_init:
     sudo /usr/libexec/kuberblue/kube_setup/kube_init.sh
@@ -70,4 +70,42 @@ deploy_all:
     set -euo pipefail
     source /usr/libexec/kuberblue/kube_setup/kube_deploy.sh
     deploy_all_manifests
+
+kube_status:
+    sudo /usr/libexec/kuberblue/kube_setup/kube_status.sh
+
+kube_doctor:
+    sudo /usr/libexec/kuberblue/kube_setup/kube_doctor.sh
+
+kube_join *ARGS:
+    sudo /usr/libexec/kuberblue/kube_setup/kube_join.sh {{ARGS}}
+
+kube_refresh_token *FLAGS:
+    sudo /usr/libexec/kuberblue/kube_setup/kube_refresh_token.sh {{FLAGS}}
+
+kube_override file:
+    sudo /usr/libexec/kuberblue/kube_setup/kube_override.sh {{file}}
+
+kube_sops_setup:
+    sudo /usr/libexec/kuberblue/kube_setup/kube_sops_setup.sh
+
+kube_encrypt *FILES:
+    sudo /usr/libexec/kuberblue/kube_setup/kube_sops.sh encrypt {{FILES}}
+
+kube_decrypt *FILES:
+    sudo /usr/libexec/kuberblue/kube_setup/kube_sops.sh decrypt {{FILES}}
+
+kube_upgrade *ARGS:
+    sudo /usr/libexec/kuberblue/kube_setup/kube_upgrade.sh {{ARGS}}
+
+kube_mcp_serve:
+    #!/bin/bash
+    set -euo pipefail
+    if [[ -x /usr/bin/mcp-kuberblue ]]; then
+        exec /usr/bin/mcp-kuberblue
+    else
+        echo "ERROR: /usr/bin/mcp-kuberblue not found."
+        echo "The MCP server will be available after Phase 6 implementation."
+        exit 1
+    fi
 

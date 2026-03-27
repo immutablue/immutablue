@@ -49,6 +49,7 @@ nodeinit:
 
 operator:
   enabled: true
+  replicas: 1
   image:
     useDigest: false
 
@@ -59,6 +60,10 @@ ingressController:
   enabled: true
   default: true
 
+# IMPORTANT: clusterPoolIPv4PodCIDRList MUST match cluster.yaml
+# .cluster.networking.pod_subnet (default: 10.244.0.0/16).
+# kube_deploy.sh does NOT template this value — update it manually
+# if you change pod_subnet in /etc/kuberblue/cluster.yaml.
 ipam:
   operator:
     clusterPoolIPv4PodCIDRList: ["10.244.0.0/16"]

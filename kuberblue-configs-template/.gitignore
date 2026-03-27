@@ -1,0 +1,9 @@
+# Never commit plaintext secrets
+*.key
+*.pem
+age.key
+
+# Editor cruft
+*.swp
+*~
+.DS_Store

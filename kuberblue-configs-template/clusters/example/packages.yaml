@@ -1,0 +1,26 @@
+# Package tier overrides
+#
+# Override the enabled state of optional packages here.
+# Core packages (Cilium, OpenEBS, metrics-server, Flux) are always deployed.
+
+packages:
+  optional:
+    # Uncomment to enable monitoring stack:
+    # - name: alloy
+    #   enabled: true
+    # - name: grafana
+    #   enabled: true
+    # - name: loki
+    #   enabled: true
+    # - name: mimir
+    #   enabled: true
+    # - name: tempo
+    #   enabled: true
+
+    # Uncomment to enable backup:
+    # - name: velero
+    #   enabled: true
+
+    # Uncomment to enable TLS:
+    # - name: cert-manager
+    #   enabled: true

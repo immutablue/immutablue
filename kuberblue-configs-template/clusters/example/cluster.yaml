@@ -1,0 +1,14 @@
+# Cluster configuration — copy and customize for your environment
+#
+# Only include keys you want to override. Unset keys inherit from
+# the vendor defaults baked into the kuberblue image.
+
+cluster:
+  name: my-cluster
+  topology: single
+  node_role: control-plane
+  advertise_address: auto
+
+  networking:
+    pod_subnet: 10.244.0.0/16
+    service_subnet: 10.96.0.0/16

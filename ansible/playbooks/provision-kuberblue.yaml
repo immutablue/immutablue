@@ -1,0 +1,22 @@
+---
+# Example: Provision a kuberblue single-node cluster
+#
+# Usage:
+#   ansible-playbook ansible/playbooks/provision-kuberblue.yaml \
+#     -e kuberblue_config_url=https://github.com/org/kuberblue-configs \
+#     -e kuberblue_config_path=clusters/my-homelab \
+#     -e kuberblue_qcow2_path=./build/qcow2/disk.qcow2 \
+#     -e kuberblue_age_key_file=~/.kuberblue/age.key
+
+- name: Provision kuberblue cluster
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  roles:
+    - role: kuberblue
+      vars:
+        kuberblue_provisioner: lima
+        kuberblue_vm_cpus: 4
+        kuberblue_vm_memory_gb: 8
+        kuberblue_vm_disk_gb: 50

@@ -1,30 +1,37 @@
 #!/bin/bash
 # kube_generate_kubeadm_config.sh
 #
-# Generates /var/lib/kuberblue/kubeadm-generated.yaml at runtime by merging:
-#   1. /usr/kuberblue/kubeadm.yaml  (vendor template)
-#   2. /etc/kuberblue/kubeadm.yaml  (user override, if present)
-# and then patching in live values from cluster.yaml:
-#   - advertiseAddress (auto-detect, tailscale IP, or explicit)
-#   - criSocket
-#   - podSubnet / serviceSubnet / dnsDomain
-#   - controlPlaneEndpoint (for HA topology)
+# Generates /var/lib/kuberblue/generated/kubeadm-config.yaml at runtime.
+#
+# If /etc/kuberblue/kubeadm.yaml exists, it is used verbatim (user override).
+# Otherwise, the entire kubeadm config is generated from cluster.yaml values:
+#   - cluster.name
+#   - cluster.container_runtime / cri_socket
+#   - cluster.networking.pod_subnet / service_subnet / dns_domain
+#   - cluster.advertise_address (auto-detect, tailscale, or explicit)
+#   - cluster.ha.vip_address (for HA topology)
 #
 # Usage: source variables.sh first, then call this script.
 set -euxo pipefail
 
 source /usr/libexec/kuberblue/variables.sh
+kuberblue_load_all
 
 STATE_DIR="${STATE_DIR:-/var/lib/kuberblue}"
-GENERATED_KUBEADM="${STATE_DIR}/kubeadm-generated.yaml"
+GENERATED_DIR="${STATE_DIR}/generated"
+GENERATED_KUBEADM="${GENERATED_DIR}/kubeadm-config.yaml"
 
-mkdir -p "${STATE_DIR}"
+mkdir -p "${GENERATED_DIR}"
 
-# Resolve the kubeadm template (user override wins)
-KUBEADM_TPL="/usr/kuberblue/kubeadm.yaml"
+# --- User override: if /etc/kuberblue/kubeadm.yaml exists, use it verbatim ---
 if [[ -f "/etc/kuberblue/kubeadm.yaml" ]]; then
-    KUBEADM_TPL="/etc/kuberblue/kubeadm.yaml"
+    echo "Using user-provided kubeadm config from /etc/kuberblue/kubeadm.yaml"
+    cp "/etc/kuberblue/kubeadm.yaml" "${GENERATED_KUBEADM}"
+    echo "Generated kubeadm config: ${GENERATED_KUBEADM}"
+    exit 0
 fi
+
+# --- Generate kubeadm config entirely from cluster.yaml values ---
 
 # Resolve advertise address
 resolve_advertise_address () {
@@ -60,37 +67,72 @@ resolve_advertise_address () {
 
 ADVERTISE_ADDR="$(resolve_advertise_address)"
 
-# Read networking config
+# Read config values
+# NOTE: Cilium Helm values (10-values.yaml) hardcode clusterPoolIPv4PodCIDRList
+# to 10.244.0.0/16. If pod_subnet is changed, warn the operator.
+CLUSTER_NAME="$(kuberblue_config_get cluster.yaml .cluster.name "kuberblue")"
 POD_SUBNET="$(kuberblue_config_get cluster.yaml .cluster.networking.pod_subnet "10.244.0.0/16")"
 SVC_SUBNET="$(kuberblue_config_get cluster.yaml .cluster.networking.service_subnet "10.96.0.0/16")"
 DNS_DOMAIN="$(kuberblue_config_get cluster.yaml .cluster.networking.dns_domain "cluster.local")"
 CRI_SOCKET="$(kuberblue_config_get cluster.yaml .cluster.cri_socket "/var/run/crio/crio.sock")"
-
-# Determine node name
 NODE_NAME="$(hostname)"
 
-# Build the generated kubeadm config from the template
-cp "${KUBEADM_TPL}" "${GENERATED_KUBEADM}"
+# validate_input — reject values with characters unsafe for heredoc YAML
+validate_input() {
+    local name="$1" value="$2" pattern="$3"
+    if ! [[ "$value" =~ $pattern ]]; then
+        echo "ERROR: ${name} contains invalid characters: ${value}" >&2
+        exit 1
+    fi
+}
 
-# Patch InitConfiguration — use yq --arg for safe interpolation (no injection)
-yq -i \
-    --arg addr "${ADVERTISE_ADDR}" \
-    --arg socket "${CRI_SOCKET}" \
-    --arg name "${NODE_NAME}" \
-    '(select(.kind == "InitConfiguration") | .localAPIEndpoint.advertiseAddress) = $addr |
-     (select(.kind == "InitConfiguration") | .nodeRegistration.criSocket) = $socket |
-     (select(.kind == "InitConfiguration") | .nodeRegistration.name) = $name' \
-    "${GENERATED_KUBEADM}"
+# Validate all inputs before heredoc YAML generation to prevent injection
+validate_input "CLUSTER_NAME" "${CLUSTER_NAME}" '^[a-zA-Z0-9-]+$'
+validate_input "ADVERTISE_ADDR" "${ADVERTISE_ADDR}" '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
+validate_input "CRI_SOCKET" "${CRI_SOCKET}" '^[a-zA-Z0-9/_.-]+$'
+validate_input "POD_SUBNET" "${POD_SUBNET}" '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$'
+validate_input "SVC_SUBNET" "${SVC_SUBNET}" '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$'
+validate_input "DNS_DOMAIN" "${DNS_DOMAIN}" '^[a-zA-Z0-9.-]+$'
+validate_input "NODE_NAME" "${NODE_NAME}" '^[a-zA-Z0-9.-]+$'
 
-# Patch ClusterConfiguration
-yq -i \
-    --arg pod "${POD_SUBNET}" \
-    --arg svc "${SVC_SUBNET}" \
-    --arg dns "${DNS_DOMAIN}" \
-    '(select(.kind == "ClusterConfiguration") | .networking.podSubnet) = $pod |
-     (select(.kind == "ClusterConfiguration") | .networking.serviceSubnet) = $svc |
-     (select(.kind == "ClusterConfiguration") | .networking.dnsDomain) = $dns' \
-    "${GENERATED_KUBEADM}"
+# Validate pod_subnet matches Cilium's hardcoded CIDR
+CILIUM_EXPECTED_CIDR="10.244.0.0/16"
+if [[ "${POD_SUBNET}" != "${CILIUM_EXPECTED_CIDR}" ]]; then
+    echo "WARNING: pod_subnet=${POD_SUBNET} does not match Cilium's hardcoded"
+    echo "  clusterPoolIPv4PodCIDRList (${CILIUM_EXPECTED_CIDR}) in 00-cilium/10-values.yaml."
+    echo "  Update the Cilium values file to match or pods will use the wrong CIDR."
+fi
+
+# Build InitConfiguration
+cat > "${GENERATED_KUBEADM}" <<YAML
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: ${ADVERTISE_ADDR}
+nodeRegistration:
+  criSocket: ${CRI_SOCKET}
+  name: ${NODE_NAME}
+  kubeletExtraArgs:
+    - name: volume-plugin-dir
+      value: /opt/libexec/kubernetes/kubelet-plugins/volume/exec/
+YAML
+
+# Build ClusterConfiguration
+cat >> "${GENERATED_KUBEADM}" <<YAML
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: ClusterConfiguration
+clusterName: ${CLUSTER_NAME}
+controllerManager:
+  extraArgs:
+    - name: flex-volume-plugin-dir
+      value: /opt/libexec/kubernetes/kubelet-plugins/volume/exec/
+networking:
+  podSubnet: ${POD_SUBNET}
+  serviceSubnet: ${SVC_SUBNET}
+  dnsDomain: ${DNS_DOMAIN}
+YAML
 
 # Patch controlPlaneEndpoint for HA topology (required for multi-master)
 if [[ "${KUBERBLUE_TOPOLOGY}" == "ha" ]]; then
@@ -99,13 +141,22 @@ if [[ "${KUBERBLUE_TOPOLOGY}" == "ha" ]]; then
         echo "ERROR: topology=ha requires cluster.ha.vip_address to be set" >&2
         exit 1
     fi
+    export VIP_VALUE="${VIP_ADDR}:6443"
     yq -i \
-        --arg vip "${VIP_ADDR}:6443" \
-        '(select(.kind == "ClusterConfiguration") | .controlPlaneEndpoint) = $vip' \
+        '(select(.kind == "ClusterConfiguration") | .controlPlaneEndpoint) = strenv(VIP_VALUE)' \
         "${GENERATED_KUBEADM}"
 fi
 
+# Build KubeletConfiguration
+cat >> "${GENERATED_KUBEADM}" <<YAML
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+cgroupDriver: systemd
+YAML
+
 echo "Generated kubeadm config: ${GENERATED_KUBEADM}"
+echo "  clusterName:          ${CLUSTER_NAME}"
 echo "  advertiseAddress:     ${ADVERTISE_ADDR}"
 echo "  criSocket:            ${CRI_SOCKET}"
 echo "  podSubnet:            ${POD_SUBNET}"

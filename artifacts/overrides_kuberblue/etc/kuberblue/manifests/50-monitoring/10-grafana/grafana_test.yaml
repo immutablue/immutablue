@@ -76,120 +76,60 @@ spec:
   # Step 5: Test Grafana API access
   - name: test-grafana-api
     try:
-    - apply:
-        resource:
-          apiVersion: v1
-          kind: Pod
-          metadata:
-            name: grafana-test-client
-            namespace: monitoring
-          spec:
-            restartPolicy: Never
-            containers:
-            - name: test
-              image: curlimages/curl:latest
-              command:
-              - sh
-              - -c
-              - |
-                # Test Grafana health endpoint
-                curl -f http://grafana/api/health || exit 1
-                echo "Grafana health check passed"
-                
-                # Test datasources API (requires auth)
-                curl -u admin:admin -f http://grafana/api/datasources || exit 1
-                echo "Grafana datasources API accessible"
-                
-                # Verify datasources are configured
-                DATASOURCES=$(curl -s -u admin:admin http://grafana/api/datasources | grep -c '"type"')
-                if [ "$DATASOURCES" -lt 3 ]; then
-                  echo "ERROR: Expected at least 3 datasources, found $DATASOURCES"
-                  exit 1
-                fi
-                echo "Datasources configured correctly"
-              resources:
-                requests:
-                  memory: "64Mi"
-                  cpu: "50m"
-                limits:
-                  memory: "128Mi"
-                  cpu: "100m"
-    - assert:
-        resource:
-          apiVersion: v1
-          kind: Pod
-          metadata:
-            name: grafana-test-client
-            namespace: monitoring
-          status:
-            phase: Succeeded
+    - script:
+        timeout: 120s
+        content: |
+          # Fetch the auto-generated admin password from the Grafana secret
+          GRAFANA_PASSWORD=$(kubectl get secret grafana -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d)
+          if [ -z "$GRAFANA_PASSWORD" ]; then
+            echo "ERROR: Could not retrieve Grafana admin password from secret"
+            exit 1
+          fi
+
+          # Test Grafana health endpoint (no auth needed)
+          curl -sf http://grafana.monitoring:80/api/health || exit 1
+          echo "Grafana health check passed"
+
+          # Test datasources API (requires auth)
+          curl -sf -u "admin:${GRAFANA_PASSWORD}" http://grafana.monitoring:80/api/datasources || exit 1
+          echo "Grafana datasources API accessible"
+
+          # Verify datasources are configured
+          DATASOURCES=$(curl -s -u "admin:${GRAFANA_PASSWORD}" http://grafana.monitoring:80/api/datasources | grep -c '"type"')
+          if [ "$DATASOURCES" -lt 3 ]; then
+            echo "ERROR: Expected at least 3 datasources, found $DATASOURCES"
+            exit 1
+          fi
+          echo "Datasources configured correctly"
             
   # Step 6: Test datasource connectivity
   - name: test-datasource-connectivity
     try:
-    - apply:
-        resource:
-          apiVersion: v1
-          kind: Pod
-          metadata:
-            name: grafana-datasource-test
-            namespace: monitoring
-          spec:
-            restartPolicy: Never
-            containers:
-            - name: test
-              image: curlimages/curl:latest
-              command:
-              - sh
-              - -c
-              - |
-                # Get datasource IDs
-                MIMIR_ID=$(curl -s -u admin:admin http://grafana/api/datasources/name/Mimir | jq -r '.id')
-                LOKI_ID=$(curl -s -u admin:admin http://grafana/api/datasources/name/Loki | jq -r '.id')
-                TEMPO_ID=$(curl -s -u admin:admin http://grafana/api/datasources/name/Tempo | jq -r '.id')
-                
-                # Test Mimir datasource
-                curl -u admin:admin -X POST \
-                  -H "Content-Type: application/json" \
-                  -d '{"from":"now-5m","to":"now","queries":[{"refId":"A","expr":"up"}]}' \
-                  http://grafana/api/ds/query || echo "Mimir query test completed"
-                
-                # Test Loki datasource
-                curl -u admin:admin -X GET \
-                  "http://grafana/api/datasources/proxy/${LOKI_ID}/loki/api/v1/labels" || echo "Loki query test completed"
-                
-                # Test Tempo datasource
-                curl -u admin:admin -X GET \
-                  "http://grafana/api/datasources/proxy/${TEMPO_ID}/api/echo" || echo "Tempo query test completed"
-                
-                echo "All datasource connectivity tests completed"
-              resources:
-                requests:
-                  memory: "64Mi"
-                  cpu: "50m"
-                limits:
-                  memory: "128Mi"
-                  cpu: "100m"
-    - assert:
-        resource:
-          apiVersion: v1
-          kind: Pod
-          metadata:
-            name: grafana-datasource-test
-            namespace: monitoring
-          status:
-            phase: Succeeded
+    - script:
+        timeout: 120s
+        content: |
+          # Fetch the auto-generated admin password from the Grafana secret
+          GRAFANA_PASSWORD=$(kubectl get secret grafana -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d)
+
+          # Get datasource IDs
+          MIMIR_ID=$(curl -s -u "admin:${GRAFANA_PASSWORD}" http://grafana.monitoring:80/api/datasources/name/Mimir | jq -r '.id')
+          LOKI_ID=$(curl -s -u "admin:${GRAFANA_PASSWORD}" http://grafana.monitoring:80/api/datasources/name/Loki | jq -r '.id')
+          TEMPO_ID=$(curl -s -u "admin:${GRAFANA_PASSWORD}" http://grafana.monitoring:80/api/datasources/name/Tempo | jq -r '.id')
+
+          # Test Mimir datasource
+          curl -u "admin:${GRAFANA_PASSWORD}" -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"from":"now-5m","to":"now","queries":[{"refId":"A","expr":"up"}]}' \
+            http://grafana.monitoring:80/api/ds/query || echo "Mimir query test completed"
+
+          # Test Loki datasource
+          curl -u "admin:${GRAFANA_PASSWORD}" -X GET \
+            "http://grafana.monitoring:80/api/datasources/proxy/${LOKI_ID}/loki/api/v1/labels" || echo "Loki query test completed"
+
+          # Test Tempo datasource
+          curl -u "admin:${GRAFANA_PASSWORD}" -X GET \
+            "http://grafana.monitoring:80/api/datasources/proxy/${TEMPO_ID}/api/echo" || echo "Tempo query test completed"
+
+          echo "All datasource connectivity tests completed"
             
-  cleanup:
-  - delete:
-      ref:
-        apiVersion: v1
-        kind: Pod
-        name: grafana-test-client
-        namespace: monitoring
-  - delete:
-      ref:
-        apiVersion: v1
-        kind: Pod
-        name: grafana-datasource-test
-        namespace: monitoring
+  # No cleanup needed — script steps don't create persistent resources

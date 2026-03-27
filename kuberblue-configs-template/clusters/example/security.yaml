@@ -1,0 +1,12 @@
+# Security and secrets configuration
+
+security:
+  sops:
+    enabled: false
+    # Uncomment to enable SOPS decryption:
+    # enabled: true
+    # age_recipient: "age1..."  # Your Age public key
+
+  admin:
+    user: kuberblue
+    group: kuberblue

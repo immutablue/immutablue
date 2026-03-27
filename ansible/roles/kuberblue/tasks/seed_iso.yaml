@@ -1,0 +1,59 @@
+---
+# Generate cloud-init NoCloud seed ISO for kuberblue config injection
+
+- name: Create temp directory for seed ISO contents
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: kuberblue-seed-
+  register: seed_tmpdir
+
+- name: Generate cloud-init user-data
+  ansible.builtin.template:
+    src: user-data.yaml.j2
+    dest: "{{ seed_tmpdir.path }}/user-data"
+    mode: "0644"
+
+- name: Generate cloud-init meta-data
+  ansible.builtin.template:
+    src: meta-data.yaml.j2
+    dest: "{{ seed_tmpdir.path }}/meta-data"
+    mode: "0644"
+
+- name: Detect available ISO generation tool
+  ansible.builtin.shell:
+    cmd: |
+      if command -v genisoimage &>/dev/null; then
+        echo genisoimage
+      elif command -v mkisofs &>/dev/null; then
+        echo mkisofs
+      elif command -v xorriso &>/dev/null; then
+        echo xorriso
+      else
+        echo NONE
+      fi
+  register: iso_tool
+  changed_when: false
+
+- name: Fail if no ISO generation tool is available
+  ansible.builtin.fail:
+    msg: >-
+      No ISO generation tool found. Install one of: genisoimage, mkisofs, or xorriso.
+  when: iso_tool.stdout | trim == 'NONE'
+
+- name: Generate seed ISO
+  ansible.builtin.command:
+    cmd: >-
+      {{ iso_tool.stdout | trim }}
+      {% if iso_tool.stdout | trim == 'xorriso' %}
+      -as mkisofs
+      {% endif %}
+      -output {{ kuberblue_seed_iso_path }}
+      -volid cidata -joliet -rock
+      {{ seed_tmpdir.path }}/user-data
+      {{ seed_tmpdir.path }}/meta-data
+  changed_when: true
+
+- name: Clean up temp directory
+  ansible.builtin.file:
+    path: "{{ seed_tmpdir.path }}"
+    state: absent

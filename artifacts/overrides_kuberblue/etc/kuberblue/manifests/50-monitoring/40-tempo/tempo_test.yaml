@@ -82,7 +82,7 @@ spec:
             restartPolicy: Never
             containers:
             - name: test
-              image: curlimages/curl:latest
+              image: curlimages/curl:8.11.1
               command:
               - sh
               - -c
@@ -164,7 +164,7 @@ spec:
             restartPolicy: Never
             containers:
             - name: test
-              image: jaegertracing/jaeger-agent:latest
+              image: jaegertracing/jaeger-agent:1.62
               command:
               - sh
               - -c

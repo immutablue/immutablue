@@ -1,0 +1,10 @@
+# Name of the chart deployment
+name: velero
+namespace: velero
+chart: vmware-tanzu/velero
+create_namespace: true
+# Name of the chart repo
+repo_name: vmware-tanzu
+repo_url: https://vmware-tanzu.github.io/helm-charts
+# Arguments to be passed that are not set in values.yaml. Prefer values file.
+args:

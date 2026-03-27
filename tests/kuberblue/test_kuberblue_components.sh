@@ -202,20 +202,21 @@ function test_user_management() {
     fi
     
     # Test key variables are defined in the variables file
+    # v2 uses lazy-loaded accessors — must call kuberblue_uid() to populate
     echo "Testing key variables in variables file"
-    if ! podman run --rm "$IMAGE" bash -c "source $variables_file && test -n \"\${KUBERBLUE_UID:-}\""; then
-        echo "FAIL: KUBERBLUE_UID not defined in variables file"
+    if ! podman run --rm "$IMAGE" bash -c "source $variables_file && test -n \"\$(kuberblue_uid)\""; then
+        echo "FAIL: kuberblue_uid() returned empty"
         return 1
     fi
-    
-    # Check the UID value
+
+    # Check the UID value via accessor
     local uid_value
-    uid_value=$(podman run --rm "$IMAGE" bash -c "source $variables_file && echo \${KUBERBLUE_UID}")
+    uid_value=$(podman run --rm "$IMAGE" bash -c "source $variables_file && kuberblue_uid")
     if [[ "$uid_value" != "970" ]]; then
-        echo "FAIL: KUBERBLUE_UID should be 970, got $uid_value"
+        echo "FAIL: kuberblue_uid() should return 970, got $uid_value"
         return 1
     else
-        echo "KUBERBLUE_UID correctly set to 970"
+        echo "kuberblue_uid() correctly returns 970"
     fi
     
     # Test kubectl configuration script
@@ -346,16 +347,16 @@ function test_configuration_files() {
         return 1
     fi
     
-    # Test kubeadm configuration (located in /usr/kuberblue, not /etc/kuberblue)
-    local kubeadm_config="/usr/kuberblue/kubeadm.yaml"
-    if ! podman run --rm "$IMAGE" test -f "$kubeadm_config"; then
-        echo "FAIL: Kubeadm configuration not found at $kubeadm_config"
+    # Test cluster configuration (located in /usr/kuberblue, not /etc/kuberblue)
+    local cluster_config="/usr/kuberblue/cluster.yaml"
+    if ! podman run --rm "$IMAGE" test -f "$cluster_config"; then
+        echo "FAIL: Cluster configuration not found at $cluster_config"
         return 1
     fi
-    
-    # Validate YAML syntax (handle multi-document YAML files)
-    if ! podman run --rm "$IMAGE" python3 -c "import yaml; [doc for doc in yaml.safe_load_all(open('$kubeadm_config'))]" 2>/dev/null; then
-        echo "FAIL: Kubeadm configuration has invalid YAML syntax"
+
+    # Validate YAML syntax
+    if ! podman run --rm "$IMAGE" python3 -c "import yaml; list(yaml.safe_load_all(open('$cluster_config')))" 2>/dev/null; then
+        echo "FAIL: Cluster configuration has invalid YAML syntax"
         return 1
     fi
     

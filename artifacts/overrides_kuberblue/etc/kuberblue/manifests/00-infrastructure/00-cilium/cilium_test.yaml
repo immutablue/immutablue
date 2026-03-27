@@ -56,7 +56,7 @@ spec:
           spec:
             containers:
             - name: client
-              image: curlimages/curl:latest
+              image: curlimages/curl:8.11.1
               command: ['sleep', '3600']
               resources:
                 requests:
