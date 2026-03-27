@@ -205,7 +205,6 @@ immutablue:
     - helm
     - htop
     - neovim
-    - sops          # SOPS secret decryption for config-as-code
     - tailscale     # Host-level mesh networking (optional, toggle in cni.yaml)
     - tmux
     42:
