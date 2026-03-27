@@ -68,7 +68,7 @@ fi
 if [[ "$DO_INSTALL_LTS" == "true" ]]
 then 
     # Download the LTS kernel repository configuration
-    curl -Lo "/etc/yum.repos.d/kwizart-kernel-longterm-${LTS_VERSION}-fedora-${FEDORA_VERSION}.repo" "${LTS_REPO_URL}"
+    curl -fLo "/etc/yum.repos.d/kwizart-kernel-longterm-${LTS_VERSION}-fedora-${FEDORA_VERSION}.repo" "${LTS_REPO_URL}"
     
     # Remove the standard kernel packages
     # The protect_running_kernel=false option allows removing the currently running kernel
@@ -213,7 +213,7 @@ fi
 
 # Install a modern build of Hugo for the documentation site
 # Fedora repositories have an older version, so we download a newer release directly
-curl -Lo /tmp/hugo.tar.gz "${HUGO_RELEASE_URL}"
+curl -fLo /tmp/hugo.tar.gz "${HUGO_RELEASE_URL}"
 tar -xzf /tmp/hugo.tar.gz -C /usr/bin/ hugo
 rm /tmp/hugo.tar.gz
 # Verify the Hugo installation
@@ -222,12 +222,12 @@ hugo version
 # Install fzf-git for improved git command-line experience
 # This provides fuzzy finding for git commands
 # https://github.com/junegunn/fzf-git.sh
-curl -Lo /usr/bin/fzf-git "${FZF_GIT_URL}"
+curl -fLo /usr/bin/fzf-git "${FZF_GIT_URL}"
 chmod a+x /usr/bin/fzf-git
 
 # Install Starship prompt for a better terminal experience
 # https://starship.rs/
-curl -Lo "/tmp/install_starship.sh" "${STARSHIP_URL}"
+curl -fLo "/tmp/install_starship.sh" "${STARSHIP_URL}"
 sh "/tmp/install_starship.sh" -y -b "/usr/bin/"
 rm "/tmp/install_starship.sh"
 
@@ -235,7 +235,7 @@ rm "/tmp/install_starship.sh"
 # We install this manually as it somehow breaks the iso installer 
 # if its installed as a system level package
 mkdir -p /tmp/just
-curl -L "${JUST_RELEASE_URL}" | tar xz -C /tmp/just
+curl -fL "${JUST_RELEASE_URL}" | tar xz -C /tmp/just
 mv /tmp/just/just /usr/bin/just
 chmod +x /usr/bin/just
 rm -rf /tmp/just
@@ -265,7 +265,7 @@ fi
 # Special packages for trueblue builds
 if [[ "$(is_option_in_build_options trueblue)" == "${TRUE}" ]]
 then 
-    curl -Lo /tmp/zerofs.tar.gz "${ZEROFS_RELEASE_URL}"
+    curl -fLo /tmp/zerofs.tar.gz "${ZEROFS_RELEASE_URL}"
     zerofs_file="zerofs-amd64"
 
     if [[ "${MARCH}" == "aarch64" ]]

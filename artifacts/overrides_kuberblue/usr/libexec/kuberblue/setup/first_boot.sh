@@ -140,6 +140,14 @@ if [[ "${KUBERBLUE_TOPOLOGY}" == "ha" ]] && [[ "${KUBERBLUE_NODE_ROLE}" == "cont
         # Race condition guard: wait briefly for other CPs that may also
         # think they are first.  If another CP appears during the contention
         # window we back off and fall through to the join flow instead.
+        #
+        # KNOWN LIMITATION: This window narrows but does not eliminate the
+        # split-brain risk. Two CPs booting within the same ~30s window that
+        # both complete kubeadm init before the other is discoverable via
+        # Tailscale could still each initialize a separate cluster. A true fix
+        # requires a distributed lease/lock (e.g., a Tailscale-served mutex)
+        # before init. For typical HA deployments (manual sequential bring-up,
+        # not simultaneous boot), this protection is sufficient.
         echo "HA topology: claiming first-CP role..."
         echo "Waiting 30s for other potential first-CP candidates to announce..."
         sleep 30

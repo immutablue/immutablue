@@ -93,6 +93,7 @@ validate_input "CRI_SOCKET" "${CRI_SOCKET}" '^[a-zA-Z0-9/_.-]+$'
 validate_input "POD_SUBNET" "${POD_SUBNET}" '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$'
 validate_input "SVC_SUBNET" "${SVC_SUBNET}" '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$'
 validate_input "DNS_DOMAIN" "${DNS_DOMAIN}" '^[a-zA-Z0-9.-]+$'
+validate_input "NODE_NAME" "${NODE_NAME}" '^[a-zA-Z0-9.-]+$'
 
 # Validate pod_subnet matches Cilium's hardcoded CIDR
 CILIUM_EXPECTED_CIDR="10.244.0.0/16"
