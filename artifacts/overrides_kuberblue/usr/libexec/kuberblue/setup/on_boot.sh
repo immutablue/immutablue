@@ -28,7 +28,7 @@ if command -v zramctl &>/dev/null; then
     for dev in /dev/zram*; do
         [ -e "$dev" ] || continue
         swapoff "$dev" 2>/dev/null || true
-        zramctl --reset "$(basename "$dev")" 2>/dev/null || true
+        zramctl --reset "$dev" 2>/dev/null || true
         echo "Disabled zram device: $dev"
     done
 fi

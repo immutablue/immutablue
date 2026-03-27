@@ -90,6 +90,7 @@ cp_generate_and_serve_token () {
 
     # If using Tailscale distribution, serve the token
     if [[ "${TOKEN_DISTRIBUTION}" == "tailscale" ]]; then
+        export TOKEN_TTL="${token_ttl}"
         source /usr/libexec/kuberblue/kube_setup/kube_token_distribute.sh
         kuberblue_token_serve "${STATE_DIR}/worker-join-command"
     else

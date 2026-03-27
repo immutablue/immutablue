@@ -20,7 +20,7 @@ trap _sops_cleanup EXIT
 if [[ ! -d "$manifest_dir" ]]
 then
     echo "Manifest dir does not exist. Nothing to do."
-    exit 1
+    exit 0
 fi
 
 if [[ -z "$(find "$manifest_dir" -type f \( -name "*.yaml" -o -name "*.json" \) | head -1)" ]]

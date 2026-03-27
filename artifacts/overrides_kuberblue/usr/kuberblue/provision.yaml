@@ -4,11 +4,17 @@
 # Override by copying to /etc/kuberblue/provision.yaml or by passing
 # kernel command line parameters (kuberblue.*).
 #
-# Parameter resolution order:
-#   1. Kernel cmdline (kuberblue.config=...) — highest priority
-#   2. Cloud-init user-data (kuberblue.config: ...) — if cloud-init is present
-#   3. /etc/kuberblue/provision.yaml — runtime override
-#   4. /usr/kuberblue/provision.yaml — this file (vendor default)
+# Parameter resolution order (as implemented in config_fetch.sh):
+#   1. Cloud-init user-data (kuberblue.config: ...) — highest priority
+#   2. Kernel cmdline (kuberblue.config=...) — fallback
+#   3. Empty — no remote fetch (default)
+#
+# NOTE: This file (provision.yaml) is documentation only. It is NOT read
+# by config_fetch.sh. Bootstrap parameters come exclusively from cloud-init
+# user-data or kernel command line parameters.
+#
+# Kernel cmdline parameter names use dots: kuberblue.config.ref=main
+# Cloud-init user-data keys use underscores: config_ref: main
 #
 # When config is empty (default), no remote fetch occurs and kuberblue
 # uses whatever config files already exist in /etc/kuberblue/ (baked into

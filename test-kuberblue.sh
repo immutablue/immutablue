@@ -137,12 +137,15 @@ METADATA
         exit 1
     fi
 
-    # Append additional disk to Lima YAML for the seed ISO
+    # Append QEMU args to Lima YAML for attaching the seed ISO as cdrom.
+    # Lima additionalDisks creates NEW empty disks, not attaches existing ISOs.
     cat >> "${LIMA_YAML}" <<LIMADISK
 
-additionalDisks:
-  - name: "cidata"
-    format: raw
+vmOpts:
+  qemu:
+    extra:
+      - "-drive"
+      - "file=${SEED_ISO},format=raw,if=virtio,media=cdrom,readonly=on"
 LIMADISK
     echo "Seed ISO generated: $SEED_ISO"
     echo "Config-as-code: $CONFIG_URL ($CONFIG_REF:$CONFIG_PATH)"

@@ -61,6 +61,21 @@ if [[ -z "$INSTANCE_ID" ]]; then
     INSTANCE_ID="kuberblue-$(echo "$CONFIG_PATH" | tr '/' '-' | sed 's/^\.$/default/')"
 fi
 
+# Input validation: reject values containing double quotes or newlines
+# to prevent YAML injection in the cloud-init user-data heredoc.
+validate_no_injection() {
+    local name="$1" value="$2"
+    if [[ "$value" == *'"'* ]] || [[ "$value" == *$'\n'* ]]; then
+        echo "ERROR: ${name} contains invalid characters (double quotes or newlines)" >&2
+        echo "This could cause YAML injection in the seed ISO user-data." >&2
+        exit 1
+    fi
+}
+
+if [[ -n "$CONFIG_URL" ]]; then validate_no_injection "CONFIG_URL" "$CONFIG_URL"; fi
+if [[ -n "$CONFIG_TOKEN" ]]; then validate_no_injection "CONFIG_TOKEN" "$CONFIG_TOKEN"; fi
+if [[ -n "$AGE_KEY" ]]; then validate_no_injection "AGE_KEY" "$AGE_KEY"; fi
+
 # Check for ISO generation tool
 ISO_CMD=""
 if command -v genisoimage &>/dev/null; then

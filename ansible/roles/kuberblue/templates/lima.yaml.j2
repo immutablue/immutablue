@@ -28,6 +28,10 @@ containerd:
 provision: []
 
 # Attach the seed ISO for cloud-init NoCloud
-additionalDisks:
-  - name: "cidata"
-    format: raw
+# Lima additionalDisks creates NEW empty disks, not attaches existing ISOs.
+# Use QEMU extra args to attach the seed ISO as a cdrom device.
+vmOpts:
+  qemu:
+    extra:
+      - "-drive"
+      - "file={{ kuberblue_seed_iso_path }},format=raw,if=virtio,media=cdrom,readonly=on"

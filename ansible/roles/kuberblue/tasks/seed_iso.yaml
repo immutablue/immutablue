@@ -19,10 +19,35 @@
     dest: "{{ seed_tmpdir.path }}/meta-data"
     mode: "0644"
 
+- name: Detect available ISO generation tool
+  ansible.builtin.shell:
+    cmd: |
+      if command -v genisoimage &>/dev/null; then
+        echo genisoimage
+      elif command -v mkisofs &>/dev/null; then
+        echo mkisofs
+      elif command -v xorriso &>/dev/null; then
+        echo xorriso
+      else
+        echo NONE
+      fi
+  register: iso_tool
+  changed_when: false
+
+- name: Fail if no ISO generation tool is available
+  ansible.builtin.fail:
+    msg: >-
+      No ISO generation tool found. Install one of: genisoimage, mkisofs, or xorriso.
+  when: iso_tool.stdout | trim == 'NONE'
+
 - name: Generate seed ISO
   ansible.builtin.command:
     cmd: >-
-      genisoimage -output {{ kuberblue_seed_iso_path }}
+      {{ iso_tool.stdout | trim }}
+      {% if iso_tool.stdout | trim == 'xorriso' %}
+      -as mkisofs
+      {% endif %}
+      -output {{ kuberblue_seed_iso_path }}
       -volid cidata -joliet -rock
       {{ seed_tmpdir.path }}/user-data
       {{ seed_tmpdir.path }}/meta-data

@@ -4,8 +4,8 @@ set -uo pipefail
 # config_fetch.sh — Fetch cluster configuration from a remote git repo
 #
 # Reads bootstrap parameters from two sources (in priority order):
-#   1. Kernel command line (/proc/cmdline) — kuberblue.* params
-#   2. Cloud-init user-data — if cloud-init is available
+#   1. Cloud-init user-data — if cloud-init is available (highest priority)
+#   2. Kernel command line (/proc/cmdline) — kuberblue.* params (fallback)
 #
 # Parameters:
 #   kuberblue.config       — Git repo URL (required to activate config fetch)
@@ -41,8 +41,10 @@ cmdline_get() {
     if [[ -r /proc/cmdline ]]; then
         local cmdline
         cmdline="$(</proc/cmdline)"
+        # Escape dots in key for regex safety (config.ref -> config\.ref)
+        local escaped_key="${key//./\\.}"
         # Match kuberblue.key=value — value is everything until next space
-        if [[ "$cmdline" =~ kuberblue\.${key}=([^[:space:]]+) ]]; then
+        if [[ "$cmdline" =~ kuberblue\.${escaped_key}=([^[:space:]]+) ]]; then
             val="${BASH_REMATCH[1]}"
         fi
     fi
@@ -107,8 +109,17 @@ except Exception:
         fi
     fi
 
-    # Fall back to kernel cmdline
-    cmdline_get "$key" "$default"
+    # Fall back to kernel cmdline.
+    # Cloud-init keys use underscores (config_ref), but kernel cmdline uses
+    # dot-separated names (kuberblue.config.ref) per documentation.
+    # Convert: config_ref -> config.ref, config_path -> config.path, etc.
+    # Special case: age_key -> age-key (hyphen, not dot)
+    local cmdline_key="$key"
+    case "$key" in
+        age_key) cmdline_key="age-key" ;;
+        *_*)     cmdline_key="${key//_/.}" ;;
+    esac
+    cmdline_get "$cmdline_key" "$default"
 }
 
 # -----------------------------------------------------------------------
@@ -319,7 +330,7 @@ fi
 mkdir -p "$STATE_DIR"
 
 # Warn if age key was sourced from kernel cmdline (world-readable /proc/cmdline)
-if [[ -n "$KB_AGE_KEY" ]] && [[ -r /proc/cmdline ]] && grep -q "kuberblue\.age-key=" /proc/cmdline 2>/dev/null; then
+if [[ -n "$KB_AGE_KEY" ]] && [[ -r /proc/cmdline ]] && grep -qF "kuberblue.age-key=" /proc/cmdline 2>/dev/null; then
     echo "WARNING: Age key was passed via kernel cmdline. /proc/cmdline is world-readable. For production, use cloud-init userdata instead."
 fi
 

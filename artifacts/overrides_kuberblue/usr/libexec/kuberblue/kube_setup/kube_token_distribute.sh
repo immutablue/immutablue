@@ -83,11 +83,17 @@ kuberblue_token_serve () {
     local serve_ttl="${TOKEN_TTL:-24h}"
     local serve_ttl_seconds
     serve_ttl_seconds="$(parse_duration_to_seconds "$serve_ttl")"
+    local pid_file="${STATE_DIR}/token-serve-timer.pid"
+    if [[ -f "$pid_file" ]]; then
+        kill "$(cat "$pid_file")" 2>/dev/null || true
+        rm -f "$pid_file"
+    fi
     (
         sleep "${serve_ttl_seconds}"
         tailscale serve --https=443 --set-path=/kuberblue/join-token off 2>/dev/null || true
         echo "Token serve expired after ${serve_ttl}"
     ) &
+    echo $! > "$pid_file"
     echo "Token serve will auto-expire after ${serve_ttl} (${serve_ttl_seconds}s)"
 }
 

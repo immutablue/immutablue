@@ -29,6 +29,8 @@ function test_config_files_exist() {
         "security.yaml"
         "gitops.yaml"
         "packages.yaml"
+        "provision.yaml"
+        "settings.yaml"
     )
 
     for file in "${expected_files[@]}"; do
