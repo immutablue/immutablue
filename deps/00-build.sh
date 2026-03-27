@@ -176,11 +176,11 @@ build_yaml_glib () {
 		libdir="lib64"
 	fi
 
-	make all PREFIX=/usr
-	make install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}"
+	make DEBUG=1 all PREFIX=/usr
+	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}"
 
 	# Also install to the deps container itself so gst/gowl can link against it
-	make install PREFIX=/usr LIBDIR="/usr/${libdir}"
+	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}"
 	ldconfig
 }
 
