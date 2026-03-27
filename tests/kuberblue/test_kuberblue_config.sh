@@ -87,11 +87,7 @@ function test_config_get_defaults() {
             FAIL=1
         fi
 
-        val="$(kuberblue_config_get cluster.yaml .cluster.auto_init "MISSING")"
-        if [[ "$val" != "true" ]]; then
-            echo "FAIL: cluster.auto_init expected=true got=$val"
-            FAIL=1
-        fi
+        # cluster.auto_init removed (dead key — auto-init is always enabled)
 
         # Test cni.yaml defaults
         val="$(kuberblue_config_get cni.yaml .networking.cni "MISSING")"

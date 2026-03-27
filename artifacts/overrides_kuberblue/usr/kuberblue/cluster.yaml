@@ -32,13 +32,9 @@ cluster:
   # CRI socket path (derived from container_runtime; override only if non-standard)
   cri_socket: /var/run/crio/crio.sock
 
-  # Swap policy: disabled | enabled
-  # Kubernetes requires swap to be off; kuberblue disables it on every boot.
-  swap: disabled
+  # Swap is always disabled (hardcoded in on_boot.sh). Kubernetes requires swap off.
 
-  # Automatically initialize the cluster on first boot
-  # Set to false to require manual 'kuberblue init'
-  auto_init: true
+  # Auto-init is always enabled. Use 'kuberblue init' for manual control.
 
   # Advertise address for the API server.
   # 'auto'          — use the primary interface IP
@@ -70,12 +66,10 @@ cluster:
     vip_address: ""
     # Interface for kube-vip to bind (empty = auto-detect)
     vip_interface: ""
-    # Number of control-plane nodes in the HA cluster
+    # Informational only — not currently validated or enforced
     control_planes: 3
-    # Load balancer for the HA control-plane VIP
-    load_balancer: kube-vip
-    # Use an external etcd cluster instead of stacked etcd
-    external_etcd: false
+    # Load balancer is always kube-vip (only supported option)
+    # External etcd not yet supported
 
   # State directory (writable, survives upgrades)
   state_dir: /var/lib/kuberblue

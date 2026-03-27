@@ -106,6 +106,11 @@ kuberblue_detect_node_role () {
         local ts_tag
         ts_tag="$(kuberblue_config_get cni.yaml .networking.tailscale.tag "")"
         if [[ -n "${ts_tag}" ]] && [[ "${ts_tag}" != "null" ]]; then
+            # Validate ts_tag to prevent yq expression injection
+            if ! [[ "${ts_tag}" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+                echo "ERROR: invalid Tailscale tag: ${ts_tag}" >&2
+                return 1
+            fi
             # If we can see a peer with the CP tag, we are a worker
             if tailscale status --json 2>/dev/null \
                 | yq -e '.Peer[] | select(.Tags // [] | .[] == "tag:'"${ts_tag}"'")' &>/dev/null; then

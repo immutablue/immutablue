@@ -24,6 +24,19 @@ fi
 KUBERBLUE_TOKEN_SERVE_PATH="/kuberblue/join-token"
 KUBERBLUE_TOKEN_SERVE_PORT="443"
 
+# parse_duration_to_seconds — convert duration string (e.g. 24h, 30m, 300s) to seconds
+parse_duration_to_seconds() {
+    local dur="$1"
+    local num="${dur%[hms]*}"
+    local unit="${dur##*[0-9]}"
+    case "$unit" in
+        h) echo $((num * 3600)) ;;
+        m) echo $((num * 60)) ;;
+        s) echo "$num" ;;
+        *) echo $((num * 3600)) ;;  # default hours
+    esac
+}
+
 # kuberblue_token_serve [token_file]
 # Serve the join token via Tailscale HTTPS serve.
 # The token file defaults to ${STATE_DIR}/worker-join-command (where first_boot.sh writes it).
@@ -65,6 +78,17 @@ kuberblue_token_serve () {
     ts_ip="$(tailscale ip -4 2>/dev/null | head -1)"
     echo "Join token available at: https://${ts_ip}${KUBERBLUE_TOKEN_SERVE_PATH}"
     echo "Workers with Tailscale access can now auto-join."
+
+    # Auto-expire token serve after TTL
+    local serve_ttl="${TOKEN_TTL:-24h}"
+    local serve_ttl_seconds
+    serve_ttl_seconds="$(parse_duration_to_seconds "$serve_ttl")"
+    (
+        sleep "${serve_ttl_seconds}"
+        tailscale serve --https=443 --set-path=/kuberblue/join-token off 2>/dev/null || true
+        echo "Token serve expired after ${serve_ttl}"
+    ) &
+    echo "Token serve will auto-expire after ${serve_ttl} (${serve_ttl_seconds}s)"
 }
 
 # kuberblue_token_stop_serve
@@ -77,7 +101,8 @@ kuberblue_token_stop_serve () {
 
     echo "Stopping Tailscale token serve..."
     tailscale serve --https="${KUBERBLUE_TOKEN_SERVE_PORT}" \
-        --set-path="${KUBERBLUE_TOKEN_SERVE_PATH}" off 2>/dev/null || true
+        --set-path="${KUBERBLUE_TOKEN_SERVE_PATH}" off 2>/dev/null \
+        || echo "WARNING: failed to stop tailscale serve — token may still be accessible"
     echo "Token serving stopped."
 }
 
@@ -92,6 +117,12 @@ kuberblue_token_discover_cp () {
     if [[ -z "${ts_tag}" ]] || [[ "${ts_tag}" == "null" ]]; then
         echo "ERROR: networking.tailscale.tag is not set in cni.yaml" >&2
         echo "Cannot discover control-plane node without a Tailscale tag." >&2
+        return 1
+    fi
+
+    # Validate ts_tag to prevent yq expression injection
+    if ! [[ "${ts_tag}" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        echo "ERROR: invalid Tailscale tag: ${ts_tag}" >&2
         return 1
     fi
 
@@ -159,7 +190,9 @@ kuberblue_token_fetch () {
             return 1
         fi
 
-        # --insecure: Tailscale serve uses a self-signed cert by default
+        # --insecure: TLS cert verification skipped because Tailscale WireGuard
+        # provides end-to-end encryption. The self-signed cert on tailscale serve
+        # is not CA-signed.
         # --connect-timeout: don't hang forever if CP isn't ready yet
         join_cmd="$(curl --silent --fail --insecure --connect-timeout 10 "${token_url}" 2>/dev/null)" || true
 
@@ -180,7 +213,8 @@ kuberblue_token_fetch () {
     mkdir -p "$(dirname "${output_file}")"
     printf '%s\n' "${join_cmd}" > "${output_file}"
     chmod 0640 "${output_file}"
-    chown root:kuberblue "${output_file}" 2>/dev/null || true
+    chown root:kuberblue "${output_file}" 2>/dev/null \
+        || echo "WARNING: chown to kuberblue group failed — group may not exist yet"
 
     echo "Join token fetched and stored at: ${output_file}"
 }

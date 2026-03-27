@@ -12,8 +12,13 @@ echo "${MSG}"
 # which is root:root 0600 and unreadable by the kuberblue user.
 KUBERBLUE_KUBECONFIG="/var/home/kuberblue/.kube/config"
 
+# NOTE: CMD is interpolated into the -c string, which means it is evaluated by
+# a sub-shell.  This is acceptable because CMD only comes from internal callers
+# (other kuberblue scripts), never from user/network input.  We use
+# KUBECONFIG as an env var prefix so the caller's command runs with the
+# correct kubeconfig path.
 i=0
-until su -l -s /bin/bash kuberblue -c "export KUBECONFIG='${KUBERBLUE_KUBECONFIG}'; ${CMD}"; do
+until su -l -s /bin/bash kuberblue -c "export KUBECONFIG='${KUBERBLUE_KUBECONFIG}'; $1"; do
     i=$((i + 1))
     if [[ ${i} -ge ${MAX_RETRIES} ]]; then
         echo "ERROR: Command failed after ${MAX_RETRIES} attempts: ${CMD}"

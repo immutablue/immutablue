@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(ls:*)",
+      "WebFetch(domain:kyverno.github.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:grafana.com)",
+      "WebFetch(domain:openebs.io)",
+      "Bash(ssh:*)",
+      "Bash(shellcheck:*)",
+      "Bash(chmod:*)",
+      "Bash(ssh:*)"
+    ],
+    "deny": []
+  },
+  "enableAllProjectMcpServers": false
+}

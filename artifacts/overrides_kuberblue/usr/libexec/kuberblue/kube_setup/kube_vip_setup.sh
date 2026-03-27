@@ -38,6 +38,15 @@ kuberblue_vip_detect_interface () {
     echo "${iface}"
 }
 
+# validate_input — reject values with characters unsafe for heredoc YAML
+validate_input() {
+    local name="$1" value="$2" pattern="$3"
+    if ! [[ "$value" =~ $pattern ]]; then
+        echo "ERROR: ${name} contains invalid characters: ${value}" >&2
+        exit 1
+    fi
+}
+
 # kuberblue_vip_setup
 # Generate the kube-vip static pod manifest for ARP-based L2 VIP.
 kuberblue_vip_setup () {
@@ -66,6 +75,11 @@ kuberblue_vip_setup () {
         vip_interface="$(kuberblue_vip_detect_interface)"
         echo "Detected primary interface: ${vip_interface}"
     fi
+
+    # Validate all inputs before heredoc YAML generation to prevent injection
+    validate_input "KUBE_VIP_IMAGE" "${KUBE_VIP_IMAGE}" '^[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+$'
+    validate_input "vip_interface" "${vip_interface}" '^[a-zA-Z0-9._-]+$'
+    validate_input "vip_address" "${vip_address}" '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
 
     # Ensure manifests directory exists (kubeadm may not have created it yet)
     mkdir -p "$(dirname "${KUBE_VIP_MANIFEST}")"

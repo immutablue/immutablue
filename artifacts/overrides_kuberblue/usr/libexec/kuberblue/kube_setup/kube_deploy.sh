@@ -133,8 +133,11 @@ kuberblue_sops_decrypt_if_needed() {
             return 1
         fi
 
+        local sops_tmp_dir="${STATE_DIR:-/var/lib/kuberblue}/tmp"
+        mkdir -p "$sops_tmp_dir"
+        chmod 0750 "$sops_tmp_dir"
         local tmpfile
-        tmpfile="$(mktemp /tmp/kuberblue-sops-XXXXXX.yaml)"
+        tmpfile="$(mktemp "${sops_tmp_dir}/kuberblue-sops-XXXXXX.yaml")"
         _sops_tmpfiles+=("$tmpfile")
 
         if ! SOPS_AGE_KEY_FILE="$age_key" sops --decrypt "$file" > "$tmpfile"; then

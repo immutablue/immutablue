@@ -1,5 +1,6 @@
 #!/bin/bash
-set -uxo pipefail
+# NOTE: -x intentionally omitted — this script handles secrets (deploy tokens, Age keys)
+set -uo pipefail
 # config_fetch.sh — Fetch cluster configuration from a remote git repo
 #
 # Reads bootstrap parameters from two sources (in priority order):
@@ -316,6 +317,11 @@ if ! command -v git &>/dev/null; then
 fi
 
 mkdir -p "$STATE_DIR"
+
+# Warn if age key was sourced from kernel cmdline (world-readable /proc/cmdline)
+if [[ -n "$KB_AGE_KEY" ]] && [[ -r /proc/cmdline ]] && grep -q "kuberblue\.age-key=" /proc/cmdline 2>/dev/null; then
+    echo "WARNING: Age key was passed via kernel cmdline. /proc/cmdline is world-readable. For production, use cloud-init userdata instead."
+fi
 
 # Step 1: Install Age key first (needed for SOPS decryption)
 install_age_key

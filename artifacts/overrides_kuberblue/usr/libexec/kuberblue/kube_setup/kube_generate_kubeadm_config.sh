@@ -77,6 +77,23 @@ DNS_DOMAIN="$(kuberblue_config_get cluster.yaml .cluster.networking.dns_domain "
 CRI_SOCKET="$(kuberblue_config_get cluster.yaml .cluster.cri_socket "/var/run/crio/crio.sock")"
 NODE_NAME="$(hostname)"
 
+# validate_input — reject values with characters unsafe for heredoc YAML
+validate_input() {
+    local name="$1" value="$2" pattern="$3"
+    if ! [[ "$value" =~ $pattern ]]; then
+        echo "ERROR: ${name} contains invalid characters: ${value}" >&2
+        exit 1
+    fi
+}
+
+# Validate all inputs before heredoc YAML generation to prevent injection
+validate_input "CLUSTER_NAME" "${CLUSTER_NAME}" '^[a-zA-Z0-9-]+$'
+validate_input "ADVERTISE_ADDR" "${ADVERTISE_ADDR}" '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
+validate_input "CRI_SOCKET" "${CRI_SOCKET}" '^[a-zA-Z0-9/_.-]+$'
+validate_input "POD_SUBNET" "${POD_SUBNET}" '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$'
+validate_input "SVC_SUBNET" "${SVC_SUBNET}" '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$'
+validate_input "DNS_DOMAIN" "${DNS_DOMAIN}" '^[a-zA-Z0-9.-]+$'
+
 # Validate pod_subnet matches Cilium's hardcoded CIDR
 CILIUM_EXPECTED_CIDR="10.244.0.0/16"
 if [[ "${POD_SUBNET}" != "${CILIUM_EXPECTED_CIDR}" ]]; then

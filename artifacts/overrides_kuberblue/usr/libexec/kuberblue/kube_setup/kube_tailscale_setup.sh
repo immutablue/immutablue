@@ -69,7 +69,10 @@ else
     fi
 fi
 
+# Suppress xtrace to prevent auth key from leaking into logs
+{ set +x; } 2>/dev/null
 tailscale up "${ts_args[@]}"
+set -x
 
 TS_IP="$(tailscale ip -4 2>/dev/null | head -1)"
 if [[ -z "${TS_IP}" ]]; then

@@ -32,10 +32,12 @@ networking:
   # Cilium CNI advanced settings
   # Read by: Cilium Helm values (kube_deploy.sh applies 00-cilium/10-values.yaml)
   cilium:
+    # TODO: wire to Cilium Helm values (currently uses Cilium defaults)
     # Routing mode: tunnel | native
     #   tunnel — VXLAN/Geneve encapsulation (works everywhere, slight overhead)
     #   native — direct routing (requires L2 adjacency or BGP, lower overhead)
     routing_mode: tunnel
+    # TODO: wire to Cilium Helm values (currently uses Cilium defaults)
     # WireGuard encryption for pod-to-pod traffic: disabled | wireguard
     #   disabled  — no encryption (default; trust the network)
     #   wireguard — transparent WireGuard encryption between nodes

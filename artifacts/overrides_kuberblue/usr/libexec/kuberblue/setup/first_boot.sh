@@ -84,7 +84,8 @@ cp_generate_and_serve_token () {
     echo "Generating worker join token (TTL=${token_ttl})..."
     kubeadm token create --print-join-command --ttl "${token_ttl}" > "${STATE_DIR}/worker-join-command"
     chmod 0640 "${STATE_DIR}/worker-join-command"
-    chown root:kuberblue "${STATE_DIR}/worker-join-command" 2>/dev/null || true
+    chown root:kuberblue "${STATE_DIR}/worker-join-command" 2>/dev/null \
+        || echo "WARNING: chown to kuberblue group failed — group may not exist yet"
     echo "Worker join command stored at ${STATE_DIR}/worker-join-command"
 
     # If using Tailscale distribution, serve the token
@@ -135,6 +136,24 @@ if [[ "${KUBERBLUE_TOPOLOGY}" == "ha" ]] && [[ "${KUBERBLUE_NODE_ROLE}" == "cont
     kuberblue_vip_setup
 
     if ha_is_first_cp; then
+        # Race condition guard: wait briefly for other CPs that may also
+        # think they are first.  If another CP appears during the contention
+        # window we back off and fall through to the join flow instead.
+        echo "HA topology: claiming first-CP role..."
+        echo "Waiting 30s for other potential first-CP candidates to announce..."
+        sleep 30
+        # Re-check: if another CP appeared during the wait, we are NOT first
+        if ! ha_is_first_cp; then
+            echo "Another CP was detected during the contention window — falling through to join flow"
+            _ha_is_first=false
+        else
+            _ha_is_first=true
+        fi
+    else
+        _ha_is_first=false
+    fi
+
+    if [[ "${_ha_is_first}" == "true" ]]; then
         # --- First control-plane: initialize the cluster ---
         echo "HA topology: this is the FIRST control-plane node — initializing cluster..."
         /usr/libexec/kuberblue/kube_setup/kube_init.sh
@@ -159,7 +178,8 @@ if [[ "${KUBERBLUE_TOPOLOGY}" == "ha" ]] && [[ "${KUBERBLUE_NODE_ROLE}" == "cont
             # Write cert key to a file and serve it alongside the join token
             printf '%s\n' "${CERT_KEY}" > "${STATE_DIR}/ha-certificate-key"
             chmod 0640 "${STATE_DIR}/ha-certificate-key"
-            chown root:kuberblue "${STATE_DIR}/ha-certificate-key" 2>/dev/null || true
+            chown root:kuberblue "${STATE_DIR}/ha-certificate-key" 2>/dev/null \
+                || echo "WARNING: chown to kuberblue group failed — group may not exist yet"
 
             tailscale serve --bg \
                 --https=443 \

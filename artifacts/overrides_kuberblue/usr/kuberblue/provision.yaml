@@ -38,10 +38,16 @@ provision:
   # SOPS Age private key for decrypting secrets in the config repo
   # Generate with: age-keygen
   # Leave empty if not using SOPS encryption
+  #
+  # SECURITY WARNING: If passed via kernel cmdline (kuberblue.age-key=...),
+  # the key will be visible in /proc/cmdline which is world-readable.
+  # For production, pass the age key via cloud-init userdata with restricted
+  # file permissions (mode 0600) instead of kernel command line parameters.
   age_key: ""
 
   # Cloud-init integration
   cloud_init:
-    # Enable cloud-init service for config injection
-    # When true, kuberblue reads cloud-init user-data for bootstrap params
+    # Informational only — config_fetch.sh probes cloud-init directly
+    # (checks /run/cloud-init/instance-data.json and /etc/cloud/cloud.cfg.d/).
+    # This flag is not read by any script; it documents operator intent.
     enabled: false
