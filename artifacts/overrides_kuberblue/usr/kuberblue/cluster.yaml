@@ -8,19 +8,33 @@
 # Changes to /etc/kuberblue/cluster.yaml take effect on next boot.
 
 cluster:
+  # Human-readable cluster name (used in kubeadm ClusterConfiguration.clusterName)
+  name: kuberblue
+
   # Topology mode: single | multi | ha
   #   single — single control-plane node; control-plane taint removed automatically
   #   multi  — control-plane + worker nodes; workers join via kubeadm join token
   #   ha     — three-node HA control-plane with kube-vip VIP; requires ha.vip_address
   topology: single
 
-  # Node role on this machine: control-plane | worker
+  # Node role on this machine: control-plane | worker | auto
   # In 'single' topology, always control-plane.
   # In 'multi'/'ha', set to 'worker' on non-control-plane nodes.
+  # 'auto' — detect role automatically:
+  #   - If cluster-initialized state exists, use stored role
+  #   - If /etc/kubernetes/admin.conf exists, control-plane
+  #   - Otherwise, default to worker (multi) or control-plane (single)
   node_role: control-plane
 
-  # CRI socket path
+  # Container runtime: crio (only supported option)
+  container_runtime: crio
+
+  # CRI socket path (derived from container_runtime; override only if non-standard)
   cri_socket: /var/run/crio/crio.sock
+
+  # Swap is always disabled (hardcoded in on_boot.sh). Kubernetes requires swap off.
+
+  # Auto-init is always enabled. Use 'kuberblue init' for manual control.
 
   # Advertise address for the API server.
   # 'auto'          — use the primary interface IP
@@ -34,10 +48,28 @@ cluster:
     service_subnet: 10.96.0.0/16
     dns_domain: cluster.local
 
+  # Multi-node settings (ignored unless topology: multi or ha)
+  multi:
+    # Automatically join workers to the cluster on first boot
+    # Requires token_distribution to be set to a supported method
+    worker_auto_join: false
+    # How join tokens are distributed to workers: manual | tailscale
+    #   manual    — operator copies token to worker node
+    #   tailscale — CP serves token over Tailscale; workers fetch automatically
+    token_distribution: manual
+    # TTL for join tokens (kubeadm token --ttl)
+    token_ttl: 24h
+
   # HA mode settings (ignored unless topology: ha)
   ha:
-    vip_address: ""    # Virtual IP for kube-vip (required for ha topology)
-    vip_interface: ""  # Interface for kube-vip to bind (empty = auto-detect)
+    # Virtual IP for kube-vip (required for ha topology)
+    vip_address: ""
+    # Interface for kube-vip to bind (empty = auto-detect)
+    vip_interface: ""
+    # Informational only — not currently validated or enforced
+    control_planes: 3
+    # Load balancer is always kube-vip (only supported option)
+    # External etcd not yet supported
 
   # State directory (writable, survives upgrades)
   state_dir: /var/lib/kuberblue

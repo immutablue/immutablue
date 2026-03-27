@@ -67,22 +67,17 @@ data:
           datasourceUid: loki
       editable: true
     
-    # Alertmanager (if enabled in Mimir)
-    - name: Alertmanager
-      type: alertmanager
-      uid: alertmanager
-      url: http://mimir-alertmanager:8080
-      access: proxy
-      jsonData:
-        implementation: mimir
-      editable: true
-    
-    # Self-monitoring - Grafana metrics
-    - name: Grafana
-      type: prometheus
-      uid: grafana-metrics
-      url: http://mimir-query-frontend:8080/prometheus
-      access: proxy
-      jsonData:
-        httpMethod: POST
-      editable: true
+    # Alertmanager — disabled; Mimir alertmanager is not enabled.
+    # To add, enable alertmanager in Mimir values first, then uncomment:
+    # - name: Alertmanager
+    #   type: alertmanager
+    #   uid: alertmanager
+    #   url: http://mimir-alertmanager:8080
+    #   access: proxy
+    #   jsonData:
+    #     implementation: mimir
+    #   editable: true
+
+    # Self-monitoring: Grafana's own metrics are scraped by Alloy and stored
+    # in Mimir alongside all other metrics. Use the Mimir datasource above
+    # to query them (no separate datasource needed).

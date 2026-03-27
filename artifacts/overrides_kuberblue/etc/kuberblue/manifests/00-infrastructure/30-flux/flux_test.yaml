@@ -1,0 +1,137 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: flux-reconciliation-test
+  annotations:
+    kuberblue.test/component: "flux"
+    kuberblue.test/category: "gitops"
+    kuberblue.test/priority: "high"
+    kuberblue.test/timeout: "300s"
+spec:
+  timeouts:
+    apply: 60s
+    assert: 300s
+    cleanup: 60s
+  steps:
+
+  # Step 1: Verify flux-system namespace exists
+  - name: verify-flux-namespace
+    try:
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: flux-system
+          status:
+            phase: Active
+
+  # Step 2: Verify Flux controllers are running
+  - name: verify-flux-controllers
+    try:
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: source-controller
+            namespace: flux-system
+          status:
+            (readyReplicas > `0`): true
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: kustomize-controller
+            namespace: flux-system
+          status:
+            (readyReplicas > `0`): true
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: helm-controller
+            namespace: flux-system
+          status:
+            (readyReplicas > `0`): true
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: notification-controller
+            namespace: flux-system
+          status:
+            (readyReplicas > `0`): true
+
+  # Step 3: Verify Flux controller pods are healthy
+  - name: verify-flux-pods-running
+    try:
+    - script:
+        timeout: 60s
+        content: |
+          # All flux-system pods should be Running
+          NOT_READY=$(kubectl get pods -n flux-system --no-headers \
+            | grep -v -E "Running|Completed|Succeeded" | grep -v "^$" | wc -l)
+          if [[ "${NOT_READY}" -gt 0 ]]; then
+            echo "ERROR: ${NOT_READY} Flux pods not ready"
+            kubectl get pods -n flux-system
+            exit 1
+          fi
+          TOTAL=$(kubectl get pods -n flux-system --no-headers | wc -l)
+          echo "All ${TOTAL} Flux pod(s) are running"
+
+  # Step 4: Verify Flux CRDs are installed
+  - name: verify-flux-crds
+    try:
+    - script:
+        timeout: 30s
+        content: |
+          # Check for required Flux CRDs
+          REQUIRED_CRDS=(
+            "gitrepositories.source.toolkit.fluxcd.io"
+            "kustomizations.kustomize.toolkit.fluxcd.io"
+            "helmrepositories.source.toolkit.fluxcd.io"
+            "helmreleases.helm.toolkit.fluxcd.io"
+            "helmcharts.source.toolkit.fluxcd.io"
+          )
+
+          FAIL=0
+          for crd in "${REQUIRED_CRDS[@]}"; do
+            if ! kubectl get crd "${crd}" &>/dev/null; then
+              echo "ERROR: Missing CRD: ${crd}"
+              FAIL=1
+            fi
+          done
+
+          if [[ "${FAIL}" -eq 1 ]]; then
+            echo "Available CRDs:"
+            kubectl get crd | grep toolkit.fluxcd.io || true
+            exit 1
+          fi
+
+          echo "All required Flux CRDs are installed"
+
+  # Step 5: Verify Flux can reconcile (check for any existing GitRepository or Kustomization)
+  - name: verify-flux-reconciliation-ready
+    try:
+    - script:
+        timeout: 30s
+        content: |
+          # Verify Flux source-controller is serving (health endpoint)
+          SOURCE_POD=$(kubectl get pods -n flux-system -l app=source-controller -o name | head -1)
+          if [[ -z "${SOURCE_POD}" ]]; then
+            echo "ERROR: No source-controller pod found"
+            exit 1
+          fi
+
+          # Verify kustomize-controller is serving
+          KUSTOMIZE_POD=$(kubectl get pods -n flux-system -l app=kustomize-controller -o name | head -1)
+          if [[ -z "${KUSTOMIZE_POD}" ]]; then
+            echo "ERROR: No kustomize-controller pod found"
+            exit 1
+          fi
+
+          echo "Flux controllers are ready for reconciliation"

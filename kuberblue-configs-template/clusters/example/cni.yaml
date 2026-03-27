@@ -1,0 +1,13 @@
+# CNI and networking configuration
+
+networking:
+  cni: cilium
+
+  tailscale:
+    enabled: false
+    # Uncomment and set your Tailscale tag for multi-node auto-discovery:
+    # tag: "kuberblue-cp"
+    # accept_routes: true
+
+  # kube-proxy is replaced by Cilium — leave this true
+  kube_proxy_replacement: true

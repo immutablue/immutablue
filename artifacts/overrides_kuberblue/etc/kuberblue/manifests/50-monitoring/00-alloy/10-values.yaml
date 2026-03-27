@@ -141,12 +141,14 @@ alloy:
         forward_to = [prometheus.remote_write.mimir.receiver]
         
         // Add cluster label
+        // Default: "kuberblue". Override via `kuberblue override` for
+        // non-default cluster names.
         rule {
           target_label = "cluster"
           replacement = "kuberblue"
         }
       }
-      
+
       // Remote write to Mimir
       prometheus.remote_write "mimir" {
         endpoint {
@@ -182,14 +184,14 @@ alloy:
           }
         }
         
-        // Add cluster label
+        // Add cluster label (override via `kuberblue override`)
         stage.static_labels {
           values = {
             cluster = "kuberblue",
           }
         }
       }
-      
+
       // Collect system logs
       loki.source.journal "system" {
         forward_to = [loki.process.system.receiver]
@@ -202,14 +204,14 @@ alloy:
       loki.process "system" {
         forward_to = [loki.write.default.receiver]
         
-        // Add cluster label
+        // Add cluster label (override via `kuberblue override`)
         stage.static_labels {
           values = {
             cluster = "kuberblue",
           }
         }
       }
-      
+
       // Write logs to Loki (minimal config)
       loki.write "default" {
         endpoint {
@@ -286,33 +288,42 @@ controller:
   type: daemonset
   
   # Volume mounts - using extra section as expected by chart
+  # CRI-O stores logs at /var/log/pods/ (not /var/lib/docker/containers).
+  # /var/log/containers/ contains symlinks to /var/log/pods/.
   volumeMounts:
     extra:
       - name: varlog
         mountPath: /var/log
         readOnly: true
-      - name: varlibdockercontainers
-        mountPath: /var/lib/docker/containers
+      - name: varlogpods
+        mountPath: /var/log/pods
         readOnly: true
-  
+      - name: varlogcontainers
+        mountPath: /var/log/containers
+        readOnly: true
+
   # Volumes - using extra section as expected by chart
   volumes:
     extra:
       - name: varlog
         hostPath:
           path: /var/log
-      - name: varlibdockercontainers
+      - name: varlogpods
         hostPath:
-          path: /var/lib/docker/containers
+          path: /var/log/pods
+      - name: varlogcontainers
+        hostPath:
+          path: /var/log/containers
 
-# Resources
+# Resources — Alloy collects metrics, logs, and traces as a DaemonSet.
+# 128Mi is too low and will OOM on busy nodes.
 resources:
   requests:
-    cpu: 25m
-    memory: 64Mi
+    cpu: 50m
+    memory: 256Mi
   limits:
-    cpu: 100m
-    memory: 128Mi
+    cpu: 500m
+    memory: 512Mi
 
 # Service for OTLP receiver
 service:
@@ -334,12 +345,17 @@ podSecurityContext:
   runAsGroup: 0
   fsGroup: 0
 
-# Container security
+# Container security — minimized privileges
+# SYS_PTRACE is needed for /proc-based process discovery.
+# Journal access works via volume mounts; privileged mode is NOT required.
 containerSecurityContext:
-  privileged: true  # Required for journal access
+  privileged: false
+  allowPrivilegeEscalation: false
   capabilities:
+    drop:
+      - ALL
     add:
-      - SYS_TIME  # For journal access
+      - SYS_PTRACE
 
 # Monitoring
 serviceMonitor:

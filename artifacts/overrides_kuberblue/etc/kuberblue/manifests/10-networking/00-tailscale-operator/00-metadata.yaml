@@ -1,0 +1,10 @@
+# Name of the chart deployment
+name: tailscale-operator
+namespace: tailscale
+chart: tailscale/tailscale-operator
+create_namespace: true
+# Name of the chart repo
+repo_name: tailscale
+repo_url: https://pkgs.tailscale.com/helmcharts
+# Arguments to be passed that are not set in values.yaml. Prefer values file.
+args:

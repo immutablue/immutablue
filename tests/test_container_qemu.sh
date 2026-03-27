@@ -621,15 +621,9 @@ function test_bootc_fallback() {
         return 1
       fi
       
-      # Check for Kuberblue configuration
-      if ! podman run --rm "$FALLBACK_IMAGE" bash -c "test -f /etc/kuberblue/kubeadm.yaml"; then
-        echo "FAIL: Kuberblue configuration check failed"
-        return 1
-      fi
-      
-      # Check for chainsaw configuration
-      if ! podman run --rm "$FALLBACK_IMAGE" bash -c "test -f /etc/kuberblue/chainsaw.yaml"; then
-        echo "FAIL: Chainsaw configuration check failed"
+      # Check for Kuberblue configuration (v2: vendor defaults in /usr/kuberblue/)
+      if ! podman run --rm "$FALLBACK_IMAGE" bash -c "test -f /usr/kuberblue/cluster.yaml && test -f /usr/kuberblue/settings.yaml"; then
+        echo "FAIL: Kuberblue vendor config check failed"
         return 1
       fi
       

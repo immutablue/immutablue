@@ -56,7 +56,7 @@ ifeq ($(strip $(filter-out 0 00,$(NUCLEUS))),)
 else
     BASE_IMAGE := quay.io/fedora-ostree-desktops/base-atomic
     TAG := $(TAG)-nucleus
-    BUILD_OPTIONS := nucleus
+    BUILD_OPTIONS := nucleus$(BUILD_OPTIONS)
     VARIANT := Server
 endif
 
@@ -68,7 +68,7 @@ else
     BASE_IMAGE_TAG := gnomeos-nightly
     BASE_IMAGE_DEVEL := quay.io/gnome_infrastructure/gnome-build-meta:gnomeos-devel-nightly
     TAG := $(TAG)-distroless
-    BUILD_OPTIONS := gui,distroless
+    BUILD_OPTIONS := gui,distroless$(BUILD_OPTIONS)
     VARIANT := None
     IS_DISTROLESS := true
 endif
@@ -79,7 +79,7 @@ else
     GUI_FLAVOR := bazzite
     BASE_IMAGE := ghcr.io/ublue-os/bazzite-deck-gnome
     TAG := $(TAG)-bazzite
-    BUILD_OPTIONS := gui,bazzite
+    BUILD_OPTIONS := gui,bazzite$(BUILD_OPTIONS)
     VARIANT := Bazzite
 endif
 
@@ -106,7 +106,7 @@ ifeq ($(strip $(filter-out 0 00,$(BUILD_A_BLUE_WORKSHOP))),)
 else
     BASE_IMAGE := quay.io/fedora-ostree-desktops/base-atomic
     TAG := $(TAG)-build-a-blue-workshop
-    BUILD_OPTIONS := build_a_blue_workshop
+    BUILD_OPTIONS := build_a_blue_workshop$(BUILD_OPTIONS)
 endif
 
 # ------------------------------------------------------------------------------

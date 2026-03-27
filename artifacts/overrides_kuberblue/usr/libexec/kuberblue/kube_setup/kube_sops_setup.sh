@@ -14,8 +14,8 @@ set -euxo pipefail
 
 source /usr/libexec/kuberblue/variables.sh
 
-if [[ "${KUBERBLUE_SECRETS_ENABLED}" != "true" ]]; then
-    echo "SOPS secrets not enabled in secrets.yaml — skipping."
+if [[ "$(kuberblue_sops_enabled)" != "true" ]]; then
+    echo "SOPS secrets not enabled in security.yaml — skipping."
     exit 0
 fi
 
@@ -24,9 +24,9 @@ if ! command -v age-keygen &>/dev/null; then
     exit 1
 fi
 
-SECRETS_DIR="${STATE_DIR}/secrets"
-KEY_FILE="${SECRETS_DIR}/age.key"
-PUB_FILE="${SECRETS_DIR}/age.pub"
+KEY_FILE="$(kuberblue_config_get security.yaml .security.sops.age_key_path "/var/lib/kuberblue/secrets/age.key")"
+SECRETS_DIR="$(dirname "${KEY_FILE}")"
+PUB_FILE="${KEY_FILE%.key}.pub"
 
 mkdir -p "${SECRETS_DIR}"
 chmod 0750 "${SECRETS_DIR}"

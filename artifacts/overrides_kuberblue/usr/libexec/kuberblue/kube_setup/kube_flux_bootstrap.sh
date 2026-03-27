@@ -18,7 +18,7 @@ if ! command -v flux &>/dev/null; then
     exit 1
 fi
 
-GITOPS_ENABLED="${KUBERBLUE_GITOPS_ENABLED}"
+GITOPS_ENABLED="$(kuberblue_gitops_enabled)"
 FLUX_NS="$(kuberblue_config_get gitops.yaml .gitops.namespace "flux-system")"
 
 if [[ "${GITOPS_ENABLED}" == "true" ]]; then
@@ -45,13 +45,20 @@ if [[ "${GITOPS_ENABLED}" == "true" ]]; then
 
     echo "Bootstrapping Flux against ${REPO_URL} (${REPO_BRANCH}:${REPO_PATH})"
 
-    flux bootstrap git \
-        --url="${REPO_URL}" \
-        --branch="${REPO_BRANCH}" \
-        --path="${REPO_PATH}" \
-        --secret-name="${AUTH_SECRET}" \
-        --namespace="${FLUX_NS}" \
-        --components-extra=image-reflector-controller,image-automation-controller
+    flux_cmd=(
+        flux bootstrap git
+        "--url=${REPO_URL}"
+        "--branch=${REPO_BRANCH}"
+        "--path=${REPO_PATH}"
+        "--secret-ref=${AUTH_SECRET}"
+        "--namespace=${FLUX_NS}"
+        "--components-extra=image-reflector-controller,image-automation-controller"
+    )
+    if [[ -n "${PROVIDER}" ]] && [[ "${PROVIDER}" != "null" ]]; then
+        flux_cmd+=("--provider=${PROVIDER}")
+    fi
+
+    "${flux_cmd[@]}"
 else
     # Passive install: install Flux without bootstrapping a repo
     echo "Installing Flux (passive — no GitOps repo configured)"

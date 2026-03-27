@@ -4,6 +4,17 @@
 # This file contains all test targets with SKIP_TEST support.
 # ==============================================================================
 
+.PHONY: pre_test test test_container test_container_qemu test_artifacts test_setup \
+        run_all_tests test_kuberblue _run_kuberblue_suite \
+        test_kuberblue_container _run_kuberblue_container_test \
+        test_kuberblue_cluster _run_kuberblue_cluster_test \
+        test_kuberblue_components _run_kuberblue_components_test \
+        test_kuberblue_integration _run_kuberblue_integration_test \
+        test_kuberblue_security _run_kuberblue_security_test \
+        test_kuberblue_chainsaw _run_kuberblue_chainsaw_test \
+        test_chainsaw test_kuberblue_lima _run_kuberblue_lima_test \
+        sbom
+
 # ------------------------------------------------------------------------------
 # Pre-build Tests
 # ------------------------------------------------------------------------------
@@ -165,6 +176,21 @@ _run_kuberblue_chainsaw_test:
 	fi
 
 test_chainsaw: test_kuberblue_chainsaw
+
+test_kuberblue_lima:
+	@$(MAKE) KUBERBLUE=1 _run_kuberblue_lima_test
+
+_run_kuberblue_lima_test:
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		if ! command -v limactl &>/dev/null; then \
+			echo "SKIP: limactl not found — install Lima to run VM smoke tests"; \
+		else \
+			chmod +x ./tests/kuberblue/test_kuberblue_lima.sh; \
+			./tests/kuberblue/test_kuberblue_lima.sh; \
+		fi; \
+	else \
+		echo "Skipping Kuberblue Lima VM tests (SKIP_TEST=1)"; \
+	fi
 
 # ------------------------------------------------------------------------------
 # SBOM Generation

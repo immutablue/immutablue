@@ -27,15 +27,26 @@ qcow2: _check_not_distroless
 		echo "Tip: Run 'make qcow2-config' for interactive configuration"; \
 		./scripts/generate-image-config.sh qcow2 $(QCOW2_DIR)/config.toml --non-interactive; \
 	fi
-	sudo podman pull $(IMAGE):$(TAG)
+	@echo "Ensuring $(IMAGE):$(TAG) is available in root container storage..."
+	@if sudo podman image exists $(IMAGE):$(TAG); then \
+		echo "Image already in root storage, skipping transfer."; \
+	elif podman image exists $(IMAGE):$(TAG); then \
+		echo "Image found in rootless storage, transferring to root storage via buildah push..."; \
+		buildah push $(IMAGE):$(TAG) \
+			"containers-storage:[overlay@/var/lib/containers/storage+/run/containers/storage]$(IMAGE):$(TAG)"; \
+	else \
+		echo "Image not found locally, pulling from registry..."; \
+		sudo podman pull $(IMAGE):$(TAG); \
+	fi
 	sudo podman run \
-		--rm -it --privileged \
+		--rm -i --privileged \
+		--pull=never \
 		--security-opt label=type:unconfined_t \
 		-v $(QCOW2_DIR):/output:z \
 		-v /var/lib/containers/storage:/var/lib/containers/storage \
 		-v $(QCOW2_DIR)/config.toml:/config.toml:ro \
 		$(BOOTC_IMAGE_BUILDER) \
-		--type qcow2 --rootfs btrfs --config /config.toml \
+		--type qcow2 --rootfs btrfs --config /config.toml --local \
 		$(IMAGE):$(TAG)
 	sudo chown -R $$(id -u):$$(id -g) $(QCOW2_DIR)
 	@echo "qcow2 image built: $(QCOW2_DIR)/qcow2/disk.qcow2"
@@ -90,16 +101,11 @@ lima:
 	@echo "  system: false" >> $(LIMA_YAML)
 	@echo "  user: false" >> $(LIMA_YAML)
 	@echo "" >> $(LIMA_YAML)
-	@echo "# Skip Lima guest agent for pre-built bootc images" >> $(LIMA_YAML)
+	@echo "# Skip Lima guest agent — bootc images are immutable, no cloud-init." >> $(LIMA_YAML)
+	@echo "# In plain mode, limactl start will timeout waiting for the guest agent" >> $(LIMA_YAML)
+	@echo "# 'running' event. The test script handles this by using --timeout and" >> $(LIMA_YAML)
+	@echo "# checking SSH directly." >> $(LIMA_YAML)
 	@echo "plain: true" >> $(LIMA_YAML)
-	@echo "" >> $(LIMA_YAML)
-	@echo "# Probe to signal boot is complete" >> $(LIMA_YAML)
-	@echo "probes:" >> $(LIMA_YAML)
-	@echo "- mode: readiness" >> $(LIMA_YAML)
-	@echo "  description: vm is ready" >> $(LIMA_YAML)
-	@echo "  script: |" >> $(LIMA_YAML)
-	@echo "    #!/bin/bash" >> $(LIMA_YAML)
-	@echo "    true" >> $(LIMA_YAML)
 	@echo "" >> $(LIMA_YAML)
 	@echo "message: |" >> $(LIMA_YAML)
 	@echo "  Immutablue VM ($(TAG))" >> $(LIMA_YAML)
@@ -116,6 +122,10 @@ lima-start:
 	@if [ ! -f "$(LIMA_YAML)" ]; then \
 		echo "Lima config not found. Run 'make lima' first."; \
 		exit 1; \
+	fi
+	@if limactl list --format '{{.Name}}' 2>/dev/null | grep -q "^$(LIMA_INSTANCE)$$"; then \
+		echo "Existing instance '$(LIMA_INSTANCE)' found, deleting before fresh start..."; \
+		limactl delete $(LIMA_INSTANCE) --force; \
 	fi
 	@echo "Starting Lima VM $(LIMA_INSTANCE)..."
 	limactl start $(LIMA_YAML)

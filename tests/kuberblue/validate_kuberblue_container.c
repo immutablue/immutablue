@@ -207,7 +207,7 @@ check_kuberblue_binaries(void)
         "/usr/bin/sops",
         /* GitOps / CI tooling */
         "/usr/bin/flux",
-        "/usr/bin/chainsaw",
+        /* NOTE: chainsaw is dev-only (KUBERBLUE_DEV=1) — not present in production builds */
         NULL
     };
 
@@ -264,9 +264,9 @@ check_kuberblue_files(void)
 
     static const gchar *files[] = {
         /* cluster config (in /usr/kuberblue, not /etc) */
-        "/usr/kuberblue/kubeadm.yaml",
         "/usr/kuberblue/cluster.yaml",
-        "/usr/kuberblue/networking.yaml",
+        "/usr/kuberblue/cni.yaml",
+        "/usr/kuberblue/security.yaml",
         /* manifests */
         "/etc/kuberblue/manifests/metadata.yaml.tpl",
         "/etc/kuberblue/manifests/00-infrastructure/00-cilium/00-metadata.yaml",
@@ -276,6 +276,7 @@ check_kuberblue_files(void)
         "/usr/libexec/kuberblue/variables.sh",
         "/usr/libexec/kuberblue/kube_setup/kube_init.sh",
         "/usr/libexec/kuberblue/kube_setup/kube_deploy.sh",
+        "/usr/libexec/kuberblue/kube_setup/kube_state.sh",
         "/usr/libexec/kuberblue/kube_setup/kube_reset.sh",
         "/usr/libexec/kuberblue/kube_setup/kube_add_kuberblue_user.sh",
         /* just integration */

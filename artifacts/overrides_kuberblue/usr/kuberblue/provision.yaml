@@ -1,0 +1,59 @@
+# /usr/kuberblue/provision.yaml — bootstrap provisioning configuration (vendor defaults)
+#
+# Controls how kuberblue fetches its configuration at first boot.
+# Override by copying to /etc/kuberblue/provision.yaml or by passing
+# kernel command line parameters (kuberblue.*).
+#
+# Parameter resolution order (as implemented in config_fetch.sh):
+#   1. Cloud-init user-data (kuberblue.config: ...) — highest priority
+#   2. Kernel cmdline (kuberblue.config=...) — fallback
+#   3. Empty — no remote fetch (default)
+#
+# NOTE: This file (provision.yaml) is documentation only. It is NOT read
+# by config_fetch.sh. Bootstrap parameters come exclusively from cloud-init
+# user-data or kernel command line parameters.
+#
+# Kernel cmdline parameter names use dots: kuberblue.config.ref=main
+# Cloud-init user-data keys use underscores: config_ref: main
+#
+# When config is empty (default), no remote fetch occurs and kuberblue
+# uses whatever config files already exist in /etc/kuberblue/ (baked into
+# the image or manually placed). This preserves backward compatibility.
+
+provision:
+  # Git repository URL containing cluster configuration
+  # Examples:
+  #   https://github.com/org/kuberblue-configs
+  #   https://gitlab.com/org/kuberblue-configs
+  #   ssh://git@github.com/org/kuberblue-configs (requires deploy key in image)
+  config: ""
+
+  # Git branch or tag to checkout (default: main)
+  config_ref: main
+
+  # Subdirectory within the repo containing this cluster's config
+  # Example: clusters/my-homelab
+  config_path: "."
+
+  # Deploy token for private repos (HTTPS only)
+  # For GitLab: Project > Settings > Repository > Deploy Tokens (read_repository scope)
+  # For GitHub: Settings > Developer Settings > Personal Access Tokens (repo scope)
+  # Leave empty for public repos
+  config_token: ""
+
+  # SOPS Age private key for decrypting secrets in the config repo
+  # Generate with: age-keygen
+  # Leave empty if not using SOPS encryption
+  #
+  # SECURITY WARNING: If passed via kernel cmdline (kuberblue.age-key=...),
+  # the key will be visible in /proc/cmdline which is world-readable.
+  # For production, pass the age key via cloud-init userdata with restricted
+  # file permissions (mode 0600) instead of kernel command line parameters.
+  age_key: ""
+
+  # Cloud-init integration
+  cloud_init:
+    # Informational only — config_fetch.sh probes cloud-init directly
+    # (checks /run/cloud-init/instance-data.json and /etc/cloud/cloud.cfg.d/).
+    # This flag is not read by any script; it documents operator intent.
+    enabled: false

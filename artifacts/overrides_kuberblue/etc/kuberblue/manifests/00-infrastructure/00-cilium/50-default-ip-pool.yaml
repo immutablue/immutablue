@@ -1,3 +1,13 @@
+# Default LoadBalancer IP pool for Cilium L2/BGP announcements.
+#
+# This CIDR (10.70.0.0/20 = 10.70.0.0–10.70.15.255, 4094 addresses) is the
+# default range assigned to Services of type LoadBalancer that match the
+# selector below. It must not overlap with your node, pod, or service CIDRs.
+#
+# For production deployments, override this file via `kuberblue override` to
+# set a CIDR appropriate for your network. Example:
+#   kuberblue override 00-infrastructure/00-cilium/50-default-ip-pool.yaml
+# Then edit the copy in /etc/kuberblue/manifests/ with your desired range.
 apiVersion: "cilium.io/v2alpha1"
 kind: CiliumLoadBalancerIPPool
 metadata:

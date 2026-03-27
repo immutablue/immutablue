@@ -21,7 +21,9 @@ packages:
       manifest: 00-infrastructure/20-metrics-server
     - name: flux
       description: "GitOps continuous delivery"
-      manifest: 00-infrastructure/30-flux
+      # Flux is bootstrapped via CLI (flux bootstrap git), not via Helm manifests.
+      # The 00-infrastructure/30-flux/ dir contains only tests and docs.
+      manifest: ~
 
   # Tier 2: Optional packages (opt-in)
   optional:
@@ -33,17 +35,39 @@ packages:
       description: "Cloudflare Tunnel ingress DaemonSet"
       manifest: 10-networking/10-cloudflared
       enabled: false
-    - name: monitoring
-      description: "Grafana + Loki + Mimir + Tempo + Alloy"
-      manifest: 50-monitoring
+    - name: alloy
+      description: "Grafana Alloy unified telemetry collector"
+      manifest: 50-monitoring/00-alloy
+      enabled: false
+    - name: grafana
+      description: "Grafana dashboards and visualization"
+      manifest: 50-monitoring/10-grafana
+      enabled: false
+    - name: loki
+      description: "Loki log aggregation"
+      manifest: 50-monitoring/20-loki
+      enabled: false
+    - name: mimir
+      description: "Mimir long-term metrics storage"
+      manifest: 50-monitoring/30-mimir
+      enabled: false
+    - name: tempo
+      description: "Tempo distributed tracing backend"
+      manifest: 50-monitoring/40-tempo
       enabled: false
     - name: kube-vip
       description: "HA virtual IP for control-plane (required for ha topology)"
-      manifest: 00-infrastructure/40-kube-vip
+      # Deployed as a static pod by kube_vip_setup.sh, not via Helm manifests.
+      manifest: ~
       enabled: false
-    - name: mayastor
-      description: "OpenEBS Replicated PV (NVMe-oF HA storage; requires storage.nodes disk config)"
-      manifest: 00-infrastructure/11-mayastor
+    # mayastor is a configuration variant of openebs, not a separate package.
+    # Enable it by overriding openebs values with:
+    #   engines.replicated.mayastor.enabled: true
+    #   localpv.enabled: false
+    # See 00-infrastructure/10-openebs/10-values.yaml for details.
+    - name: cert-manager
+      description: "X.509 certificate management (Let's Encrypt, self-signed, CA issuers)"
+      manifest: 00-infrastructure/50-cert-manager
       enabled: false
     - name: velero
       description: "Kubernetes backup and restore (snapshots cluster state + PVs to object storage)"

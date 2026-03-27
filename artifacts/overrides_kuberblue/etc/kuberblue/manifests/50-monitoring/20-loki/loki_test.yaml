@@ -77,7 +77,7 @@ spec:
             restartPolicy: Never
             containers:
             - name: test
-              image: curlimages/curl:latest
+              image: curlimages/curl:8.11.1
               command:
               - sh
               - -c

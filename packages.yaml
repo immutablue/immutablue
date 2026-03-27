@@ -205,7 +205,8 @@ immutablue:
     - helm
     - htop
     - neovim
-    - tailscale     # Host-level mesh networking (optional, toggle in networking.yaml)
+    - sops          # SOPS secret decryption for config-as-code
+    - tailscale     # Host-level mesh networking (optional, toggle in cni.yaml)
     - tmux
     42:
     - cri-tools1.32
@@ -250,6 +251,11 @@ immutablue:
     - gnome-software-rpm-ostree
     - gnome-shell-extension-background-logo
 
+  rpm_rm_kuberblue:
+    all:
+    - zram-generator
+    - zram-generator-defaults
+
   # Temp files to be removed during build stage (errors out build)
   file_rm:
     all: []
@@ -260,6 +266,9 @@ immutablue:
   file_rm_kuberblue:
     all:
     - /etc/resolv.conf
+    - /usr/lib/systemd/system-generators/zram-generator
+    - /usr/lib/systemd/zram-generator.conf
+    - /usr/lib/systemd/zram-generator.conf.d
 
 
 
@@ -353,8 +362,9 @@ immutablue:
     - cockpit.socket
     - sshd.service
     - crio.service
-    - kubelet.service
     - tailscaled.service
+    - cloud-init-local.service  # Config injection via cloud-init NoCloud datasource
+    - cloud-init.service
 
   services_enable_sys_trueblue:
     all:
@@ -372,12 +382,16 @@ immutablue:
   services_disable_sys_kuberblue:
     all:
     - firewalld.service
+    - kubelet.service
 
   services_mask_sys:
     all: []
   services_mask_sys_kuberblue:
     all:
     - systemd-resolved.service
+    - systemd-zram-setup@.service
+    - systemd-zram-setup@zram0.service
+    - kubelet.service
 
   services_unmask_sys:
     all: []

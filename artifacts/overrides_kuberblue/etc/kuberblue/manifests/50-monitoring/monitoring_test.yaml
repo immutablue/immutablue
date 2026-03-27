@@ -80,7 +80,7 @@ spec:
             restartPolicy: Never
             containers:
             - name: app
-              image: prom/node-exporter:latest
+              image: prom/node-exporter:v1.8.2
               args:
                 - --web.listen-address=:8080
                 - --path.rootfs=/host
@@ -99,17 +99,20 @@ spec:
           # Wait for metrics to flow through the pipeline
           echo "Waiting for metrics to be collected and stored..."
           sleep 60
-          
+
+          # Fetch the auto-generated admin password from the Grafana secret
+          GRAFANA_PASSWORD=$(kubectl get secret grafana -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d)
+
           # Query Grafana API to verify metrics are available
           METRIC_QUERY='node_load1'
-          RESPONSE=$(curl -s -u admin:admin -G \
+          RESPONSE=$(curl -s -u "admin:${GRAFANA_PASSWORD}" -G \
             --data-urlencode "query=${METRIC_QUERY}" \
-            http://grafana/api/datasources/proxy/uid/mimir/api/v1/query || echo "{}")
-          
+            http://grafana.monitoring:80/api/datasources/proxy/uid/mimir/api/v1/query || echo "{}")
+
           if echo "$RESPONSE" | grep -q "\"status\":\"success\""; then
-            echo "✓ Metrics are flowing correctly through Alloy → Mimir → Grafana"
+            echo "Metrics are flowing correctly through Alloy -> Mimir -> Grafana"
           else
-            echo "✗ Metrics flow test failed"
+            echo "Metrics flow test failed"
             echo "Response: $RESPONSE"
             exit 1
           fi
@@ -128,7 +131,7 @@ spec:
             restartPolicy: Never
             containers:
             - name: logger
-              image: busybox:latest
+              image: busybox:1.37
               command:
               - sh
               - -c
@@ -151,17 +154,20 @@ spec:
           # Wait for logs to flow through the pipeline
           echo "Waiting for logs to be collected and stored..."
           sleep 60
-          
+
+          # Fetch the auto-generated admin password from the Grafana secret
+          GRAFANA_PASSWORD=$(kubectl get secret grafana -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d)
+
           # Query Loki through Grafana to verify logs are available
           QUERY='{namespace="monitoring",pod="log-generator"}'
-          RESPONSE=$(curl -s -u admin:admin -G \
+          RESPONSE=$(curl -s -u "admin:${GRAFANA_PASSWORD}" -G \
             --data-urlencode "query=${QUERY}" \
-            http://grafana/api/datasources/proxy/uid/loki/loki/api/v1/query_range?limit=10 || echo "{}")
-          
+            "http://grafana.monitoring:80/api/datasources/proxy/uid/loki/loki/api/v1/query_range?limit=10" || echo "{}")
+
           if echo "$RESPONSE" | grep -q "Integration test log message"; then
-            echo "✓ Logs are flowing correctly through Alloy → Loki → Grafana"
+            echo "Logs are flowing correctly through Alloy -> Loki -> Grafana"
           else
-            echo "✗ Logs flow test failed"
+            echo "Logs flow test failed"
             echo "Response: $RESPONSE"
             exit 1
           fi
@@ -180,7 +186,7 @@ spec:
             restartPolicy: Never
             containers:
             - name: tracer
-              image: jaegertracing/jaeger-hotrod:latest
+              image: jaegertracing/jaeger-hotrod:1.62
               env:
               - name: OTEL_EXPORTER_OTLP_ENDPOINT
                 value: "http://alloy:4317"
@@ -214,15 +220,18 @@ spec:
           # Wait for traces to flow through the pipeline
           echo "Waiting for traces to be collected and stored..."
           sleep 90
-          
+
+          # Fetch the auto-generated admin password from the Grafana secret
+          GRAFANA_PASSWORD=$(kubectl get secret grafana -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d)
+
           # Query Tempo through Grafana to verify traces are available
-          RESPONSE=$(curl -s -u admin:admin \
-            http://grafana/api/datasources/proxy/uid/tempo/api/search?limit=10 || echo "{}")
-          
+          RESPONSE=$(curl -s -u "admin:${GRAFANA_PASSWORD}" \
+            "http://grafana.monitoring:80/api/datasources/proxy/uid/tempo/api/search?limit=10" || echo "{}")
+
           if echo "$RESPONSE" | grep -q "traces"; then
-            echo "✓ Traces are flowing correctly through Alloy → Tempo → Grafana"
+            echo "Traces are flowing correctly through Alloy -> Tempo -> Grafana"
           else
-            echo "⚠ Traces may not be flowing yet (this is normal if OTLP apps aren't deployed)"
+            echo "WARNING: Traces may not be flowing yet (this is normal if OTLP apps aren't deployed)"
             echo "Response: $RESPONSE"
           fi
           
@@ -233,22 +242,25 @@ spec:
         timeout: 60s
         content: |
           echo "Testing all Grafana datasources..."
-          
+
+          # Fetch the auto-generated admin password from the Grafana secret
+          GRAFANA_PASSWORD=$(kubectl get secret grafana -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d)
+
           # Test each datasource
           for ds in Mimir Loki Tempo; do
             echo "Testing $ds datasource..."
-            RESPONSE=$(curl -s -u admin:admin \
-              http://grafana/api/datasources/name/$ds || echo "{}")
-            
+            RESPONSE=$(curl -s -u "admin:${GRAFANA_PASSWORD}" \
+              "http://grafana.monitoring:80/api/datasources/name/$ds" || echo "{}")
+
             if echo "$RESPONSE" | grep -q "\"name\":\"$ds\""; then
-              echo "✓ $ds datasource is configured"
+              echo "$ds datasource is configured"
             else
-              echo "✗ $ds datasource is not configured"
+              echo "$ds datasource is not configured"
               exit 1
             fi
           done
-          
-          echo "✓ All datasources are properly configured"
+
+          echo "All datasources are properly configured"
           
   # Step 6: Verify dashboards are loaded
   - name: verify-dashboards
@@ -257,16 +269,19 @@ spec:
         timeout: 60s
         content: |
           echo "Checking for dashboards..."
-          
-          DASHBOARDS=$(curl -s -u admin:admin \
-            http://grafana/api/search?type=dash-db || echo "[]")
-          
+
+          # Fetch the auto-generated admin password from the Grafana secret
+          GRAFANA_PASSWORD=$(kubectl get secret grafana -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d)
+
+          DASHBOARDS=$(curl -s -u "admin:${GRAFANA_PASSWORD}" \
+            "http://grafana.monitoring:80/api/search?type=dash-db" || echo "[]")
+
           if echo "$DASHBOARDS" | grep -q "Kubernetes Overview"; then
-            echo "✓ Kubernetes Overview dashboard is loaded"
+            echo "Kubernetes Overview dashboard is loaded"
           else
-            echo "⚠ Kubernetes Overview dashboard not found (may still be loading)"
+            echo "WARNING: Kubernetes Overview dashboard not found (may still be loading)"
           fi
-          
+
           DASH_COUNT=$(echo "$DASHBOARDS" | grep -c "\"uid\"" || echo "0")
           echo "Total dashboards found: $DASH_COUNT"
           

@@ -1,0 +1,15 @@
+# FluxCD GitOps configuration
+#
+# When enabled, Flux bootstraps against the specified repo after cluster init.
+# All subsequent cluster changes are managed via git.
+
+gitops:
+  enabled: false
+
+  # Uncomment to enable full GitOps:
+  # enabled: true
+  # repo:
+  #   url: "ssh://git@github.com/org/fleet-infra"
+  #   branch: main
+  #   path: clusters/my-cluster
+  # auth_secret: flux-git-auth

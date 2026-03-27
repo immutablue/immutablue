@@ -1,0 +1,53 @@
+# Tailscale Operator Configuration for Kuberblue
+#
+# The operator manages Tailscale resources in-cluster, including:
+# - Subnet routers (expose cluster services to tailnet)
+# - Exit nodes
+# - Tailscale-aware ingress/egress proxies
+#
+# OAuth credentials must be provisioned before deploying:
+#   1. Create an OAuth client at https://login.tailscale.com/admin/settings/oauth
+#   2. Store credentials in a Kubernetes secret named 'tailscale-operator-oauth'
+#      in the 'tailscale' namespace, or use SOPS-encrypted secret in manifests.
+#
+# Required secret format:
+#   kubectl create secret generic tailscale-operator-oauth \
+#     --namespace tailscale \
+#     --from-literal=client_id=<YOUR_CLIENT_ID> \
+#     --from-literal=client_secret=<YOUR_CLIENT_SECRET>
+
+# OAuth credentials from Kubernetes secret
+oauth:
+  clientId: ""
+  clientSecret: ""
+
+# API server proxy mode controls authentication for K8s API access over tailnet.
+# "true"   — authenticated: users must authenticate via Tailscale ACL grants (recommended)
+# "noauth" — unauthenticated: ANY device on the tailnet gets full K8s API access
+#            WARNING: "noauth" is a significant security risk. Only use for testing.
+apiServerProxyConfig:
+  mode: "true"
+
+# Operator resource limits
+operator:
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Proxy resource defaults (applied to each Tailscale proxy pod)
+proxyConfig:
+  defaultResources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Allow scheduling on all nodes
+tolerations:
+  - operator: "Exists"

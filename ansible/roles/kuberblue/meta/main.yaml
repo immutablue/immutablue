@@ -1,0 +1,19 @@
+---
+galaxy_info:
+  role_name: kuberblue
+  author: immutablue
+  description: Zero-touch Kubernetes cluster provisioning via kuberblue
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Fedora
+      versions:
+        - "42"
+        - "43"
+  galaxy_tags:
+    - kubernetes
+    - kuberblue
+    - immutablue
+    - provisioning
+
+dependencies: []
