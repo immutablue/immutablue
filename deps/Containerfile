@@ -1,5 +1,6 @@
 ARG FEDORA_VERSION=42
-FROM registry.fedoraproject.org/fedora:${FEDORA_VERSION} as dep-builder
+ARG FEDORA_IMAGE=registry.fedoraproject.org/fedora:${FEDORA_VERSION}
+FROM ${FEDORA_IMAGE} as dep-builder
 
 COPY deps/00-build.sh /tmp/00-build.sh
 COPY artifacts/overrides/usr/src/gitlab/yaml-glib /build/yaml-glib

@@ -12,6 +12,56 @@ IMMUNABLUE_CHECKSUMS := immunablue/checksums.yaml
 IMMUNABLUE_DIGESTS := immunablue/pinned-digests.yaml
 
 # ------------------------------------------------------------------------------
+# Digest-Pinned Build Args (IMMUNABLUE=1 only)
+# ------------------------------------------------------------------------------
+# When enabled, FROM statements in Containerfiles use image@sha256:digest
+# instead of image:tag, preventing supply chain attacks via tag mutation.
+# Without this, a compromised registry can swap what :latest or :43 points to.
+# With digest pinning, the build refuses to pull anything other than the exact
+# image that was audited when the pin was created.
+# ------------------------------------------------------------------------------
+ifeq ($(IMMUNABLUE),1)
+IMMUNABLUE_LINUXBREW_IMAGE := $(shell yq -r '.infra_images.linuxbrew | .image + "@" + .digest' < $(IMMUNABLUE_DIGESTS))
+IMMUNABLUE_YQ_IMAGE := $(shell yq -r '.infra_images.yq | .image + "@" + .digest' < $(IMMUNABLUE_DIGESTS))
+IMMUNABLUE_UBLUE_CONFIG_IMAGE := $(shell yq -r '.infra_images.ublue_config | .image + "@" + .digest' < $(IMMUNABLUE_DIGESTS))
+IMMUNABLUE_BASE_IMAGE_DEVEL := $(shell yq -r '.infra_images.fedora_devel | .image + "@" + .digest' < $(IMMUNABLUE_DIGESTS))
+IMMUNABLUE_BASE_IMAGE_DIGEST := $(shell yq -r '.base_images[] | select(.image == "$(BASE_IMAGE)") | .digest' < $(IMMUNABLUE_DIGESTS))
+IMMUNABLUE_FEDORA_IMAGE := $(shell yq -r '.base_images.fedora | .image + "@" + .digest' < $(IMMUNABLUE_DIGESTS))
+
+# Base image ref: use digest if pinned, fall back to tag if not in digests file
+ifneq ($(IMMUNABLUE_BASE_IMAGE_DIGEST),)
+ifneq ($(IMMUNABLUE_BASE_IMAGE_DIGEST),null)
+IMMUNABLUE_BASE_IMAGE_REF := $(BASE_IMAGE)@$(IMMUNABLUE_BASE_IMAGE_DIGEST)
+else
+IMMUNABLUE_BASE_IMAGE_REF := $(BASE_IMAGE):$(BASE_IMAGE_TAG)
+endif
+else
+IMMUNABLUE_BASE_IMAGE_REF := $(BASE_IMAGE):$(BASE_IMAGE_TAG)
+endif
+
+# Build args for main Containerfile (appended to buildah/podman build commands)
+IMMUNABLUE_BUILD_ARGS := \
+	--build-arg=LINUXBREW_IMAGE=$(IMMUNABLUE_LINUXBREW_IMAGE) \
+	--build-arg=YQ_IMAGE=$(IMMUNABLUE_YQ_IMAGE) \
+	--build-arg=UBLUE_CONFIG_IMAGE=$(IMMUNABLUE_UBLUE_CONFIG_IMAGE) \
+	--build-arg=BASE_IMAGE_REF=$(IMMUNABLUE_BASE_IMAGE_REF) \
+	--build-arg=BASE_IMAGE_DEVEL=$(IMMUNABLUE_BASE_IMAGE_DEVEL)
+
+# Build args for deps Containerfile (registry.fedoraproject.org/fedora)
+IMMUNABLUE_DEPS_BUILD_ARGS := \
+	--build-arg=FEDORA_IMAGE=$(IMMUNABLUE_FEDORA_IMAGE)
+
+# Cyan deps uses quay.io/fedora/fedora — separate pin needed.
+# Add quay.io/fedora/fedora to pinned-digests.yaml and uncomment to enable.
+IMMUNABLUE_CYAN_DEPS_BUILD_ARGS :=
+
+else
+IMMUNABLUE_BUILD_ARGS :=
+IMMUNABLUE_DEPS_BUILD_ARGS :=
+IMMUNABLUE_CYAN_DEPS_BUILD_ARGS :=
+endif
+
+# ------------------------------------------------------------------------------
 # Cosign Signing
 # ------------------------------------------------------------------------------
 # Signs the built image with your local cosign private key.

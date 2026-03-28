@@ -9,6 +9,12 @@ ARG BASE_IMAGE_TAG=43
 ARG BASE_IMAGE_DEVEL=registry.fedoraproject.org/fedora:latest
 ARG FEDORA_VERSION=43
 ARG IS_DISTROLESS=false
+# Immunablue digest pinning: when IMMUNABLUE=1, these are overridden with
+# image@sha256:... references from pinned-digests.yaml
+ARG LINUXBREW_IMAGE=quay.io/immutablue/linuxbrew:latest
+ARG YQ_IMAGE=docker.io/mikefarah/yq:latest
+ARG UBLUE_CONFIG_IMAGE=ghcr.io/ublue-os/config:latest
+ARG BASE_IMAGE_REF=${BASE_IMAGE}:${BASE_IMAGE_TAG}
 
 FROM scratch as ctx
 COPY / /
@@ -16,10 +22,10 @@ COPY / /
 FROM quay.io/zachpodbielniak/nautilusopenwithcode:${FEDORA_VERSION} AS nautilusopenwithcode
 FROM quay.io/immutablue/immutablue:${FEDORA_VERSION}-deps as build-deps
 FROM quay.io/immutablue/immutablue:${FEDORA_VERSION}-cyan-deps AS cyan-deps
-FROM quay.io/immutablue/linuxbrew:latest AS linuxbrew
-FROM docker.io/mikefarah/yq AS yq
+FROM ${LINUXBREW_IMAGE} AS linuxbrew
+FROM ${YQ_IMAGE} AS yq
 
-FROM ghcr.io/ublue-os/config:latest AS ublue-config
+FROM ${UBLUE_CONFIG_IMAGE} AS ublue-config
 
 
 # -----------------------------------
@@ -47,9 +53,8 @@ RUN --mount=type=bind,from=ctx,src=/,dst=/tmp/ctx \
 # -----------------------------------
 # Main image stage
 # -----------------------------------
-ARG BASE_IMAGE
-ARG BASE_IMAGE_TAG
-FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG}
+ARG BASE_IMAGE_REF
+FROM ${BASE_IMAGE_REF}
 
 ARG BASE_IMAGE=quay.io/fedora-ostree-desktops/silverblue
 ARG FEDORA_VERSION=43

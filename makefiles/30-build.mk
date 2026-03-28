@@ -22,7 +22,8 @@ build-deps:
 		--build-arg=DO_INSTALL_LTS=$(DO_INSTALL_LTS) \
 		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
 		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS) \
-		--build-arg=IMMUTABLUE_BUILD_OPTIONS=$(BUILD_OPTIONS)
+		--build-arg=IMMUTABLUE_BUILD_OPTIONS=$(BUILD_OPTIONS) \
+		$(IMMUNABLUE_DEPS_BUILD_ARGS)
 
 push-deps:
 	buildah push $(DEPS_CONTAINER)
@@ -39,7 +40,8 @@ build-cyan-deps:
 		-t $(CYAN_DEPS_CONTAINER) \
 		-t $(CYAN_DEPS_CONTAINER_DATE) \
 		-f ./deps/cyan/Containerfile \
-		--build-arg=FEDORA_VERSION=$(VERSION)
+		--build-arg=FEDORA_VERSION=$(VERSION) \
+		$(IMMUNABLUE_CYAN_DEPS_BUILD_ARGS)
 
 push-cyan-deps:
 	buildah push $(CYAN_DEPS_CONTAINER)
@@ -69,7 +71,8 @@ ifeq ($(DISTROLESS),1)
 		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
 		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS) \
 		--build-arg=IMMUTABLUE_BUILD_OPTIONS=$(BUILD_OPTIONS) \
-		--build-arg=SKIP=$(SKIP)
+		--build-arg=SKIP=$(SKIP) \
+		$(IMMUNABLUE_BUILD_ARGS)
 	sudo podman tag $(IMAGE):$(TAG) $(IMAGE):$(DATE_TAG)
 else
 	buildah \
@@ -89,7 +92,8 @@ else
 		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
 		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS) \
 		--build-arg=IMMUTABLUE_BUILD_OPTIONS=$(BUILD_OPTIONS) \
-		--build-arg=SKIP=$(SKIP)
+		--build-arg=SKIP=$(SKIP) \
+		$(IMMUNABLUE_BUILD_ARGS)
 endif
 
 # ------------------------------------------------------------------------------
