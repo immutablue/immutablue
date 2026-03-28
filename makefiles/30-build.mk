@@ -10,7 +10,6 @@
 build-deps:
 	buildah \
 		build \
-		--layers \
 		--ignorefile ./.containerignore \
 		--no-cache \
 		--platform $(PLATFORM) \
@@ -35,7 +34,6 @@ push-deps:
 build-cyan-deps:
 	buildah \
 		build \
-		--layers \
 		--no-cache \
 		--platform $(PLATFORM) \
 		-t $(CYAN_DEPS_CONTAINER) \
@@ -76,7 +74,6 @@ ifeq ($(DISTROLESS),1)
 else
 	buildah \
 		build \
-		--layers \
 		--ignorefile ./.containerignore \
 		--no-cache \
 		-t $(IMAGE):$(TAG) \
