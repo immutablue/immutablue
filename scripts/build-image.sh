@@ -51,6 +51,15 @@ cp "$CONFIG_FILE" "${BUILD_DIR}/config.toml"
 
 sudo podman pull "$IMAGE_TAG"
 
+# For ISO builds, mount the patched grub2.iso stage to work around
+# bootc-image-builder omitting the vendor field (Go omitempty bug)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(dirname "$SCRIPT_DIR")"
+ISO_PATCH_MOUNT=()
+if [[ "$TYPE" == "iso" ]] && [[ -f "${REPO_DIR}/build/osbuild-patches/org.osbuild.grub2.iso" ]]; then
+    ISO_PATCH_MOUNT=(-v "${REPO_DIR}/build/osbuild-patches/org.osbuild.grub2.iso:/usr/lib/osbuild/stages/org.osbuild.grub2.iso:ro")
+fi
+
 sudo podman run \
     --rm \
     -it \
@@ -59,6 +68,7 @@ sudo podman run \
     -v "${BUILD_DIR}:/output:z" \
     -v /var/lib/containers/storage:/var/lib/containers/storage \
     -v "${BUILD_DIR}/config.toml:/config.toml:ro" \
+    "${ISO_PATCH_MOUNT[@]}" \
     "${BOOTC_IMAGE_BUILDER}" \
     --type "$TYPE" \
     --rootfs "$ROOTFS" \

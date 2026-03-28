@@ -50,6 +50,7 @@ _iso_bootc:
 		-v $(ISO_DIR)/.build-$(TAG):/output:z \
 		-v /var/lib/containers/storage:/var/lib/containers/storage \
 		-v $(ISO_DIR)/.build-$(TAG)/config.toml:/config.toml:ro \
+		-v $(CURDIR)/build/osbuild-patches/org.osbuild.grub2.iso:/usr/lib/osbuild/stages/org.osbuild.grub2.iso:ro \
 		$(BOOTC_IMAGE_BUILDER) \
 		--type iso --rootfs btrfs --config /config.toml \
 		$(IMAGE):$(TAG)
