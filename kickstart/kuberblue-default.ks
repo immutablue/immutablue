@@ -59,5 +59,5 @@ user --name=kuberblue --groups=wheel --lock
 firstboot --disable
 eula --agreed
 
-# Reboot automatically after installation completes.
-reboot
+# Reboot automatically after installation and eject install media.
+reboot --eject
