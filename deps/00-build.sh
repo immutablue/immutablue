@@ -218,6 +218,12 @@ build_gst () {
 
 	mkdir -p "${stage_dir}"
 	cd "${src_dir}"
+
+	# Generate version headers before the main build. Forgejo runners may
+	# inject MAKEFLAGS with -j, causing parallel make to start compilation
+	# before the generated headers exist.
+	make DEBUG=1 src/gst-version.h deps/crispy/src/crispy-version.h
+
 	make DEBUG=1 MCP=1 WEBVIEW=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
 	make DEBUG=1 MCP=1 WEBVIEW=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
 }
@@ -238,6 +244,10 @@ build_gowl () {
 
 	mkdir -p "${stage_dir}"
 	cd "${src_dir}"
+
+	# Generate version headers before the main build (parallel make race guard)
+	make DEBUG=1 src/gowl-version.h deps/crispy/src/crispy-version.h
+
 	make DEBUG=1 MCP=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=0 BUILD_XWAYLAND=1
 	make DEBUG=1 MCP=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_GIR=0 BUILD_XWAYLAND=1
 
@@ -354,6 +364,10 @@ build_podomation () {
 
 	mkdir -p "${stage_dir}"
 	cd "${src_dir}"
+
+	# Generate version header and build deps before the main build (parallel make race guard)
+	make DEBUG=1 version deps
+
 	make DEBUG=1 all PREFIX=/usr
 	make DEBUG=1 install PREFIX=/usr DESTDIR="${stage_dir}"
 }
@@ -375,6 +389,10 @@ build_bacon () {
 
 	mkdir -p "${stage_dir}"
 	cd "${src_dir}"
+
+	# Generate version headers before the main build (parallel make race guard)
+	make DEBUG=1 src/bacon-version.h deps/crispy/src/crispy-version.h
+
 	make DEBUG=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=0
 	make DEBUG=1 install install-lsp PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_GIR=0
 }
