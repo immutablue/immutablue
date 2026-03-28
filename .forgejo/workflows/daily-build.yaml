@@ -4,10 +4,9 @@
 # Fedora versions daily at 6:00 AM Eastern (10:00 UTC).
 #
 # Job dependency graph:
-#   deps-current  ──┬──> build-zfs-current
-#                   └──> build-lts-current
-#   deps-previous ──┬──> build-zfs-previous
-#                   └──> build-lts-previous
+#   deps-current  ──┐
+#                   ├──> builds (matrix, max-parallel: 4)
+#   deps-previous ──┘
 #
 # Required secrets:
 #   QUAY_USER  - quay.io username
@@ -23,6 +22,7 @@ on:
   workflow_dispatch:
 
 env:
+  # Update version_arg in the build matrix when changing this
   PREVIOUS_VERSION: "42"
 
 jobs:
@@ -94,14 +94,35 @@ jobs:
         run: make VERSION=${{ env.PREVIOUS_VERSION }} push-deps
 
   # --------------------------------------------------------------------------
-  # Image builds (run in parallel after their respective deps job)
+  # Image builds (matrix, max 4 concurrent)
+  #
+  # Waits for both deps jobs to finish, then runs all variant+version
+  # combinations with at most 4 in parallel.
   # --------------------------------------------------------------------------
-  build-zfs-current:
-    needs: deps-current
+  builds:
+    needs: [deps-current, deps-previous]
     runs-on: linux-amd64
     container:
       image: git.podbielniak.com/zachpodbielniak/build-container:43
       options: --privileged
+
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        variant:
+          - "ZFS=1"
+          - "LTS=1"
+          - "KUBERBLUE=1"
+          - "TRUEBLUE=1"
+          - "NUCLEUS=1"
+          - "NUCLEUS=1 LTS=1"
+          - "NUCLEUS=1 KUBERBLUE=1"
+          - "NUCLEUS=1 TRUEBLUE=1"
+          - "NUCLEUS=1 LTS=1 KUBERBLUE=1"
+        version_arg:
+          - ""
+          - "VERSION=42"
 
     steps:
       - name: Checkout
@@ -124,130 +145,13 @@ jobs:
               quay.io
 
       - name: Pre-test (shellcheck)
-        run: make ZFS=1 pre_test
+        run: make ${{ matrix.variant }} ${{ matrix.version_arg }} pre_test
 
       - name: Build image
-        run: make ZFS=1 SKIP_TEST=1 build
+        run: make ${{ matrix.variant }} ${{ matrix.version_arg }} SKIP_TEST=1 build
 
       - name: Test image
-        run: make ZFS=1 test
+        run: make ${{ matrix.variant }} ${{ matrix.version_arg }} test
 
       - name: Push image
-        run: make ZFS=1 push
-
-  build-lts-current:
-    needs: deps-current
-    runs-on: linux-amd64
-    container:
-      image: git.podbielniak.com/zachpodbielniak/build-container:43
-      options: --privileged
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Fetch submodules over HTTPS
-        run: |
-          git config --global url."https://gitlab.com/".insteadOf "git@gitlab.com:"
-          git config --global url."https://git.podbielniak.com/".insteadOf "git@git-ssh.podbielniak.com:"
-          git submodule update --init --recursive
-
-      - name: Login to quay.io
-        env:
-          QUAY_USER: ${{ secrets.QUAY_USER }}
-          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
-        run: |
-          buildah login \
-              -u "${QUAY_USER}" \
-              -p "${QUAY_TOKEN}" \
-              quay.io
-
-      - name: Pre-test (shellcheck)
-        run: make LTS=1 pre_test
-
-      - name: Build image
-        run: make LTS=1 SKIP_TEST=1 build
-
-      - name: Test image
-        run: make LTS=1 test
-
-      - name: Push image
-        run: make LTS=1 push
-
-  build-zfs-previous:
-    needs: deps-previous
-    runs-on: linux-amd64
-    container:
-      image: git.podbielniak.com/zachpodbielniak/build-container:43
-      options: --privileged
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Fetch submodules over HTTPS
-        run: |
-          git config --global url."https://gitlab.com/".insteadOf "git@gitlab.com:"
-          git config --global url."https://git.podbielniak.com/".insteadOf "git@git-ssh.podbielniak.com:"
-          git submodule update --init --recursive
-
-      - name: Login to quay.io
-        env:
-          QUAY_USER: ${{ secrets.QUAY_USER }}
-          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
-        run: |
-          buildah login \
-              -u "${QUAY_USER}" \
-              -p "${QUAY_TOKEN}" \
-              quay.io
-
-      - name: Pre-test (shellcheck)
-        run: make ZFS=1 VERSION=${{ env.PREVIOUS_VERSION }} pre_test
-
-      - name: Build image
-        run: make ZFS=1 VERSION=${{ env.PREVIOUS_VERSION }} SKIP_TEST=1 build
-
-      - name: Test image
-        run: make ZFS=1 VERSION=${{ env.PREVIOUS_VERSION }} test
-
-      - name: Push image
-        run: make ZFS=1 VERSION=${{ env.PREVIOUS_VERSION }} push
-
-  build-lts-previous:
-    needs: deps-previous
-    runs-on: linux-amd64
-    container:
-      image: git.podbielniak.com/zachpodbielniak/build-container:43
-      options: --privileged
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Fetch submodules over HTTPS
-        run: |
-          git config --global url."https://gitlab.com/".insteadOf "git@gitlab.com:"
-          git config --global url."https://git.podbielniak.com/".insteadOf "git@git-ssh.podbielniak.com:"
-          git submodule update --init --recursive
-
-      - name: Login to quay.io
-        env:
-          QUAY_USER: ${{ secrets.QUAY_USER }}
-          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
-        run: |
-          buildah login \
-              -u "${QUAY_USER}" \
-              -p "${QUAY_TOKEN}" \
-              quay.io
-
-      - name: Pre-test (shellcheck)
-        run: make LTS=1 VERSION=${{ env.PREVIOUS_VERSION }} pre_test
-
-      - name: Build image
-        run: make LTS=1 VERSION=${{ env.PREVIOUS_VERSION }} SKIP_TEST=1 build
-
-      - name: Test image
-        run: make LTS=1 VERSION=${{ env.PREVIOUS_VERSION }} test
-
-      - name: Push image
-        run: make LTS=1 VERSION=${{ env.PREVIOUS_VERSION }} push
+        run: make ${{ matrix.variant }} ${{ matrix.version_arg }} push
