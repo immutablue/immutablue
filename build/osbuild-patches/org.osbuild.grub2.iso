@@ -1,0 +1,185 @@
+#!/usr/bin/python3
+import os
+import shutil
+import string
+import sys
+
+import osbuild.api
+
+# The main grub2 configuration file template. Used for UEFI.
+# NOTE: Changes to this should also be applied to the org.osbuild.grub2.iso.legacy stage
+GRUB2_EFI_CFG_TEMPLATE = """$defaultentry
+function load_video {
+  insmod efi_gop
+  insmod efi_uga
+  insmod video_bochs
+  insmod video_cirrus
+  insmod all_video
+}
+
+load_video
+set gfxpayload=keep
+insmod gzio
+insmod part_gpt
+insmod ext2
+
+set timeout=${timeout}
+### END /etc/grub.d/00_header ###
+
+search --no-floppy --set=root -l '${isolabel}'
+
+$customentries
+$installentry
+$testentry
+$fipsentry
+$troubleshootingentry
+"""
+
+CUSTOM_ENTRY_TEMPLATE = """
+menuentry '${name}' --class fedora --class gnu-linux --class gnu --class os {
+	linux ${linux}
+	initrd ${initrd}
+}"""
+
+INSTALL_ENTRY_TEMPLATE = """
+menuentry 'Install ${product} ${version}' --class fedora --class gnu-linux --class gnu --class os {
+	linux ${kernelpath} ${root} quiet
+	initrd ${initrdpath}
+}"""
+
+TEST_ENTRY_TEMPLATE = """
+menuentry 'Test this media & install ${product} ${version}' --class fedora --class gnu-linux --class gnu --class os {
+	linux ${kernelpath} ${root} rd.live.check quiet
+	initrd ${initrdpath}
+}"""
+
+# Optional FIPS menu entry
+FIPS_ENTRY_TEMPLATE = """
+menuentry 'Install ${product} ${version} in FIPS mode' --class fedora --class gnu-linux --class gnu --class os {
+	linux ${kernelpath} ${root} quiet fips=1
+	initrd ${initrdpath}
+}
+"""
+
+# Optional Troubleshooting submenu
+TROUBLESHOOTING_ENTRY_TEMPLATE = """
+submenu 'Troubleshooting -->' {
+	menuentry 'Install ${product} ${version} in basic graphics mode' --class fedora --class gnu-linux --class gnu --class os {
+		linux ${kernelpath} ${root} nomodeset quiet
+		initrd ${initrdpath}
+	}
+	menuentry 'Rescue a ${product} system' --class fedora --class gnu-linux --class gnu --class os {
+		linux ${kernelpath} ${root} inst.rescue quiet
+		initrd ${initrdpath}
+	}
+}"""
+
+DEFAULT_ENTRY_TEMPLATE = """set default="${default}"
+"""
+
+
+def main(root, options):
+    name = options["product"]["name"]
+    version = options["product"]["version"]
+    isolabel = options["isolabel"]
+    architectures = options["architectures"]
+    # Use .get() with default to work around bootc-image-builder omitting
+    # vendor when the Go struct field is empty (json:"vendor,omitempty").
+    # See: https://github.com/osbuild/images/blob/main/pkg/osbuild/grub_iso_stage.go
+    vendor = options.get("vendor", "fedora")
+    kdir = options["kernel"].get("dir", "/images/pxeboot")
+    kopts = options["kernel"].get("opts")
+    cfg = options.get("config", {})
+    timeout = cfg.get("timeout", 60)
+    default = cfg.get("default")    # None indicates not set
+    fips = options.get("fips", False)
+    test = options.get("test", True)
+    install = options.get("install", True)
+    troubleshooting = options.get("troubleshooting", True)
+    custom = options.get("custom", [])
+
+    efidir = os.path.join(root, "EFI", "BOOT")
+    os.makedirs(efidir)
+
+    # arch related data
+    for arch in architectures:
+        arch = arch.lower()
+        targets = [
+            (f"shim{arch}.efi", f"BOOT{arch}.EFI".upper()),
+            (f"mm{arch}.efi", f"mm{arch}.efi"),
+            (f"gcd{arch}.efi", f"grub{arch}.efi")
+        ]
+
+        for src, dst in targets:
+            shutil.copy2(os.path.join("/boot/efi/EFI/", vendor, src),
+                         os.path.join(efidir, dst))
+
+    # the font
+    fontdir = os.path.join(efidir, "fonts")
+    os.makedirs(fontdir, exist_ok=True)
+    shutil.copy2("/usr/share/grub/unicode.pf2", fontdir)
+
+    print(f"kernel dir at {kdir}")
+    tplt_variables = {
+        "version": version,
+        "product": name,
+        "kernelpath": os.path.join(kdir, "vmlinuz"),
+        "initrdpath": os.path.join(kdir, "initrd.img"),
+        "isolabel": isolabel,
+        "root": " ".join(kopts),
+        "timeout": timeout,
+        "defaultentry": "",
+        "fipsentry": "",
+        "installentry": "",
+        "testentry": "",
+        "troubleshootingentry": "",
+        "customentries": "",
+    }
+
+    # Insert default menu selection
+    if default is not None:
+        default_tmpl = string.Template(DEFAULT_ENTRY_TEMPLATE)
+        defaultentry = default_tmpl.safe_substitute({"default": default})
+        tplt_variables["defaultentry"] = defaultentry
+
+    if len(custom):
+        for entry in custom:
+            custom_tmpl = string.Template(CUSTOM_ENTRY_TEMPLATE)
+            customentry = custom_tmpl.safe_substitute(entry)
+            tplt_variables["customentries"] += customentry
+
+    if test:
+        test_tmpl = string.Template(TEST_ENTRY_TEMPLATE)
+        testentry = test_tmpl.safe_substitute(tplt_variables)
+        tplt_variables["testentry"] = testentry
+
+    if install:
+        install_tmpl = string.Template(INSTALL_ENTRY_TEMPLATE)
+        installentry = install_tmpl.safe_substitute(tplt_variables)
+        tplt_variables["installentry"] = installentry
+
+    # Insert optional fips menu entry
+    if fips:
+        fips_tmpl = string.Template(FIPS_ENTRY_TEMPLATE)
+        fipsentry = fips_tmpl.safe_substitute(tplt_variables)
+        tplt_variables["fipsentry"] = fipsentry
+
+    if troubleshooting:
+        troubleshooting_tmpl = string.Template(TROUBLESHOOTING_ENTRY_TEMPLATE)
+        troubleshootingentry = troubleshooting_tmpl.safe_substitute(tplt_variables)
+        tplt_variables["troubleshootingentry"] = troubleshootingentry
+
+    tplt = string.Template(GRUB2_EFI_CFG_TEMPLATE)
+    data = tplt.safe_substitute(tplt_variables)
+    config = os.path.join(efidir, "grub.cfg")
+    with open(config, "w", encoding="utf8") as cfg:
+        cfg.write(data)
+
+    if "IA32" in architectures:
+        shutil.copy2(config, os.path.join(efidir, "BOOT.cfg"))
+
+
+if __name__ == '__main__':
+    args = osbuild.api.arguments()
+    ret = main(args["tree"], args["options"])
+    sys.exit(ret)
