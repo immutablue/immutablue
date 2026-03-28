@@ -108,18 +108,20 @@ jobs:
 
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 2
       matrix:
         variant:
           - "ZFS=1"
           - "LTS=1"
           - "KUBERBLUE=1"
           - "TRUEBLUE=1"
+          - "KUBERBLUE=1 TRUEBLUE=1"
           - "NUCLEUS=1"
           - "NUCLEUS=1 LTS=1"
           - "NUCLEUS=1 KUBERBLUE=1"
           - "NUCLEUS=1 TRUEBLUE=1"
           - "NUCLEUS=1 LTS=1 KUBERBLUE=1"
+          - "NUCLEUS=1 KUBERBLUE=1 TRUEBLUE=1"
         version_arg:
           - ""
           - "VERSION=42"
