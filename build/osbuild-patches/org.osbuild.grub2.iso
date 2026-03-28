@@ -89,6 +89,15 @@ def main(root, options):
     vendor = options.get("vendor", "fedora")
     kdir = options["kernel"].get("dir", "/images/pxeboot")
     kopts = options["kernel"].get("opts")
+    # Inject inst.noninteractive for kickstart-driven installs only.
+    # BIB has no config.toml mechanism to inject ISO kernel args when
+    # using custom kickstart contents, so we add it here. Without this,
+    # Anaconda cmdline mode hangs at "Press ENTER to quit:" after install.
+    # Only applied when inst.ks= is present (kickstart install), not for
+    # interactive firstboot ISOs which need Anaconda's interactive mode.
+    if kopts and any(o.startswith("inst.ks") for o in kopts):
+        if "inst.noninteractive" not in kopts:
+            kopts.append("inst.noninteractive")
     cfg = options.get("config", {})
     timeout = cfg.get("timeout", 60)
     default = cfg.get("default")    # None indicates not set
