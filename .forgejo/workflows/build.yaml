@@ -1,0 +1,62 @@
+# build.yaml - Forgejo CI workflow
+#
+# Builds the deps container, then builds and pushes the ZFS-enabled
+# immutablue image on every push to master.
+#
+# Required secrets:
+#   QUAY_USER  - quay.io username
+#   QUAY_TOKEN - quay.io password/token
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: Build Immutablue
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: linux-amd64
+    container:
+      image: git.podbielniak.com/zachpodbielniak/build-container:43
+      options: --privileged
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch submodules over HTTPS
+        run: |
+          git config --global url."https://gitlab.com/".insteadOf "git@gitlab.com:"
+          git config --global url."https://git.podbielniak.com/".insteadOf "git@git-ssh.podbielniak.com:"
+          git submodule update --init --recursive
+
+      - name: Login to quay.io
+        env:
+          QUAY_USER: ${{ secrets.QUAY_USER }}
+          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
+        run: |
+          buildah login \
+              -u "${QUAY_USER}" \
+              -p "${QUAY_TOKEN}" \
+              quay.io
+
+      - name: Build deps container
+        run: make build-deps
+
+      - name: Push deps container
+        run: make push-deps
+
+      - name: Pre-test (shellcheck)
+        run: make ZFS=1 pre_test
+
+      - name: Build image
+        run: make ZFS=1 SKIP_TEST=1 build
+
+      - name: Test image
+        run: make ZFS=1 test
+
+      - name: Push image
+        run: make ZFS=1 push
