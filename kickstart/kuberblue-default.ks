@@ -9,8 +9,11 @@
 # full kickstart override priority chain.
 # ==============================================================================
 
-# Fully unattended text-mode install
-cmdline
+# Text mode install — inst.noninteractive (injected into ISO boot args by
+# osbuild stage patches) requires text or graphical mode to take effect.
+# cmdline mode ignores inst.noninteractive, causing Anaconda to hang at
+# "Installation complete. Press ENTER to quit:" instead of auto-rebooting.
+text
 
 # ------------------------------------------------------------------------------
 # Locale and Keyboard
