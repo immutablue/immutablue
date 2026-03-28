@@ -33,12 +33,52 @@ endif
 iso-config:
 	@./scripts/generate-image-config.sh iso $(ISO_DIR)/config-$(TAG).toml
 
+# ------------------------------------------------------------------------------
+# Kickstart Override Resolution — _iso_bootc and anaconda-iso targets
+# ------------------------------------------------------------------------------
+# These targets resolve the Anaconda kickstart configuration using a cascading
+# priority chain. The first match wins; remaining levels are skipped.
+#
+#   Priority 1 — iso/config-<TAG>.toml
+#     Full bootc-image-builder config override. Highest priority. If this file
+#     exists the entire config (including kickstart) is taken from it directly.
+#     Example: iso/config-43-kuberblue-nucleus.toml
+#
+#   Priority 2 — iso/kickstart-<TAG>.ks
+#     Per-tag custom kickstart in the iso/ directory. Not checked into the repo
+#     by default — create it to customize a specific tag's install behaviour.
+#     Example: iso/kickstart-43-kuberblue-nucleus.ks
+#
+#   Priority 3 — kickstart/<TAG>.ks
+#     Variant-level kickstart checked into the repo's kickstart/ directory.
+#     Useful when a variant always needs a specific kickstart regardless of
+#     where the build is run.
+#     Example: kickstart/43-kuberblue-nucleus.ks
+#
+#   Priority 4 — kickstart/kuberblue-default.ks (kuberblue builds only)
+#     Auto-selected when BUILD_OPTIONS contains "kuberblue" and no higher-
+#     priority override is found. Provides a fully automated unattended install
+#     suitable for kuberblue cluster nodes.
+#
+#   Priority 5 — Interactive firstboot (all other builds)
+#     GNOME Initial Setup is enabled on first boot. No kickstart is embedded.
+#     Recommended for end-user distributed ISOs.
+# ------------------------------------------------------------------------------
 _iso_bootc:
 	@echo "Building bootc ISO for $(IMAGE):$(TAG)..."
 	@mkdir -p $(ISO_DIR)/.build-$(TAG)
 	@if [ -f "$(ISO_DIR)/config-$(TAG).toml" ]; then \
 		echo "Using existing config: $(ISO_DIR)/config-$(TAG).toml"; \
 		cp $(ISO_DIR)/config-$(TAG).toml $(ISO_DIR)/.build-$(TAG)/config.toml; \
+	elif [ -f "$(ISO_DIR)/kickstart-$(TAG).ks" ]; then \
+		echo "Using custom kickstart: $(ISO_DIR)/kickstart-$(TAG).ks"; \
+		./scripts/generate-image-config.sh iso $(ISO_DIR)/.build-$(TAG)/config.toml --no-user --non-interactive --kickstart $(ISO_DIR)/kickstart-$(TAG).ks; \
+	elif [ -f "kickstart/$(TAG).ks" ]; then \
+		echo "Using variant kickstart: kickstart/$(TAG).ks"; \
+		./scripts/generate-image-config.sh iso $(ISO_DIR)/.build-$(TAG)/config.toml --no-user --non-interactive --kickstart kickstart/$(TAG).ks; \
+	elif echo "$(BUILD_OPTIONS)" | grep -qw "kuberblue"; then \
+		echo "Kuberblue detected - using default kuberblue kickstart"; \
+		./scripts/generate-image-config.sh iso $(ISO_DIR)/.build-$(TAG)/config.toml --no-user --non-interactive --kickstart kickstart/kuberblue-default.ks; \
 	else \
 		echo "No user config found - enabling interactive first-boot setup"; \
 		./scripts/generate-image-config.sh iso $(ISO_DIR)/.build-$(TAG)/config.toml --no-user --non-interactive; \
@@ -245,7 +285,17 @@ anaconda-iso:
 	@mkdir -p $(ANACONDA_ISO_DIR)/.build-$(TAG)
 	@if [ -f "$(ANACONDA_ISO_DIR)/config-$(TAG).toml" ]; then \
 		cp $(ANACONDA_ISO_DIR)/config-$(TAG).toml $(ANACONDA_ISO_DIR)/.build-$(TAG)/config.toml; \
+	elif [ -f "$(ANACONDA_ISO_DIR)/kickstart-$(TAG).ks" ]; then \
+		echo "Using custom kickstart: $(ANACONDA_ISO_DIR)/kickstart-$(TAG).ks"; \
+		./scripts/generate-image-config.sh anaconda-iso $(ANACONDA_ISO_DIR)/.build-$(TAG)/config.toml --no-user --non-interactive --kickstart $(ANACONDA_ISO_DIR)/kickstart-$(TAG).ks; \
+	elif [ -f "kickstart/$(TAG).ks" ]; then \
+		echo "Using variant kickstart: kickstart/$(TAG).ks"; \
+		./scripts/generate-image-config.sh anaconda-iso $(ANACONDA_ISO_DIR)/.build-$(TAG)/config.toml --no-user --non-interactive --kickstart kickstart/$(TAG).ks; \
+	elif echo "$(BUILD_OPTIONS)" | grep -qw "kuberblue"; then \
+		echo "Kuberblue detected - using default kuberblue kickstart"; \
+		./scripts/generate-image-config.sh anaconda-iso $(ANACONDA_ISO_DIR)/.build-$(TAG)/config.toml --no-user --non-interactive --kickstart kickstart/kuberblue-default.ks; \
 	else \
+		echo "No user config found - enabling interactive first-boot setup"; \
 		./scripts/generate-image-config.sh anaconda-iso $(ANACONDA_ISO_DIR)/.build-$(TAG)/config.toml --no-user --non-interactive; \
 	fi
 	sudo podman pull $(IMAGE):$(TAG)
