@@ -92,6 +92,7 @@ _iso_bootc:
 		-v $(ISO_DIR)/.build-$(TAG)/config.toml:/config.toml:ro \
 		-v $(CURDIR)/build/osbuild-patches/org.osbuild.grub2.iso:/usr/lib/osbuild/stages/org.osbuild.grub2.iso:ro \
 		-v $(CURDIR)/build/osbuild-patches/org.osbuild.grub2.iso.legacy:/usr/lib/osbuild/stages/org.osbuild.grub2.iso.legacy:ro \
+		-v $(CURDIR)/build/osbuild-patches/org.osbuild.isolinux:/usr/lib/osbuild/stages/org.osbuild.isolinux:ro \
 		$(BOOTC_IMAGE_BUILDER) \
 		--type iso --rootfs btrfs --config /config.toml \
 		$(IMAGE):$(TAG)
