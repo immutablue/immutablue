@@ -59,6 +59,9 @@ ISO_PATCH_MOUNT=()
 if [[ "$TYPE" == "iso" ]] && [[ -f "${REPO_DIR}/build/osbuild-patches/org.osbuild.grub2.iso" ]]; then
     ISO_PATCH_MOUNT=(-v "${REPO_DIR}/build/osbuild-patches/org.osbuild.grub2.iso:/usr/lib/osbuild/stages/org.osbuild.grub2.iso:ro")
 fi
+if [[ "$TYPE" == "iso" ]] && [[ -f "${REPO_DIR}/build/osbuild-patches/org.osbuild.grub2.iso.legacy" ]]; then
+    ISO_PATCH_MOUNT+=(-v "${REPO_DIR}/build/osbuild-patches/org.osbuild.grub2.iso.legacy:/usr/lib/osbuild/stages/org.osbuild.grub2.iso.legacy:ro")
+fi
 
 sudo podman run \
     --rm \

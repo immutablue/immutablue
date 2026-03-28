@@ -1,0 +1,174 @@
+#!/usr/bin/python3
+import os
+import shutil
+import string
+import sys
+
+import osbuild.api
+
+# The main grub2 configuration file template. Used for BIOS.
+# NOTE: Changes to this should also be applied to the org.osbuild.grub2.iso stage
+GRUB2_CFG_TEMPLATE = """$defaultentry
+function load_video {
+  insmod all_video
+}
+
+load_video
+set gfxpayload=keep
+insmod gzio
+insmod part_gpt
+insmod ext2
+insmod chain
+
+set timeout=${timeout}
+### END /etc/grub.d/00_header ###
+
+search --no-floppy --set=root -l '${isolabel}'
+
+$customentries
+$installentry
+$testentry
+$fipsentry
+$troubleshootingentry
+"""
+
+CUSTOM_ENTRY_TEMPLATE = """
+menuentry '${name}' --class fedora --class gnu-linux --class gnu --class os {
+	linux ${linux}
+	initrd ${initrd}
+}"""
+
+INSTALL_ENTRY_TEMPLATE = """
+menuentry 'Install ${product} ${version}' --class fedora --class gnu-linux --class gnu --class os {
+	linux ${kernelpath} ${root} quiet
+	initrd ${initrdpath}
+}"""
+
+TEST_ENTRY_TEMPLATE = """
+menuentry 'Test this media & install ${product} ${version}' --class fedora --class gnu-linux --class gnu --class os {
+	linux ${kernelpath} ${root} rd.live.check quiet
+	initrd ${initrdpath}
+}"""
+
+# Optional FIPS menu entry
+FIPS_ENTRY_TEMPLATE = """
+menuentry 'Install ${product} ${version} in FIPS mode' --class fedora --class gnu-linux --class gnu --class os {
+	linux ${kernelpath} ${root} quiet fips=1
+	initrd ${initrdpath}
+}
+"""
+
+# Optional Troubleshooting submenu
+TROUBLESHOOTING_ENTRY_TEMPLATE = """
+submenu 'Troubleshooting -->' {
+	menuentry 'Install ${product} ${version} in basic graphics mode' --class fedora --class gnu-linux --class gnu --class os {
+		linux ${kernelpath} ${root} nomodeset quiet
+		initrd ${initrdpath}
+	}
+	menuentry 'Rescue a ${product} system' --class fedora --class gnu-linux --class gnu --class os {
+		linux ${kernelpath} ${root} inst.rescue quiet
+		initrd ${initrdpath}
+	}
+	menuentry 'Boot first drive' --class fedora --class gnu-linux --class gnu --class os {
+		chainloader (hd0)+1
+	}
+}"""
+
+DEFAULT_ENTRY_TEMPLATE = """set default="${default}"
+"""
+
+
+def main(root, options):
+    name = options["product"]["name"]
+    version = options["product"]["version"]
+    # NOTE: grub2dir could possibly be "" which needs to default to boot/grub2
+    grub2dir = os.path.join(root, options.get("grub2dir") or "boot/grub2")
+    isolabel = options["isolabel"]
+    kdir = options["kernel"].get("dir", "/images/pxeboot")
+    kopts = options["kernel"].get("opts")
+    # Inject inst.noninteractive for kickstart-driven installs only.
+    # BIB has no config.toml mechanism to inject ISO kernel args when
+    # using custom kickstart contents, so we add it here. Without this,
+    # Anaconda cmdline mode hangs at "Press ENTER to quit:" after install.
+    # Only applied when inst.ks= is present (kickstart install), not for
+    # interactive firstboot ISOs which need Anaconda's interactive mode.
+    if kopts and any(o.startswith("inst.ks") for o in kopts):
+        if "inst.noninteractive" not in kopts:
+            kopts.append("inst.noninteractive")
+    cfg = options.get("config", {})
+    timeout = cfg.get("timeout", 60)
+    default = cfg.get("default")    # None indicates not set
+    fips = options.get("fips", False)
+    test = options.get("test", True)
+    install = options.get("install", True)
+    troubleshooting = options.get("troubleshooting", True)
+    platform = options.get("platform", "i386-pc")
+    custom = options.get("custom", [])
+
+    os.makedirs(grub2dir, exist_ok=True)
+
+    # platform specific grub2 modules
+    shutil.copytree(f"/usr/lib/grub/{platform}", f"{grub2dir}/{platform}", dirs_exist_ok=True)
+
+    print(f"kernel dir at {kdir}")
+    tplt_variables = {
+        "version": version,
+        "product": name,
+        "kernelpath": os.path.join(kdir, "vmlinuz"),
+        "initrdpath": os.path.join(kdir, "initrd.img"),
+        "isolabel": isolabel,
+        "root": " ".join(kopts),
+        "timeout": timeout,
+        "defaultentry": "",
+        "fipsentry": "",
+        "installentry": "",
+        "testentry": "",
+        "troubleshootingentry": "",
+        "customentries": "",
+    }
+
+    # Insert default menu selection
+    if default is not None:
+        default_tmpl = string.Template(DEFAULT_ENTRY_TEMPLATE)
+        defaultentry = default_tmpl.safe_substitute({"default": default})
+        tplt_variables["defaultentry"] = defaultentry
+
+    if len(custom):
+        for entry in custom:
+            custom_tmpl = string.Template(CUSTOM_ENTRY_TEMPLATE)
+            customentry = custom_tmpl.safe_substitute(entry)
+            tplt_variables["customentries"] += customentry
+
+    if test:
+        test_tmpl = string.Template(TEST_ENTRY_TEMPLATE)
+        testentry = test_tmpl.safe_substitute(tplt_variables)
+        tplt_variables["testentry"] = testentry
+
+    if install:
+        install_tmpl = string.Template(INSTALL_ENTRY_TEMPLATE)
+        installentry = install_tmpl.safe_substitute(tplt_variables)
+        tplt_variables["installentry"] = installentry
+
+    # Insert optional fips menu entry
+    if fips:
+        fips_tmpl = string.Template(FIPS_ENTRY_TEMPLATE)
+        fipsentry = fips_tmpl.safe_substitute(tplt_variables)
+        tplt_variables["fipsentry"] = fipsentry
+
+    if troubleshooting:
+        troubleshooting_tmpl = string.Template(TROUBLESHOOTING_ENTRY_TEMPLATE)
+        troubleshootingentry = troubleshooting_tmpl.safe_substitute(tplt_variables)
+        tplt_variables["troubleshootingentry"] = troubleshootingentry
+
+    tplt = string.Template(GRUB2_CFG_TEMPLATE)
+    data = tplt.safe_substitute(tplt_variables)
+
+    config = os.path.join(grub2dir, "grub.cfg")
+    with open(config, "w", encoding="utf8") as cfg:
+        cfg.write(data)
+
+
+if __name__ == '__main__':
+    args = osbuild.api.arguments()
+    ret = main(args["tree"], args["options"])
+    sys.exit(ret)
