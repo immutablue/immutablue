@@ -14,6 +14,7 @@
 #   --classic       Use classic ISO mode (for iso)
 #   --non-interactive  Generate minimal config without prompts
 #   --no-user       Generate config without user (firstboot enabled for iso)
+#   --kickstart <path> Embed kickstart file contents into config.toml
 # ==============================================================================
 
 set -euo pipefail
@@ -26,6 +27,7 @@ LIMA=0
 CLASSIC=0
 NON_INTERACTIVE=0
 NO_USER=0
+KICKSTART=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -45,6 +47,14 @@ while [[ $# -gt 0 ]]; do
             NO_USER=1
             shift
             ;;
+        --kickstart)
+            if [ -z "${2:-}" ] || [[ "${2:-}" == --* ]]; then
+                echo "ERROR: --kickstart requires a file path argument" >&2
+                exit 1
+            fi
+            KICKSTART="$2"
+            shift 2
+            ;;
         *)
             shift
             ;;
@@ -54,7 +64,7 @@ done
 if [[ -z "$TYPE" ]] || [[ -z "$OUTPUT" ]]; then
     echo "Usage: $0 <type> <output_path> [options]"
     echo "Types: iso, raw, ami, gce, vhd, vmdk, qcow2, anaconda-iso"
-    echo "Options: --lima, --classic, --non-interactive, --no-user"
+    echo "Options: --lima, --classic, --non-interactive, --no-user, --kickstart <path>"
     exit 1
 fi
 
@@ -169,10 +179,43 @@ prompt_for_user() {
     return 0
 }
 
+append_kickstart() {
+    local output="$1"
+    local ks_file="$2"
+
+    if [[ ! -f "$ks_file" ]]; then
+        echo "Error: Kickstart file not found: $ks_file" >&2
+        exit 1
+    fi
+
+    # Validate: triple-quote sequences would break TOML embedding
+    if grep -qF "'''" "$ks_file"; then
+        echo "Error: Kickstart file contains literal triple-quote sequence (''')" >&2
+        echo "which would break TOML embedding. Remove or escape them." >&2
+        exit 1
+    fi
+
+    # Use TOML literal multiline strings (''') instead of basic (""")
+    # to avoid backslash escape interpretation. Kickstart %post scripts
+    # commonly contain \n, \t, \\ in sed/awk commands.
+    echo "" >> "$output"
+    echo "[customizations.installer.kickstart]" >> "$output"
+    echo "contents = '''" >> "$output"
+    cat "$ks_file" >> "$output"
+    echo "'''" >> "$output"
+}
+
 generate_minimal_config() {
     local output="$1"
 
-    if [[ "$TYPE" == "iso" ]] && [[ "$CLASSIC" -ne 1 ]]; then
+    if [[ -n "$KICKSTART" ]]; then
+        # Kickstart file provided -- embed it directly into the config
+        cat > "$output" <<EOF
+# Immutablue ${TYPE} config - kickstart automated install
+# Kickstart source: ${KICKSTART}
+EOF
+        append_kickstart "$output" "$KICKSTART"
+    elif [[ "$TYPE" == "iso" ]] && [[ "$CLASSIC" -ne 1 ]]; then
         cat > "$output" <<EOF
 # Immutablue ISO config - interactive first-boot setup
 # Enable GNOME Initial Setup on first boot for:
@@ -181,9 +224,9 @@ generate_minimal_config() {
 # - Language/keyboard settings
 
 [customizations.installer.kickstart]
-contents = """
+contents = '''
 firstboot --enable
-"""
+'''
 EOF
     else
         cat > "$output" <<EOF
