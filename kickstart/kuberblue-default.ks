@@ -62,5 +62,7 @@ user --name=kuberblue --groups=wheel --lock
 firstboot --disable
 eula --agreed
 
-# Reboot automatically after installation and eject install media.
-reboot --eject
+# Power off after installation. Using poweroff instead of reboot --eject
+# to diagnose whether the "Press ENTER to quit" prompt is caused by a
+# reboot/eject failure or by flags.automatedInstall not being set.
+poweroff
