@@ -241,8 +241,8 @@ check_custom_libraries(void)
     /* core libraries (always installed) */
     static const gchar *libraries[] = {
         /* yaml-glib */
-        "/usr/lib64/libyaml-glib.so.1.0.0",
-        "/usr/lib64/libyaml-glib.so",
+        "/usr/lib64/libyaml-glib-1.0.so.1.0.0",
+        "/usr/lib64/libyaml-glib-1.0.so",
 
         /* crispy */
         "/usr/lib64/libcrispy.so.0.2.0",
@@ -263,7 +263,7 @@ check_custom_libraries(void)
     /* gui-only libraries, skipped on server variants (kuberblue) */
     static const gchar *gui_libraries[] = {
         /* gst */
-        "/usr/lib64/libgst.so.0.3.4",
+        "/usr/lib64/libgst.so.0.3.7",
         "/usr/lib64/libgst.so",
 
         /* gowl */

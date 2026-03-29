@@ -87,55 +87,60 @@ function test_kuberblue_files() {
     return 1
   fi
   
-  # Test for Kuberblue-specific configuration files
-  local required_files=(
-    "/usr/kuberblue/cluster.yaml"
-    "/usr/kuberblue/cni.yaml"
-    "/usr/kuberblue/security.yaml"
-    "/usr/kuberblue/gitops.yaml"
-    "/usr/kuberblue/packages.yaml"
-    "/etc/kuberblue/manifests/metadata.yaml.tpl"
-    "/etc/kuberblue/manifests/00-infrastructure/00-cilium/00-metadata.yaml"
-    "/etc/kuberblue/manifests/00-infrastructure/10-openebs/00-metadata.yaml"
-    "/usr/libexec/kuberblue/99-common.sh"
-    "/usr/libexec/kuberblue/variables.sh"
-    "/usr/libexec/immutablue/just/30-kuberblue.justfile"
-  )
-  
-  for file in "${required_files[@]}"; do
-    if ! podman run --rm "$IMAGE" test -f "$file"; then
-      echo "FAIL: Required file $file not found"
-      return 1
-    fi
-  done
-  
-  # Test for kube_setup scripts
-  local kube_setup_scripts=(
-    "kube_add_kuberblue_user.sh"
-    "kube_deploy.sh"
-    "kube_get_config.sh"
-    "kube_init.sh"
-    "kube_post_install.sh"
-    "kube_put_config.sh"
-    "kube_reset.sh"
-    "kube_untaint_master.sh"
-    "run_command_as_kuberblue_user.sh"
-    "kube_state.sh"
-    "kube_status.sh"
-    "kube_doctor.sh"
-    "kube_join.sh"
-    "kube_refresh_token.sh"
-    "kube_override.sh"
-    "kube_sops.sh"
-    "kube_upgrade.sh"
-  )
-  
-  for script in "${kube_setup_scripts[@]}"; do
-    if ! podman run --rm "$IMAGE" test -f "/usr/libexec/kuberblue/kube_setup/$script"; then
-      echo "FAIL: Required kube_setup script $script not found"
-      return 1
-    fi
-  done
+  # Check all required files and kube_setup scripts in a single container run
+  # to avoid attach-socket failures from rapid container churn
+  if ! podman run --rm "$IMAGE" bash -c '
+    FAIL=0
+    FILES=(
+      /usr/kuberblue/cluster.yaml
+      /usr/kuberblue/cni.yaml
+      /usr/kuberblue/security.yaml
+      /usr/kuberblue/gitops.yaml
+      /usr/kuberblue/packages.yaml
+      /etc/kuberblue/manifests/metadata.yaml.tpl
+      /etc/kuberblue/manifests/00-infrastructure/00-cilium/00-metadata.yaml
+      /etc/kuberblue/manifests/00-infrastructure/10-openebs/00-metadata.yaml
+      /usr/libexec/kuberblue/99-common.sh
+      /usr/libexec/kuberblue/variables.sh
+      /usr/libexec/immutablue/just/30-kuberblue.justfile
+    )
+    for f in "${FILES[@]}"; do
+      if [[ ! -f "$f" ]]; then
+        echo "FAIL: Required file $f not found"
+        FAIL=1
+      fi
+    done
+
+    SCRIPTS=(
+      kube_add_kuberblue_user.sh
+      kube_deploy.sh
+      kube_get_config.sh
+      kube_init.sh
+      kube_post_install.sh
+      kube_put_config.sh
+      kube_reset.sh
+      kube_untaint_master.sh
+      run_command_as_kuberblue_user.sh
+      kube_state.sh
+      kube_status.sh
+      kube_doctor.sh
+      kube_join.sh
+      kube_refresh_token.sh
+      kube_override.sh
+      kube_sops.sh
+      kube_upgrade.sh
+    )
+    for s in "${SCRIPTS[@]}"; do
+      if [[ ! -f "/usr/libexec/kuberblue/kube_setup/$s" ]]; then
+        echo "FAIL: Required kube_setup script $s not found"
+        FAIL=1
+      fi
+    done
+    exit $FAIL
+  '; then
+    echo "FAIL: Kuberblue file checks failed"
+    return 1
+  fi
   
   echo "PASS: Kuberblue files check succeeded"
   return 0
@@ -208,21 +213,22 @@ function test_kuberblue_v2_files() {
 function test_kuberblue_systemd() {
   echo "Testing Kuberblue systemd services in container"
   
-  # Check for Kuberblue systemd service
-  if ! podman run --rm "$IMAGE" test -f "/etc/systemd/system/kuberblue-onboot.service"; then
-    echo "FAIL: kuberblue-onboot.service not found"
-    return 1
-  fi
-  
-  # Verify service file contains expected content
-  if ! podman run --rm "$IMAGE" grep -q "kuberblue" "/etc/systemd/system/kuberblue-onboot.service"; then
-    echo "FAIL: kuberblue-onboot.service content validation failed"
-    return 1
-  fi
-  
-  # Check that crio and kubelet services are available (should be from kubernetes packages)
-  if ! podman run --rm "$IMAGE" bash -c "systemctl list-unit-files | grep -E '(crio|kubelet)\.service'"; then
-    echo "FAIL: Kubernetes systemd services check failed"
+  if ! podman run --rm "$IMAGE" bash -c '
+    FAIL=0
+    if [[ ! -f /etc/systemd/system/kuberblue-onboot.service ]]; then
+      echo "FAIL: kuberblue-onboot.service not found"
+      FAIL=1
+    elif ! grep -q "kuberblue" /etc/systemd/system/kuberblue-onboot.service; then
+      echo "FAIL: kuberblue-onboot.service content validation failed"
+      FAIL=1
+    fi
+    if ! systemctl list-unit-files | grep -qE "(crio|kubelet)\.service"; then
+      echo "FAIL: Kubernetes systemd services check failed"
+      FAIL=1
+    fi
+    exit $FAIL
+  '; then
+    echo "FAIL: Kuberblue systemd services check failed"
     return 1
   fi
   
@@ -237,14 +243,19 @@ function test_kuberblue_user() {
   
   # Note: The kuberblue user might be created during first boot, not at build time
   # So we test for the setup script that creates the user instead
-  if ! podman run --rm "$IMAGE" test -f "/usr/libexec/kuberblue/kube_setup/kube_add_kuberblue_user.sh"; then
-    echo "FAIL: kuberblue user setup script not found"
-    return 1
-  fi
-  
-  # Check sudoers configuration exists
-  if ! podman run --rm "$IMAGE" test -f "/etc/sudoers"; then
-    echo "FAIL: sudoers configuration not found"
+  if ! podman run --rm "$IMAGE" bash -c '
+    FAIL=0
+    if [[ ! -f /usr/libexec/kuberblue/kube_setup/kube_add_kuberblue_user.sh ]]; then
+      echo "FAIL: kuberblue user setup script not found"
+      FAIL=1
+    fi
+    if [[ ! -f /etc/sudoers ]]; then
+      echo "FAIL: sudoers configuration not found"
+      FAIL=1
+    fi
+    exit $FAIL
+  '; then
+    echo "FAIL: Kuberblue user configuration check failed"
     return 1
   fi
   
@@ -257,33 +268,24 @@ function test_kuberblue_user() {
 function test_kuberblue_configs() {
   echo "Testing Kuberblue system configurations in container"
   
-  # Test kernel modules configuration
-  if ! podman run --rm "$IMAGE" test -f "/etc/modules-load.d/50-kuberblue.conf"; then
-    echo "FAIL: Kuberblue kernel modules configuration not found"
-    return 1
-  fi
-  
-  # Test sysctl settings
-  if ! podman run --rm "$IMAGE" test -f "/etc/sysctl.d/50-kuberblue.conf"; then
-    echo "FAIL: Kuberblue sysctl configuration not found"
-    return 1
-  fi
-  
-  # Test SELinux configuration
-  if ! podman run --rm "$IMAGE" test -f "/etc/selinux/config"; then
-    echo "FAIL: SELinux configuration not found"
-    return 1
-  fi
-  
-  # Test SSH configuration
-  if ! podman run --rm "$IMAGE" test -f "/etc/ssh/sshd_config"; then
-    echo "FAIL: SSH configuration not found"
-    return 1
-  fi
-  
-  # Test NetworkManager configuration
-  if ! podman run --rm "$IMAGE" test -f "/etc/NetworkManager/NetworkManager.conf"; then
-    echo "FAIL: NetworkManager configuration not found"
+  if ! podman run --rm "$IMAGE" bash -c '
+    FAIL=0
+    CONFIGS=(
+      /etc/modules-load.d/50-kuberblue.conf
+      /etc/sysctl.d/50-kuberblue.conf
+      /etc/selinux/config
+      /etc/ssh/sshd_config
+      /etc/NetworkManager/NetworkManager.conf
+    )
+    for f in "${CONFIGS[@]}"; do
+      if [[ ! -f "$f" ]]; then
+        echo "FAIL: $f not found"
+        FAIL=1
+      fi
+    done
+    exit $FAIL
+  '; then
+    echo "FAIL: Kuberblue system configurations check failed"
     return 1
   fi
   
