@@ -62,7 +62,55 @@ user --name=kuberblue --groups=wheel --lock
 firstboot --disable
 eula --agreed
 
-# Power off after installation. Using poweroff instead of reboot --eject
-# to diagnose whether the "Press ENTER to quit" prompt is caused by a
-# reboot/eject failure or by flags.automatedInstall not being set.
-poweroff
+# Power off after installation.
+# NOTE: reboot --eject is the desired final form, but Fedora 43 Anaconda has a
+# regression where RUNTIME.Reboot.action always defaults to -1 regardless of the
+# kickstart command. installation_progress.py checks this value to decide whether
+# to auto-exit post-install; without the %post fix below it would stall at
+# "Installation complete. Press ENTER to quit:".
+reboot --eject
+
+# ------------------------------------------------------------------------------
+# Post-install workaround: force RUNTIME.Reboot.action via D-Bus
+# ------------------------------------------------------------------------------
+# Fedora 43 Anaconda regression: RuntimeService.process_kickstart receives
+# data.reboot.action=None from pykickstart, so RUNTIME.Reboot stays at -1.
+# installation_progress.py checks `reboot_data.action in [KS_REBOOT, KS_SHUTDOWN]`
+# and won't auto-exit if the value is -1. We fix this by setting the property
+# directly over the Anaconda private D-Bus during %post (before the TUI check).
+#
+# Verified fix: busctl set-property with a{sv} correctly sets action=1 (KS_REBOOT).
+# The D-Bus socket is at /tmp/dbus-* (single socket in the installer environment).
+%post --nochroot
+#!/bin/bash
+set -euo pipefail
+
+# Find the Anaconda private D-Bus socket — must be a socket file (type s),
+# not a regular file or directory. -print -quit returns the first match only.
+DBUS_SOCK=$(find /tmp -maxdepth 1 -name 'dbus-*' -type s -print -quit 2>/dev/null)
+if [ -z "$DBUS_SOCK" ]; then
+    echo "WARNING: Anaconda D-Bus socket not found in /tmp/dbus-*" >&2
+    exit 0
+fi
+
+export DBUS_SESSION_BUS_ADDRESS="unix:path=${DBUS_SOCK}"
+
+# Set RUNTIME.Reboot to KS_REBOOT=1 (matches 'reboot --eject' above)
+# action=1, eject=true (for ISO ejection on reboot), kexec=false
+if busctl --user set-property \
+    org.fedoraproject.Anaconda.Modules.Runtime \
+    /org/fedoraproject/Anaconda/Modules/Runtime \
+    org.fedoraproject.Anaconda.Modules.Runtime \
+    Reboot a{sv} 3 action i 1 eject b true kexec b false; then
+    echo "kickstart: RUNTIME.Reboot.action set to KS_REBOOT (1)"
+    # Verify the property was actually set — busctl can return 0 on type mismatch
+    echo "kickstart: readback verification:"
+    busctl --user get-property \
+        org.fedoraproject.Anaconda.Modules.Runtime \
+        /org/fedoraproject/Anaconda/Modules/Runtime \
+        org.fedoraproject.Anaconda.Modules.Runtime \
+        Reboot || echo "WARNING: get-property readback failed" >&2
+else
+    echo "WARNING: Failed to set RUNTIME.Reboot.action" >&2
+fi
+%end
