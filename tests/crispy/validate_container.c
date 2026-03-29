@@ -172,8 +172,6 @@ check_custom_binaries(void)
         "/usr/bin/mcp-prompt",
         "/usr/bin/mcp-shell",
         "/usr/bin/gdb-mcp-server",
-        NULL
-    };
 
         /* bacon shell + language server */
         "/usr/bin/bacon",
