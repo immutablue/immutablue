@@ -359,11 +359,7 @@ immutablue:
     all:
     - kuberblue-onboot.service
     - cockpit.socket
-    - sshd.service
     - crio.service
-    - tailscaled.service
-    - cloud-init-local.service  # Config injection via cloud-init NoCloud datasource
-    - cloud-init.service
 
   services_enable_sys_trueblue:
     all:
