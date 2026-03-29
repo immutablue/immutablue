@@ -32,13 +32,20 @@ fi
 
 echo "=== Running Kuberblue Container Tests ==="
 
-if ! podman run --rm \
+# Capture output and ignore podman exit code — podman run --rm can return
+# non-zero during container cleanup (cgroup issues in nested CI containers)
+# even when the script itself succeeds.  Check the crispy output instead.
+OUTPUT=$(podman run --rm \
   -v "${CRISPY_SCRIPT}:/tmp/validate_kuberblue_container.c:ro,z" \
   "$IMAGE" \
-  crispy --cache-dir /tmp -n /tmp/validate_kuberblue_container.c; then
+  crispy --cache-dir /tmp -n /tmp/validate_kuberblue_container.c 2>&1) || true
+
+echo "$OUTPUT"
+
+if echo "$OUTPUT" | grep -q "PASS: All kuberblue container checks passed"; then
+  echo "All Kuberblue container tests PASSED!"
+  exit 0
+else
   echo "FAIL: Kuberblue container validation failed"
   exit 1
 fi
-
-echo "All Kuberblue container tests PASSED!"
-exit 0
