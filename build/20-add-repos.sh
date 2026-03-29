@@ -12,11 +12,11 @@ then
     exit 0
 fi
 
-repos=$(cat <(yq '.immutablue.repo_urls[].name' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.repo_urls_$(uname -m)[].name" < ${INSTALL_DIR}/packages.yaml))
+repos=$(cat <(yq '.immutablue.repo_urls[][].name' < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.repo_urls_$(uname -m)[][].name" < ${INSTALL_DIR}/packages.yaml))
 
 while read -r option 
 do 
-    repos=$(cat <(echo "${repos}") <(yq ".immutablue.repo_urls_${option}[].name" < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.repo_urls_${option}_$(uname -m)[].name" < ${INSTALL_DIR}/packages.yaml))
+    repos=$(cat <(echo "${repos}") <(yq ".immutablue.repo_urls_${option}[][].name" < ${INSTALL_DIR}/packages.yaml) <(yq ".immutablue.repo_urls_${option}_$(uname -m)[][].name" < ${INSTALL_DIR}/packages.yaml))
     echo "${repos}"
 done < <(get_immutablue_build_options)
 
@@ -24,12 +24,12 @@ done < <(get_immutablue_build_options)
 # iterate and download any that have appropriate urls for their base options
 for repo in $repos
 do 
-    curl -Lo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls[] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")" || true
+    curl -Lo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls[][] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")" || true
 done
 
 for repo in $repos
-do 
-    curl -Lo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls_$(uname -m)[] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")" || true 
+do
+    curl -Lo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls_$(uname -m)[][] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")" || true
 done
 
 
@@ -38,12 +38,12 @@ while read -r option
 do 
     for repo in $repos
     do 
-        curl -Lo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls_${option}[] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")" || true
+        curl -Lo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls_${option}[][] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")" || true
     done
 
     for repo in $repos
-    do 
-        curl -Lo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls_${option}_$(uname -m)[] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")" || true 
+    do
+        curl -Lo "/etc/yum.repos.d/$repo" "$(yq ".immutablue.repo_urls_${option}_$(uname -m)[][] | select(.name == \"$repo\").url" < "${INSTALL_DIR}/packages.yaml")" || true
     done
 done < <(get_immutablue_build_options)
 

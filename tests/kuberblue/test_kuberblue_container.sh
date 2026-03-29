@@ -33,8 +33,8 @@ if [[ "${KUBERBLUE:-0}" != "1" ]] && [[ "$IMAGE" != *"kuberblue"* ]]; then
   exit 1
 fi
 
-# Detect Fedora version from the image: extract the number before '-kuberblue' in the tag
-FEDORA_VERSION="$(echo "$IMAGE" | grep -oP '\d+(?=-kuberblue)')"
+# Detect Fedora version from the image tag (first digits after ':')
+FEDORA_VERSION="$(echo "$IMAGE" | grep -oP ':\K\d+' || true)"
 if [[ -z "$FEDORA_VERSION" ]]; then
   # Fallback: query the container directly
   FEDORA_VERSION="$(podman run --rm "$IMAGE" bash -c ". /etc/os-release && echo \$VERSION_ID" 2>/dev/null || echo "43")"
