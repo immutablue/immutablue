@@ -316,6 +316,108 @@ check_kuberblue_files(void)
     return failed;
 }
 
+/* check V2 file layout: renames, removed files, new manifest directories */
+static gint
+check_v2_layout(void)
+{
+    /* files that MUST exist in V2 */
+    static const gchar *must_exist[] = {
+        "/usr/kuberblue/cni.yaml",
+        "/usr/kuberblue/security.yaml",
+        NULL
+    };
+
+    /* files that must NOT exist (renamed or removed in V2) */
+    static const gchar *must_not_exist[] = {
+        "/usr/kuberblue/networking.yaml",
+        "/usr/kuberblue/secrets.yaml",
+        "/usr/kuberblue/kubeadm.yaml",
+        NULL
+    };
+
+    /* new manifest directories in V2 */
+    static const gchar *manifest_dirs[] = {
+        "/etc/kuberblue/manifests/10-networking/00-tailscale-operator",
+        "/etc/kuberblue/manifests/10-networking/10-cloudflared",
+        "/etc/kuberblue/manifests/50-backup/00-velero",
+        NULL
+    };
+
+    gint failed = 0;
+    gint i;
+
+    g_print("\n--- Kuberblue V2 Layout Checks ---\n");
+
+    for (i = 0; must_exist[i] != NULL; i++)
+    {
+        if (g_file_test(must_exist[i], G_FILE_TEST_EXISTS))
+            g_print("PASS: %s exists\n", must_exist[i]);
+        else
+        {
+            g_print("FAIL: %s missing\n", must_exist[i]);
+            failed++;
+        }
+    }
+
+    for (i = 0; must_not_exist[i] != NULL; i++)
+    {
+        if (!g_file_test(must_not_exist[i], G_FILE_TEST_EXISTS))
+            g_print("PASS: %s absent (expected)\n", must_not_exist[i]);
+        else
+        {
+            g_print("FAIL: %s should not exist\n", must_not_exist[i]);
+            failed++;
+        }
+    }
+
+    for (i = 0; manifest_dirs[i] != NULL; i++)
+    {
+        if (g_file_test(manifest_dirs[i], G_FILE_TEST_IS_DIR))
+            g_print("PASS: %s\n", manifest_dirs[i]);
+        else
+        {
+            g_print("FAIL: %s (missing)\n", manifest_dirs[i]);
+            failed++;
+        }
+    }
+
+    return failed;
+}
+
+/* check system configuration files (kernel modules, sysctl, SELinux, SSH, etc.) */
+static gint
+check_system_configs(void)
+{
+    static const gchar *configs[] = {
+        "/etc/modules-load.d/50-kuberblue.conf",
+        "/etc/sysctl.d/50-kuberblue.conf",
+        "/etc/selinux/config",
+        "/etc/ssh/sshd_config",
+        "/etc/NetworkManager/NetworkManager.conf",
+        "/etc/sudoers",
+        "/usr/libexec/kuberblue/kube_setup/kube_add_kuberblue_user.sh",
+        NULL
+    };
+
+    gint failed = 0;
+    gint i;
+
+    g_print("\n--- System Configuration Checks ---\n");
+
+    for (i = 0; configs[i] != NULL; i++)
+    {
+        if (g_file_test(configs[i], G_FILE_TEST_EXISTS))
+            g_print("PASS: %s\n", configs[i]);
+        else
+        {
+            g_print("FAIL: %s (missing)\n", configs[i]);
+            failed++;
+        }
+    }
+
+    return failed;
+}
+
 /* check kuberblue and kubernetes systemd services are present */
 static gint
 check_kuberblue_services(void)
@@ -387,6 +489,8 @@ main(
     total_failed += check_kuberblue_packages();
     total_failed += check_kuberblue_binaries();
     total_failed += check_kuberblue_files();
+    total_failed += check_v2_layout();
+    total_failed += check_system_configs();
     total_failed += check_kuberblue_services();
 
     g_print("\n=== Summary ===\n");

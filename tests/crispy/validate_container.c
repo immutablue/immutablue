@@ -241,11 +241,11 @@ check_custom_libraries(void)
     /* core libraries (always installed) */
     static const gchar *libraries[] = {
         /* yaml-glib */
-        "/usr/lib64/libyaml-glib-1.0.so.1.0.0",
+        "/usr/lib64/libyaml-glib-1.0.so.1",
         "/usr/lib64/libyaml-glib-1.0.so",
 
         /* crispy */
-        "/usr/lib64/libcrispy.so.0.2.0",
+        "/usr/lib64/libcrispy.so.0",
         "/usr/lib64/libcrispy.so",
 
         /* mcp-glib */
@@ -255,7 +255,7 @@ check_custom_libraries(void)
         "/usr/lib64/libai-glib-1.0.so",
 
         /* bacon */
-        "/usr/lib64/libbacon-1.0.so.0.1.0",
+        "/usr/lib64/libbacon-1.0.so.0",
         "/usr/lib64/libbacon-1.0.so",
         NULL
     };
@@ -263,11 +263,11 @@ check_custom_libraries(void)
     /* gui-only libraries, skipped on server variants (kuberblue) */
     static const gchar *gui_libraries[] = {
         /* gst */
-        "/usr/lib64/libgst.so.0.3.7",
+        "/usr/lib64/libgst.so.0",
         "/usr/lib64/libgst.so",
 
         /* gowl */
-        "/usr/lib64/libgowl.so.0.2.3",
+        "/usr/lib64/libgowl.so.0",
         "/usr/lib64/libgowl.so",
         NULL
     };
