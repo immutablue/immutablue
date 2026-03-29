@@ -126,6 +126,7 @@ immutablue:
     - pixman-devel
     - wayland-devel
     - wayland-protocols-devel
+    - waypipe
     - wl-clipboard
     - wlroots  # runtime dep for gowl (wayland compositor)
     - wlroots-devel
