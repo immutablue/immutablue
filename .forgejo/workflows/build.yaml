@@ -38,10 +38,17 @@ jobs:
           QUAY_USER: ${{ secrets.QUAY_USER }}
           QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
         run: |
-          buildah login \
-              -u "${QUAY_USER}" \
-              -p "${QUAY_TOKEN}" \
-              quay.io
+          backoff=30
+          for attempt in 1 2 3; do
+              if buildah login -u "${QUAY_USER}" -p "${QUAY_TOKEN}" quay.io; then
+                  exit 0
+              fi
+              echo "Login attempt $attempt failed, retrying in ${backoff}s..."
+              sleep "$backoff"
+              backoff=$((backoff * 2))
+          done
+          echo "All login attempts failed"
+          exit 1
 
       - name: Build deps container
         run: make build-deps
@@ -68,5 +75,5 @@ jobs:
           curl -sf -X POST \
               -H "Authorization: token ${FORGEJO_TOKEN}" \
               -H "Content-Type: application/json" \
-              -d '{"event_type":"immutablue-push-build"}' \
-              "https://git.podbielniak.com/api/v1/repos/immutablue/hyacinth-macaw/dispatches"
+              -d '{"ref":"master"}' \
+              "https://git.podbielniak.com/api/v1/repos/immutablue/hyacinth-macaw/actions/workflows/on-push-build.yaml/dispatches"
