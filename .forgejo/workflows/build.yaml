@@ -60,3 +60,13 @@ jobs:
 
       - name: Push image
         run: make ZFS=1 push
+
+      - name: Trigger hyacinth-macaw build
+        env:
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+        run: |
+          curl -sf -X POST \
+              -H "Authorization: token ${FORGEJO_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d '{"event_type":"immutablue-push-build"}' \
+              "https://git.podbielniak.com/api/v1/repos/immutablue/hyacinth-macaw/dispatches"

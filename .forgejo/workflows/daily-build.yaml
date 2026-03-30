@@ -157,3 +157,23 @@ jobs:
 
       - name: Push image
         run: make ${{ matrix.variant }} ${{ matrix.version_arg }} push
+
+  # --------------------------------------------------------------------------
+  # Trigger downstream builds after all variants complete
+  # --------------------------------------------------------------------------
+  trigger-downstream:
+    needs: [builds]
+    runs-on: linux-amd64
+    container:
+      image: git.podbielniak.com/zachpodbielniak/build-container:43
+
+    steps:
+      - name: Trigger hyacinth-macaw build
+        env:
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+        run: |
+          curl -sf -X POST \
+              -H "Authorization: token ${FORGEJO_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d '{"event_type":"immutablue-daily-build"}' \
+              "https://git.podbielniak.com/api/v1/repos/immutablue/hyacinth-macaw/dispatches"
