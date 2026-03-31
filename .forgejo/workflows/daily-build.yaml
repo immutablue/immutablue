@@ -68,6 +68,9 @@ jobs:
       - name: Push deps container
         run: make push-deps
 
+      - name: Clean up images
+        run: make clean-deps
+
   deps-previous:
     runs-on: linux-amd64
     container:
@@ -106,6 +109,9 @@ jobs:
 
       - name: Push deps container
         run: make VERSION=${{ env.PREVIOUS_VERSION }} push-deps
+
+      - name: Clean up images
+        run: make VERSION=${{ env.PREVIOUS_VERSION }} clean-deps
 
   # --------------------------------------------------------------------------
   # Image builds (matrix, max 4 concurrent)
@@ -178,6 +184,9 @@ jobs:
 
       - name: Push image
         run: make ${{ matrix.variant }} ${{ matrix.version_arg }} push
+
+      - name: Clean up images
+        run: make ${{ matrix.variant }} ${{ matrix.version_arg }} clean-build
 
   # --------------------------------------------------------------------------
   # Trigger downstream builds after all variants complete

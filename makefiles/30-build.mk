@@ -123,3 +123,18 @@ manifest:
 
 manifest_rm:
 	-buildah manifest rm $(IMAGE):$(TAG) 2>/dev/null || true
+
+# ------------------------------------------------------------------------------
+# Cleanup (safe for shared storage -- only removes images this job built)
+# ------------------------------------------------------------------------------
+clean-deps:
+	-buildah rmi --force $(DEPS_CONTAINER) $(DEPS_CONTAINER_DATE) 2>/dev/null || true
+
+clean-cyan-deps:
+	-buildah rmi --force $(CYAN_DEPS_CONTAINER) $(CYAN_DEPS_CONTAINER_DATE) 2>/dev/null || true
+
+clean-build:
+ifeq ($(SET_AS_LATEST), 1)
+	-buildah rmi --force $(IMAGE):latest 2>/dev/null || true
+endif
+	-buildah rmi --force $(IMAGE):$(TAG) $(IMAGE):$(DATE_TAG) 2>/dev/null || true

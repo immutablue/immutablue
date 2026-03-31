@@ -34,6 +34,6 @@ ALL_PHONY_TARGETS := list tag-string all all_upgrade install update upgrade inst
 	test_kuberblue_container test_kuberblue_cluster test_kuberblue_components test_kuberblue_integration test_kuberblue_security test_kuberblue test_kuberblue_chainsaw test_chainsaw \
 	sbom qcow2 qcow2-config run_qcow2 lima lima-start lima-shell lima-stop lima-delete run_iso run_iso_qemu run_raw run_raw_qemu push_raw push_ami push_gce push_vhd push_vmdk \
 	_check_not_distroless distroless-img run-distroless-img distroless-qcow2 distroless-clean \
-	build-deps push-deps build-cyan-deps push-cyan-deps retag flatpak_refs/flatpaks push_iso \
+	build-deps push-deps build-cyan-deps push-cyan-deps clean-deps clean-cyan-deps clean-build retag flatpak_refs/flatpaks push_iso \
 	run_all_tests pre_test post_install install_services fix-virsh manifest manifest_rm \
 	update-gitlab-src

@@ -56,6 +56,9 @@ jobs:
       - name: Push deps container
         run: make push-deps
 
+      - name: Clean up deps images
+        run: make clean-deps
+
       - name: Pre-test (shellcheck)
         run: make ZFS=1 pre_test
 
@@ -67,6 +70,9 @@ jobs:
 
       - name: Push image
         run: make ZFS=1 push
+
+      - name: Clean up images
+        run: make ZFS=1 clean-build
 
       - name: Trigger hyacinth-macaw build
         env:
