@@ -27,13 +27,20 @@ then
     then
         for f in /home/linuxbrew/.linuxbrew/etc/bash_completion.d/*
         do
+            # Skip completions known to have side effects at source time
+            case "${f##*/}" in
+                just) continue ;;
+            esac
             # Check if readable
             if [[ -r "${f}" ]]
-            then 
+            then
                 source "${f}"
             fi
         done
         unset f
+
+        # Prevent duplicate sourcing by linuxbrew-bash-completion.sh
+        export BREW_BASH_COMPLETION=1
     fi
 
     # starship prompt by default
