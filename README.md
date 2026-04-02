@@ -16,19 +16,21 @@ This is the base image designed for a general use case. If you're happy with the
 
 ### To rebase
 ```
-sudo rpm-ostree rebase ostree-unverified-registry:quay.io/immutablue/immutablue:42
+sudo rpm-ostree rebase ostree-unverified-registry:quay.io/immutablue/immutablue:43
 ```
 
 ### Immutablue Flavors
-Head over to the [Immutablue Quay Repository](https://quay.io/repository/immutablue/immutablue?tab=tags) and have a look. There are various *flavors* of Immutablue. The images are tagged in the format `<major_version>-[flavors...]`. so `42` tag is just the default image. But `42-nucleus-lts` is version 42 nucleus build with the LTS kernel. An image can have more than one flavor.
-- default: `42`
-- lts: `42-lts`
-    - Uses the 6.12 LTS kernel instead of the normal GA'd fedora kernel
-    - Includes ZFS
-- nucleus: `42-nucleus`
-    - no gui, great server build
+Head over to the [Immutablue Quay Repository](https://quay.io/repository/immutablue/immutablue?tab=tags) and have a look. There are various *flavors* of Immutablue. The images are tagged in the format `<major_version>-[flavors...]`, so `43` tag is just the default image. But `43-nucleus-lts` is version 43 nucleus build with the LTS kernel. An image can have more than one flavor.
+- default: `43` — base Silverblue
+- lts: `43-lts` — 6.12 LTS kernel + ZFS
+- nucleus: `43-nucleus` — headless/server, no GUI
+- kuberblue: `43-kuberblue` — Kubernetes-ready OS
+- cyan: `43-cyan` — NVIDIA support
+- trueblue: `43-trueblue` — ZFS + LTS kernel + Cockpit management
+- nix: `43-nix` — Nix package manager
+- asahi: `43-asahi` — Apple Silicon
 
-### Customizing 
+### Customizing
 
 If you want a custom version or have specific needs, this is **not** the repo to fork or modify. We have another repo dedicated for that purpose.
 
@@ -37,36 +39,36 @@ We have taken care to make sure it is easy to modify and build upon, should you 
 Fork the custom repository if you want to make changes. You can find it [here](https://gitlab.com/immutablue/immutablue-custom).
 
 ### immutablue commands
-    - install:
-        - Should be used after rebase to perform initial install.
-    - upgrade:
-        - Upgrades the system image. *Requires* system reboot to take affect.
-    - update:
-        - Updates system, by installing new brew packages, flatpaks, updates distroboxes and runs post_install.sh
-    - install_distrobox:
-        - Installs/update exisiting distroboxes. May be required to account for upstream changes.
-    - post_install:
-        - Runs post_install.sh from downstream images (in case of immutablue-custom usage)
 
-### Reboot
-When running immutablue `install|upgrade|update` you can add the optional `REBOOT=1` flag. This will prompt a `systemctl reboot` call after all steps are executed for the respective targets.
+Run these with `just` on an installed Immutablue system.
 
-> By default `REBOOT=0`
+- `install` — Run after rebase to perform initial setup (flatpaks, distroboxes, post-install scripts).
+- `update` — Update the system (flatpaks, distroboxes, brew, post-install).
+- `install_distrobox` — Install or update existing distroboxes.
+- `install_flatpak` — Install flatpaks.
+- `install_brew` — Install Homebrew packages.
+- `post_install` — Run post-install scripts from downstream images (for immutablue-custom usage).
+- `doctor` — Run system health checks. Also: `doctor_verbose`, `doctor_fix`, `doctor_json`, `doctor_yaml`.
+- `initial_setup` — Re-run the first-login setup wizard.
+- `clean_system` — Prune unused container images, volumes, flatpaks, and rpm-ostree deployments.
+- `bios` — Reboot into BIOS/UEFI firmware settings.
+- `sysinfo` — Print system info (useful for filing tickets). `sysinfo_post` to paste it.
+- `toggle_firewall` — Toggle firewalld on/off.
+- `enable_tailscale` / `disable_tailscale` — Manage Tailscale service.
+- `enable_syncthing` / `disable_syncthing` — Manage Syncthing service.
+- `enable_libvirt` / `disable_libvirt` — Manage libvirt (VM hosting).
+- `disable_suspend` / `enable_suspend` — Control system suspend behavior (ac, battery, or both).
 
 ## Docs
-We have documentation embedded into Immutablue itself. When running immutablue if you want the 411 on various things, how-tos, etc., navigate to http://localhost:411 in your browser.
+We have documentation embedded into Immutablue itself. When running Immutablue, navigate to http://localhost:411 in your browser.
 
-These docs are also available to view in the project here under `docs/contents/pages/`.
+These docs are also available to view in the project here under `docs/content/`.
 
 #### Examples
 
-We have some examples of custom builds of Immutablue. These are our actual daily driver workstations. Not just toy examples.
-If you need some inspiration or trying to learn how we did something, these can be a great place to look.
-They follow the exact same process as here. ISOs are also included. 
+We have some examples of custom builds of Immutablue. These are actual daily driver workstations, not toy examples. If you need some inspiration or are trying to learn how we did something, these can be a great place to look.
 
 - [Hyacinth Macaw](https://gitlab.com/immutablue/hyacinth-macaw)
 - [Hawk Blueah](https://gitlab.com/immutablue/hawk-blueah)
 - [Blue-Tuxonaut](https://gitlab.com/noahsibai/blue-tuxonaut)
-
-
 
