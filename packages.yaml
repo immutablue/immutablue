@@ -131,6 +131,27 @@ immutablue:
     - wlroots  # runtime dep for gowl (wayland compositor)
     - wlroots-devel
     - xcb-util-wm-devel
+    # CMacs (Emacs fork) build deps
+    - autoconf
+    - automake
+    - giflib-devel
+    - gobject-introspection-devel  # --with-cmacs-gi
+    - gnutls-devel
+    - gtk3-devel                   # --with-pgtk
+    - ImageMagick-devel
+    - jansson-devel                # --with-json
+    - libgccjit-devel              # --with-native-compilation
+    - libjpeg-turbo-devel
+    - libotf-devel
+    - librsvg2-devel
+    - libtiff-devel
+    - libtree-sitter-devel         # --with-tree-sitter
+    - libwebp-devel
+    - libXpm-devel
+    - m17n-lib-devel
+    - ncurses-devel
+    - texinfo
+    - zlib-devel
     - xrdp
 
 
