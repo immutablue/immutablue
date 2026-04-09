@@ -185,6 +185,8 @@ check_custom_binaries(void)
         "/usr/bin/gst",
         "/usr/bin/gowl",
         "/usr/bin/gowlbar",
+        "/usr/bin/emacs",
+        "/usr/bin/emacsclient",
         NULL
     };
 
@@ -332,6 +334,13 @@ check_directories(void)
         NULL
     };
 
+    /* gui-only files (systemd services, session files, etc.) */
+    static const gchar *gui_files[] = {
+        "/usr/lib/systemd/user/emacs.service",
+        "/usr/share/wayland-sessions/cmacs.desktop",
+        NULL
+    };
+
     gboolean gui;
     gint failed;
     gint i;
@@ -364,6 +373,19 @@ check_directories(void)
             else
             {
                 g_print("FAIL: %s missing\n", gui_dirs[i]);
+                failed++;
+            }
+        }
+
+        for (i = 0; gui_files[i] != NULL; i++)
+        {
+            if (g_file_test(gui_files[i], G_FILE_TEST_EXISTS))
+            {
+                g_print("PASS: %s exists\n", gui_files[i]);
+            }
+            else
+            {
+                g_print("FAIL: %s missing\n", gui_files[i]);
                 failed++;
             }
         }

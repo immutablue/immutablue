@@ -111,6 +111,8 @@ immutablue:
     - firewall-applet
     - firewall-config
     - ibus-speech-to-text
+    - libgccjit  # runtime dep for cmacs native compilation
+    - libotf  # runtime dep for cmacs (OpenType font handling)
     - python3-pip  # since we don't use this in nucleus builds, then we can just put this in gui
     - solaar
     - cairo-devel

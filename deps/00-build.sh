@@ -82,6 +82,27 @@ PACKAGES=(
 
 	# nerd-fonts: extraction
 	xz
+
+	# cmacs: GNU Emacs with GLib/GObject/Wayland integration
+	autoconf
+	automake
+	texinfo
+	gnutls-devel
+	ncurses-devel
+	zlib-devel
+	gtk3-devel
+	libgccjit-devel
+	libXpm-devel
+	libjpeg-turbo-devel
+	giflib-devel
+	libtiff-devel
+	librsvg2-devel
+	libwebp-devel
+	libotf-devel
+	m17n-lib-devel
+	jansson-devel
+	libtree-sitter-devel
+	gobject-introspection-devel
 )
 
 
@@ -106,6 +127,7 @@ BUILDS=(
 	ai_glib
 	podomation
 	bacon
+	cmacs
 	mcp_kuberblue_glib
 )
 
@@ -201,6 +223,10 @@ build_crispy () {
 	cd "${src_dir}"
 	make DEBUG=1 all PREFIX=/usr
 	make DEBUG=1 install PREFIX=/usr DESTDIR="${stage_dir}"
+
+	# Also install to the deps container itself so cmacs can link against it
+	make DEBUG=1 install PREFIX=/usr
+	ldconfig
 }
 
 # gst -- GObject Simple Terminal (terminal emulator)
@@ -250,6 +276,10 @@ build_gowl () {
 
 	make DEBUG=1 MCP=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=0 BUILD_XWAYLAND=1
 	make DEBUG=1 MCP=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_GIR=0 BUILD_XWAYLAND=1
+
+	# Also install to the deps container itself so cmacs can link against it
+	make DEBUG=1 MCP=1 install PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=0 BUILD_XWAYLAND=1
+	ldconfig
 
 	# Install PAM config for screenlock module (/etc/pam.d/gowl)
 	if [[ -f "${src_dir}/data/gowl-screenlock.pam" ]]; then
@@ -344,6 +374,10 @@ build_ai_glib () {
 
 	make DEBUG=1 all PREFIX=/usr LIBDIR="/usr/${libdir}"
 	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}"
+
+	# Also install to the deps container itself so cmacs can link against it
+	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}"
+	ldconfig
 }
 
 
@@ -370,6 +404,10 @@ build_podomation () {
 
 	make DEBUG=1 all PREFIX=/usr
 	make DEBUG=1 install PREFIX=/usr DESTDIR="${stage_dir}"
+
+	# Also install to the deps container itself so cmacs can link against it
+	make DEBUG=1 install PREFIX=/usr
+	ldconfig
 }
 
 
@@ -395,6 +433,87 @@ build_bacon () {
 
 	make DEBUG=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=0
 	make DEBUG=1 install install-lsp PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_GIR=0
+
+	# Also install to the deps container itself so cmacs can link against it
+	make DEBUG=1 install install-lsp PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=0
+	ldconfig
+}
+
+
+# cmacs -- GNU Emacs with GLib/GObject/Wayland integration
+# Produces: emacs binary, elisp libraries, info docs, emacs.service,
+#           wayland session desktop file, doc_org/ interactive manual
+# Depends on: crispy, bacon, gowl, podomation (system-installed above)
+# Source: /build/cmacs (COPY'd from submodule)
+build_cmacs () {
+	local src_dir="${BUILD_DIR}/cmacs"
+	local stage_dir="${BUILD_DIR}/cmacs"
+
+	if [[ ! -d "${src_dir}/src" ]]; then
+		echo "ERROR: cmacs source not found at ${src_dir}"
+		echo "Ensure submodules are initialized: git submodule update --init --recursive"
+		exit 1
+	fi
+
+	mkdir -p "${stage_dir}"
+	cd "${src_dir}"
+
+	# Remove .git pointer left over from submodule COPY — it references a path
+	# that doesn't exist in the container and causes autogen.sh to fail when it
+	# tries to configure git hooks.
+	rm -f .git
+
+	./autogen.sh
+
+	./configure \
+		--prefix=/usr \
+		--with-pgtk \
+		--with-cairo \
+		--with-dbus \
+		--with-harfbuzz \
+		--with-modules \
+		--with-native-compilation=aot \
+		--with-tree-sitter \
+		--with-sqlite3 \
+		--with-json \
+		--with-rsvg \
+		--with-jpeg \
+		--with-png \
+		--with-gif \
+		--with-tiff \
+		--with-webp \
+		--with-xpm \
+		--with-gpm=no \
+		--with-cmacs-glib \
+		--with-cmacs-gi \
+		--with-cmacs-crispy \
+		--with-cmacs-bacon \
+		--with-cmacs-gowl \
+		--with-cmacs-podomation \
+		--with-cmacs-org-ex
+
+	make -j"$(nproc)"
+	make install DESTDIR="${stage_dir}"
+
+	# Install cmacs as a Wayland session (creates /usr/share/wayland-sessions/cmacs.desktop)
+	# install-wm writes directly to /usr/share/ (not DESTDIR-aware), so run it then move
+	./install-wm PREFIX=/usr
+	mkdir -p "${stage_dir}/usr/share/wayland-sessions"
+	mv /usr/share/wayland-sessions/cmacs.desktop "${stage_dir}/usr/share/wayland-sessions/"
+
+	# Install doc_org/ interactive Org manual so cmacs-manual works at runtime.
+	# cmacs.el looks for doc_org/cmacs/ relative to source-directory, which resolves
+	# to /usr/share/emacs/<version>/ for installed Emacs.
+	local emacs_version=""
+	for d in "${stage_dir}"/usr/share/emacs/*/; do
+		if [[ "$(basename "$d")" != "site-lisp" ]]; then
+			emacs_version="$(basename "$d")"
+			break
+		fi
+	done
+	if [[ -n "${emacs_version}" ]] && [[ -d "${src_dir}/doc_org" ]]; then
+		cp -a "${src_dir}/doc_org" "${stage_dir}/usr/share/emacs/${emacs_version}/doc_org"
+	fi
 }
 
 

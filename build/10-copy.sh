@@ -116,6 +116,13 @@ if [[ -d "/mnt-build-deps/bacon/usr" ]]; then
     cp -a /mnt-build-deps/bacon/usr/. /usr/
 fi
 
+# cmacs: GNU Emacs with GLib/GObject/Wayland integration (skip for nucleus -- no GUI)
+if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
+   [[ -d "/mnt-build-deps/cmacs/usr" ]]; then
+    echo "=== Installing cmacs from build deps ==="
+    cp -a /mnt-build-deps/cmacs/usr/. /usr/
+fi
+
 # nerd-fonts: FiraCode, FiraMono, Hack (always install)
 if [[ -d "/mnt-build-deps/nerd_fonts/usr" ]]; then
     echo "=== Installing nerd-fonts from build deps ==="
