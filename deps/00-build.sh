@@ -502,8 +502,8 @@ build_cmacs () {
 	mv /usr/share/wayland-sessions/cmacs.desktop "${stage_dir}/usr/share/wayland-sessions/"
 
 	# Install doc_org/ interactive Org manual so cmacs-manual works at runtime.
-	# cmacs.el looks for doc_org/cmacs/ relative to source-directory, which resolves
-	# to /usr/share/emacs/<version>/ for installed Emacs.
+	# cmacs.el looks for ../doc_org/cmacs/ relative to data-directory, which
+	# resolves to /usr/share/emacs/<version>/etc/ for installed Emacs.
 	local emacs_version=""
 	for d in "${stage_dir}"/usr/share/emacs/*/; do
 		if [[ "$(basename "$d")" != "site-lisp" ]]; then
