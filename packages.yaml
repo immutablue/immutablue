@@ -133,8 +133,15 @@ immutablue:
     - wlroots-devel
     - xcb-util-wm-devel
     - xrdp
+    - dbus-devel
+    - gnutls-devel
+    - gtk3-devel
+    - gtk4-devel
     - libgccjit  # runtime dep for cmacs native compilation
+    - libgccjit-devel
     - libotf  # runtime dep for cmacs OpenType font handling
+    - libtree-sitter-devel
+    - pam-devel
 
 
 
