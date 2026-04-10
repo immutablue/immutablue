@@ -58,6 +58,7 @@ immutablue:
     - gdb
     - git
     - glib2-devel
+    - gobject-introspection-devel
     - heaptrack
     - htop
     - innoextract
