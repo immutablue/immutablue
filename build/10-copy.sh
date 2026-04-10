@@ -117,10 +117,11 @@ if [[ -d "/mnt-build-deps/bacon/usr" ]]; then
 fi
 
 # cmacs: GNU Emacs with GLib/GObject/Wayland integration (skip for nucleus -- no GUI)
+# Built externally at quay.io/zachpodbielniak/cmacs, mounted at /mnt-cmacs
 if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
-   [[ -d "/mnt-build-deps/cmacs/usr" ]]; then
-    echo "=== Installing cmacs from build deps ==="
-    cp -a /mnt-build-deps/cmacs/usr/. /usr/
+   [[ -d "/mnt-cmacs/usr" ]]; then
+    echo "=== Installing cmacs from cmacs container ==="
+    cp -a /mnt-cmacs/usr/. /usr/
 fi
 
 # nerd-fonts: FiraCode, FiraMono, Hack (always install)

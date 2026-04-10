@@ -337,7 +337,6 @@ check_directories(void)
     /* gui-only files (systemd services, session files, etc.) */
     static const gchar *gui_files[] = {
         "/usr/lib/systemd/user/emacs.service",
-        "/usr/share/wayland-sessions/cmacs.desktop",
         NULL
     };
 

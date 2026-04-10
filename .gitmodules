@@ -31,6 +31,3 @@
 [submodule "artifacts/overrides/usr/src/gitlab/bacon"]
 	path = artifacts/overrides/usr/src/gitlab/bacon
 	url = git@gitlab.com:zachpodbielniak/bacon.git
-[submodule "artifacts/overrides/usr/src/gitlab/cmacs"]
-	path = artifacts/overrides/usr/src/gitlab/cmacs
-	url = git@gitlab.com:zachpodbielniak/cmacs.git
