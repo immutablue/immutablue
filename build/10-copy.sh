@@ -122,6 +122,11 @@ if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
    [[ -d "/mnt-cmacs/usr" ]]; then
     echo "=== Installing cmacs from cmacs container ==="
     cp -a /mnt-cmacs/usr/. /usr/
+    # Copy ldconfig snippets (e.g. /etc/ld.so.conf.d/cmacs.conf)
+    if [[ -d "/mnt-cmacs/etc" ]]; then
+        cp -a /mnt-cmacs/etc/. /etc/
+    fi
+    ldconfig
 fi
 
 # nerd-fonts: FiraCode, FiraMono, Hack (always install)
