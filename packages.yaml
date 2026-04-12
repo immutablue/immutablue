@@ -83,6 +83,7 @@ immutablue:
     - mbuffer
     - neovim
     - NetworkManager-tui
+    - perf
     - pipewire-devel
     - pkgconf-pkg-config
     - podman-compose
