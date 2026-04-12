@@ -73,6 +73,7 @@ immutablue:
     - libsoup3-devel
     - libssh2-devel
     - libubsan
+    - libva-utils
     - libvirt
     - libvirt-dbus
     - libvirt-devel
