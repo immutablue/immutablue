@@ -3,11 +3,13 @@ immutablue:
     41: "6.6"
     42: "6.12"
     43: "6.12"
+    44: "6.18"
 
   zfs_rpm_url:
     41: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-2-8.fc41.noarch.rpm"
     42: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-2-8.fc42.noarch.rpm"
     43: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-3-0.fc43.noarch.rpm"
+    44: ""
 
   # Repo URLs to add in the build (they are curled)
   repo_urls:
@@ -17,6 +19,9 @@ immutablue:
     43:
     - name: ublue-os-staging.repo
       url: https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-43/ublue-os-staging-fedora-43.repo
+    44:
+    - name: ublue-os-staging.repo
+      url: https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-43/ublue-os-staging-fedora-44.repo
 
   repo_urls_x86_64:
     42:
@@ -25,6 +30,9 @@ immutablue:
     43:
     - name: podman-bootc.repo
       url: https://copr.fedorainfracloud.org/coprs/gmaglione/podman-bootc/repo/fedora-43/gmaglione-podman-bootc-fedora-43.repo
+    44:
+    - name: podman-bootc.repo
+      url: https://copr.fedorainfracloud.org/coprs/gmaglione/podman-bootc/repo/fedora-43/gmaglione-podman-bootc-fedora-44.repo
 
   repo_urls_trueblue:
     42:
@@ -33,6 +41,9 @@ immutablue:
     43:
     - name: znapzend.repo
       url: https://copr.fedorainfracloud.org/coprs/spike/znapzend/repo/fedora-43/spike-znapzend-fedora-43.repo
+    44:
+    - name: znapzend.repo
+      url: https://copr.fedorainfracloud.org/coprs/spike/znapzend/repo/fedora-43/spike-znapzend-fedora-44.repo
 
 
   # RPM Packages to be installed
@@ -107,6 +118,19 @@ immutablue:
     - usbip
     - virt-bootstrap
 
+    # gowl needs wlroots 0.19 specifically.
+    # On F42 and F43 the default `wlroots`/`wlroots-devel` package is 0.19.
+    42:
+    - wlroots
+    - wlroots-devel
+    43:
+    - wlroots
+    - wlroots-devel
+    # On F44 the default wlroots is 0.20; use the 0.19 compat package instead.
+    44:
+    - wlroots0.19
+    - wlroots0.19-devel
+
   # Everything that is non-nucleus by default
   rpm_gui:
     all:
@@ -130,8 +154,9 @@ immutablue:
     - wayland-protocols-devel
     - waypipe
     - wl-clipboard
-    - wlroots  # runtime dep for gowl (wayland compositor)
-    - wlroots-devel
+    # wlroots for gowl is version-specific — see rpm.43 / rpm.44 below.
+    # F43 ships wlroots 0.19 as the default `wlroots`/`wlroots-devel` package;
+    # F44 ships 0.20 as default and keeps 0.19 available via `wlroots0.19`/`wlroots0.19-devel`.
     - xcb-util-wm-devel
     - xrdp
     - dbus-devel

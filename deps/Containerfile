@@ -1,6 +1,12 @@
 ARG FEDORA_VERSION=42
 FROM registry.fedoraproject.org/fedora:${FEDORA_VERSION} as dep-builder
 
+# Re-declare after FROM so it's visible in the build stage, and export as ENV
+# so deps/00-build.sh can branch on the Fedora release (e.g. wlroots compat
+# package selection on F44+).
+ARG FEDORA_VERSION
+ENV FEDORA_VERSION=${FEDORA_VERSION}
+
 COPY deps/00-build.sh /tmp/00-build.sh
 COPY artifacts/overrides/usr/src/gitlab/yaml-glib /build/yaml-glib
 COPY artifacts/overrides/usr/src/gitlab/crispy /build/crispy
