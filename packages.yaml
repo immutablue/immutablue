@@ -16,12 +16,12 @@ immutablue:
     all:
     - name: tailscale.repo
       url: https://pkgs.tailscale.com/stable/fedora/tailscale.repo
-    43:
-    - name: ublue-os-staging.repo
-      url: https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-43/ublue-os-staging-fedora-43.repo
-    44:
-    - name: ublue-os-staging.repo
-      url: https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-43/ublue-os-staging-fedora-44.repo
+    # 43:
+    # - name: ublue-os-staging.repo
+    #   url: https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-43/ublue-os-staging-fedora-43.repo
+    # 44:
+    # - name: ublue-os-staging.repo
+    #   url: https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-43/ublue-os-staging-fedora-44.repo
 
   repo_urls_x86_64:
     42:
@@ -94,6 +94,7 @@ immutablue:
     - mbuffer
     - neovim
     - NetworkManager-tui
+    - perf
     - pipewire-devel
     - pkgconf-pkg-config
     - podman-compose
