@@ -91,6 +91,7 @@ immutablue:
     - libyaml-devel
     - lm_sensors
     - make
+    - mediainfo
     - mbuffer
     - neovim
     - NetworkManager-tui
@@ -117,6 +118,7 @@ immutablue:
     - tmux
     - unrar
     - usbip
+    - vips
     - virt-bootstrap
 
     # gowl needs wlroots 0.19 specifically.
