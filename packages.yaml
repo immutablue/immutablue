@@ -153,6 +153,8 @@ immutablue:
     - libxkbcommon-devel
     - pango-devel
     - pixman-devel
+    - poppler-devel
+    - poppler-glib-devel
     - wayland-devel
     - wayland-protocols-devel
     - waypipe
