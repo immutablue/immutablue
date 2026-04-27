@@ -80,6 +80,7 @@ immutablue:
     - libdex-devel
     - libetpan-devel
     - libpq-devel
+    - librsvg2-devel
     - libsoup3
     - libsoup3-devel
     - libssh2-devel
