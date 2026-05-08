@@ -41,6 +41,7 @@ immutablue:
     - bashmount
     - bear
     - bemenu-run
+    - binutils-devel
     - buildah
     - buildstream
     - cloud-init
@@ -51,6 +52,8 @@ immutablue:
     - dialog
     - distrobox
     - e2fsprogs
+    - elfutils-devel
+    - elfutils-debuginfod-client-devel
     - fastfetch
     - fuse-sshfs
     - fzf
