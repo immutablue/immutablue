@@ -23,7 +23,7 @@ on:
 
 env:
   # Update version_arg in the build matrix when changing this
-  PREVIOUS_VERSION: "42"
+  PREVIOUS_VERSION: "43"
 
 jobs:
   # --------------------------------------------------------------------------

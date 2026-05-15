@@ -9,7 +9,7 @@ immutablue:
     41: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-2-8.fc41.noarch.rpm"
     42: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-2-8.fc42.noarch.rpm"
     43: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-3-0.fc43.noarch.rpm"
-    44: ""
+    44: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-3-1.fc44.noarch.rpm"
 
   # Repo URLs to add in the build (they are curled)
   repo_urls:
