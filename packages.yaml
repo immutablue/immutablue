@@ -177,6 +177,21 @@ immutablue:
     - libotf  # runtime dep for cmacs OpenType font handling
     - libtree-sitter-devel
     - pam-devel
+    # GStreamer codec stack for cmacs-video.  plugins-bad provides
+    # rtspsrc (RTSP + RTSPS); plugins-ugly-free + the ffmpeg-free →
+    # ffmpeg swap in 36-ffmpeg-freeworld.sh together give us a working
+    # avdec_h264 / avdec_h265 needed by real-world IP cameras
+    # (Unifi Protect, Reolink, Amcrest, Hikvision, Axis).  Most of
+    # these are pulled in transitively via GNOME but pinning them
+    # explicitly keeps the camera-viewer path stable across upstream
+    # meta-package churn.
+    - gstreamer1
+    - gstreamer1-plugins-base
+    - gstreamer1-plugins-good
+    - gstreamer1-plugins-bad-free
+    - gstreamer1-plugins-bad-free-extras
+    - gstreamer1-plugins-ugly-free
+    - gstreamer1-plugin-libav
 
 
 
@@ -281,6 +296,9 @@ immutablue:
     43:
     - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-43.noarch.rpm
     - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-43.noarch.rpm
+    44:
+    - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-44.noarch.rpm
+    - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-44.noarch.rpm
 
 
 
