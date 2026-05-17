@@ -186,7 +186,9 @@ immutablue:
     # explicitly keeps the camera-viewer path stable across upstream
     # meta-package churn.
     - gstreamer1
+    - gstreamer1-devel                     # gst/gst.h + gstreamer-1.0.pc (build dep for cmacs-video)
     - gstreamer1-plugins-base
+    - gstreamer1-plugins-base-devel        # gst/app/gstappsink.h + gst/video/video.h + their .pc files
     - gstreamer1-plugins-good
     - gstreamer1-plugins-bad-free
     - gstreamer1-plugins-bad-free-extras
