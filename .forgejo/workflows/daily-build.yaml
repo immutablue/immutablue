@@ -144,7 +144,7 @@ jobs:
           - "NUCLEUS=1 KUBERBLUE=1 TRUEBLUE=1"
         version_arg:
           - ""
-          - "VERSION=42"
+          - "VERSION=43"
 
     steps:
       - name: Checkout
