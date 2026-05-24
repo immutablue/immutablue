@@ -69,6 +69,7 @@ immutablue:
     - fuse-sshfs
     - fzf
     - gcc
+    - gcc-c++
     - gdb
     - git
     - glib2-devel
