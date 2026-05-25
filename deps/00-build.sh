@@ -41,6 +41,9 @@ PACKAGES=(
 	# glib/gobject (all four C projects)
 	glib2-devel
 
+	# ai-glib: GObject introspection bindings (built with GIR=1)
+	gobject-introspection-devel
+
 	# yaml-glib + gst: YAML + JSON
 	libyaml-devel
 	json-glib-devel
@@ -350,10 +353,13 @@ build_ai_glib () {
 		libdir="lib64"
 	fi
 
-	make DEBUG=1 all PREFIX=/usr LIBDIR="/usr/${libdir}"
-	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}"
+	# GIR=1 builds and installs AiGlib-1.0.{gir,typelib} into standard GI
+	# search paths so the final image's introspection consumers (cmacs,
+	# python-gi, gjs) can `(gi-require "AiGlib" "1.0")` out of the box.
+	make DEBUG=1 GIR=1 all PREFIX=/usr LIBDIR="/usr/${libdir}"
+	make DEBUG=1 GIR=1 install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}"
 
-	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}"
+	make DEBUG=1 GIR=1 install PREFIX=/usr LIBDIR="/usr/${libdir}"
 	ldconfig
 }
 
