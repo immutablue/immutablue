@@ -3,7 +3,7 @@
 /* validate_kuberblue_container.c - Validate Kuberblue container image contents
  *
  * Runs inside the container to verify:
- *   1. Kubernetes RPM packages (version-aware: 1.32 on Fedora 42, 1.35 on Fedora 43+)
+ *   1. Kubernetes RPM packages (version-aware: 1.32 on Fedora 42, 1.35 on Fedora 43, 1.36 on Fedora 44+)
  *   2. Kuberblue-specific binaries (crio, kubeadm, kubectl, kubelet, sops, helm, flux, chainsaw)
  *   3. Kuberblue directories and configuration files
  *   4. Kuberblue and Kubernetes systemd services
@@ -97,7 +97,13 @@ detect_fedora_version(void)
 static gint
 check_kubernetes_packages(gint fedora_version)
 {
-    const gchar *k8s_ver = (fedora_version <= 42) ? "1.32" : "1.35";
+    const gchar *k8s_ver;
+    if (fedora_version <= 42)
+        k8s_ver = "1.32";
+    else if (fedora_version == 43)
+        k8s_ver = "1.35";
+    else
+        k8s_ver = "1.36";
     g_autofree gchar *pkg_kube      = g_strdup_printf("kubernetes%s", k8s_ver);
     g_autofree gchar *pkg_client    = g_strdup_printf("kubernetes%s-client", k8s_ver);
     g_autofree gchar *pkg_kubeadm   = g_strdup_printf("kubernetes%s-kubeadm", k8s_ver);

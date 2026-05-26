@@ -74,7 +74,7 @@ fi
 # config (e.g. extlinux), which trips the bootc nonempty-boot lint and may
 # conflict with bootupd at install time. The kernel/modules live in
 # /usr/lib/modules/$kver and bootc regenerates initramfs at deploy.
-rm -rf /boot/* /boot/.[!.]* /boot/..?* 2>/dev/null || true
+find /boot -mindepth 1 -delete 2>/dev/null || true
 
 # rebuild font cache (picks up nerd-fonts and any other new fonts)
 fc-cache -fv
