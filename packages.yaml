@@ -32,7 +32,7 @@ immutablue:
       url: https://copr.fedorainfracloud.org/coprs/gmaglione/podman-bootc/repo/fedora-43/gmaglione-podman-bootc-fedora-43.repo
     44:
     - name: podman-bootc.repo
-      url: https://copr.fedorainfracloud.org/coprs/gmaglione/podman-bootc/repo/fedora-43/gmaglione-podman-bootc-fedora-44.repo
+      url: https://copr.fedorainfracloud.org/coprs/gmaglione/podman-bootc/repo/fedora-44/gmaglione-podman-bootc-fedora-44.repo
 
   repo_urls_trueblue:
     42:
@@ -43,7 +43,7 @@ immutablue:
       url: https://copr.fedorainfracloud.org/coprs/spike/znapzend/repo/fedora-43/spike-znapzend-fedora-43.repo
     44:
     - name: znapzend.repo
-      url: https://copr.fedorainfracloud.org/coprs/spike/znapzend/repo/fedora-43/spike-znapzend-fedora-44.repo
+      url: https://copr.fedorainfracloud.org/coprs/spike/znapzend/repo/fedora-44/spike-znapzend-fedora-44.repo
 
 
   # RPM Packages to be installed
@@ -283,6 +283,12 @@ immutablue:
     - kubernetes1.35-client
     - kubernetes1.35-kubeadm
     - kubernetes1.35-systemd
+    44:
+    - cri-tools1.36
+    - kubernetes1.36
+    - kubernetes1.36-client
+    - kubernetes1.36-kubeadm
+    - kubernetes1.36-systemd
 
 
   rpm_x86_64:

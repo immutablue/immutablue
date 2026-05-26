@@ -68,5 +68,13 @@ fi
 # remove debug modules
  rm -rf /usr/lib/modules/*+debug
 
+# Clear /boot — bootc manages the boot partition externally from the container
+# image. Kernel RPM %posttrans (dracut) and grub2 scriptlets that ran during
+# dnf5 transactions can pollute /boot with initramfs, symvers, and bootloader
+# config (e.g. extlinux), which trips the bootc nonempty-boot lint and may
+# conflict with bootupd at install time. The kernel/modules live in
+# /usr/lib/modules/$kver and bootc regenerates initramfs at deploy.
+rm -rf /boot/* /boot/.[!.]* /boot/..?* 2>/dev/null || true
+
 # rebuild font cache (picks up nerd-fonts and any other new fonts)
 fc-cache -fv
