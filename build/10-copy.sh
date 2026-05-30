@@ -75,6 +75,13 @@ if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
     cp -a /mnt-build-deps/gst/usr/. /usr/
 fi
 
+# gsurf: WebKit web browser (skip for nucleus -- no display server)
+if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
+   [[ -d "/mnt-build-deps/gsurf/usr" ]]; then
+    echo "=== Installing gsurf from build deps ==="
+    cp -a /mnt-build-deps/gsurf/usr/. /usr/
+fi
+
 # gowl: wayland compositor (skip for nucleus -- no display server)
 if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
    [[ -d "/mnt-build-deps/gowl/usr" ]]; then

@@ -9,7 +9,7 @@
 # Fedora container. All output goes to /build/ which is later consumed
 # by build/10-copy.sh via the /mnt-build-deps mount.
 #
-# Source trees for custom C projects (yaml-glib, crispy, gst, gowl,
+# Source trees for custom C projects (yaml-glib, crispy, gst, gsurf, gowl,
 # mcp-glib, mcp-gdb-glib, ai-glib) are COPY'd into /build/ by the
 # Containerfile from the git submodules at artifacts/overrides/usr/src/gitlab/.
 #
@@ -59,6 +59,13 @@ PACKAGES=(
 	cairo-devel
 	libdecor-devel
 
+	# gsurf: WebKit2GTK 4.1 / GTK3 browser backend (javascriptcoregtk-4.1.pc
+	# ships in webkit2gtk4.1-devel; libpng is used by the MCP screenshot tool;
+	# libsoup3/libdex/readline are already pulled in above for mcp-glib).
+	gtk3-devel
+	webkit2gtk4.1-devel
+	libpng-devel
+
 	# gowl: wayland compositor
 	# wlroots-devel is version-gated below (F44+ ships 0.20 as the default;
 	# gowl needs 0.19 specifically, available as wlroots0.19-devel compat pkg).
@@ -105,6 +112,7 @@ BUILDS=(
 	yaml_glib
 	crispy
 	gst
+	gsurf
 	gowl
 	mcp_glib
 	mcp_gdb_glib
@@ -234,6 +242,34 @@ build_gst () {
 
 	make DEBUG=1 MCP=1 WEBVIEW=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
 	make DEBUG=1 MCP=1 WEBVIEW=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
+}
+
+# gsurf -- GObject Surf (WebKit2GTK web browser)
+# Produces: gsurf binary, libgsurf.so, module .so files, headers, pkg-config,
+#           desktop file, hicolor SVG icon, man page
+# Vendors its own yaml-glib/crispy/mcp-glib (compiled/linked statically), so it
+# is self-contained and does not depend on the system builds above.
+# Source: /build/gsurf (COPY'd from submodule)
+build_gsurf () {
+	local src_dir="${BUILD_DIR}/gsurf"
+	local stage_dir="${BUILD_DIR}/gsurf"
+
+	if [[ ! -d "${src_dir}/src" ]]; then
+		echo "ERROR: gsurf source not found at ${src_dir}"
+		echo "Ensure submodules are initialized: git submodule update --init --recursive"
+		exit 1
+	fi
+
+	mkdir -p "${stage_dir}"
+	cd "${src_dir}"
+
+	# Generate version headers before the main build. Forgejo runners may
+	# inject MAKEFLAGS with -j, causing parallel make to start compilation
+	# before the generated headers exist.
+	make DEBUG=1 src/gsurf-version.h deps/crispy/src/crispy-version.h
+
+	make DEBUG=1 MCP=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=0
+	make DEBUG=1 MCP=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_GIR=0
 }
 
 # gowl -- GObject Wayland Compositor

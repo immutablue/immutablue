@@ -11,6 +11,7 @@ COPY deps/00-build.sh /tmp/00-build.sh
 COPY artifacts/overrides/usr/src/gitlab/yaml-glib /build/yaml-glib
 COPY artifacts/overrides/usr/src/gitlab/crispy /build/crispy
 COPY artifacts/overrides/usr/src/gitlab/gst /build/gst
+COPY artifacts/overrides/usr/src/gitlab/gsurf /build/gsurf
 COPY artifacts/overrides/usr/src/gitlab/gowl /build/gowl
 COPY artifacts/overrides/usr/src/gitlab/mcp-glib /build/mcp-glib
 COPY artifacts/overrides/usr/src/gitlab/mcp-gdb-glib /build/mcp-gdb-glib
