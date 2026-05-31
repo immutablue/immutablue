@@ -49,6 +49,7 @@ immutablue:
   # RPM Packages to be installed
   rpm:
     all:
+    - adb
     - bashmount
     - bear
     - bemenu-run
