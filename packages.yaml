@@ -73,6 +73,7 @@ immutablue:
     - gcc-c++
     - gdb
     - git
+    - gjs-devel
     - glib2-devel
     - gobject-introspection-devel
     - heaptrack
@@ -96,6 +97,7 @@ immutablue:
     - libvirt-devel
     - libyaml-devel
     - lm_sensors
+    - luajit-devel
     - make
     - mediainfo
     - mbuffer
@@ -107,6 +109,7 @@ immutablue:
     - podman-compose
     - powertop
     - pv
+    - python3-devel
     - python3-gobject
     - python3-pip
     - python3-yaml
