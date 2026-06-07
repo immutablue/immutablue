@@ -84,12 +84,17 @@ PACKAGES=(
 	libdex-devel
 	readline-devel
 
-	# podomation: email source module (IMAP/SMTP), db modules (SQLite, PostgreSQL), ssh modules
+	# podomation: core lib (gudev-1.0), udev module (libudev), email (IMAP/SMTP),
+	#             db modules (SQLite, PostgreSQL), ssh module, VM module,
+	#             discord module (TLS for gateway WebSocket)
+	libgudev-devel
+	systemd-devel
 	libetpan-devel
 	sqlite-devel
 	libpq-devel
-    libssh2-devel
-    libvirt-devel
+	libssh2-devel
+	libvirt-devel
+	gnutls-devel
 
 	# nerd-fonts: extraction
 	xz
