@@ -111,18 +111,6 @@ if [[ -d "/mnt-build-deps/ai-glib/usr" ]]; then
     cp -a /mnt-build-deps/ai-glib/usr/. /usr/
 fi
 
-# podomation: Podman automation DSL engine (always install)
-if [[ -d "/mnt-build-deps/podomation/usr" ]]; then
-    echo "=== Installing podomation from build deps ==="
-    cp -a /mnt-build-deps/podomation/usr/. /usr/
-fi
-
-# bacon: GLib/GObject login shell (always install)
-if [[ -d "/mnt-build-deps/bacon/usr" ]]; then
-    echo "=== Installing bacon from build deps ==="
-    cp -a /mnt-build-deps/bacon/usr/. /usr/
-fi
-
 # cmacs: GNU Emacs with GLib/GObject/Wayland integration (skip for nucleus -- no GUI)
 # Built externally at quay.io/zachpodbielniak/cmacs, mounted at /mnt-cmacs
 if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
@@ -134,6 +122,23 @@ if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
         cp -a /mnt-cmacs/etc/. /etc/
     fi
     ldconfig
+fi
+
+# podomation: Podman automation DSL engine (always install)
+# Must come AFTER cmacs: the cmacs image bundles its own podomation build
+# (from its deps/ submodule pin) under /usr/lib64/podomation/modules, which
+# would otherwise overwrite the canonical build-deps version.
+if [[ -d "/mnt-build-deps/podomation/usr" ]]; then
+    echo "=== Installing podomation from build deps ==="
+    cp -a /mnt-build-deps/podomation/usr/. /usr/
+fi
+
+# bacon: GLib/GObject login shell (always install)
+# Must come AFTER cmacs for the same reason as podomation: cmacs bundles
+# its own bacon build under /usr/lib64/bacon.
+if [[ -d "/mnt-build-deps/bacon/usr" ]]; then
+    echo "=== Installing bacon from build deps ==="
+    cp -a /mnt-build-deps/bacon/usr/. /usr/
 fi
 
 # nerd-fonts: FiraCode, FiraMono, Hack (always install)
