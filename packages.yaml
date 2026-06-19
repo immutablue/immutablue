@@ -163,6 +163,14 @@ immutablue:
     - libXft-devel
     - libxcb-devel
     - libxkbcommon-devel
+    # gst libregnum (LRG) backend: OpenGL + X11 extension + ALSA libs that
+    # raylib/GLFW links (graylib/raylib are statically built into gst).
+    - mesa-libGL-devel
+    - libXcursor-devel
+    - libXi-devel
+    - libXinerama-devel
+    - libXrandr-devel
+    - alsa-lib-devel
     - pango-devel
     - pixman-devel
     - poppler-devel

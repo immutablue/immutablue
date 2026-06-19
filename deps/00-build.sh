@@ -59,6 +59,18 @@ PACKAGES=(
 	cairo-devel
 	libdecor-devel
 
+	# gst: libregnum (LRG) backend (built with LRG_BACKEND=1).
+	# graylib + raylib are vendored and compiled from source; raylib's GLFW
+	# desktop backend needs the Mesa GL headers and the X11 extension dev
+	# libs, and raylib audio (miniaudio) pulls in ALSA. libX11-devel is
+	# already listed above for the X11 backend.
+	mesa-libGL-devel
+	libXrandr-devel
+	libXinerama-devel
+	libXcursor-devel
+	libXi-devel
+	alsa-lib-devel
+
 	# gsurf: WebKit2GTK 4.1 / GTK3 browser backend (javascriptcoregtk-4.1.pc
 	# ships in webkit2gtk4.1-devel; libpng is used by the MCP screenshot tool;
 	# libsoup3/libdex/readline are already pulled in above for mcp-glib).
@@ -240,13 +252,20 @@ build_gst () {
 	mkdir -p "${stage_dir}"
 	cd "${src_dir}"
 
+	# Build the vendored graylib + raylib static archives first (LRG backend).
+	# graylib.h pulls in graylib's GENERATED grl-version.h, which only exists
+	# once graylib is built, so it must be generated before the LRG sources
+	# compile. Doing it explicitly here is also safe against parallel make
+	# (-j) injected by the Forgejo runners.
+	make DEBUG=1 -C deps/libregnum/deps/graylib lib
+
 	# Generate version headers before the main build. Forgejo runners may
 	# inject MAKEFLAGS with -j, causing parallel make to start compilation
 	# before the generated headers exist.
-	make DEBUG=1 src/gst-version.h deps/crispy/src/crispy-version.h
+	make DEBUG=1 LRG_BACKEND=1 src/gst-version.h deps/crispy/src/crispy-version.h
 
-	make DEBUG=1 MCP=1 WEBVIEW=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
-	make DEBUG=1 MCP=1 WEBVIEW=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
+	make DEBUG=1 LRG_BACKEND=1 MCP=1 WEBVIEW=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
+	make DEBUG=1 LRG_BACKEND=1 MCP=1 WEBVIEW=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
 }
 
 # gsurf -- GObject Surf (WebKit2GTK web browser)
