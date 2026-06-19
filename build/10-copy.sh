@@ -8,7 +8,90 @@ FALSE=0
 mkdir -p "${INSTALL_DIR}"
 cp -a /mnt-ctx/. "${INSTALL_DIR}/"
 ls -l "${INSTALL_DIR}"
+
+# -----------------------------------
+# Shrink the shipped source tree's git history to just the built commit.
+#
+# We intentionally ship the full immutablue source (and its submodules: gst,
+# gsurf, and their deep transitive submodules -- libregnum, cad-glib, solvespace,
+# steamworks_sdk, raylib, ...) under ${INSTALL_DIR} for build provenance. The
+# working trees are modest, but the submodule *histories* under
+# ${INSTALL_DIR}/.git/modules add ~2.7G (e.g. steamworks_sdk and raylib carry
+# ~400M of history each, vendored by BOTH gst and gsurf). Reduce every repo --
+# the superproject and every nested submodule -- to a single commit: the exact
+# one that was checked out. This preserves the commit SHA / author / date /
+# message (git log -1, git show, git describe all still work) while dropping the
+# ancestry. ostree later mirrors the rootfs into /sysroot, so bytes saved here
+# are saved roughly twice in the final image.
+#
+# Three things make a naive "write .git/shallow + repack" a no-op here, all
+# handled below:
+#   1. Each submodule's config has a core.worktree pointing at a build-time
+#      relative path that does not resolve in this container, so plain git
+#      commands abort with "cannot chdir". Passing --work-tree="${gitdir}"
+#      (an existing dir) overrides it.
+#   2. repack keeps everything reachable from ALL refs. Submodules ship with
+#      refs/heads/* and refs/remotes/origin/* pointing at full history while
+#      HEAD is detached at the pinned commit -- so we detach HEAD to its SHA and
+#      delete the other refs, leaving only the built commit reachable.
+#   3. git 2.5x defaults to cruft packs: repack -ad moves unreachable objects
+#      into a .mtimes cruft pack instead of deleting them. gc.cruftPacks=false
+#      forces them to be dropped so the space is actually reclaimed.
+# -----------------------------------
+strip_git_to_shallow() {
+    local top="$1"
+    [[ -d "${top}" ]] || return 0
+    command -v git >/dev/null 2>&1 || { echo "git not available; skipping git history strip"; return 0; }
+
+    local objects gitdir head
+    # A gitdir is the parent of an 'objects' directory that also holds a HEAD.
+    # Searching only under the .git tree avoids matching source dirs named
+    # "objects". This catches the superproject (.git/objects) and every
+    # submodule, including deeply nested ones (.git/modules/.../objects).
+    while IFS= read -r -d '' objects; do
+        gitdir="$(dirname "${objects}")"
+        [[ -e "${gitdir}/HEAD" ]] || continue
+        # --work-tree overrides the broken core.worktree (see note 1 above).
+        head="$(git --git-dir="${gitdir}" --work-tree="${gitdir}" rev-parse HEAD 2>/dev/null)" || continue
+        [[ -n "${head}" ]] || continue
+
+        echo "=== Shallowing ${gitdir} @ ${head} ==="
+        # Detach HEAD at the built commit, then drop every other ref so only
+        # this commit is reachable (see note 2 above).
+        git --git-dir="${gitdir}" --work-tree="${gitdir}" update-ref --no-deref HEAD "${head}" 2>/dev/null || true
+        rm -f "${gitdir}/packed-refs"
+        find "${gitdir}/refs" -type f -delete 2>/dev/null || true
+        # Graft away this commit's parents so the snapshot is self-contained.
+        echo "${head}" > "${gitdir}/shallow"
+        git --git-dir="${gitdir}" --work-tree="${gitdir}" reflog expire --expire=now --all 2>/dev/null || true
+        # cruftPacks=false so unreachable history is deleted, not cruft-packed.
+        git --git-dir="${gitdir}" --work-tree="${gitdir}" -c gc.cruftPacks=false repack -ad 2>/dev/null || true
+        git --git-dir="${gitdir}" --work-tree="${gitdir}" prune --expire=now 2>/dev/null || true
+    done < <(find "${top}" -type d -name objects -print0)
+}
+
+strip_git_to_shallow "${INSTALL_DIR}/.git"
+
+# The bundled tool source (gst, gsurf, ...) is deployed to its canonical home
+# at /usr/src/gitlab via the overrides copy below. The same tree is also a
+# verbatim member of the immutablue repo we just copied into ${INSTALL_DIR}
+# (under artifacts/overrides/usr/src), so it currently ships twice (~890M).
+# Drop the in-${INSTALL_DIR} mirror; /usr/src/gitlab remains the shipped copy.
+if [[ -d "${INSTALL_DIR}/artifacts/overrides/usr/src" ]]; then
+    echo "=== Removing duplicate source mirror from ${INSTALL_DIR} ==="
+    rm -rf "${INSTALL_DIR}/artifacts/overrides/usr/src"
+fi
+
 cp -a /mnt-ctx/artifacts/overrides/. /
+
+# The deployed /usr/src/gitlab worktrees still carry their submodule .git
+# pointer files, which reference the build-time /mnt-ctx gitdir and are dangling
+# at runtime. Strip them so /usr/src/gitlab is clean, self-contained source
+# (provenance lives in the shallow ${INSTALL_DIR}/.git).
+if [[ -d "/usr/src/gitlab" ]]; then
+    echo "=== Removing dangling submodule .git pointers under /usr/src/gitlab ==="
+    find /usr/src/gitlab -name .git \( -type f -o -type l \) -delete 2>/dev/null || true
+fi
 echo "${IMMUTABLUE_BUILD_OPTIONS}" > "${INSTALL_DIR}/build_options"
 
 # things depend on 'yq' heavily for build, so copy it early
