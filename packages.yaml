@@ -183,6 +183,11 @@ immutablue:
     # F43 ships wlroots 0.19 as the default `wlroots`/`wlroots-devel` package;
     # F44 ships 0.20 as default and keeps 0.19 available via `wlroots0.19`/`wlroots0.19-devel`.
     - xcb-util-wm-devel
+    # gowl runs a rootless XWayland server so X11 apps (e.g. raylib/GLFW
+    # `gst --lrg=2d') get a DISPLAY inside the session.  libxcb-devel +
+    # xcb-util-wm-devel above are the matching XWayland build deps; this is
+    # the runtime server the compositor spawns.
+    - xorg-x11-server-Xwayland
     - xrdp
     - dbus-devel
     - gnutls-devel
