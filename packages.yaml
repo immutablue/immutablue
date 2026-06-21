@@ -146,6 +146,8 @@ immutablue:
     - wlroots-devel
     # On F44 the default wlroots is 0.20; use the 0.19 compat package instead.
     44:
+    - wlroots
+    - wlroots-devel
     - wlroots0.19
     - wlroots0.19-devel
 
