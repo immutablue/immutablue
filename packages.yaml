@@ -132,6 +132,7 @@ immutablue:
     - vips
     - virt-bootstrap
     - webkit2gtk4.1-devel
+    - wofi
 
     # gowl needs wlroots 0.19 specifically.
     # On F42 and F43 the default `wlroots`/`wlroots-devel` package is 0.19.
