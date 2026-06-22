@@ -91,6 +91,13 @@ PACKAGES=(
 	gdk-pixbuf2-devel
 	pam-devel
 
+	# gowl: InputCapture/RemoteDesktop portal backend
+	# (xdg-desktop-portal-gowl). gowl's build gates the portal target on
+	# pkg-config libeis-1.0; without libeis-devel the EIS server binary and
+	# its .portal / portals.conf / D-Bus .service are silently skipped, so
+	# deskflow's software-KVM input capture fails with "CreateSession failed".
+	libeis-devel
+
 	# mcp-glib: MCP protocol library
 	libsoup3-devel
 	libdex-devel

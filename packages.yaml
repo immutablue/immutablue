@@ -85,6 +85,7 @@ immutablue:
     - libcurl-devel
     - libdex
     - libdex-devel
+    - libeis-devel
     - libetpan-devel
     - libpq-devel
     - librsvg2-devel
