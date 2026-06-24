@@ -68,6 +68,7 @@ immutablue:
     - elfutils-devel
     - elfutils-debuginfod-client-devel
     - fastfetch
+    - ffmpeg-devel
     - fuse-sshfs
     - fzf
     - gcc
