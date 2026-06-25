@@ -36,20 +36,32 @@ fi
 # Only swap if ffmpeg-free is actually installed.  It usually is via
 # transitive deps (GNOME pulls it in), but minimal images may not have
 # it.  Without the source package present, dnf swap is a no-op anyway.
-if ! rpm -q ffmpeg-free >/dev/null 2>&1; then
+if rpm -q ffmpeg-free >/dev/null 2>&1; then
+    # dnf5 swap auto-resolves the entire libav* family:
+    #   ffmpeg-free     -> ffmpeg
+    #   libavcodec-free -> libavcodec
+    #   libavformat-free -> libavformat
+    #   libavfilter-free -> libavfilter
+    #   libavdevice-free -> libavdevice
+    #   libavutil-free   -> libavutil
+    #   libswscale-free  -> libswscale
+    #   libswresample-free -> libswresample
+    # --allowerasing is required because the -free family has a Conflicts
+    # tag against the unsuffixed package and vice versa.
+    dnf5 -y swap ffmpeg-free ffmpeg --allowerasing
+else
     echo "=== ffmpeg-free not installed; nothing to swap ==="
-    exit 0
 fi
 
-# dnf5 swap auto-resolves the entire libav* family:
-#   ffmpeg-free     -> ffmpeg
-#   libavcodec-free -> libavcodec
-#   libavformat-free -> libavformat
-#   libavfilter-free -> libavfilter
-#   libavdevice-free -> libavdevice
-#   libavutil-free   -> libavutil
-#   libswscale-free  -> libswscale
-#   libswresample-free -> libswresample
-# --allowerasing is required because the -free family has a Conflicts
-# tag against the unsuffixed package and vice versa.
-dnf5 -y swap ffmpeg-free ffmpeg --allowerasing
+# Install ffmpeg-devel here rather than in 30-install-packages.sh.
+#
+# ffmpeg-devel only exists in RPM Fusion and pulls in the full
+# ffmpeg-libs, which carries a Conflicts against Fedora's patent-stripped
+# libav*-free family (libswscale-free, etc.).  Installing it in the
+# general package list (step 30) runs *before* the swap above, while the
+# -free libs are still present, so dnf cannot resolve the transaction and
+# the build aborts.  Doing it here guarantees the full ffmpeg-libs is
+# already in place.  --allowerasing covers the minimal-image case where
+# the -free libs linger but the ffmpeg-free metapackage was never pulled
+# in (swap branch skipped).
+dnf5 -y install --allowerasing ffmpeg-devel
