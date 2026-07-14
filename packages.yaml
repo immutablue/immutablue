@@ -54,6 +54,7 @@ immutablue:
     - bear
     - bemenu-run
     - binutils-devel
+    - bpftrace
     - buildah
     - buildstream
     - cloud-init
