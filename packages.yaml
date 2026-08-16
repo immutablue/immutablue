@@ -99,6 +99,7 @@ immutablue:
     - libvirt-dbus
     - libvirt-devel
     - libyaml-devel
+    - libzip-devel
     - lm_sensors
     - luajit-devel
     - make
