@@ -82,6 +82,7 @@ immutablue:
     - htop
     - innoextract
     - json-glib-devel
+    - libadwaita-devel
     - libasan
     - libcurl-devel
     - libdex
