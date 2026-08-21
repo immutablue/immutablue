@@ -99,6 +99,7 @@ immutablue:
     - libvirt
     - libvirt-dbus
     - libvirt-devel
+    - libxml2-devel
     - libyaml-devel
     - libzip-devel
     - lm_sensors
