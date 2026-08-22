@@ -470,6 +470,75 @@ check_variant_specific() {
     fi
 }
 
+check_crash_capture() {
+    print_header "Crash Capture"
+
+    local watchdog_usec
+    local sleep_state
+    local pstore_contents
+
+    # Baseline panic policy, shipped to every variant in
+    # /usr/lib/sysctl.d/70-immutablue-crash-capture.conf. The knob is absent on
+    # kernels built without CONFIG_HARDLOCKUP_DETECTOR (some aarch64), which is a
+    # fact about the kernel rather than a misconfiguration worth warning about.
+    if [[ ! -e /proc/sys/kernel/hardlockup_panic ]]; then
+        print_info "kernel.hardlockup_panic not present on this kernel"
+    elif [[ "$(sysctl -n kernel.hardlockup_panic 2>/dev/null)" == "1" ]]; then
+        print_pass "Hard lockup panic" "a wedged CPU panics instead of freezing silently"
+    else
+        print_warn "Hard lockup panic" "kernel.hardlockup_panic=0; a hard lockup would leave no trace"
+    fi
+
+    # The watchdog/suspend interlock. build/65-crash-capture.sh guarantees the
+    # sleep targets are masked at build time, but nothing stops someone running
+    # 'immutablue enable_suspend' later and recreating the bad combination: a watchdog
+    # driver missing its S3 hook can reset the board on resume.
+    watchdog_usec="$(systemctl show -p RuntimeWatchdogUSec --value 2>/dev/null)"
+    sleep_state="$(systemctl is-enabled sleep.target 2>/dev/null || true)"
+
+    if [[ -z "${watchdog_usec}" ]] || [[ "${watchdog_usec}" == "0" ]]; then
+        # Not armed. Only nudge where arming would actually buy something: the
+        # absence of a battery is a reasonable proxy for a machine that runs
+        # unattended and never sleeps.
+        if compgen -G "/sys/class/watchdog/watchdog*" > /dev/null && \
+           ! compgen -G "/sys/class/power_supply/BAT*" > /dev/null; then
+            print_warn "Hardware watchdog" \
+                "device present but disarmed on a machine with no battery"
+        else
+            print_info "Hardware watchdog not armed"
+        fi
+    elif [[ "${sleep_state}" != "masked" ]]; then
+        print_fail "Watchdog / suspend interlock" \
+            "watchdog armed (${watchdog_usec}) but sleep.target is '${sleep_state}'; suspending with an armed watchdog can reset the board on resume" \
+            "immutablue crash_capture_disable_watchdog   (or re-mask with: immutablue disable_suspend)"
+    else
+        print_pass "Hardware watchdog" "armed (${watchdog_usec}), sleep.target masked"
+    fi
+
+    # plymouth's quiet/rhgb suppress the panic trace on the local console, which
+    # is how a hard lockup ends up presenting as nothing but a black screen.
+    if grep -qE '(^| )(quiet|rhgb)( |$)' /proc/cmdline; then
+        print_warn "Console visibility" "quiet/rhgb present; a panic trace would be hidden by plymouth"
+    else
+        print_pass "Console visibility" "a panic trace would print to the console"
+    fi
+
+    # /sys/fs/pstore is root-only, so an unprivileged run cannot tell "empty"
+    # apart from "unreadable" -- report that honestly instead of passing.
+    if [[ ! -d /sys/fs/pstore ]]; then
+        print_info "No pstore backend on this board"
+    elif [[ ! -r /sys/fs/pstore ]]; then
+        print_info "pstore needs root; check with 'immutablue crash_capture_status'"
+    else
+        pstore_contents="$(ls -A /sys/fs/pstore 2>/dev/null)"
+        if [[ -n "${pstore_contents}" ]]; then
+            print_warn "pstore" "records from a previous crash are sitting unread in /sys/fs/pstore"
+        else
+            print_pass "pstore" "no unread crash records"
+        fi
+    fi
+}
+
 print_summary() {
     if [[ "${JSON_OUTPUT}" == "true" ]]; then
         echo "{"
@@ -563,6 +632,7 @@ main() {
     check_flatpak
     check_distrobox
     check_variant_specific
+    check_crash_capture
     
     # Print summary
     print_summary
