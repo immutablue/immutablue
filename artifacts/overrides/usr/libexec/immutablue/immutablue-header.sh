@@ -26,8 +26,12 @@ FALSE=0
 # returns: immutablue:41-lts
 immutablue_get_image_full() {
     # Check if we're running during the build process or on an installed system
-    # If IMMUTABLUE_BUILD is set, we're in the build process (see Containerfile)
-    if [[ -z "${IMMUTABLUE_BUILD}" ]]
+    # If IMMUTABLUE_BUILD is set, we're in the build process (see Containerfile).
+    # It is unset on an installed system, so the default expansion is required:
+    # consumers such as immutablue-doctor source this file under `set -u`, where
+    # a bare ${IMMUTABLUE_BUILD} aborts the expansion and prints an unbound
+    # variable error into their output.
+    if [[ -z "${IMMUTABLUE_BUILD:-}" ]]
     then 
         # We're on an installed system, extract the image from rpm-ostree status
         rpm-ostree status | grep -i quay | head -n 1 | awk -F/ '{ printf "%s\n", $3 }'

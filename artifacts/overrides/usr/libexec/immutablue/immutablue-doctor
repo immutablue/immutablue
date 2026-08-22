@@ -490,9 +490,15 @@ check_crash_capture() {
     fi
 
     # The watchdog/suspend interlock. build/65-crash-capture.sh guarantees the
-    # sleep targets are masked at build time, but nothing stops someone running
-    # 'immutablue enable_suspend' later and recreating the bad combination: a watchdog
-    # driver missing its S3 hook can reset the board on resume.
+    # sleep targets are masked at build time, but nothing stops them being
+    # unmasked later, recreating the bad combination: a watchdog driver missing
+    # its S3 hook can reset the board on resume.
+    #
+    # The fix hint names systemctl directly rather than 'immutablue
+    # disable_suspend'. On a silverblue-based build -- which includes trueblue
+    # and kuberblue, the variants that ship the armed watchdog -- that recipe
+    # takes its gsettings branch and never masks the targets, so it would not
+    # clear this failure.
     watchdog_usec="$(systemctl show -p RuntimeWatchdogUSec --value 2>/dev/null)"
     sleep_state="$(systemctl is-enabled sleep.target 2>/dev/null || true)"
 
@@ -510,7 +516,7 @@ check_crash_capture() {
     elif [[ "${sleep_state}" != "masked" ]]; then
         print_fail "Watchdog / suspend interlock" \
             "watchdog armed (${watchdog_usec}) but sleep.target is '${sleep_state}'; suspending with an armed watchdog can reset the board on resume" \
-            "immutablue crash_capture_disable_watchdog   (or re-mask with: immutablue disable_suspend)"
+            "immutablue crash_capture_disable_watchdog   (or re-mask: sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target)"
     else
         print_pass "Hardware watchdog" "armed (${watchdog_usec}), sleep.target masked"
     fi
