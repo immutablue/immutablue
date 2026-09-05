@@ -162,6 +162,17 @@ immutablue:
     - firewall-applet
     - firewall-config
     - ibus-speech-to-text
+    # Media/volume/brightness control helpers.
+    #
+    # These are the CLI backends the gowl session's bar widget and keybind
+    # actions shell out to. Without them the widget cannot run at all -- it is
+    # not a degraded display, it simply fails -- so they are a hard dependency
+    # of the desktop session rather than a convenience.
+    #
+    # GUI-only: a nucleus (headless) build has no session to control.
+    - playerctl       # MPRIS play/pause/next for the media widget
+    - pamixer         # PulseAudio/PipeWire volume for the volume widget
+    - brightnessctl   # backlight control for the brightness widget
     - python3-pip  # since we don't use this in nucleus builds, then we can just put this in gui
     - solaar
     - cairo-devel
