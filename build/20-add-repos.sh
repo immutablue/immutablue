@@ -69,13 +69,17 @@ repo_url_for_key() {
     local key="$1"
     local name="$2"
 
+    # The trailing '|| true' is load-bearing: this runs under 'set -e' with
+    # pipefail, and grep exits 1 when a key defines no matching repo -- which is
+    # the normal case for most key/repo combinations. Without it the first
+    # non-match aborts the whole build.
     {
         yq "${key}.all[]? | select(.name == \"${name}\").url" < "${PACKAGES_YAML}" 2>/dev/null || true
         if [[ -n "${VERSION}" ]]
         then
             yq "${key}.${VERSION}[]? | select(.name == \"${name}\").url" < "${PACKAGES_YAML}" 2>/dev/null || true
         fi
-    } | grep -v '^null$' | grep -v '^$' | head -1
+    } | grep -v '^null$' | grep -v '^$' | head -1 || true
 }
 
 
@@ -100,7 +104,7 @@ repos="$(
     for key in "${repo_keys[@]}"
     do
         repo_names_for_key "${key}"
-    done | grep -v '^null$' | grep -v '^$' | sort -u
+    done | grep -v '^null$' | grep -v '^$' | sort -u || true
 )"
 
 
