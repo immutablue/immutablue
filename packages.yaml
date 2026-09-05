@@ -657,3 +657,58 @@ immutablue:
       - nixpkgs.htop
       - nixpkgs.neovim
 
+
+
+  # AI coding agent harnesses.
+  #
+  # These are deliberately NOT rpm/flatpak entries. Every one of them installs
+  # into the user's home (a vendor script into ~/.local or ~/.grok, or an npm
+  # global into the configured prefix), self-updates on its own schedule, and
+  # is authenticated per user. Baking them into the image would fight all three:
+  # the image is replaced wholesale on update, /usr is read-only at runtime, and
+  # a system-wide install would still leave each user to log in separately.
+  #
+  # So they are declared here as data and installed on demand by
+  # `immutablue install-agents`, which offers this list through fzf.
+  #
+  # Fields:
+  #   name    identifier used by the justfile and shown in the picker
+  #   desc    one-line description shown in the fzf preview
+  #   bin     command that exists once installed, used to report status
+  #   install shell command that performs the installation
+  agent_harnesses:
+    all:
+    - name: claude-code
+      desc: "Anthropic Claude Code - native installer into ~/.local/share/claude"
+      bin: claude
+      install: "curl -fsSL https://claude.ai/install.sh | bash"
+
+    - name: codex
+      desc: "OpenAI Codex CLI - vendor installer; ships its own runtime, no Node needed"
+      bin: codex
+      install: "curl -fsSL https://chatgpt.com/codex/install.sh | sh"
+
+    - name: grok
+      desc: "xAI Grok Build - vendor installer into ~/.grok/bin"
+      bin: grok
+      install: "curl -fsSL https://x.ai/cli/install.sh | bash"
+
+    - name: cursor
+      desc: "Cursor CLI agent - vendor installer into ~/.local/bin"
+      bin: cursor-agent
+      install: "curl https://cursor.com/install -fsS | bash"
+
+    - name: antigravity
+      desc: "Google Antigravity CLI - binary is named 'agy', not 'antigravity'"
+      bin: agy
+      install: "curl -fsSL https://antigravity.google/cli/install.sh | bash"
+
+    - name: opencode
+      desc: "OpenCode - open source terminal agent, single binary"
+      bin: opencode
+      install: "curl -fsSL https://opencode.ai/install | bash"
+
+    - name: pi
+      desc: "pi coding agent (@mariozechner/pi-coding-agent)"
+      bin: pi
+      install: "npm install -g @mariozechner/pi-coding-agent"
