@@ -131,15 +131,41 @@ echo "Checking ${#EXPECTED_PACKAGES[@]} requested packages"
 
 # Query the whole set in a single container invocation.
 #
-# --whatprovides resolves both plain names and capabilities, matching how dnf5
-# interpreted the same strings at install time; querying one package per
-# podman run would be correct but far too slow for a list this size.
+# Resolution has to mirror how dnf5 interpreted these same strings at install
+# time, which is looser than a package-name lookup:
+#
+#   1. rpm -q --whatprovides covers real package names and virtual provides.
+#   2. dnf additionally resolves a bare *binary* name through file provides --
+#      packages.yaml lists 'bemenu-run', which is not a package at all but
+#      /usr/bin/bemenu-run, shipped by the 'bemenu' package. rpm only matches a
+#      file provide when given the full path, so the bindirs are probed
+#      explicitly. Without this the test reports a false missing package for
+#      every binary-name entry.
+#
+# Querying one package per podman run would be simpler but far too slow for a
+# list this size, so the whole set is checked inside one container.
 MISSING_OUTPUT="$(podman run --rm --entrypoint "" "${IMAGE}" \
     bash -c '
         missing=()
         for pkg in "$@"
         do
-            if ! rpm --quiet -q --whatprovides "${pkg}"
+            if rpm --quiet -q --whatprovides "${pkg}"
+            then
+                continue
+            fi
+
+            # Fall back to the file-provide form dnf accepts for binaries.
+            found=""
+            for dir in /usr/bin /usr/sbin
+            do
+                if rpm --quiet -qf "${dir}/${pkg}" 2>/dev/null
+                then
+                    found="yes"
+                    break
+                fi
+            done
+
+            if [[ -z "${found}" ]]
             then
                 missing+=("${pkg}")
             fi
