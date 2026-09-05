@@ -4,7 +4,7 @@
 # This file contains all test targets with SKIP_TEST support.
 # ==============================================================================
 
-.PHONY: pre_test test test_container test_container_qemu test_artifacts test_setup \
+.PHONY: pre_test test test_container test_package_presence test_container_qemu test_artifacts test_setup \
         run_all_tests test_kuberblue _run_kuberblue_suite \
         test_kuberblue_container _run_kuberblue_container_test \
         test_kuberblue_cluster _run_kuberblue_cluster_test \
@@ -23,8 +23,11 @@ pre_test:
 		echo "Running pre-build shellcheck tests..."; \
 		chmod +x ./tests/test_shellcheck.sh; \
 		./tests/test_shellcheck.sh; \
+		echo "Running pre-build justfile syntax tests..."; \
+		chmod +x ./tests/test_justfile_syntax.sh; \
+		./tests/test_justfile_syntax.sh; \
 	else \
-		echo "Skipping pre-build shellcheck tests (SKIP_TEST=1)"; \
+		echo "Skipping pre-build tests (SKIP_TEST=1)"; \
 	fi
 
 # ------------------------------------------------------------------------------
@@ -32,7 +35,7 @@ pre_test:
 # ------------------------------------------------------------------------------
 test:
 	@if [ "$(SKIP_TEST)" = "0" ]; then \
-		$(MAKE) test_container test_container_qemu test_artifacts test_setup; \
+		$(MAKE) test_container test_package_presence test_container_qemu test_artifacts test_setup; \
 		if [ "$(KUBERBLUE)" = "1" ]; then \
 			echo "Running Kuberblue-specific tests..."; \
 			$(MAKE) test_kuberblue_container test_kuberblue_components test_kuberblue_security; \
@@ -47,6 +50,19 @@ test_container:
 		./tests/test_container.sh $(IMAGE):$(TAG); \
 	else \
 		echo "Skipping container tests (SKIP_TEST=1)"; \
+	fi
+
+# Asserts that every package packages.yaml requested for THIS variant is
+# actually in the built image. BUILD_OPTIONS is passed through so the test does
+# not have to re-derive the variant from the image when the Makefile already
+# knows it.
+test_package_presence:
+	@if [ "$(SKIP_TEST)" = "0" ]; then \
+		chmod +x ./tests/test_package_presence.sh; \
+		IMMUTABLUE_BUILD_OPTIONS="$(BUILD_OPTIONS)" VERSION="$(VERSION)" \
+			./tests/test_package_presence.sh $(IMAGE):$(TAG); \
+	else \
+		echo "Skipping package presence tests (SKIP_TEST=1)"; \
 	fi
 
 test_container_qemu:
