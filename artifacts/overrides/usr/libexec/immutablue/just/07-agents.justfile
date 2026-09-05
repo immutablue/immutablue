@@ -32,7 +32,7 @@ list_agents:
                 < "{{ IMMUTABLUE_PACKAGES }}")
 
 
-# Install AI coding agent harnesses (fzf multi-select; TAB to mark, ENTER to confirm)
+# Install agent harnesses: no args picks with fzf, or name(s), or 'all'
 [group('agents')]
 install_agents *names:
     #!/bin/bash
@@ -41,16 +41,51 @@ install_agents *names:
     packages="{{ IMMUTABLUE_PACKAGES }}"
     requested="{{ names }}"
 
-    # Names can be passed directly for non-interactive use (scripts, a
-    # first-boot hook); otherwise fall back to the picker.
+    all_names="$(yq -r '.immutablue.agent_harnesses.all[].name' < "${packages}")"
+
+    # Three ways in:
+    #   install_agents                     -> fzf picker
+    #   install_agents claude-code codex    -> exactly those
+    #   install_agents all                  -> every declared harness
+    #
+    # The explicit forms exist so this is usable from a script, a pre_update
+    # hook, or a machine with no fzf, where an interactive picker would hang.
     if [[ -n "${requested}" ]]
     then
-        selected="${requested}"
+        if [[ " ${requested} " == *" all "* ]]
+        then
+            selected="${all_names}"
+        else
+            selected="${requested}"
+        fi
+
+        # Validate the whole request before installing anything. Catching a
+        # typo after three of five harnesses have already been installed is
+        # worse than catching it now, and these installers are not trivially
+        # reversible.
+        unknown=()
+        for name in ${selected}
+        do
+            if ! printf '%s\n' "${all_names}" | grep -qx "${name}"
+            then
+                unknown+=("${name}")
+            fi
+        done
+
+        if [[ ${#unknown[@]} -gt 0 ]]
+        then
+            echo "Unknown harness: ${unknown[*]}" >&2
+            echo "" >&2
+            echo "Available: $(printf '%s ' ${all_names})" >&2
+            echo "           all" >&2
+            exit 1
+        fi
     else
         if ! command -v fzf &>/dev/null
         then
-            echo "fzf is not installed; pass harness names explicitly, e.g." >&2
+            echo "fzf is not installed; name the harnesses explicitly instead:" >&2
             echo "  immutablue install_agents claude-code codex" >&2
+            echo "  immutablue install_agents all" >&2
             exit 1
         fi
 
