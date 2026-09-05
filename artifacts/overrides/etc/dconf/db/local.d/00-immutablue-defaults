@@ -1,0 +1,41 @@
+# Immutablue desktop defaults.
+#
+# These are DEFAULTS, not enforced settings. dconf's user profile reads
+# user-db:user before system-db:local, so anything changed in the GUI wins and
+# keeps winning -- this only changes what a fresh account starts with.
+#
+# That distinction matters here: it is the opposite of `dconf load /`, which
+# writes into the user database and therefore reverts whatever the user chose.
+#
+# Compiled into /etc/dconf/db/local by `dconf update` during the image build.
+# To lock any of these so a user cannot change them, add the key path to
+# /etc/dconf/db/local.d/locks/ -- deliberately not done for anything below.
+
+[org/gnome/desktop/interface]
+# Dark by default; the light theme remains one toggle away.
+color-scheme='prefer-dark'
+# Hot corners trigger the overview on an accidental mouse flick.
+enable-hot-corners=false
+# Battery percentage is strictly more information than the icon alone.
+show-battery-percentage=true
+
+[org/gnome/desktop/wm/preferences]
+# Put the window controls where a user coming from anywhere else expects them.
+button-layout='close,minimize,maximize:appmenu'
+
+[org/gnome/mutter]
+# Attach modal dialogs to their parent rather than floating them free.
+attach-modal-dialogs=true
+# Drag-to-edge tiling. Off by default in GNOME, which surprises most people.
+edge-tiling=true
+# Keep workspaces on the primary monitor so a second screen stays put while
+# switching workspaces.
+workspaces-only-on-primary=true
+
+[org/gnome/nautilus/preferences]
+# List view shows size, type and date without hovering.
+default-folder-viewer='list-view'
+# Expose "create link" and "delete permanently" in the context menu; both are
+# hidden by default and both are routinely wanted on a developer workstation.
+show-create-link=true
+show-delete-permanently=true

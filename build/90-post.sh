@@ -151,6 +151,30 @@ EOF
 chmod 0644 "${IMAGE_INFO_FILE}"
 cat "${IMAGE_INFO_FILE}"
 
+# -----------------------------------
+# Compile the dconf defaults database.
+#
+# /etc/dconf/profile/user (shipped by Fedora) already reads
+#   user-db:user, system-db:local, system-db:site, system-db:distro
+# and 'local' was simply never populated. The keyfiles in
+# /etc/dconf/db/local.d/ are text; dconf only consults the compiled binary
+# database next to them, so without this step the defaults are inert.
+#
+# These are defaults rather than enforced settings: user-db is consulted first,
+# so anything the user changes in the GUI continues to win.
+# -----------------------------------
+if [[ -d /etc/dconf/db/local.d ]] && command -v dconf >/dev/null 2>&1
+then
+    dconf update
+    if [[ -f /etc/dconf/db/local ]]
+    then
+        echo "Compiled dconf defaults: $(stat -c%s /etc/dconf/db/local) bytes"
+    else
+        echo "ERROR: dconf update produced no /etc/dconf/db/local" >&2
+        exit 1
+    fi
+fi
+
 # rebuild font cache (picks up nerd-fonts and any other new fonts)
 fc-cache -fv
 
