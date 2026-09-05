@@ -93,6 +93,64 @@ fi
 # /usr/lib/modules/$kver and bootc regenerates initramfs at deploy.
 find /boot -mindepth 1 -delete 2>/dev/null || true
 
+# -----------------------------------
+# Record the image's identity for the installed system.
+#
+# Runtime code previously had to recover this by scraping rpm-ostree:
+#
+#     rpm-ostree status | grep -i quay | head -n 1 | awk -F/ '{ print $3 }'
+#
+# which silently returns the wrong answer, or nothing, if the image is hosted
+# anywhere other than quay.io, if a second quay-hosted deployment is present
+# (the common case immediately after a rebase, when the previous deployment is
+# still listed), or if rpm-ostree's output format shifts. The variant was then
+# inferred by splitting the tag on '-'.
+#
+# The build already knows all of this exactly, so write it down once here and
+# let the runtime read a fact instead of re-deriving a guess. The getters in
+# immutablue-header.sh prefer this file and keep the scrape as a fallback for
+# images built before it existed.
+# -----------------------------------
+IMAGE_INFO_DIR="/usr/share/immutablue"
+IMAGE_INFO_FILE="${IMAGE_INFO_DIR}/image-info.json"
+
+mkdir -p "${IMAGE_INFO_DIR}"
+
+# IMAGE_TAG is passed by the Makefile as '<name>:<tag>' (e.g. immutablue:43-lts).
+image_info_base="${IMAGE_TAG%%:*}"
+image_info_tag="${IMAGE_TAG#*:}"
+
+# The source commit is genuinely useful provenance: it ties a running system
+# back to the tree that produced it. 10-copy.sh shrinks the shipped history but
+# keeps the built commit, so this resolves in a normal build and is left empty
+# when the source tree is unavailable.
+image_info_commit="$(git -C "${INSTALL_DIR}" rev-parse HEAD 2>/dev/null || echo "")"
+
+# Build options are a CSV list (e.g. "silverblue,gui"); emit them as a JSON
+# array so consumers do not have to re-split a string.
+image_info_variants="$(
+    printf '%s' "${IMMUTABLUE_BUILD_OPTIONS:-}" \
+        | tr ',' '\n' \
+        | grep -v '^$' \
+        | sed 's/.*/"&"/' \
+        | paste -sd ',' -
+)"
+
+cat > "${IMAGE_INFO_FILE}" <<EOF
+{
+  "image": "${image_info_base}",
+  "tag": "${image_info_tag}",
+  "version": "${FEDORA_VERSION}",
+  "base_image": "${BASE_IMAGE:-}",
+  "variants": [${image_info_variants}],
+  "source_commit": "${image_info_commit}",
+  "built": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+EOF
+
+chmod 0644 "${IMAGE_INFO_FILE}"
+cat "${IMAGE_INFO_FILE}"
+
 # rebuild font cache (picks up nerd-fonts and any other new fonts)
 fc-cache -fv
 

@@ -21,24 +21,72 @@ TRUE=1
 FALSE=0
 
 
+# Path to the identity recorded at image build time by build/90-post.sh.
+# See immutablue_get_image_full() for why this is preferred over rpm-ostree.
+IMMUTABLUE_IMAGE_INFO_FILE="${IMMUTABLUE_IMAGE_INFO_FILE:-/usr/share/immutablue/image-info.json}"
+
+
+# Read a single top-level string field out of image-info.json
+#
+# Kept deliberately dependency-free: this header is sourced by early-boot
+# scripts and by immutablue-doctor, neither of which can assume yq is present
+# or that /usr is fully set up, so the field is extracted with sed rather than
+# a YAML/JSON parser. Only flat string values are supported, which is all the
+# getters below need.
+#
+# param $1: the field name to read
+# returns: the value, or empty if the file or field is absent
+immutablue_image_info_field() {
+    local field="$1"
+
+    if [[ ! -r "${IMMUTABLUE_IMAGE_INFO_FILE}" ]]
+    then
+        echo ""
+        return 0
+    fi
+
+    sed -n "s/.*\"${field}\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" \
+        "${IMMUTABLUE_IMAGE_INFO_FILE}" | head -n 1
+}
+
+
 # Extract the full image name from the current deployment
 # Format example: quay.io/immutablue/immutablue:41-lts
 # returns: immutablue:41-lts
 immutablue_get_image_full() {
+    local image_base
+    local image_tag
+
     # Check if we're running during the build process or on an installed system
     # If IMMUTABLUE_BUILD is set, we're in the build process (see Containerfile).
     # It is unset on an installed system, so the default expansion is required:
     # consumers such as immutablue-doctor source this file under `set -u`, where
     # a bare ${IMMUTABLUE_BUILD} aborts the expansion and prints an unbound
     # variable error into their output.
-    if [[ -z "${IMMUTABLUE_BUILD:-}" ]]
-    then 
-        # We're on an installed system, extract the image from rpm-ostree status
-        rpm-ostree status | grep -i quay | head -n 1 | awk -F/ '{ printf "%s\n", $3 }'
-    else
+    if [[ -n "${IMMUTABLUE_BUILD:-}" ]]
+    then
         # We're in the build process, use the IMAGE_TAG environment variable
         echo "${IMAGE_TAG}"
+        return 0
     fi
+
+    # Prefer the identity the build recorded. The rpm-ostree scrape below is
+    # only a fallback, because it is wrong in several real situations: it
+    # matches on the literal string "quay", so it returns nothing for an image
+    # hosted anywhere else; it takes the first matching line, which is the
+    # wrong deployment immediately after a rebase while the previous one is
+    # still listed; and it depends on rpm-ostree's output layout.
+    image_base="$(immutablue_image_info_field image)"
+    image_tag="$(immutablue_image_info_field tag)"
+
+    if [[ -n "${image_base}" ]] && [[ -n "${image_tag}" ]]
+    then
+        echo "${image_base}:${image_tag}"
+        return 0
+    fi
+
+    # Fallback for images built before image-info.json existed.
+    rpm-ostree status | grep -i quay | head -n 1 | awk -F/ '{ printf "%s\n", $3 }'
 }
 
 # Extract just the tag portion of the image
@@ -62,6 +110,21 @@ immutablue_get_image_base() {
 # Format example: quay.io/immutablue/immutablue:43-lts
 # returns: 43
 immutablue_get_image_version() {
+    local version
+
+    # The build records the Fedora version directly, which avoids inferring it
+    # from tag shape. The inference below holds for every tag currently
+    # produced, but it is a convention rather than a guarantee -- any future
+    # tag that does not lead with the version number would silently yield the
+    # wrong answer.
+    version="$(immutablue_image_info_field version)"
+
+    if [[ -n "${version}" ]]
+    then
+        echo "${version}"
+        return 0
+    fi
+
     # Get the tag (e.g., "43-lts" or "43") and extract the version number
     # The version is always the first segment before any hyphen
     immutablue_get_image_tag | cut -d'-' -f1
