@@ -54,8 +54,25 @@ then
 fi
 
 
-# set /etc/immutablue/setup to world-writable
-chmod -R 777 /etc/immutablue/setup
+# -----------------------------------
+# Setup-marker directory permissions.
+#
+# This directory holds the "already ran" markers that gate first-boot setup
+# (did_first_boot, did_first_boot_graphical, did_first_boot_setup). It used to
+# be chmod 777, which let ANY local user -- including one with no
+# administrative rights -- suppress first-boot setup for the whole machine by
+# pre-creating a marker, or force it to re-run by deleting one.
+#
+# The markers do have to be writable by a logged-in human, because
+# first_boot_graphical.sh runs in the user's session rather than as root. So
+# the directory is group-writable by 'wheel' instead of world-writable: an
+# administrator can still write a marker without sudo, and an unprivileged
+# user can no longer tamper with the setup state. Anyone in wheel could
+# already obtain root, so this grants them nothing new.
+# -----------------------------------
+chown -R root:wheel /etc/immutablue/setup
+chmod 0775 /etc/immutablue/setup
+find /etc/immutablue/setup -type f -exec chmod 0664 {} +
 
 # build hugo files (skip if is_skipped hugo or if docs submodule is not initialized)
 if [[ "$(is_skipped hugo)" == "${FALSE}" ]] && [[ -d "/usr/immutablue/docs/content" ]]
