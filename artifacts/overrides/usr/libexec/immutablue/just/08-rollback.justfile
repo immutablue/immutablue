@@ -161,3 +161,63 @@ snapshot:
     #!/bin/bash
     set -euo pipefail
     sudo /usr/libexec/immutablue/immutablue-snapshot create
+
+
+# Restore a /var snapshot, chosen with fzf; applies at the next boot
+[group('rollback')]
+restore_snapshot name="":
+    #!/bin/bash
+    set -euo pipefail
+
+    snapshot="{{ name }}"
+
+    if [[ -z "${snapshot}" ]]
+    then
+        available="$(/usr/libexec/immutablue/immutablue-snapshot list)"
+
+        if [[ -z "${available}" ]] || [[ "${available}" == No\ snapshots* ]]
+        then
+            echo "No snapshots to restore."
+            echo "One is taken before each update, or run: immutablue snapshot"
+            exit 0
+        fi
+
+        if ! command -v fzf &>/dev/null
+        then
+            echo "fzf is not installed; name the snapshot explicitly:"
+            printf '%s\n' "${available}"
+            exit 1
+        fi
+
+        # The preview spells out what restoring does, because the consequence
+        # is not obvious from a timestamp: this replaces the whole of /var --
+        # system flatpaks, container storage, logs and machine state -- with
+        # its contents as of that moment.
+        snapshot="$(printf '%s\n' "${available}" \
+            | fzf --header='Select a /var snapshot to restore, ESC to cancel' \
+                  --preview='echo "Restoring {} will:"; echo; echo "  - replace /var with its contents from that snapshot"; echo "    (system flatpaks, container storage, logs, machine state)"; echo "  - keep the current /var alongside, renamed, so this is reversible"; echo "  - take effect at the NEXT BOOT, not immediately"' \
+                  --preview-window=down,7,wrap)" || true
+    fi
+
+    if [[ -z "${snapshot}" ]]
+    then
+        echo "Nothing selected."
+        exit 0
+    fi
+
+    # Typed confirmation rather than y/N. This is the most destructive thing in
+    # the command surface -- it swaps out the whole of /var -- and it should not
+    # be reachable by a stray keypress.
+    echo ""
+    echo "This will make ${snapshot} the live /var at the next boot."
+    echo "The current /var is kept, renamed, so it can be swapped back."
+    echo ""
+    read -r -p "Type 'restore' to continue: " answer
+
+    if [[ "${answer}" != "restore" ]]
+    then
+        echo "Cancelled."
+        exit 0
+    fi
+
+    sudo /usr/libexec/immutablue/immutablue-snapshot restore "${snapshot}"
