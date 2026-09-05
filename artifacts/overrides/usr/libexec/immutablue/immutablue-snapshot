@@ -1,0 +1,277 @@
+#!/bin/bash
+# immutablue-snapshot - Snapshot the state an image update cannot roll back
+#
+# On a bootc/ostree system the image itself is already recoverable: the previous
+# deployment stays on disk and `bootc rollback` returns to it, which covers /usr
+# and the deployment's /etc. What it does NOT cover is /var, which is a separate
+# btrfs subvolume holding system flatpaks, container storage, logs and machine
+# state. An update mutates /var (flatpak, podman, brew) and nothing puts it back.
+#
+# This takes a read-only snapshot of /var before that happens, so a bad update
+# can be undone completely rather than only partially. /home is deliberately not
+# snapshotted: it is user data, an update does not touch it, and snapshotting it
+# on every update would be expensive for no recovery benefit.
+#
+# Usage:
+#   immutablue-snapshot create      Take a snapshot and prune old ones
+#   immutablue-snapshot list        List existing snapshots
+#   immutablue-snapshot prune       Prune to the configured retention only
+#
+# Options:
+#   -h, --help     Show this help message
+#   --license      Show license information
+#
+# Examples:
+#   sudo immutablue-snapshot create
+#   immutablue-snapshot list
+#   sudo immutablue-snapshot prune
+#
+# Settings (see immutablue-settings):
+#   .immutablue.snapshot_before_update   enable/disable (default true)
+#   .immutablue.snapshot_keep            how many to retain (default 5)
+#
+# Exit codes:
+#   0 - Success, or skipped because the filesystem is unsupported
+#   1 - Snapshot failed
+#   2 - Usage error
+
+set -uo pipefail
+
+if [[ -f /usr/libexec/immutablue/immutablue-header.sh ]]; then
+    source /usr/libexec/immutablue/immutablue-header.sh
+fi
+
+VERSION="1.0.0"
+
+# Subvolume that an image update mutates but ostree cannot restore.
+#
+# Overridable purely so the retention logic can be exercised against a scratch
+# filesystem in tests; nothing in normal operation sets these.
+SNAPSHOT_SOURCE="${IMMUTABLUE_SNAPSHOT_SOURCE:-/var}"
+
+# Snapshots are kept under /sysroot because that is the real btrfs filesystem
+# root; / is a composefs overlay of the deployment and cannot hold a subvolume.
+SNAPSHOT_DIR="${IMMUTABLUE_SNAPSHOT_DIR:-/sysroot/immutablue-snapshots}"
+
+SNAPSHOT_PREFIX="var"
+
+
+show_help() {
+    sed -n '2,35p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+
+show_license() {
+    echo "immutablue-snapshot ${VERSION}"
+    echo "Copyright (C) Zach Podbielniak"
+    echo "License AGPLv3+: GNU AGPL version 3 or later <https://gnu.org/licenses/agpl.html>"
+    echo "This is free software: you are free to change and redistribute it."
+    echo "There is NO WARRANTY, to the extent permitted by law."
+}
+
+
+# Read a setting with a fallback, tolerating a missing immutablue-settings.
+#
+# param $1: the settings path
+# param $2: the value to use when unset, null, or unreadable
+settings_or_default() {
+    if [[ $# -ne 2 ]]
+    then
+        echo '`settings_or_default()` requires 2 positional arguments'
+        echo 'settings_or_default <path> <default>'
+        exit 2
+    fi
+
+    local path="${1}"
+    local fallback="${2}"
+    local value
+
+    value="$(immutablue-settings "${path}" 2>/dev/null)"
+    if [[ -z "${value}" ]] || [[ "${value}" == "null" ]]
+    then
+        echo "${fallback}"
+        return 0
+    fi
+
+    echo "${value}"
+}
+
+
+# Report the filesystem type backing the snapshot source.
+detect_fs_type() {
+    findmnt -no FSTYPE "${SNAPSHOT_SOURCE}" 2>/dev/null
+}
+
+
+# Create the snapshot.
+#
+# btrfs snapshots are copy-on-write, so this is effectively instant and costs
+# no space until the two copies diverge. That is what makes it reasonable to do
+# on every update.
+create_snapshot() {
+    local fs_type
+    local stamp
+    local target
+
+    fs_type="$(detect_fs_type)"
+
+    case "${fs_type}" in
+        btrfs)
+            ;;
+        zfs)
+            # ZFS root is not produced by any of the image-builder targets
+            # (they all pass --rootfs btrfs), so this path is unreachable on a
+            # stock install and is left unimplemented rather than guessed at.
+            echo "NOTE: ${SNAPSHOT_SOURCE} is ZFS; snapshotting is not implemented for it"
+            echo "NOTE: use 'zfs snapshot' directly, or a pre_update hook"
+            return 0
+            ;;
+        "")
+            echo "NOTE: cannot determine filesystem for ${SNAPSHOT_SOURCE}; skipping snapshot"
+            return 0
+            ;;
+        *)
+            echo "NOTE: ${SNAPSHOT_SOURCE} is ${fs_type}, not btrfs; skipping snapshot"
+            return 0
+            ;;
+    esac
+
+    if [[ "$(id -u)" != "0" ]]
+    then
+        echo "ERROR: creating a snapshot requires root" >&2
+        return 1
+    fi
+
+    if [[ ! -d "${SNAPSHOT_DIR}" ]]
+    then
+        mkdir -p "${SNAPSHOT_DIR}" || return 1
+    fi
+
+    stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    target="${SNAPSHOT_DIR}/${SNAPSHOT_PREFIX}-${stamp}"
+
+    # -r makes the snapshot read-only, so it cannot be modified in place and
+    # has to be restored deliberately.
+    if ! btrfs subvolume snapshot -r "${SNAPSHOT_SOURCE}" "${target}"
+    then
+        echo "ERROR: failed to snapshot ${SNAPSHOT_SOURCE} to ${target}" >&2
+        return 1
+    fi
+
+    echo "Snapshot created: ${target}"
+    prune_snapshots
+}
+
+
+list_snapshots() {
+    if [[ ! -d "${SNAPSHOT_DIR}" ]]
+    then
+        echo "No snapshots (${SNAPSHOT_DIR} does not exist)"
+        return 0
+    fi
+
+    find "${SNAPSHOT_DIR}" -maxdepth 1 -name "${SNAPSHOT_PREFIX}-*" -printf '%f\n' 2>/dev/null | sort
+}
+
+
+# Delete the oldest snapshots beyond the retention count.
+#
+# Pruning is not optional housekeeping: a snapshot pins every extent the live
+# subvolume later frees, so an unpruned series of /var snapshots will grow to
+# hold every container image and flatpak ever deleted.
+prune_snapshots() {
+    local keep
+    local snapshots
+    local count
+    local excess
+    local name
+
+    keep="$(settings_or_default .immutablue.snapshot_keep 5)"
+
+    # A non-numeric or zero value would delete everything; refuse instead.
+    if ! [[ "${keep}" =~ ^[0-9]+$ ]] || [[ "${keep}" -lt 1 ]]
+    then
+        echo "WARNING: .immutablue.snapshot_keep is '${keep}', expected a positive integer; using 5" >&2
+        keep=5
+    fi
+
+    if [[ ! -d "${SNAPSHOT_DIR}" ]]
+    then
+        return 0
+    fi
+
+    mapfile -t snapshots < <(list_snapshots)
+    count="${#snapshots[@]}"
+
+    if [[ "${count}" -le "${keep}" ]]
+    then
+        return 0
+    fi
+
+    if [[ "$(id -u)" != "0" ]]
+    then
+        echo "ERROR: pruning snapshots requires root" >&2
+        return 1
+    fi
+
+    excess=$(( count - keep ))
+
+    # Names are timestamped, so sort order is age order.
+    for name in "${snapshots[@]:0:${excess}}"
+    do
+        if btrfs subvolume delete "${SNAPSHOT_DIR}/${name}" >/dev/null
+        then
+            echo "Pruned old snapshot: ${name}"
+        else
+            echo "WARNING: could not prune ${name}" >&2
+        fi
+    done
+}
+
+
+main() {
+    local action=""
+
+    while [[ $# -gt 0 ]]
+    do
+        case "${1}" in
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            --license)
+                show_license
+                exit 0
+                ;;
+            create|list|prune)
+                action="${1}"
+                shift
+                ;;
+            *)
+                echo "Unknown argument: ${1}" >&2
+                show_help
+                exit 2
+                ;;
+        esac
+    done
+
+    if [[ -z "${action}" ]]
+    then
+        show_help
+        exit 2
+    fi
+
+    case "${action}" in
+        create)
+            create_snapshot
+            ;;
+        list)
+            list_snapshots
+            ;;
+        prune)
+            prune_snapshots
+            ;;
+    esac
+}
+
+main "$@"
