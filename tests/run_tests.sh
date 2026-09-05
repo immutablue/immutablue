@@ -46,6 +46,15 @@ if [[ $? -ne 0 ]]; then
   EXIT_CODE=1
 fi
 
+# Justfiles are the user-facing command surface but are never parsed during the
+# image build, so a syntax error would otherwise only surface on the installed
+# system when a user runs the command.
+echo -e "\n>> Running Pre-Build Tests (Justfile syntax)"
+bash "$TEST_DIR/test_justfile_syntax.sh"
+if [[ $? -ne 0 ]]; then
+  EXIT_CODE=1
+fi
+
 # Run brew variant tests
 echo -e "\n>> Running Brew Variant Tests"
 bash "$TEST_DIR/test_brew_variants.sh"

@@ -23,8 +23,11 @@ pre_test:
 		echo "Running pre-build shellcheck tests..."; \
 		chmod +x ./tests/test_shellcheck.sh; \
 		./tests/test_shellcheck.sh; \
+		echo "Running pre-build justfile syntax tests..."; \
+		chmod +x ./tests/test_justfile_syntax.sh; \
+		./tests/test_justfile_syntax.sh; \
 	else \
-		echo "Skipping pre-build shellcheck tests (SKIP_TEST=1)"; \
+		echo "Skipping pre-build tests (SKIP_TEST=1)"; \
 	fi
 
 # ------------------------------------------------------------------------------
