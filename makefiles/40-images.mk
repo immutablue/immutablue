@@ -104,12 +104,27 @@ _iso_bootc:
 	@echo ""
 	@echo "ISO built: $(ISO_DIR)/immutablue-$(TAG).iso"
 
+# Flatpak remote used when bundling refs into the classic ISO. Matches the
+# remote that flatpak_config() adds on the installed system, so an ISO install
+# and a post-install `immutablue install` pull from the same place.
+FLATPAK_REMOTE_NAME ?= flathub
+FLATPAK_REMOTE_URL  ?= https://flathub.org/repo/flathub.flatpakrepo
+
+# The classic (build-container-installer) ISO path is the only one that can
+# bundle flatpaks into the installation media; bootc-image-builder cannot.
+#
+# flatpak_refs/flatpaks has always been declared as a prerequisite here, so the
+# file was regenerated on every classic ISO build -- and then never passed to
+# the installer, which meant every classic ISO shipped with zero flatpaks
+# despite the machinery being wired up. FLATPAK_REMOTE_REFS_DIR closes that:
+# the installer cats every file in the given directory and collects the refs.
 _iso_classic: flatpak_refs/flatpaks
 	@echo "Building classic ISO for $(IMAGE):$(TAG)..."
 	mkdir -p $(ISO_DIR)
 	sudo podman run \
 		--name immutablue-build --rm --privileged \
 		--volume $(ISO_DIR):/build-container-installer/build \
+		--volume $(CURDIR)/flatpak_refs:/flatpak_refs:ro \
 		ghcr.io/jasonn3/build-container-installer:latest \
 		VERSION=$(VERSION) \
 		IMAGE_NAME=$(IMAGE_BASE_TAG) \
@@ -117,6 +132,9 @@ _iso_classic: flatpak_refs/flatpaks
 		IMAGE_REPO=$(REGISTRY) \
 		IMAGE_SIGNED=false \
 		VARIANT=$(VARIANT) \
+		FLATPAK_REMOTE_NAME=$(FLATPAK_REMOTE_NAME) \
+		FLATPAK_REMOTE_URL=$(FLATPAK_REMOTE_URL) \
+		FLATPAK_REMOTE_REFS_DIR=/flatpak_refs \
 		ISO_NAME="build/immutablue-$(TAG).iso"
 	@echo ""
 	@echo "Classic ISO built: $(ISO_DIR)/immutablue-$(TAG).iso"
