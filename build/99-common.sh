@@ -193,6 +193,18 @@ get_yaml_array() {
     if [[ -n "${VERSION}" ]]; then
         yq_query "${key}.${VERSION}_${MARCH}" || return
     fi
+    # Architecture as a key suffix, e.g. '.immutablue.rpm_x86_64.all'
+    #
+    # This is the shape packages.yaml and the documentation both use for
+    # architecture-specific entries, and the shape repo_urls_<arch> uses in
+    # 20-add-repos.sh -- but it was never probed here. Only the nested
+    # '.all_<arch>' form above was, which nothing in packages.yaml actually
+    # uses, so every '<key>_<arch>' block was dead configuration: the two
+    # packages under rpm_x86_64 had never been installed in any image.
+    yq_query "${key}_${MARCH}.all" || return
+    if [[ -n "${VERSION}" ]]; then
+        yq_query "${key}_${MARCH}.${VERSION}" || return
+    fi
     # Build options
     while read -r option
     do
@@ -207,6 +219,13 @@ get_yaml_array() {
         # Option version architecture
         if [[ -n "${VERSION}" ]]; then
             yq_query "${key}_${option}.${VERSION}_${MARCH}" || return
+        fi
+        # Option with the architecture as a key suffix, e.g.
+        # '.immutablue.rpm_silverblue_aarch64.all' -- dead for the same reason
+        # as the block above.
+        yq_query "${key}_${option}_${MARCH}.all" || return
+        if [[ -n "${VERSION}" ]]; then
+            yq_query "${key}_${option}_${MARCH}.${VERSION}" || return
         fi
     done < <(get_immutablue_build_options)
 }
