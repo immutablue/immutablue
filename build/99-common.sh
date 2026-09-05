@@ -93,36 +93,120 @@ is_skipped() {
     echo "${FALSE}"
 }
 
+# Validates that packages.yaml is parseable before anything tries to read
+# keys out of it.
+#
+# get_yaml_array() probes a large number of keys that are legitimately absent
+# (every variant/architecture permutation), so it cannot treat "no output" as
+# an error. That means a malformed packages.yaml would otherwise surface as
+# every lookup returning nothing -- an image built from empty package lists
+# rather than a failed build. Catching the parse error once, up front, is what
+# makes the per-key leniency below safe.
+validate_packages_yaml() {
+    local yq_stderr
+
+    if [[ ! -f "${PACKAGES_YAML}" ]]
+    then
+        echo "ERROR: packages.yaml not found at ${PACKAGES_YAML}" >&2
+        return 1
+    fi
+
+    # A no-op expression forces yq to parse the whole document without
+    # emitting it, which is the cheapest way to force a syntax check.
+    if ! yq_stderr="$(yq 'true' < "${PACKAGES_YAML}" 2>&1 >/dev/null)"
+    then
+        echo "ERROR: ${PACKAGES_YAML} is not valid YAML" >&2
+        echo "${yq_stderr}" >&2
+        return 1
+    fi
+
+    return 0
+}
+
+
+# Emits the elements of a packages.yaml sequence, one per line.
+#
+# get_yaml_array() probes many keys that will not exist for a given build, so
+# an absent key must stay silent. What must NOT stay silent is a key that
+# exists with the wrong shape -- a string or a map where a list was meant,
+# which is what a hand-edit typo in packages.yaml actually produces. yq exits
+# 0 in that case and simply prints nothing, so the shape is checked explicitly
+# via the node's tag rather than inferred from yq's status.
+#
+# param $1: the path to a sequence node, e.g. '.immutablue.rpm.all'
+# returns: 0 on success (including an absent key), non-zero on a bad shape or
+#          a yq failure
+yq_query() {
+    local path="$1"
+    local node_tag
+
+    # Determine what is actually at this path. '| tag' reports '!!null' for an
+    # absent key, so this single call separates "not present" from "present
+    # but wrong".
+    if ! node_tag="$(yq "${path} | tag" < "${PACKAGES_YAML}" 2>&1)"
+    then
+        echo "ERROR: yq failed reading '${path}' from ${PACKAGES_YAML}" >&2
+        echo "${node_tag}" >&2
+        return 1
+    fi
+
+    case "${node_tag}" in
+        '!!null')
+            # Key is absent for this variant/architecture/version. Expected.
+            return 0
+            ;;
+        '!!seq')
+            ;;
+        *)
+            echo "ERROR: ${PACKAGES_YAML}: '${path}' is ${node_tag}, expected a list (!!seq)" >&2
+            echo "       A scalar or mapping here is silently ignored by yq and would" >&2
+            echo "       produce an image built from an incomplete package list." >&2
+            return 1
+            ;;
+    esac
+
+    # The tag check above already proved this is a sequence, so the expansion
+    # cannot fail on shape; a failure here would be an unreadable file, which
+    # the caller's 'set -e' should surface.
+    yq "${path}[]" < "${PACKAGES_YAML}"
+}
+
+
 # looks up entries in packages.yaml
 # takes into account the version, architecture and build options
+#
+# Every lookup is guarded with '|| return': without it the function would
+# report the status of only its LAST probe, so a malformed key early in the
+# list would be swallowed and the caller would receive a short list with a
+# success status -- the exact failure mode this guarding exists to prevent.
 get_yaml_array() {
     local key="$1"
     # Base all
-    yq "${key}.all[]" < "${PACKAGES_YAML}" 2>/dev/null || true
+    yq_query "${key}.all" || return
     # Version specific
     if [[ -n "${VERSION}" ]]; then
-        yq "${key}.${VERSION}[]" < "${PACKAGES_YAML}" 2>/dev/null || true
+        yq_query "${key}.${VERSION}" || return
     fi
     # Architecture all
-    yq "${key}.all_${MARCH}[]" < "${PACKAGES_YAML}" 2>/dev/null || true
+    yq_query "${key}.all_${MARCH}" || return
     # Version + architecture
     if [[ -n "${VERSION}" ]]; then
-        yq "${key}.${VERSION}_${MARCH}[]" < "${PACKAGES_YAML}" 2>/dev/null || true
+        yq_query "${key}.${VERSION}_${MARCH}" || return
     fi
     # Build options
     while read -r option
     do
         # Option all
-        yq "${key}_${option}.all[]" < "${PACKAGES_YAML}" 2>/dev/null || true
+        yq_query "${key}_${option}.all" || return
         # Option version
         if [[ -n "${VERSION}" ]]; then
-            yq "${key}_${option}.${VERSION}[]" < "${PACKAGES_YAML}" 2>/dev/null || true
+            yq_query "${key}_${option}.${VERSION}" || return
         fi
         # Option architecture all
-        yq "${key}_${option}.all_${MARCH}[]" < "${PACKAGES_YAML}" 2>/dev/null || true
+        yq_query "${key}_${option}.all_${MARCH}" || return
         # Option version architecture
         if [[ -n "${VERSION}" ]]; then
-            yq "${key}_${option}.${VERSION}_${MARCH}[]" < "${PACKAGES_YAML}" 2>/dev/null || true
+            yq_query "${key}_${option}.${VERSION}_${MARCH}" || return
         fi
     done < <(get_immutablue_build_options)
 }

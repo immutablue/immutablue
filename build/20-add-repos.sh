@@ -4,6 +4,16 @@ if [[ -f "${INSTALL_DIR}/build/99-common.sh" ]]; then source "${INSTALL_DIR}/bui
 if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 
 # -----------------------------------
+# Fail early and loudly on a malformed packages.yaml.
+#
+# This is the first build stage that reads the file, and every later stage
+# depends on it. Without this check a parse error degrades into empty package
+# lists rather than a failed build, producing an image that is missing
+# software but reports success.
+# -----------------------------------
+validate_packages_yaml
+
+# -----------------------------------
 # Distroless builds don't use dnf/yum repos
 # -----------------------------------
 if [[ "$(is_option_in_build_options distroless)" == "${TRUE}" ]]
