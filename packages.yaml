@@ -684,9 +684,9 @@ immutablue:
       install: "curl -fsSL https://claude.ai/install.sh | bash"
 
     - name: codex
-      desc: "OpenAI Codex CLI - note the @openai/ scope; bare 'codex' is an unrelated 2012 package"
+      desc: "OpenAI Codex CLI - vendor installer; ships its own runtime, no Node needed"
       bin: codex
-      install: "npm install -g @openai/codex"
+      install: "curl -fsSL https://chatgpt.com/codex/install.sh | sh"
 
     - name: grok
       desc: "xAI Grok Build - vendor installer into ~/.grok/bin"
