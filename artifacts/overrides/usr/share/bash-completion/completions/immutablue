@@ -1,0 +1,119 @@
+# bash completion for the immutablue command
+#
+# /usr/bin/immutablue is a thin wrapper that cd's into /usr/libexec/immutablue/just
+# and execs just, so the completable surface is that justfile's recipes -- 60 of
+# them across several files, which is well past the point of remembering.
+#
+# Installed in /usr/share/bash-completion/completions/, so bash-completion's
+# dynamic loader sources this the first time "immutablue" is completed. Nothing
+# here runs at source time: the file only defines functions and registers the
+# completion. That matters because /etc/profile.d/25-immutablue.sh deliberately
+# skips brew's `just` completion for having side effects when sourced.
+
+_IMMUTABLUE_JUST_DIR="/usr/libexec/immutablue/just"
+
+# Recipe names, cached for the life of the shell.
+#
+# `just --summary` parses every justfile and its imports, which is fast but not
+# free, and completion runs on every TAB. The list only changes when the image
+# does, so caching per shell is safe -- a new image means a new login shell.
+_immutablue_recipes() {
+    if [[ -z "${_IMMUTABLUE_RECIPE_CACHE:-}" ]]
+    then
+        _IMMUTABLUE_RECIPE_CACHE="$(
+            just --justfile "${_IMMUTABLUE_JUST_DIR}/Justfile" \
+                 --working-directory "${_IMMUTABLUE_JUST_DIR}" \
+                 --summary 2>/dev/null
+        )"
+    fi
+
+    printf '%s' "${_IMMUTABLUE_RECIPE_CACHE}"
+}
+
+
+# Values for the recipes that take a meaningful argument.
+#
+# Only sources that are local and cheap are consulted. Notably `rebase` is left
+# uncompleted: its values come from `skopeo list-tags` against the registry, and
+# a network round trip on TAB would hang the prompt on a slow or offline link.
+#
+# param $1: the recipe name
+_immutablue_recipe_args() {
+    local recipe="$1"
+
+    case "${recipe}" in
+        install_agents)
+            # Harness names from packages.yaml, plus the 'all' pseudo-target.
+            if [[ -r /usr/immutablue/packages.yaml ]] && command -v yq >/dev/null 2>&1
+            then
+                yq -r '.immutablue.agent_harnesses.all[].name' \
+                    < /usr/immutablue/packages.yaml 2>/dev/null
+            fi
+            echo "all"
+            ;;
+        restore_snapshot)
+            # Snapshot names as immutablue-snapshot itself reports them. The
+            # "No snapshots (...)" line is filtered so it cannot be offered as
+            # if it were a snapshot.
+            if [[ -x /usr/libexec/immutablue/immutablue-snapshot ]]
+            then
+                /usr/libexec/immutablue/immutablue-snapshot list 2>/dev/null \
+                    | grep -E '^[a-z]+-[0-9]{8}T[0-9]{6}Z$'
+            fi
+            ;;
+        immutablue_make_command)
+            # Proxied Makefile targets people actually invoke by hand.
+            echo "install install_flatpak install_distrobox install_brew post_install"
+            ;;
+    esac
+}
+
+
+_immutablue() {
+    local cur prev recipe i
+
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    # A leading option is passed straight through to just, so offer the few
+    # flags that are actually useful through this wrapper.
+    if [[ "${cur}" == -* ]]
+    then
+        mapfile -t COMPREPLY < <(compgen -W "--list --summary --choose --show --dry-run" -- "${cur}")
+        return
+    fi
+
+    # First word after the command: a recipe name.
+    if [[ ${COMP_CWORD} -eq 1 ]]
+    then
+        mapfile -t COMPREPLY < <(compgen -W "$(_immutablue_recipes)" -- "${cur}")
+        return
+    fi
+
+    # Otherwise complete arguments for whichever recipe was named. The recipe is
+    # the first non-option word, so an invocation like
+    # `immutablue --dry-run install_agents <TAB>` still resolves correctly.
+    recipe=""
+    for (( i = 1; i < COMP_CWORD; i++ ))
+    do
+        if [[ "${COMP_WORDS[i]}" != -* ]]
+        then
+            recipe="${COMP_WORDS[i]}"
+            break
+        fi
+    done
+
+    # `just --show <recipe>` takes a recipe name rather than a recipe argument.
+    if [[ "${prev}" == "--show" ]]
+    then
+        mapfile -t COMPREPLY < <(compgen -W "$(_immutablue_recipes)" -- "${cur}")
+        return
+    fi
+
+    if [[ -n "${recipe}" ]]
+    then
+        mapfile -t COMPREPLY < <(compgen -W "$(_immutablue_recipe_args "${recipe}")" -- "${cur}")
+    fi
+}
+
+complete -F _immutablue immutablue
