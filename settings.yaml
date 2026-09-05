@@ -19,6 +19,20 @@ immutablue:
   # reboot after running `immutablue-update`
   run_install_on_update: true
 
+  # Snapshot /var before `immutablue-update` changes anything.
+  #
+  # `bootc rollback` recovers the image but not /var, which holds system
+  # flatpaks, container storage and machine state -- so without this a rollback
+  # only partially undoes a bad update. btrfs snapshots are copy-on-write, so
+  # this is effectively free until the copies diverge. Requires a btrfs /var;
+  # it is skipped with a note on anything else.
+  snapshot_before_update: true
+
+  # How many /var snapshots to retain. Old ones are pruned after each new
+  # snapshot -- necessary, because a snapshot pins every extent the live
+  # subvolume later frees.
+  snapshot_keep: 5
+
   # update following components with `immutablue-update`
   run_bootc_update: true
   run_distrobox_upgrade: true 

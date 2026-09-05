@@ -2,6 +2,97 @@
 source /usr/libexec/immutablue/immutablue-header.sh
 
 
+# -----------------------------------
+# Serialise the run, keep the machine awake through it, and record a transcript.
+#
+# Three problems this solves, none of which the script previously handled:
+#
+#   1. Concurrent runs. The script orchestrator's timers can fire while a
+#      manual `immutablue-update` is already in flight, putting two rpm-ostree
+#      or flatpak transactions against the same state. flock makes the second
+#      one exit immediately instead.
+#
+#   2. Suspend mid-update. This runs on laptops. Suspending (or shutting down)
+#      partway through `bootc update` or a flatpak transaction is how a
+#      deployment ends up half-written. systemd-inhibit blocks that for the
+#      duration.
+#
+#   3. No record. When an update misbehaves the output is already gone --
+#      scrolled away, or discarded entirely when run from a timer. The
+#      transcript keeps the last few runs on disk to diff against.
+#
+# All three are applied by re-executing this script once through the wrappers,
+# guarded by IMMUTABLUE_UPDATE_WRAPPED so the second invocation runs the actual
+# work.
+# -----------------------------------
+if [[ -z "${IMMUTABLUE_UPDATE_WRAPPED:-}" ]]
+then
+    export IMMUTABLUE_UPDATE_WRAPPED=1
+
+    # Root and user runs get separate lock and log locations: the root path is
+    # not writable by a user, and a user's run should not be serialised against
+    # another user's.
+    if [[ "$(id -u)" == "0" ]]
+    then
+        immutablue_update_runtime_dir="/run"
+        immutablue_update_log_dir="/var/log/immutablue"
+    else
+        immutablue_update_runtime_dir="${XDG_RUNTIME_DIR:-/tmp}"
+        immutablue_update_log_dir="${XDG_STATE_HOME:-${HOME}/.local/state}/immutablue"
+    fi
+
+    immutablue_update_lock="${immutablue_update_runtime_dir}/immutablue-update.lock"
+    mkdir -p "${immutablue_update_log_dir}" 2>/dev/null || true
+    immutablue_update_log="${immutablue_update_log_dir}/update-$(date -u +%Y%m%dT%H%M%SZ).log"
+
+    # Keep only the most recent transcripts; these are diagnostic, not archival.
+    # shellcheck disable=SC2012
+    ls -1t "${immutablue_update_log_dir}"/update-*.log 2>/dev/null \
+        | tail -n +11 \
+        | while read -r old_log
+          do
+              rm -f "${old_log}"
+          done
+
+    # Build the wrapper chain from whatever is actually available, so the
+    # script still runs on a system without util-linux's flock or without a
+    # systemd user session (a container, or a minimal nucleus build).
+    immutablue_update_cmd=()
+
+    if command -v flock >/dev/null 2>&1
+    then
+        # -n: fail rather than queue. A queued second update would run against
+        # a system the first one had already changed underneath it.
+        immutablue_update_cmd+=(flock -n "${immutablue_update_lock}")
+    fi
+
+    if command -v systemd-inhibit >/dev/null 2>&1
+    then
+        immutablue_update_cmd+=(
+            systemd-inhibit
+            --what=sleep:shutdown:idle
+            --who=immutablue-update
+            --why="System update in progress"
+            --mode=block
+        )
+    fi
+
+    echo "Transcript: ${immutablue_update_log}"
+
+    # The transcript captures stderr too, since that is where the interesting
+    # part of a failed update ends up.
+    "${immutablue_update_cmd[@]}" "$0" "$@" 2>&1 | tee "${immutablue_update_log}"
+    immutablue_update_status="${PIPESTATUS[0]}"
+
+    if [[ "${immutablue_update_status}" -eq 1 ]] && ! [[ -s "${immutablue_update_log}" ]]
+    then
+        echo "Another immutablue-update is already running; nothing to do."
+    fi
+
+    exit "${immutablue_update_status}"
+fi
+
+
 # Validate there is internet
 internet_delay=60
 immutablue_try_command_and_try_again_on_delay ${internet_delay} immutablue_has_internet 2>/dev/null >/dev/null
@@ -55,6 +146,28 @@ run_update_hooks() {
         echo "One or more ${mode} hooks failed; continuing"
 }
 
+
+# -----------------------------------
+# Snapshot what the update is about to change and ostree cannot undo.
+#
+# `bootc rollback` restores the image -- /usr and the deployment's /etc -- but
+# /var is a separate btrfs subvolume that survives a rollback untouched. That
+# is where system flatpaks, container storage and machine state live, all of
+# which this script goes on to modify. Without a snapshot, "roll back the bad
+# update" only half works.
+#
+# Taken before the hooks so it captures the system as it was, and non-fatal:
+# a machine on a filesystem that cannot snapshot should still be able to
+# update.
+# -----------------------------------
+if [[ "$(immutablue-settings .immutablue.snapshot_before_update)" != "false" ]]
+then
+    if [[ -x /usr/libexec/immutablue/immutablue-snapshot ]]
+    then
+        sudo /usr/libexec/immutablue/immutablue-snapshot create \
+            || echo "Snapshot failed; continuing with the update"
+    fi
+fi
 
 run_update_hooks pre_update
 
