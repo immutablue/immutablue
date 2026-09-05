@@ -72,6 +72,20 @@ show_license() {
 }
 
 
+# Resolve immutablue-settings without relying on PATH.
+#
+# This script runs under sudo and from systemd units, where PATH is whatever
+# the caller happened to have. A bare `immutablue-settings` that fails to
+# resolve would look identical to a setting being unset, so a configured
+# snapshot_keep would be silently replaced by the default and pruning would
+# delete more snapshots than intended.
+IMMUTABLUE_SETTINGS_BIN="$(command -v immutablue-settings 2>/dev/null || true)"
+if [[ -z "${IMMUTABLUE_SETTINGS_BIN}" ]] && [[ -x /usr/bin/immutablue-settings ]]
+then
+    IMMUTABLUE_SETTINGS_BIN="/usr/bin/immutablue-settings"
+fi
+
+
 # Read a setting with a fallback, tolerating a missing immutablue-settings.
 #
 # param $1: the settings path
@@ -88,7 +102,16 @@ settings_or_default() {
     local fallback="${2}"
     local value
 
-    value="$(immutablue-settings "${path}" 2>/dev/null)"
+    if [[ -z "${IMMUTABLUE_SETTINGS_BIN}" ]]
+    then
+        # Genuinely absent rather than merely unset: say so, because silently
+        # using defaults here is how a configured retention gets ignored.
+        echo "WARNING: immutablue-settings not found; using default for ${path}" >&2
+        echo "${fallback}"
+        return 0
+    fi
+
+    value="$("${IMMUTABLUE_SETTINGS_BIN}" "${path}" 2>/dev/null)"
     if [[ -z "${value}" ]] || [[ "${value}" == "null" ]]
     then
         echo "${fallback}"

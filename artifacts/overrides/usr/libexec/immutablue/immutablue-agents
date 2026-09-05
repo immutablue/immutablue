@@ -1,0 +1,339 @@
+#!/bin/bash
+# immutablue-agents - Install and inspect AI coding agent harnesses
+#
+# The harnesses are declared in packages.yaml under
+# .immutablue.agent_harnesses. This resolves them, reports what is already
+# present, and installs what is not.
+#
+# Usage:
+#   immutablue-agents list                 Show each harness and where it is
+#   immutablue-agents install <name>...    Install harnesses; 'all' installs every one
+#   immutablue-agents path <name>          Print the resolved binary path, if any
+#   immutablue-agents names                Print harness names, one per line
+#
+# Options:
+#   -h, --help     Show this help message
+#   --license      Show license information
+#   --force        Reinstall a harness that is already present
+#
+# Examples:
+#   immutablue-agents list
+#   immutablue-agents install claude-code codex
+#   immutablue-agents install all
+#   immutablue-agents install --force opencode
+#
+# Exit codes:
+#   0 - Success
+#   1 - One or more installs failed
+#   2 - Usage error
+
+set -uo pipefail
+
+VERSION="1.0.0"
+
+PACKAGES_YAML="${IMMUTABLUE_PACKAGES_YAML:-/usr/immutablue/packages.yaml}"
+
+
+show_help() {
+    sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+
+show_license() {
+    echo "immutablue-agents ${VERSION}"
+    echo "Copyright (C) Zach Podbielniak"
+    echo "License AGPLv3+: GNU AGPL version 3 or later <https://gnu.org/licenses/agpl.html>"
+    echo "This is free software: you are free to change and redistribute it."
+    echo "There is NO WARRANTY, to the extent permitted by law."
+}
+
+
+# Locate an installed harness binary.
+#
+# PATH alone is not a reliable answer to "is this installed". Every one of
+# these harnesses installs into a directory that a shell profile adds to PATH
+# -- linuxbrew, ~/.npm-global/bin, ~/.local/bin, ~/.grok/bin -- so a harness
+# installed in one session is invisible to a shell that has not picked that up
+# yet: a fresh compositor session, a non-login shell, or simply a terminal
+# opened before the install.
+#
+# Getting this wrong is not cosmetic. install would treat an installed harness
+# as missing and run the vendor installer over the top of it, which at best
+# wastes time and at worst replaces a deliberately pinned version.
+#
+# So PATH is consulted first, then the locations these installers actually use.
+#
+# param $1: the binary name
+# prints: the resolved path, if found
+# returns: 0 when found, 1 otherwise
+agent_binary_path() {
+    local bin="$1"
+    local found
+    local dir
+
+    if found="$(command -v "${bin}" 2>/dev/null)" && [[ -n "${found}" ]]
+    then
+        echo "${found}"
+        return 0
+    fi
+
+    # Known install locations, in the order a harness is most likely to use
+    # them. HOME may be unset under some service contexts, hence the guard.
+    for dir in \
+        "${HOME:-/nonexistent}/.local/bin" \
+        "${HOME:-/nonexistent}/.npm-global/bin" \
+        "${HOME:-/nonexistent}/.grok/bin" \
+        "${HOME:-/nonexistent}/.bun/bin" \
+        "${HOME:-/nonexistent}/bin" \
+        "/var/home/linuxbrew/.linuxbrew/bin" \
+        "/home/linuxbrew/.linuxbrew/bin" \
+        "/usr/local/bin"
+    do
+        if [[ -x "${dir}/${bin}" ]]
+        then
+            echo "${dir}/${bin}"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+
+# Emit "name<TAB>bin<TAB>desc<TAB>install" for every declared harness.
+agent_records() {
+    if [[ ! -r "${PACKAGES_YAML}" ]]
+    then
+        echo "ERROR: cannot read ${PACKAGES_YAML}" >&2
+        return 1
+    fi
+
+    yq -r '.immutablue.agent_harnesses.all[] | [.name, .bin, .desc, .install] | @tsv' \
+        < "${PACKAGES_YAML}" 2>/dev/null
+}
+
+
+agent_names() {
+    agent_records | cut -f1
+}
+
+
+# Look up one field of one harness.
+#
+# param $1: harness name
+# param $2: field number (1 name, 2 bin, 3 desc, 4 install)
+agent_field() {
+    local name="$1"
+    local field="$2"
+
+    agent_records | awk -F'\t' -v n="${name}" -v f="${field}" '$1 == n { print $f; exit }'
+}
+
+
+# Shorten a path for display: $HOME becomes ~, and anything still too long is
+# truncated from the left, since the tail of a path identifies it better than
+# the head.
+#
+# param $1: the path
+# param $2: maximum width
+display_path() {
+    local path="$1"
+    local width="$2"
+
+    if [[ -n "${HOME:-}" ]]
+    then
+        path="${path/#${HOME}/\~}"
+    fi
+
+    if [[ ${#path} -gt ${width} ]]
+    then
+        path="…${path: -$(( width - 1 ))}"
+    fi
+
+    echo "${path}"
+}
+
+
+cmd_list() {
+    local name bin desc path status
+
+    printf '%-14s %-10s %-30s %s\n' "HARNESS" "STATUS" "LOCATION" "DESCRIPTION"
+    while IFS=$'\t' read -r name bin desc _
+    do
+        if path="$(agent_binary_path "${bin}")"
+        then
+            status="installed"
+            path="$(display_path "${path}" 30)"
+        else
+            status="-"
+            path="-"
+        fi
+        printf '%-14s %-10s %-30s %s\n' "${name}" "${status}" "${path}" "${desc}"
+    done < <(agent_records)
+}
+
+
+cmd_path() {
+    local name="$1"
+    local bin
+
+    bin="$(agent_field "${name}" 2)"
+    if [[ -z "${bin}" ]]
+    then
+        echo "ERROR: unknown harness: ${name}" >&2
+        return 2
+    fi
+
+    agent_binary_path "${bin}"
+}
+
+
+cmd_install() {
+    local force="$1"
+    shift
+    local selected=("$@")
+    local name bin install_cmd path
+    local failed=()
+    local skipped=()
+    local installed=()
+
+    for name in "${selected[@]}"
+    do
+        bin="$(agent_field "${name}" 2)"
+        install_cmd="$(agent_field "${name}" 4)"
+
+        if [[ -z "${install_cmd}" ]]
+        then
+            echo "Unknown harness: ${name}" >&2
+            failed+=("${name}")
+            continue
+        fi
+
+        # Do not run a vendor installer over an existing install unless asked.
+        # These harnesses self-update; reinstalling can also replace a version
+        # the user pinned deliberately.
+        if [[ "${force}" != "yes" ]] && path="$(agent_binary_path "${bin}")"
+        then
+            echo "${name}: already installed at ${path} -- skipping"
+            skipped+=("${name}")
+            continue
+        fi
+
+        echo ""
+        echo "=== ${name} ==="
+        echo "+ ${install_cmd}"
+
+        # Each harness runs in its own subshell so one vendor being down does
+        # not abort the rest of the selection.
+        if bash -c "${install_cmd}"
+        then
+            if path="$(agent_binary_path "${bin}")"
+            then
+                echo "${name}: installed at ${path}"
+                installed+=("${name}")
+            else
+                echo "${name}: installer finished, but '${bin}' was not found afterwards"
+                echo "  it may need a new shell for PATH changes to apply"
+                installed+=("${name}")
+            fi
+        else
+            echo "${name}: install failed" >&2
+            failed+=("${name}")
+        fi
+    done
+
+    echo ""
+    [[ ${#installed[@]} -gt 0 ]] && echo "Installed: ${installed[*]}"
+    [[ ${#skipped[@]}   -gt 0 ]] && echo "Already present: ${skipped[*]}"
+
+    if [[ ${#failed[@]} -gt 0 ]]
+    then
+        echo "Failed: ${failed[*]}" >&2
+        return 1
+    fi
+
+    return 0
+}
+
+
+main() {
+    local action=""
+    local force="no"
+    local args=()
+
+    while [[ $# -gt 0 ]]
+    do
+        case "${1}" in
+            -h|--help)    show_help; exit 0 ;;
+            --license)    show_license; exit 0 ;;
+            --force)      force="yes"; shift ;;
+            list|install|path|names)
+                if [[ -z "${action}" ]]
+                then
+                    action="${1}"
+                else
+                    args+=("${1}")
+                fi
+                shift
+                ;;
+            *)            args+=("${1}"); shift ;;
+        esac
+    done
+
+    case "${action}" in
+        list)  cmd_list ;;
+        names) agent_names ;;
+        path)
+            if [[ ${#args[@]} -eq 0 ]]
+            then
+                echo "ERROR: path requires a harness name" >&2
+                exit 2
+            fi
+            cmd_path "${args[0]}"
+            ;;
+        install)
+            if [[ ${#args[@]} -eq 0 ]]
+            then
+                echo "ERROR: install requires harness names, or 'all'" >&2
+                exit 2
+            fi
+
+            # 'all' anywhere in the request means every declared harness.
+            local selected=()
+            if [[ " ${args[*]} " == *" all "* ]]
+            then
+                mapfile -t selected < <(agent_names)
+            else
+                selected=("${args[@]}")
+            fi
+
+            # Validate the whole request before installing anything: catching a
+            # typo after three of seven vendor installers have run is worse
+            # than catching it now, and they are not trivially reversible.
+            local unknown=()
+            local known
+            known="$(agent_names)"
+            local n
+            for n in "${selected[@]}"
+            do
+                printf '%s\n' "${known}" | grep -qx "${n}" || unknown+=("${n}")
+            done
+
+            if [[ ${#unknown[@]} -gt 0 ]]
+            then
+                echo "Unknown harness: ${unknown[*]}" >&2
+                echo "" >&2
+                echo "Available: $(printf '%s ' ${known})all" >&2
+                exit 2
+            fi
+
+            cmd_install "${force}" "${selected[@]}"
+            ;;
+        *)
+            show_help
+            exit 2
+            ;;
+    esac
+}
+
+main "$@"

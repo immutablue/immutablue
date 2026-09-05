@@ -43,13 +43,19 @@ _immutablue_recipe_args() {
 
     case "${recipe}" in
         install_agents)
-            # Harness names from packages.yaml, plus the 'all' pseudo-target.
-            if [[ -r /usr/immutablue/packages.yaml ]] && command -v yq >/dev/null 2>&1
+            # Harness names come from immutablue-agents rather than being
+            # re-derived here, so the completion cannot drift from the command.
+            if [[ -x /usr/libexec/immutablue/immutablue-agents ]]
             then
-                yq -r '.immutablue.agent_harnesses.all[].name' \
-                    < /usr/immutablue/packages.yaml 2>/dev/null
+                /usr/libexec/immutablue/immutablue-agents names 2>/dev/null
             fi
             echo "all"
+            ;;
+        reinstall_agent)
+            if [[ -x /usr/libexec/immutablue/immutablue-agents ]]
+            then
+                /usr/libexec/immutablue/immutablue-agents names 2>/dev/null
+            fi
             ;;
         restore_snapshot)
             # Snapshot names as immutablue-snapshot itself reports them. The
