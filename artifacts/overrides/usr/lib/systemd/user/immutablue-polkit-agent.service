@@ -1,0 +1,34 @@
+# Polkit authentication agent for compositor sessions that do not ship one.
+#
+# polkit itself is installed, but an authentication agent is a separate,
+# per-session process, and nothing was providing it outside GNOME. GNOME Shell
+# registers its own; a bare wlroots session (gowl, cmacs --gowl) registers
+# nothing, so every GUI action that needs authorisation -- pkexec, a Flatpak
+# system install, GNOME Disks, virt-manager asking for the system libvirt
+# socket -- failed with no dialog and no obvious cause.
+#
+# Bound to gowl-session.target rather than graphical-session.target on purpose.
+# gowl starts gowl-session.target from gowl_compositor_start() and GNOME never
+# does, so binding here starts the agent for exactly the sessions that lack one.
+# Binding to graphical-session.target would also start it under GNOME, leaving
+# two agents competing to service the same authorisation requests.
+
+[Unit]
+Description=Polkit authentication agent (Immutablue)
+Documentation=man:polkit(8)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+# Nothing to do if the session already registered an agent, and nothing to run
+# if the package is absent -- neither should be a failed unit in the journal.
+ConditionPathExists=/usr/libexec/polkit-mate-authentication-agent-1
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/polkit-mate-authentication-agent-1
+Restart=on-failure
+RestartSec=2s
+Slice=session.slice
+
+[Install]
+WantedBy=gowl-session.target

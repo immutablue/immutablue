@@ -173,6 +173,13 @@ immutablue:
     - playerctl       # MPRIS play/pause/next for the media widget
     - pamixer         # PulseAudio/PipeWire volume for the volume widget
     - brightnessctl   # backlight control for the brightness widget
+    # Polkit authentication agent for sessions that do not provide one.
+    #
+    # GNOME Shell registers its own agent; a bare wlroots session (gowl,
+    # cmacs --gowl) registers nothing, so every GUI pkexec fails silently.
+    # mate-polkit is the GTK3 agent Fedora still ships -- polkit-gnome, which
+    # would otherwise be the obvious choice, was retired and is not in F44.
+    - mate-polkit
     - python3-pip  # since we don't use this in nucleus builds, then we can just put this in gui
     - solaar
     - cairo-devel
@@ -509,6 +516,7 @@ immutablue:
   # Handled in immutablue installer
   services_enable_user:
     all:
+    - immutablue-polkit-agent.service
     - immutablue-first-login.service
     - immutablue-onboot.service
     - immutablue-hourly.timer
