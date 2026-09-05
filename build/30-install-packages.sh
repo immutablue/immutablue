@@ -78,6 +78,37 @@ then
     dnf5 -y install kernel-longterm{,-core,-modules,-modules-extra,-devel}
 fi
 
+# -----------------------------------
+# Pin the kernel for the rest of the build.
+#
+# The kernel's final state is settled at this point, and everything after it
+# that builds out-of-tree modules -- the ZFS DKMS build below, and the NVIDIA
+# kmods on cyan -- compiles against whatever `rpm -qa` reports right now. The
+# bulk package install further down is free to pull a newer kernel in as a
+# transitive dependency, which would leave those modules built for a kernel
+# the image no longer ships: a system that boots without ZFS (so, for a ZFS
+# root, does not boot) or without its GPU driver.
+#
+# Locking here makes that failure a visible dependency conflict at build time
+# instead of a broken image. The lock is build-time only; it is removed in
+# 90-post.sh so it cannot interfere with rpm-ostree layering on the installed
+# system.
+# -----------------------------------
+kernel_pkg="kernel"
+if [[ "$DO_INSTALL_LTS" == "true" ]]; then kernel_pkg="kernel-longterm"; fi
+
+# versionlock refuses a package it cannot find, and the distroless path has
+# already exited above, but a variant could still legitimately lack a kernel
+# (a container-only image), so an absent kernel is reported rather than fatal.
+if rpm --quiet -q "${kernel_pkg}"
+then
+    dnf5 -y versionlock add "${kernel_pkg}" "${kernel_pkg}-core" \
+        "${kernel_pkg}-modules" "${kernel_pkg}-modules-extra"
+    dnf5 versionlock list
+else
+    echo "WARNING: '${kernel_pkg}' is not installed; skipping kernel versionlock"
+fi
+
 # kernel override to fix issue introduced in:
 # - 6.12.60
 # - 6.17.10

@@ -78,3 +78,16 @@ find /boot -mindepth 1 -delete 2>/dev/null || true
 
 # rebuild font cache (picks up nerd-fonts and any other new fonts)
 fc-cache -fv
+
+# Release the build-time kernel versionlock set in 30-install-packages.sh.
+#
+# The lock exists only to stop a later dnf5 transaction from pulling a kernel
+# newer than the one the ZFS DKMS and NVIDIA kmod builds compiled against. It
+# must not ship: on the installed system it would silently constrain
+# rpm-ostree layering. 'clear' leaves an empty stanza behind, so the file
+# itself is removed.
+if command -v dnf5 >/dev/null 2>&1
+then
+    dnf5 -y versionlock clear || true
+    rm -f /etc/dnf/versionlock.toml
+fi
