@@ -16,6 +16,7 @@
 #   immutablue-snapshot create      Take a snapshot and prune old ones
 #   immutablue-snapshot list        List existing snapshots
 #   immutablue-snapshot prune       Prune to the configured retention only
+#   immutablue-snapshot restore N   Stage snapshot N to become /var at next boot
 #
 # Options:
 #   -h, --help     Show this help message
@@ -25,6 +26,7 @@
 #   sudo immutablue-snapshot create
 #   immutablue-snapshot list
 #   sudo immutablue-snapshot prune
+#   sudo immutablue-snapshot restore var-20260905T074400Z
 #
 # Settings (see immutablue-settings):
 #   .immutablue.snapshot_before_update   enable/disable (default true)
@@ -32,7 +34,7 @@
 #
 # Exit codes:
 #   0 - Success, or skipped because the filesystem is unsupported
-#   1 - Snapshot failed
+#   1 - Snapshot or restore failed
 #   2 - Usage error
 
 set -uo pipefail
@@ -229,8 +231,155 @@ prune_snapshots() {
 }
 
 
+# Stage a snapshot to become the live subvolume at the next boot.
+#
+# The live /var cannot simply be replaced while it is mounted and in use, so
+# this does a rename swap at the btrfs top level instead:
+#
+#   1. mount the top level (subvolid=5), which is not normally mounted
+#   2. take a WRITABLE snapshot of the chosen read-only snapshot
+#   3. rename the current subvolume aside, keeping it
+#   4. rename the new one into its place
+#
+# It works because /etc/fstab mounts /var by PATH (subvol=var), not by
+# subvolid: the running system stays pinned to the old subvolume by id until
+# reboot, and the next mount resolves the name to whatever now holds it.
+#
+# The old subvolume is renamed, never deleted. That is the whole safety model:
+# if the restore turns out to be wrong, the previous state is still on disk and
+# recovering it is another rename. It also means restores accumulate
+# subvolumes, which is why they are reported at the end rather than cleaned up
+# silently.
+#
+# param $1: the snapshot name, as shown by 'list'
+# returns: 0 when staged, non-zero on any failure
+restore_snapshot() {
+    local name="$1"
+    local source_path
+    local device
+    local subvol_name
+    local top_level
+    local stamp
+    local staged
+    local preserved
+
+    if [[ -z "${name}" ]]
+    then
+        echo "ERROR: restore requires a snapshot name" >&2
+        echo "       immutablue-snapshot list" >&2
+        return 2
+    fi
+
+    source_path="${SNAPSHOT_DIR}/${name}"
+
+    if [[ ! -d "${source_path}" ]]
+    then
+        echo "ERROR: no such snapshot: ${name}" >&2
+        echo "       immutablue-snapshot list" >&2
+        return 1
+    fi
+
+    # A directory that merely looks like a snapshot would produce a confusing
+    # failure halfway through the swap, so confirm it really is a subvolume.
+    if ! btrfs subvolume show "${source_path}" >/dev/null 2>&1
+    then
+        echo "ERROR: ${source_path} is not a btrfs subvolume" >&2
+        return 1
+    fi
+
+    if [[ "$(id -u)" != "0" ]]
+    then
+        echo "ERROR: restoring a snapshot requires root" >&2
+        return 1
+    fi
+
+    # The device is reported as '/dev/... [/var]'; the bracketed subvolume has
+    # to come off before it can be mounted.
+    device="$(findmnt -no SOURCE "${SNAPSHOT_SOURCE}" 2>/dev/null | sed 's/\[.*//')"
+    subvol_name="$(findmnt -no OPTIONS "${SNAPSHOT_SOURCE}" 2>/dev/null \
+        | tr ',' '\n' | sed -n 's/^subvol=\/\{0,1\}//p' | head -1)"
+
+    if [[ -z "${device}" ]] || [[ -z "${subvol_name}" ]]
+    then
+        echo "ERROR: could not determine the device and subvolume for ${SNAPSHOT_SOURCE}" >&2
+        return 1
+    fi
+
+    top_level="$(mktemp -d)"
+
+    # subvolid=5 is the btrfs top level, where the named subvolumes (root, var,
+    # home) actually live. It is deliberately not mounted in normal operation.
+    if ! mount -o subvolid=5 "${device}" "${top_level}"
+    then
+        echo "ERROR: could not mount the btrfs top level from ${device}" >&2
+        rmdir "${top_level}"
+        return 1
+    fi
+
+    if [[ ! -d "${top_level}/${subvol_name}" ]]
+    then
+        echo "ERROR: subvolume '${subvol_name}' not found at the btrfs top level" >&2
+        umount "${top_level}"; rmdir "${top_level}"
+        return 1
+    fi
+
+    stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    staged="${top_level}/${subvol_name}-immutablue-staged-${stamp}"
+    preserved="${top_level}/${subvol_name}-immutablue-previous-${stamp}"
+
+    # Writable, unlike the stored snapshot: this one becomes the live /var.
+    if ! btrfs subvolume snapshot "${source_path}" "${staged}" >/dev/null
+    then
+        echo "ERROR: could not create a writable copy of ${name}" >&2
+        umount "${top_level}"; rmdir "${top_level}"
+        return 1
+    fi
+
+    # The dangerous window is between these two renames: if the second fails
+    # there would be no subvolume under the expected name and the system would
+    # not boot. Undo the first rather than leave it that way.
+    if ! mv "${top_level}/${subvol_name}" "${preserved}"
+    then
+        echo "ERROR: could not move the current ${subvol_name} aside" >&2
+        btrfs subvolume delete "${staged}" >/dev/null 2>&1 || true
+        umount "${top_level}"; rmdir "${top_level}"
+        return 1
+    fi
+
+    if ! mv "${staged}" "${top_level}/${subvol_name}"
+    then
+        echo "ERROR: could not move the restored copy into place; reverting" >&2
+        if mv "${preserved}" "${top_level}/${subvol_name}"
+        then
+            echo "Reverted; the system is unchanged." >&2
+        else
+            echo "CRITICAL: ${subvol_name} is missing at the btrfs top level." >&2
+            echo "CRITICAL: from a rescue shell, mount -o subvolid=5 ${device} /mnt" >&2
+            echo "CRITICAL: then: mv /mnt/$(basename "${preserved}") /mnt/${subvol_name}" >&2
+        fi
+        btrfs subvolume delete "${staged}" >/dev/null 2>&1 || true
+        umount "${top_level}"; rmdir "${top_level}"
+        return 1
+    fi
+
+    umount "${top_level}"
+    rmdir "${top_level}"
+
+    echo "Staged ${name} as the new ${subvol_name}."
+    echo "The previous ${subvol_name} is kept as ${subvol_name}-immutablue-previous-${stamp}"
+    echo ""
+    echo "Reboot to apply:  systemctl reboot"
+    echo ""
+    echo "To undo before rebooting, or from a rescue shell afterwards:"
+    echo "  mount -o subvolid=5 ${device} /mnt"
+    echo "  mv /mnt/${subvol_name} /mnt/${subvol_name}-discarded"
+    echo "  mv /mnt/${subvol_name}-immutablue-previous-${stamp} /mnt/${subvol_name}"
+}
+
+
 main() {
     local action=""
+    local target=""
 
     while [[ $# -gt 0 ]]
     do
@@ -243,14 +392,22 @@ main() {
                 show_license
                 exit 0
                 ;;
-            create|list|prune)
+            create|list|prune|restore)
                 action="${1}"
                 shift
                 ;;
             *)
-                echo "Unknown argument: ${1}" >&2
-                show_help
-                exit 2
+                # The only positional after an action is the snapshot name for
+                # 'restore'; anything else is a usage error.
+                if [[ "${action}" == "restore" ]] && [[ -z "${target}" ]]
+                then
+                    target="${1}"
+                    shift
+                else
+                    echo "Unknown argument: ${1}" >&2
+                    show_help
+                    exit 2
+                fi
                 ;;
         esac
     done
@@ -270,6 +427,9 @@ main() {
             ;;
         prune)
             prune_snapshots
+            ;;
+        restore)
+            restore_snapshot "${target}"
             ;;
     esac
 }
