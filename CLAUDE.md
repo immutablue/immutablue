@@ -187,6 +187,7 @@ Located in `/usr/libexec/immutablue/just/`:
 ./tests/test_shellcheck.sh        # Validate shell scripts
 ./tests/test_shellcheck.sh --fix  # Show detailed diagnostics
 ./tests/test_justfile_syntax.sh   # Parse all shipped justfiles
+./tests/test_package_presence.sh  # Assert packages.yaml matches the image
 ./tests/test_container.sh         # Container validation
 ./tests/test_artifacts.sh         # Artifact validation
 ```

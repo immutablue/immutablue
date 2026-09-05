@@ -55,6 +55,15 @@ if [[ $? -ne 0 ]]; then
   EXIT_CODE=1
 fi
 
+# Assert the built image actually contains what packages.yaml asked for. Skips
+# itself on an image without image-info.json, so it is safe to run here
+# unconditionally.
+echo -e "\n>> Running Package Presence Tests"
+bash "$TEST_DIR/test_package_presence.sh" "$IMAGE"
+if [[ $? -ne 0 ]]; then
+  EXIT_CODE=1
+fi
+
 # Run brew variant tests
 echo -e "\n>> Running Brew Variant Tests"
 bash "$TEST_DIR/test_brew_variants.sh"
