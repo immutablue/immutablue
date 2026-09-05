@@ -4,9 +4,22 @@ set -euo pipefail
 LIBEXEC_DIR="/usr/libexec/immutablue"
 ETC_DIR="/etc/immutablue/scripts"
 
+# Modes fall into two groups:
+#
+#   time-based   on_boot, on_shutdown, hourly, daily, weekly, monthly
+#                driven by the matching systemd timers and services.
+#
+#   event-based  pre_update, post_update
+#                driven by immutablue-update, which brackets its work with
+#                them so a user can hang their own steps off an update
+#                (snapshot a subvolume, stop a service, resync something
+#                afterwards) without editing immutablue-update itself.
+#
+# Both groups use the same three-layer lookup and the same failure semantics,
+# so nothing else here needs to distinguish them.
 print_usage() {
     echo -e "Use this corrently:"
-    echo -e "\t$0 <on_boot|on_shutdown|hourly|daily|weekly|monthly>"
+    echo -e "\t$0 <on_boot|on_shutdown|hourly|daily|weekly|monthly|pre_update|post_update>"
 }
 
 # Validation logic

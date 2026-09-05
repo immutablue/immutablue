@@ -21,6 +21,43 @@ error_info() {
     exit ${ret_code}
 }
 
+
+# Run the pre_update / post_update hooks.
+#
+# This script is a fixed sequence of component updates, so there was previously
+# nowhere to attach machine-specific work that has to happen around an update
+# -- taking a snapshot before it, stopping a service that dislikes having its
+# files replaced, resyncing something afterwards. The only options were editing
+# this file (lost on the next image update, since it lives in /usr) or wrapping
+# the command.
+#
+# The script orchestrator already implements exactly the mechanism needed:
+# three layers (/usr/libexec, /etc, ~/.config), '.ignore' skipping, and
+# per-script failure isolation. So pre_update and post_update are simply two
+# more orchestrator modes rather than a second hook system with its own rules.
+#
+# Hook failures are deliberately not fatal here. The orchestrator already
+# reports a failing script and continues, and an update should not be abandoned
+# because a user's optional hook returned non-zero -- particularly post_update,
+# which runs after the system has already been changed.
+#
+# param $1: the hook mode to run (pre_update or post_update)
+run_update_hooks() {
+    local mode="$1"
+
+    if ! type immutablue-script-orchestrator &>/dev/null
+    then
+        return 0
+    fi
+
+    echo "Running ${mode} hooks"
+    immutablue-script-orchestrator "${mode}" || \
+        echo "One or more ${mode} hooks failed; continuing"
+}
+
+
+run_update_hooks pre_update
+
 if [[ "$(immutablue-settings .immutablue.run_bootc_update)" == "true" ]]
 then
     sudo bootc update || error_info "bootc update" $?
@@ -54,4 +91,9 @@ if [[ "$(immutablue-settings .immutablue.run_install_on_update)" == "true" ]]
 then
     immutablue_services_enable_setup_for_next_boot
 fi
+
+# Runs only if every component update above succeeded: error_info() exits
+# non-zero on the first failure, so a post_update hook can assume the update
+# actually completed rather than having to re-check.
+run_update_hooks post_update
 
