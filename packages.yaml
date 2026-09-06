@@ -720,3 +720,12 @@ immutablue:
       desc: "pi coding agent (@mariozechner/pi-coding-agent)"
       bin: pi
       install: "npm install -g @mariozechner/pi-coding-agent"
+
+    # oh-my-pi is a fork of the same upstream package pi comes from
+    # (@oh-my-pi/pi-coding-agent vs @mariozechner/pi-coding-agent), but it
+    # installs as 'omp' rather than 'pi', so the two coexist rather than
+    # overwriting each other.
+    - name: oh-my-pi
+      desc: "oh-my-pi (omp) - fork of the pi coding agent; installs as 'omp'"
+      bin: omp
+      install: "curl -fsSL https://omp.sh/install | sh"
