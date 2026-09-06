@@ -185,6 +185,63 @@ enable_libvirt_dry_run:
 status_libvirt:
     immutablue-libvirt-manager -s status
 
+# repair libvirt SELinux labels under /var. use when VMs fail to start with "network 'default' is not active" or virtlogd "Permission denied"
+fix_libvirt_selinux_mislabel:
+    #!/bin/bash
+    set -euo pipefail
+
+    # libvirt is installed during the image build, so RPM labels its /var
+    # directories against the build container rather than this host's policy.
+    # ostree never relabels /var, so those wrong labels (var_lib_t, var_log_t,
+    # var_t instead of virt_var_lib_t, virt_log_t, virt_cache_t) persist across
+    # every upgrade and rebase, and the confined modular daemons cannot write
+    # their own state. Each daemon fails on its own directory, so all three are
+    # repaired together rather than one error at a time.
+
+    paths=(/var/lib/libvirt /var/log/libvirt /var/cache/libvirt)
+
+    echo "== current SELinux label drift =="
+    total=0
+    for p in "${paths[@]}"
+    do
+        [[ -e "${p}" ]] || continue
+        n="$(sudo restorecon -nRv "${p}" 2>/dev/null | grep -c 'Would relabel' || true)"
+        total=$(( total + n ))
+        printf '  %-22s %s mislabeled\n' "${p}" "${n}"
+    done
+
+    if [[ "${total}" -eq 0 ]]
+    then
+        echo "labels are already correct; nothing to relabel"
+    else
+        echo
+        echo "== relabeling =="
+        # -F forces the SELinux user and role as well as the type. Needed
+        # because directories created by an unconfined process drift to
+        # unconfined_u, which a plain restorecon leaves in place.
+        sudo restorecon -RFv "${paths[@]}"
+    fi
+
+    # The same root cause drifts the directory modes: these arrive with the
+    # generic 0755 instead of what libvirt-daemon-common actually declares.
+    # 0700 on the log directory matters -- domain logs can carry guest detail.
+    echo
+    echo "== restoring rpm-declared modes on the top-level directories =="
+    [[ -d /var/lib/libvirt ]]   && sudo chmod 0755 /var/lib/libvirt
+    [[ -d /var/log/libvirt ]]   && sudo chmod 0700 /var/log/libvirt
+    [[ -d /var/cache/libvirt ]] && sudo chmod 0711 /var/cache/libvirt
+    stat -c '  %n mode=%a %U:%G' "${paths[@]}" 2>/dev/null || true
+
+    # /run/libvirt is intentionally untouched. Its labels come from SELinux type
+    # transitions on live daemon state, and the shipped file_contexts regex for
+    # that path predates the modular daemon split, so restorecon there would
+    # force dnsmasq_var_run_t onto running virtnetworkd files. /run is tmpfs and
+    # is rebuilt every boot, so it cannot drift persistently.
+
+    echo
+    echo "done. start the network with: virsh --connect qemu:///system net-start default"
+    echo "(the shipped /usr/lib/tmpfiles.d/immutablue-libvirt-selinux.conf reasserts these labels every boot)"
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # SYSTEM HEALTH
