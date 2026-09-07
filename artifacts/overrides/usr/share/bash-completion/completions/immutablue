@@ -67,6 +67,16 @@ _immutablue_recipe_args() {
                     | grep -E '^[a-z]+-[0-9]{8}T[0-9]{6}Z$'
             fi
             ;;
+        analyze_crash)
+            # PIDs of crashes that actually exist, newest first. --all because
+            # the picker offers user binaries too; someone completing this by
+            # hand is as likely to want one of those.
+            if [[ -x /usr/libexec/immutablue/immutablue-crash ]]
+            then
+                /usr/libexec/immutablue/immutablue-crash list --all 2>/dev/null \
+                    | tail -n +2 | awk '{ print $1 }'
+            fi
+            ;;
         enable_dictation)
             # Whisper model names voxtype accepts for --model. Hardcoded
             # because `voxtype setup model` is an interactive TUI with no

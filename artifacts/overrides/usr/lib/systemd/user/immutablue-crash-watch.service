@@ -1,0 +1,42 @@
+# Watch for crashes of image-shipped binaries and offer an AI diagnosis.
+#
+# systemd-coredump already stores the cores (see the coredump.conf.d drop-in);
+# nothing was reading them. This follows the journal for coredump entries, keeps
+# only crashes of binaries the image itself shipped, and raises a notification
+# offering an analysis.
+#
+# Deliberately NOT enabled by default. It sends desktop notifications and, when
+# acted on, hands crash evidence to an AI provider -- both are choices a user
+# makes rather than defaults they discover. Turn it on with:
+#
+#   immutablue crash_watch_enable
+#
+# The filter to image-shipped binaries is the point of the design, not an
+# optimisation. A developer crashes things in their home directory constantly and
+# on purpose; announcing those trains the user to dismiss the notification that
+# actually matters.
+
+[Unit]
+Description=Immutablue crash watcher
+Documentation=file:///usr/share/immutablue/skills/immutablue/crash-analysis.md
+PartOf=graphical-session.target
+After=graphical-session.target
+
+ConditionPathExists=/usr/libexec/immutablue/immutablue-crash
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/immutablue/immutablue-crash watch
+Restart=on-failure
+RestartSec=5s
+Slice=session.slice
+
+# It reads the journal and writes notifications; it never needs to change
+# anything, and a crash watcher that can modify the system is a bad trade.
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

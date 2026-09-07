@@ -1,0 +1,409 @@
+#!/bin/bash
+# immutablue-crash - Watch for crashes and hand them to an AI agent
+#
+# systemd-coredump journals every core dump under a known MESSAGE_ID with
+# structured COREDUMP_* fields. This watches that stream, filters it down to
+# crashes worth telling someone about, and prepares a working directory an agent
+# can analyse.
+#
+# Usage:
+#   immutablue-crash watch              Follow the journal and notify on crashes
+#   immutablue-crash list [--all]       List crashes, newest first
+#   immutablue-crash analyze <pid>      Prepare a report and hand it to `ai`
+#   immutablue-crash prepare <pid>      Prepare the report only, print the path
+#   immutablue-crash classify <path>    Say how a binary is classified, and why
+#
+# Options:
+#   -h, --help     Show this help message
+#   --license      Show license information
+#   --all          Include user binaries (list only)
+#   --no-agent     Prepare but do not invoke the agent (analyze only)
+#
+# Examples:
+#   immutablue-crash list
+#   immutablue-crash list --all
+#   immutablue-crash analyze 1516893
+#
+# Exit codes:
+#   0 - Success
+#   1 - Failure
+#   2 - Usage error
+
+set -uo pipefail
+
+VERSION="1.0.0"
+
+# See systemd.journal-fields(7). Every systemd-coredump entry carries this.
+readonly COREDUMP_MESSAGE_ID="fc2e22bc6ee647b6b90729ab34a250b1"
+
+CACHE_HOME="${XDG_CACHE_HOME:-${HOME}/.cache}"
+readonly ANALYSIS_ROOT="${CACHE_HOME}/immutablue/crash-analysis"
+
+# Crash loops dump core repeatedly; announce each program at most once a window.
+readonly DEDUPE_SECONDS="${IMMUTABLUE_CRASH_DEDUPE_SECONDS:-60}"
+
+
+show_help() {
+    sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+
+show_license() {
+    echo "immutablue-crash ${VERSION}"
+    echo "Copyright (C) Zach Podbielniak"
+    echo "License AGPLv3+: GNU AGPL version 3 or later <https://gnu.org/licenses/agpl.html>"
+    echo "This is free software: you are free to change and redistribute it."
+    echo "There is NO WARRANTY, to the extent permitted by law."
+}
+
+
+# Classify an executable path as a system binary or a user one.
+#
+# This is the whole point of the filter. A developer working in their home
+# directory crashes things constantly and on purpose -- a compiler under test, a
+# half-written compositor module, a debug build. Announcing those is noise, and
+# worse, it trains the user to dismiss the notification that matters.
+#
+# So only binaries the image itself shipped are announced. /usr is the image and
+# is read-only, which makes it a reliable signal -- with one exception worth
+# knowing: on an ostree system /usr/local is a symlink to /var/usrlocal, so it is
+# writable, user-owned, and NOT part of the image despite the path.
+#
+# param $1: the executable path
+# prints: "system" or "user"
+crash_classify() {
+    local exe="$1"
+
+    case "${exe}" in
+        /usr/local/*)
+            # A symlink into /var. Not shipped by the image.
+            echo "user" ;;
+        /usr/*)
+            echo "system" ;;
+        /var/home/*|/home/*|/root/*|/var/usrlocal/*|/tmp/*|/var/tmp/*)
+            echo "user" ;;
+        /var/lib/flatpak/*|/var/lib/containers/*)
+            # Flatpak and container payloads are their own vendors' code; a crash
+            # there is not the image's business.
+            echo "user" ;;
+        *)
+            # Anything unrecognised is treated as a user binary: the cost of
+            # staying quiet about a system crash is one missed notification, and
+            # the cost of the opposite is noise on every dev build.
+            echo "user" ;;
+    esac
+}
+
+
+# Every crash belonging to this user, as TSV, newest first.
+#
+# Coredump entries land in the system journal, so this reads that rather than the
+# user journal, and filters to the invoking UID: a daemon dumping core is a
+# sysadmin's problem, not this user's.
+#
+# COREDUMP_EXE is preferred over COREDUMP_COMM for the name because comm is
+# truncated to 15 characters by the kernel, and a truncated name matches nothing.
+#
+# prints: pid<TAB>when<TAB>exe<TAB>signal<TAB>class
+crash_records_all() {
+    local pid when exe signal
+
+    journalctl -o json --no-pager "MESSAGE_ID=${COREDUMP_MESSAGE_ID}" 2>/dev/null \
+        | jq -r --arg uid "$(id -u)" \
+            'select((._UID // "") == $uid or (._UID // "") == "")
+             | def f: if . == null or . == "" then "-" else . end;
+             [(.COREDUMP_PID | f),
+              (.__REALTIME_TIMESTAMP | f),
+              (.COREDUMP_EXE | f),
+              (.COREDUMP_SIGNAL_NAME | f)] | @tsv' 2>/dev/null \
+        | tac \
+        | while IFS=$'\t' read -r pid when exe signal
+        do
+            printf '%s\t%s\t%s\t%s\t%s\n' \
+                "${pid}" "${when}" "${exe}" "${signal}" "$(crash_classify "${exe}")"
+        done
+}
+
+
+# Microseconds-since-epoch to something a human reads.
+crash_when() {
+    local usec="$1"
+
+    if [[ "${usec}" =~ ^[0-9]+$ ]]
+    then
+        date -d "@$(( usec / 1000000 ))" '+%Y-%m-%d %H:%M:%S' 2>/dev/null && return 0
+    fi
+    echo "unknown"
+}
+
+
+cmd_list() {
+    local show_all="$1"
+    local pid when exe signal class
+
+    printf '%-9s %-20s %-9s %-8s %s\n' "PID" "WHEN" "SIGNAL" "CLASS" "BINARY"
+    while IFS=$'\t' read -r pid when exe signal class
+    do
+        [[ -z "${pid}" ]] && continue
+        if [[ "${show_all}" != "yes" ]] && [[ "${class}" != "system" ]]
+        then
+            continue
+        fi
+        printf '%-9s %-20s %-9s %-8s %s\n' \
+            "${pid}" "$(crash_when "${when}")" "${signal}" "${class}" "${exe}"
+    done < <(crash_records_all)
+}
+
+
+# Build the ephemeral working directory for one crash.
+#
+# Everything an analysis needs is gathered here, so the agent reads files rather
+# than running a dozen commands and so the evidence is still there afterwards.
+# It lives under the cache directory because it is disposable by definition:
+# nothing here is state, and deleting the whole tree costs nothing.
+#
+# param $1: the pid
+# prints: the directory path
+crash_prepare() {
+    local pid="$1"
+    local exe name dir stamp
+
+    if [[ ! "${pid}" =~ ^[0-9]+$ ]]
+    then
+        echo "ERROR: not a PID: ${pid}" >&2
+        echo "       see: immutablue-crash list" >&2
+        return 2
+    fi
+
+    exe="$(coredumpctl list "${pid}" --no-pager --no-legend 2>/dev/null \
+        | tail -1 | awk '{ print $NF }')"
+    exe="${exe:-unknown}"
+    name="${exe##*/}"
+    # A process can set its own comm to anything, slashes included; keep the
+    # directory name to one path component.
+    name="${name##*/}"
+    [[ -z "${name}" || "${name}" == "." || "${name}" == ".." ]] && name="unknown"
+
+    stamp="$(date -u '+%Y%m%dT%H%M%SZ')"
+    dir="${ANALYSIS_ROOT}/${stamp}-${name}-${pid}"
+    mkdir -p "${dir}" || return 1
+
+    # The crash itself.
+    coredumpctl info "${pid}" > "${dir}/coredumpctl-info.txt" 2>&1
+    coredumpctl list --no-pager > "${dir}/coredumpctl-list.txt" 2>&1
+
+    # Who owns the binary. This is the single best discriminator between "a
+    # Fedora package crashed" and "something this image builds crashed", and it
+    # is the first question a triage has to answer.
+    {
+        echo "executable: ${exe}"
+        echo "classified: $(crash_classify "${exe}")"
+        echo
+        echo "--- rpm -qf ---"
+        rpm -qf "${exe}" 2>&1
+        echo
+        echo "--- is it built from /usr/src/gitlab? ---"
+        if [[ -d /usr/src/gitlab ]]
+        then
+            ls /usr/src/gitlab
+        else
+            echo "(no /usr/src/gitlab on this variant)"
+        fi
+    } > "${dir}/ownership.txt" 2>&1
+
+    # System state at the time of reading. The deployment matters more here than
+    # on a normal distro: it pins the exact image the crash happened on.
+    rpm-ostree status > "${dir}/deployment.txt" 2>&1
+    cp /usr/share/immutablue/image-info.json "${dir}/image-info.json" 2>/dev/null
+
+    if command -v immutablue-doctor &>/dev/null
+    then
+        immutablue-doctor --json > "${dir}/doctor.json" 2>/dev/null
+    elif [[ -x /usr/libexec/immutablue/immutablue-doctor ]]
+    then
+        /usr/libexec/immutablue/immutablue-doctor --json > "${dir}/doctor.json" 2>/dev/null
+    fi
+
+    # Has this machine been modified? A maintainer asks this first.
+    if command -v immutablue &>/dev/null
+    then
+        immutablue check_local_etc_overrides > "${dir}/etc-overrides.txt" 2>&1
+    fi
+
+    # The journal either side of the crash, for the correlation work.
+    journalctl --since "10 minutes ago" --no-pager > "${dir}/journal-recent.txt" 2>&1
+    journalctl -k --since "10 minutes ago" --no-pager > "${dir}/journal-kernel.txt" 2>&1
+    free -h > "${dir}/memory.txt" 2>&1
+
+    # gowl quarantines a faulting bar plugin here. If the crash is in or under
+    # the compositor this file is the fastest route to the cause.
+    local gowl_journal="${XDG_STATE_HOME:-${HOME}/.local/state}/gowl/bar-plugins.journal"
+    [[ -f "${gowl_journal}" ]] && cp "${gowl_journal}" "${dir}/gowl-bar-plugins.journal"
+
+    echo "${dir}"
+}
+
+
+cmd_analyze() {
+    local pid="$1"
+    local run_agent="$2"
+    local dir prompt
+
+    dir="$(crash_prepare "${pid}")" || return $?
+
+    echo "Crash evidence collected in:"
+    echo "  ${dir}"
+    echo
+
+    if [[ "${run_agent}" != "yes" ]]
+    then
+        return 0
+    fi
+
+    if ! command -v ai &>/dev/null
+    then
+        echo "The 'ai' harness is not installed; nothing to hand this to." >&2
+        echo "The evidence above is still there to read." >&2
+        return 1
+    fi
+
+    # The method lives in the skill rather than in this prompt, so it is edited
+    # in one place and applies whichever provider is default.
+    prompt="/immutablue analyze the crash evidence in ${dir} and determine whether this is a bug in Immutablue or in something else.
+
+Use the crash-analysis guide in the skill. Read the files in that directory rather
+than re-running the commands: coredumpctl-info.txt has the backtrace and the
+command line, ownership.txt says whether the binary is a Fedora package or built
+by this image, deployment.txt pins the exact image, and journal-*.txt cover the
+window around the crash.
+
+Work from evidence and say plainly when it is not enough. Do not change anything
+on this system."
+
+    ai --provider default --model default <<< "${prompt}"
+}
+
+
+# Follow the journal and notify on each system-binary crash.
+#
+# Run as a user service. Nothing here fixes or changes anything: the notification
+# offers an analysis, and the analysis only reads.
+cmd_watch() {
+    local entry uid comm pid exe signal name class now
+    declare -A last_notified
+
+    # -n 0 so a restart does not re-announce crashes already dealt with.
+    journalctl -f -n 0 -o json "MESSAGE_ID=${COREDUMP_MESSAGE_ID}" 2>/dev/null \
+        | while IFS= read -r entry
+    do
+        # A dash for a field that is empty as well as one that is missing: tab is
+        # IFS whitespace, so an empty field would collapse into the next
+        # delimiter and shift every field after it along by one.
+        IFS=$'\t' read -r uid comm pid exe signal < <(
+            jq -r 'def f: if . == null or . == "" then "-" else . end;
+                   [(._UID | f),
+                    (.COREDUMP_COMM | f),
+                    (.COREDUMP_PID | f),
+                    (.COREDUMP_EXE | f),
+                    (.COREDUMP_SIGNAL_NAME | f)] | @tsv' <<< "${entry}" 2>/dev/null
+        )
+
+        [[ "${pid}" =~ ^[0-9]+$ ]] || continue
+
+        # Only this user's crashes.
+        [[ "${uid}" =~ ^[0-9]+$ ]] || continue
+        (( uid == UID )) || continue
+
+        class="$(crash_classify "${exe}")"
+        [[ "${class}" == "system" ]] || continue
+
+        name="${exe##*/}"
+        [[ -z "${name}" || "${name}" == "-" ]] && name="${comm}"
+        [[ -z "${name}" || "${name}" == "-" ]] && name="unknown"
+
+        # Never announce our own machinery, or it notifies about itself.
+        case "${name}" in
+            immutablue-crash|immutablue-doctor) continue ;;
+        esac
+
+        now="${EPOCHSECONDS}"
+        (( (now - ${last_notified[${name}]:-0}) < DEDUPE_SECONDS )) && continue
+        last_notified["${name}"]="${now}"
+
+        if command -v notify-send &>/dev/null
+        then
+            notify-send \
+                --urgency=critical \
+                --app-name=immutablue \
+                "Process crashed: ${name}" \
+                "${signal} -- analyse with: immutablue analyze_crash" \
+                2>/dev/null || true
+        fi
+
+        echo "crash: ${name} pid=${pid} signal=${signal} exe=${exe}"
+    done
+}
+
+
+main() {
+    local action=""
+    local show_all="no"
+    local run_agent="yes"
+    local args=()
+
+    while [[ $# -gt 0 ]]
+    do
+        case "${1}" in
+            -h|--help)    show_help; exit 0 ;;
+            --license)    show_license; exit 0 ;;
+            --all)        show_all="yes"; shift ;;
+            --no-agent)   run_agent="no"; shift ;;
+            watch|list|analyze|prepare|classify)
+                if [[ -z "${action}" ]]
+                then
+                    action="${1}"
+                else
+                    args+=("${1}")
+                fi
+                shift
+                ;;
+            *)            args+=("${1}"); shift ;;
+        esac
+    done
+
+    case "${action}" in
+        list)  cmd_list "${show_all}" ;;
+        watch) cmd_watch ;;
+        classify)
+            if [[ ${#args[@]} -eq 0 ]]
+            then
+                echo "ERROR: classify requires a path" >&2
+                exit 2
+            fi
+            echo "$(crash_classify "${args[0]}")"
+            ;;
+        prepare)
+            if [[ ${#args[@]} -eq 0 ]]
+            then
+                echo "ERROR: prepare requires a PID" >&2
+                exit 2
+            fi
+            crash_prepare "${args[0]}"
+            ;;
+        analyze)
+            if [[ ${#args[@]} -eq 0 ]]
+            then
+                echo "ERROR: analyze requires a PID" >&2
+                echo "       see: immutablue-crash list" >&2
+                exit 2
+            fi
+            cmd_analyze "${args[0]}" "${run_agent}"
+            ;;
+        *)
+            show_help
+            exit 2
+            ;;
+    esac
+}
+
+main "$@"
