@@ -130,6 +130,65 @@ immutablue/
 └── specs/                    # RPM spec files
 ```
 
+## Where a file on the image actually came from
+
+`build/10-copy.sh` writes to `/usr` from several sources **in order**, and
+later ones overwrite earlier ones. When a fix does not show up on a built
+system, this ordering is usually why:
+
+| Order | Source | Brought in by |
+|-------|--------|---------------|
+| 1 | `artifacts/overrides/` | `cp -a /mnt-ctx/artifacts/overrides/. /` (line ~85) |
+| 2 | in-house C projects (yaml-glib, crispy, gst, **gowl**, mcp-glib, …) | `cp -a /mnt-build-deps/<p>/usr/. /usr/` (line ~172) |
+| 3 | **cmacs** | `cp -a /mnt-cmacs/usr/. /usr/` (line ~202) — **last, so it wins** |
+
+Consequences worth knowing:
+
+- **The cmacs container is authoritative for anything it ships.** It is built
+  out-of-tree by cmacs's own `./build-container` and pulled as
+  `quay.io/zachpodbielniak/cmacs:${FEDORA_VERSION}`. It ships not only
+  `/usr/share/wayland-sessions/cmacs.desktop` but also
+  `/usr/share/xdg-desktop-portal/gowl-portals.conf` and `portals/` — so those
+  are fixed by rebuilding and pushing the cmacs image, **not** by an
+  `artifacts/overrides/` entry, and an override there would be overwritten
+  anyway.
+- **Standalone gowl is a different artifact from the gowl inside cmacs.** It is
+  built here from the `artifacts/overrides/usr/src/gitlab/gowl` submodule
+  (`deps/Containerfile` copies it to `/build/gowl`). `gowl.desktop` comes from
+  it, because the cmacs image does not ship one. Fixing gowl therefore means
+  bumping that submodule, and a fix pushed to gowl reaches no image until you do.
+- **The submodule pin is the version.** `git submodule status
+  artifacts/overrides/usr/src/gitlab/` shows how far behind each in-house
+  project is.
+
+### gowl and the two wlroots versions
+
+`deps/00-build.sh` installs plain `wlroots-devel` — whatever the Fedora
+release ships as its default. That means **both** wlroots versions are live
+depending on which image you build: 0.20 on F44+, 0.19 on F42/F43. gowl's
+`config.mk` picks the newest `wlroots-*.pc` present, so each build gets its
+release's version with no flag.
+
+That is convenient and it hides a real failure mode. The two versions differ
+in how wlroots' public headers reach generated protocol headers: 0.19
+includes them by bare name, so the consumer must produce them with
+`wayland-scanner`, while 0.20 uses a header wayland-protocols installs. A
+gowl missing one of those generated headers builds fine on F44 and cannot
+build at all on F43 — and since a developer box with both versions always
+compiles the 0.20 path, nothing catches it before the image build does.
+
+Before bumping the gowl submodule, build it against 0.19 in the gowl checkout:
+
+```bash
+make clean && make WLROOTS=0.19
+```
+
+gowl's `make test` also runs `tests/test-protocol-headers.sh`, which checks
+every *installed* wlroots version rather than the selected one, for exactly
+this reason. The same shape applies to libeis (`EIS_EVENT_SEAT_DEVICE_REQUESTED`
+is 1.6-only; F43 ships 1.5), which the portal Makefile probes for rather than
+requiring.
+
 ## Configuration Files
 
 ### settings.yaml
