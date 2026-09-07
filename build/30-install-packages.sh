@@ -271,6 +271,25 @@ mv /tmp/just/just /usr/bin/just
 chmod +x /usr/bin/just
 rm -rf /tmp/just
 
+# Install voxtype (push-to-talk voice-to-text).
+#
+# GUI variants only: it types into a focused window, which a headless image has
+# no use for. Nucleus and the workshop image are skipped for the same reason
+# the pip block above skips them.
+#
+# The download is checksum-verified rather than taken on trust. Unlike the
+# other binaries fetched here, this one holds the microphone open and injects
+# synthetic keystrokes, so a silently substituted build is worth more to an
+# attacker than a substituted `just` would be.
+if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && [[ "$(is_option_in_build_options build_a_blue_workshop)" == "${FALSE}" ]]
+then
+    curl -fLo /tmp/voxtype "${VOXTYPE_RELEASE_URL}"
+    echo "${VOXTYPE_SHA256}  /tmp/voxtype" | sha256sum -c -
+    install -D -m 0755 /tmp/voxtype /usr/bin/voxtype
+    rm -f /tmp/voxtype
+    voxtype --version
+fi
+
 # Verify NVIDIA kernel modules are built if cyan variant
 if [[ "$(is_option_in_build_options cyan)" == "${TRUE}" ]]
 then

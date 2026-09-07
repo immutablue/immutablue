@@ -208,6 +208,13 @@ immutablue:
     - wayland-protocols-devel
     - waypipe
     - wl-clipboard
+    # Typing backends for voxtype dictation. Both are needed because this image
+    # ships two very different sessions: wtype speaks wlr-virtual-keyboard-v1,
+    # which gowl implements and Mutter deliberately does not, so under GNOME
+    # wtype cannot work at all and voxtype falls through its driver order to
+    # ydotool, which injects through /dev/uinput below the compositor. Shipping
+    # only one of them leaves one of the two sessions unable to type.
+    - wtype
     # wlroots for gowl is version-specific — see rpm.43 / rpm.44 below.
     # F43 ships wlroots 0.19 as the default `wlroots`/`wlroots-devel` package;
     # F44 ships 0.20 as default and keeps 0.19 available via `wlroots0.19`/`wlroots0.19-devel`.
@@ -218,6 +225,7 @@ immutablue:
     # the runtime server the compositor spawns.
     - xorg-x11-server-Xwayland
     - xrdp
+    - ydotool
     - dbus-devel
     - gnutls-devel
     - gtk3-devel

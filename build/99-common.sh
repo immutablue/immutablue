@@ -28,6 +28,33 @@ FLUX_RELEASE_URL=""
 SOPS_RELEASE_URL_x86_64="https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.amd64"
 SOPS_RELEASE_URL_aarch64="https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.arm64"
 SOPS_RELEASE_URL=""
+# Voxtype -- push-to-talk voice-to-text (https://voxtype.io, MIT).
+#
+# Upstream also publishes a .rpm, but it is 363 MB because it bundles every
+# transcription engine plus the CUDA/MIGraphX ONNX providers. The image takes
+# the single Whisper binary for the architecture instead, at 18 MB (x86_64,
+# AVX2) and 15 MB (aarch64). Whisper models are NOT shipped -- they are
+# per-user data downloaded on demand by `immutablue enable_dictation`.
+#
+# x86_64 uses the AVX2 build rather than AVX512: AVX2 is Haswell (2013) and
+# later, AVX512 is not present on most consumer parts including every Ryzen
+# before Zen 4. The Vulkan build exists and is 65 MB; GPU acceleration is not
+# worth 47 MB of image for a base.en model that transcribes a sentence in
+# well under a second on CPU.
+#
+# The SHA256s are pinned. Every other binary this script fetches is taken on
+# trust from whatever the URL serves today; this one records audio and injects
+# keystrokes, so it gets verified. Upstream also GPG-signs each asset with
+# 9CCF7915B750CAE8B095ED1AA3FC9F33FD209279 (verified against the checksums
+# below when this was pinned), but a pinned hash needs no keyserver at build
+# time and fails closed the same way.
+VOXTYPE_VERSION="1.0.1"
+VOXTYPE_RELEASE_URL_x86_64="https://github.com/peteonrails/voxtype/releases/download/v${VOXTYPE_VERSION}/voxtype-${VOXTYPE_VERSION}-linux-x86_64-avx2"
+VOXTYPE_RELEASE_URL_aarch64="https://github.com/peteonrails/voxtype/releases/download/v${VOXTYPE_VERSION}/voxtype-${VOXTYPE_VERSION}-linux-aarch64-cpu"
+VOXTYPE_SHA256_x86_64="cb3843a894ef47aca230b30bb1c45c2ef8e0d015adf2fa754d60e55123165fd0"
+VOXTYPE_SHA256_aarch64="b5e31a85aaa952d1a78c12b8a16ba5cbdcd92eb31adc7d1a908f3c9d06edd4f1"
+VOXTYPE_RELEASE_URL=""
+VOXTYPE_SHA256=""
 CRIO_RELEASE_URL_x86_64="https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v1.32.13.tar.gz"
 CRIO_RELEASE_URL_aarch64="https://storage.googleapis.com/cri-o/artifacts/cri-o.arm64.v1.32.13.tar.gz"
 CRIO_RELEASE_URL=""
@@ -39,12 +66,16 @@ then
     FLUX_RELEASE_URL="${FLUX_RELEASE_URL_aarch64}"
     SOPS_RELEASE_URL="${SOPS_RELEASE_URL_aarch64}"
     CRIO_RELEASE_URL="${CRIO_RELEASE_URL_aarch64}"
+    VOXTYPE_RELEASE_URL="${VOXTYPE_RELEASE_URL_aarch64}"
+    VOXTYPE_SHA256="${VOXTYPE_SHA256_aarch64}"
 else
     HUGO_RELEASE_URL="${HUGO_RELEASE_URL_x86_64}"
     CHAINSAW_RELEASE_URL="${CHAINSAW_RELEASE_URL_x86_64}"
     FLUX_RELEASE_URL="${FLUX_RELEASE_URL_x86_64}"
     SOPS_RELEASE_URL="${SOPS_RELEASE_URL_x86_64}"
     CRIO_RELEASE_URL="${CRIO_RELEASE_URL_x86_64}"
+    VOXTYPE_RELEASE_URL="${VOXTYPE_RELEASE_URL_x86_64}"
+    VOXTYPE_SHA256="${VOXTYPE_SHA256_x86_64}"
 fi
 
 

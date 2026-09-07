@@ -1,0 +1,55 @@
+# Immutablue voxtype defaults.
+#
+# Seeded into ~/.config/voxtype/config.toml by `immutablue enable_dictation`,
+# which never overwrites an existing file. Voxtype reads only the user copy, so
+# editing this one after the fact changes nothing on a machine already set up
+# -- edit ~/.config/voxtype/config.toml, or `voxtype configure` for a TUI.
+
+[hotkey]
+# The built-in hotkey is an evdev grab, which requires membership of the
+# `input` group -- that is, the ability to read every keystroke on the machine,
+# for every process running as you. That is a keylogger's worth of privilege to
+# buy one keybinding, so this image drives recording from the session's own
+# keybinding instead (Super+D -> `voxtype record toggle`) and leaves the grab
+# off. Upstream recommends the same order for the same reason.
+enabled = false
+key = "SCROLLLOCK"
+modifiers = []
+
+[audio]
+device = "default"
+sample_rate = 16000
+# A dictated sentence is seconds long. The cap only bounds a session that was
+# started and forgotten, and 60s of 16kHz mono is trivial to hold.
+max_duration_secs = 60
+# Pause MPRIS players while recording so the transcription does not pick up
+# whatever is playing.
+pause_media = true
+
+[whisper]
+# base.en is ~150 MB and transcribes a sentence faster than it was spoken on
+# any CPU this image supports. Move to small.en or large-v3-turbo with
+# `voxtype setup model` if accuracy matters more than latency; the larger
+# models are worth it on a machine with a GPU.
+model = "base.en"
+language = "en"
+translate = false
+
+[output]
+mode = "type"
+# Deliberately NOT setting driver_order. The default chain is
+# wtype -> dotool -> ydotool -> clipboard, and letting it fall through is what
+# makes one config work in both sessions this image ships: wtype succeeds under
+# gowl and fails under GNOME, where ydotool takes over. Pinning a single driver
+# here would break whichever session it was not chosen for.
+fallback_to_clipboard = true
+# Super is still held when the keybinding fires. Typing into that window makes
+# the compositor read the output as Super+<letter> shortcuts, so wait for the
+# modifier to come up first.
+wait_for_modifier_release = true
+
+[output.notification]
+on_recording_start = false
+on_recording_stop = false
+on_transcription = true
+urgency = "normal"

@@ -67,6 +67,12 @@ _immutablue_recipe_args() {
                     | grep -E '^[a-z]+-[0-9]{8}T[0-9]{6}Z$'
             fi
             ;;
+        enable_dictation)
+            # Whisper model names voxtype accepts for --model. Hardcoded
+            # because `voxtype setup model` is an interactive TUI with no
+            # listing mode, and these change only when upstream adds a model.
+            echo "tiny tiny.en base base.en small small.en medium medium.en large-v3 large-v3-turbo"
+            ;;
         immutablue_make_command)
             # Proxied Makefile targets people actually invoke by hand.
             echo "install install_flatpak install_distrobox install_brew post_install"

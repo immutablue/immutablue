@@ -39,3 +39,17 @@ default-folder-viewer='list-view'
 # hidden by default and both are routinely wanted on a developer workstation.
 show-create-link=true
 show-delete-permanently=true
+
+[org/gnome/settings-daemon/plugins/media-keys]
+# Super+D toggles voxtype dictation. This is the one key in this file that is
+# an array rather than a scalar, and that matters: a user who has ever added a
+# custom keybinding of their own has the whole array in user-db, and user-db
+# shadows this entry completely. So this only reaches a fresh account --
+# everyone else gets it from `immutablue bind_dictation_key`, which appends to
+# the existing array instead of replacing it.
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/immutablue-dictate/']
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/immutablue-dictate]
+name='Dictate (voxtype)'
+command='voxtype record toggle'
+binding='<Super>d'
