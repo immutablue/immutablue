@@ -22,10 +22,10 @@ pre_test:
 	@if [ "$(SKIP_TEST)" = "0" ]; then \
 		echo "Running pre-build shellcheck tests..."; \
 		chmod +x ./tests/test_shellcheck.sh; \
-		./tests/test_shellcheck.sh; \
+		./tests/test_shellcheck.sh || exit 1; \
 		echo "Running pre-build justfile syntax tests..."; \
 		chmod +x ./tests/test_justfile_syntax.sh; \
-		./tests/test_justfile_syntax.sh; \
+		./tests/test_justfile_syntax.sh || exit 1; \
 	else \
 		echo "Skipping pre-build tests (SKIP_TEST=1)"; \
 	fi
@@ -35,10 +35,10 @@ pre_test:
 # ------------------------------------------------------------------------------
 test:
 	@if [ "$(SKIP_TEST)" = "0" ]; then \
-		$(MAKE) test_container test_package_presence test_container_qemu test_artifacts test_setup; \
+		$(MAKE) test_container test_package_presence test_container_qemu test_artifacts test_setup || exit 1; \
 		if [ "$(KUBERBLUE)" = "1" ]; then \
 			echo "Running Kuberblue-specific tests..."; \
-			$(MAKE) test_kuberblue_container test_kuberblue_components test_kuberblue_security; \
+			$(MAKE) test_kuberblue_container test_kuberblue_components test_kuberblue_security || exit 1; \
 		fi; \
 	else \
 		echo "Skipping tests (SKIP_TEST=1)"; \
@@ -108,13 +108,13 @@ test_kuberblue:
 _run_kuberblue_suite:
 	@if [ "$(SKIP_TEST)" = "0" ]; then \
 		echo "Running Kuberblue test suite..."; \
-		$(MAKE) test_kuberblue_container test_kuberblue_components test_kuberblue_security; \
+		$(MAKE) test_kuberblue_container test_kuberblue_components test_kuberblue_security || exit 1; \
 		if [ "$${KUBERBLUE_CLUSTER_TEST:-0}" = "1" ]; then \
 			echo "Running cluster tests..."; \
-			$(MAKE) test_kuberblue_cluster; \
+			$(MAKE) test_kuberblue_cluster || exit 1; \
 			if [ "$${KUBERBLUE_INTEGRATION_TEST:-0}" = "1" ]; then \
 				echo "Running integration tests..."; \
-				$(MAKE) test_kuberblue_integration; \
+				$(MAKE) test_kuberblue_integration || exit 1; \
 			fi; \
 		else \
 			echo "INFO: Set KUBERBLUE_CLUSTER_TEST=1 to enable cluster testing"; \
