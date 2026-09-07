@@ -74,6 +74,10 @@ immutablue:
     - gcc
     - gcc-c++
     - gdb
+    # The gowl display panel's `Night light' button toggles gammastep.
+    # Not probed with bar_have_command, so a missing one is a button
+    # that spawns nothing and reports nothing.
+    - gammastep
     - git
     - gjs-devel
     - glib2-devel
@@ -142,17 +146,19 @@ immutablue:
     - vips
     - virt-bootstrap
     - webkit2gtk4.1-devel
-    # wlroots is gowl's compositor library. gowl builds against whichever of
-    # 0.19 / 0.20 the release ships as the default `wlroots-devel`: 0.19 on
-    # F42/F43, 0.20 on F44+ (which also unlocks per-window screencast
-    # capture). The deps builder resolves the same package, so the runtime
-    # library here always matches what gowl was linked against.
+    # The gowl display panel's `Outputs' button opens wdisplays.
+    - wdisplays
     # The gowl bar's `recorder' widget.  Paired with slurp above: slurp
     # picks the region and wf-recorder captures it, and a missing slurp
     # is worse than a missing recorder -- `wf-recorder -g ""' is not an
     # error, it silently records the whole screen instead of the region
     # that was asked for.
     - wf-recorder
+    # wlroots is gowl's compositor library. gowl builds against whichever of
+    # 0.19 / 0.20 the release ships as the default `wlroots-devel`: 0.19 on
+    # F42/F43, 0.20 on F44+ (which also unlocks per-window screencast
+    # capture). The deps builder resolves the same package, so the runtime
+    # library here always matches what gowl was linked against.
     - wlroots
     - wlroots-devel
     - wofi
