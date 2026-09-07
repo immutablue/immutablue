@@ -138,23 +138,15 @@ immutablue:
     - vips
     - virt-bootstrap
     - webkit2gtk4.1-devel
+    # wlroots is gowl's compositor library. gowl builds against whichever of
+    # 0.19 / 0.20 the release ships as the default `wlroots-devel`: 0.19 on
+    # F42/F43, 0.20 on F44+ (which also unlocks per-window screencast
+    # capture). The deps builder resolves the same package, so the runtime
+    # library here always matches what gowl was linked against.
+    - wlroots
+    - wlroots-devel
     - wofi
     - xdg-desktop-portal-wlr
-
-    # gowl needs wlroots 0.19 specifically.
-    # On F42 and F43 the default `wlroots`/`wlroots-devel` package is 0.19.
-    42:
-    - wlroots
-    - wlroots-devel
-    43:
-    - wlroots
-    - wlroots-devel
-    # On F44 the default wlroots is 0.20; use the 0.19 compat package instead.
-    44:
-    - wlroots
-    - wlroots-devel
-    - wlroots0.19
-    - wlroots0.19-devel
 
   # Everything that is non-nucleus by default
   rpm_gui:
@@ -215,9 +207,6 @@ immutablue:
     # ydotool, which injects through /dev/uinput below the compositor. Shipping
     # only one of them leaves one of the two sessions unable to type.
     - wtype
-    # wlroots for gowl is version-specific — see rpm.43 / rpm.44 below.
-    # F43 ships wlroots 0.19 as the default `wlroots`/`wlroots-devel` package;
-    # F44 ships 0.20 as default and keeps 0.19 available via `wlroots0.19`/`wlroots0.19-devel`.
     - xcb-util-wm-devel
     # gowl runs a rootless XWayland server so X11 apps (e.g. raylib/GLFW
     # `gst --lrg=2d') get a DISPLAY inside the session.  libxcb-devel +

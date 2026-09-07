@@ -79,8 +79,11 @@ PACKAGES=(
 	libpng-devel
 
 	# gowl: wayland compositor
-	# wlroots-devel is version-gated below (F44+ ships 0.20 as the default;
-	# gowl needs 0.19 specifically, available as wlroots0.19-devel compat pkg).
+	# wlroots-devel is whatever the Fedora release ships as its default:
+	# 0.19 on F42/F43, 0.20 on F44+. gowl builds against either -- its
+	# config.mk picks the newest wlroots-*.pc present -- and 0.20 is what
+	# unlocks per-window screencast capture.
+	wlroots-devel
 	wayland-protocols-devel
 	libinput-devel
 	libxcb-devel
@@ -543,20 +546,6 @@ configure_dnf () {
 
 install_build_deps () {
 	echo "=== Installing build dependencies ==="
-
-	# gowl requires wlroots 0.19 specifically (its Makefile pkg-configs
-	# wlroots-0.19). On F42/F43 the default `wlroots-devel` package is 0.19.
-	# On F44+ the default is 0.20, and 0.19 is available via the
-	# `wlroots0.19-devel` compat package (same wlroots-0.19.pc file).
-	local fedora_version="${FEDORA_VERSION:-}"
-	if [[ -z "${fedora_version}" ]]; then
-		fedora_version="$(rpm -E %fedora)"
-	fi
-	if (( fedora_version >= 44 )); then
-		PACKAGES+=( wlroots0.19-devel )
-	else
-		PACKAGES+=( wlroots-devel )
-	fi
 
 	dnf5 update -y
 	dnf5 install -y "${PACKAGES[@]}"
