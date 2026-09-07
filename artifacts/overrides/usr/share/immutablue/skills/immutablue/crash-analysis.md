@@ -18,7 +18,8 @@ here — it usually reveals what the program was working on when it died, which 
 often the whole answer.
 
 `immutablue analyze_crash` collects this into an ephemeral working directory under
-`~/.cache/immutablue/crash-analysis/` and hands it to an agent. The directory is
+`~/.cache/immutablue/crash-analysis/` and opens it in `ai-tui`, so the analysis is
+a conversation you can keep asking questions in rather than a single answer. The directory is
 yours to write in; it is disposable and is not part of the system.
 
 ## Rule out the boring causes first

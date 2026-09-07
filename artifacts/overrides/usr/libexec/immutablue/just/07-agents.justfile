@@ -159,16 +159,30 @@ ai_defaults:
     #!/bin/bash
     set -uo pipefail
 
-    echo "── resolved ─────────────────────────────────────────────────"
+    echo "── binaries ─────────────────────────────────────────────────"
     if command -v ai &>/dev/null
     then
-        printf '  %-22s %s\n' "ai" "$(command -v ai)"
-        printf '  %-22s %s\n' "version" "$(ai --version 2>/dev/null | head -1)"
+        printf '  %-22s %s\n' "ai" "$(command -v ai) ($(ai --version 2>/dev/null | head -1))"
     else
         echo "  'ai' is not installed"
-        exit 0
+    fi
+    if command -v ai-tui &>/dev/null
+    then
+        printf '  %-22s %s\n' "ai-tui" "$(command -v ai-tui)"
+        # The crash analysis pipes its prompt in, which older builds reject.
+        printf '  %-22s %s\n' "piped prompt" \
+            "$(ai-tui --help 2>&1 | grep -qi 'piped prompt' && echo 'supported' || echo 'NOT supported -- rebuild deps')"
+    else
+        echo "  'ai-tui' is not installed"
     fi
     printf '  %-22s %s\n' "AI_PROVIDER (env)" "${AI_PROVIDER:-unset}"
+
+    # ai and ai-tui keep INDEPENDENT defaults. Setting one does not set the
+    # other, which is worth stating plainly: `immutablue analyze_crash` runs
+    # ai-tui, so configuring only the `ai` scope leaves the crash path on the
+    # built-in fallback rather than the model that was chosen.
+    echo
+    echo '  ai and ai-tui have separate saved defaults; ai --setup asks which.'
 
     echo
     echo "── config cascade (lowest priority first) ───────────────────"

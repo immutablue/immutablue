@@ -9,7 +9,7 @@
 # Usage:
 #   immutablue-crash watch              Follow the journal and notify on crashes
 #   immutablue-crash list [--all]       List crashes, newest first
-#   immutablue-crash analyze <pid>      Prepare a report and hand it to `ai`
+#   immutablue-crash analyze <pid>      Prepare a report and open it in `ai-tui`
 #   immutablue-crash prepare <pid>      Prepare the report only, print the path
 #   immutablue-crash classify <path>    Say how a binary is classified, and why
 #
@@ -17,6 +17,7 @@
 #   -h, --help     Show this help message
 #   --license      Show license information
 #   --all          Include user binaries (list only)
+#   --batch        Force a one-shot transcript instead of an interactive session
 #   --no-agent     Prepare but do not invoke the agent (analyze only)
 #
 # Examples:
@@ -175,8 +176,16 @@ crash_prepare() {
         return 2
     fi
 
-    exe="$(coredumpctl list "${pid}" --no-pager --no-legend 2>/dev/null \
-        | tail -1 | awk '{ print $NF }')"
+    # From the journal, not from `coredumpctl list`. That table's last column is
+    # SIZE, not EXE, so $NF yields "25.2K" -- which then classifies as a user
+    # binary and sends `rpm -qf` looking for a package owning a file size. The
+    # column is also absent when no corefile was stored, so there is no stable
+    # field index to use instead. COREDUMP_EXE is the structured field and has
+    # neither problem.
+    exe="$(journalctl -o json --no-pager \
+        "MESSAGE_ID=${COREDUMP_MESSAGE_ID}" "COREDUMP_PID=${pid}" 2>/dev/null \
+        | jq -r 'select(.COREDUMP_EXE != null) | .COREDUMP_EXE' 2>/dev/null \
+        | tail -1)"
     exe="${exe:-unknown}"
     name="${exe##*/}"
     # A process can set its own comm to anything, slashes included; keep the
@@ -240,6 +249,23 @@ crash_prepare() {
     local gowl_journal="${XDG_STATE_HOME:-${HOME}/.local/state}/gowl/bar-plugins.journal"
     [[ -f "${gowl_journal}" ]] && cp "${gowl_journal}" "${dir}/gowl-bar-plugins.journal"
 
+    # The prompt is written into the directory rather than composed at the call
+    # site, so the interactive and batch paths ask exactly the same question and
+    # the user can read, edit or re-send it.
+    cat > "${dir}/PROMPT.md" <<PROMPT
+/immutablue analyze the crash evidence in @${dir} and determine whether this is a
+bug in Immutablue or in something else.
+
+Use the crash-analysis guide in the skill. Read the files in that directory rather
+than re-running the commands: coredumpctl-info.txt has the backtrace and the
+command line, ownership.txt says whether the binary is a Fedora package or built
+by this image, deployment.txt pins the exact image, and journal-*.txt cover the
+window around the crash.
+
+Work from evidence and say plainly when it is not enough. Do not change anything
+on this system.
+PROMPT
+
     echo "${dir}"
 }
 
@@ -247,7 +273,8 @@ crash_prepare() {
 cmd_analyze() {
     local pid="$1"
     local run_agent="$2"
-    local dir prompt
+    local batch="$3"
+    local dir
 
     dir="$(crash_prepare "${pid}")" || return $?
 
@@ -257,32 +284,60 @@ cmd_analyze() {
 
     if [[ "${run_agent}" != "yes" ]]
     then
+        echo "Prompt ready at ${dir}/PROMPT.md"
         return 0
     fi
 
-    if ! command -v ai &>/dev/null
+    if ! command -v ai-tui &>/dev/null
     then
-        echo "The 'ai' harness is not installed; nothing to hand this to." >&2
-        echo "The evidence above is still there to read." >&2
+        echo "The 'ai-tui' harness is not installed; nothing to hand this to." >&2
+        echo "The evidence above is still there to read, and the prompt is at" >&2
+        echo "  ${dir}/PROMPT.md" >&2
         return 1
     fi
 
-    # The method lives in the skill rather than in this prompt, so it is edited
-    # in one place and applies whichever provider is default.
-    prompt="/immutablue analyze the crash evidence in ${dir} and determine whether this is a bug in Immutablue or in something else.
+    # ai-tui only became able to take a piped prompt in ai-glib 66579a1, and the
+    # binary is copied in from the deps container, which is rebuilt on its own
+    # schedule -- so an image can ship a newer skill than harness. An older
+    # ai-tui rejects a pipe outright ("stdin is not a terminal"), which would
+    # look like this tool being broken. Fall back to `ai`, which has always
+    # taken stdin: no session, but a real answer.
+    if ! ai-tui --help 2>&1 | grep -qi 'piped prompt'
+    then
+        echo "NOTE: this image's ai-tui predates piped prompts, so there is no"
+        echo "      interactive session. Falling back to a one-shot answer."
+        echo "      Rebuild the deps container to get the TUI:"
+        echo "        make build-deps && make push-deps   # then rebuild the image"
+        echo
+        if command -v ai &>/dev/null
+        then
+            ai --provider default --model default < "${dir}/PROMPT.md"
+            return $?
+        fi
+        echo "Neither a current ai-tui nor 'ai' is available." >&2
+        return 1
+    fi
 
-Use the crash-analysis guide in the skill. Read the files in that directory rather
-than re-running the commands: coredumpctl-info.txt has the backtrace and the
-command line, ownership.txt says whether the binary is a Fedora package or built
-by this image, deployment.txt pins the exact image, and journal-*.txt cover the
-window around the crash.
-
-Work from evidence and say plainly when it is not enough. Do not change anything
-on this system."
-
-    ai --provider default --model default <<< "${prompt}"
+    # ai-tui, not ai: a crash is a conversation. The first answer is rarely the
+    # end of it -- "which thread was that", "show me that frame", "is this the
+    # same as last week's" -- and the TUI keeps the transcript, renders the tool
+    # calls as they happen, and lets the user keep asking.
+    #
+    # The prompt arrives on stdin. ai-tui drains the pipe, then reopens stdin on
+    # /dev/tty so ncurses can take the keyboard, so the piped prompt becomes the
+    # first turn of an interactive session. Where there is no terminal -- a
+    # scripted run, cron, ssh -T -- it degrades by itself to a single printed
+    # turn, which is why this needs no separate non-interactive branch.
+    #
+    # --dump forces that one-shot even on a terminal, for a caller that wants
+    # the transcript and not a session.
+    if [[ "${batch}" == "yes" ]]
+    then
+        ai-tui --provider default --model default --dump "$(cat "${dir}/PROMPT.md")"
+    else
+        ai-tui --provider default --model default < "${dir}/PROMPT.md"
+    fi
 }
-
 
 # Follow the journal and notify on each system-binary crash.
 #
@@ -349,6 +404,7 @@ main() {
     local action=""
     local show_all="no"
     local run_agent="yes"
+    local batch="no"
     local args=()
 
     while [[ $# -gt 0 ]]
@@ -358,6 +414,7 @@ main() {
             --license)    show_license; exit 0 ;;
             --all)        show_all="yes"; shift ;;
             --no-agent)   run_agent="no"; shift ;;
+            --batch)      batch="yes"; shift ;;
             watch|list|analyze|prepare|classify)
                 if [[ -z "${action}" ]]
                 then
@@ -397,7 +454,7 @@ main() {
                 echo "       see: immutablue-crash list" >&2
                 exit 2
             fi
-            cmd_analyze "${args[0]}" "${run_agent}"
+            cmd_analyze "${args[0]}" "${run_agent}" "${batch}"
             ;;
         *)
             show_help
