@@ -143,23 +143,64 @@ A plugin may also decide whether it belongs at all — the shipped `tailscale`
 widget hides itself where Tailscale is not installed, and carries a set-up flow
 where it is installed but no tailnet has been joined.
 
+### Where plugins are found
+
+There is a search path, not a single directory. In order of precedence:
+
+1. the `plugin-dir` setting (`plugin-path` is a synonym) — colon-separated, so a config may name several
+2. `$GOWL_BAR_PLUGIN_DIR` — what a development tree wants
+3. `~/.config/gowl/bar-plugins` (`$XDG_CONFIG_HOME`)
+4. `~/.local/share/gowl/bar-plugins` (`$XDG_DATA_HOME`)
+5. `/usr/local/share/gowl/bar-plugins` and `/usr/share/gowl/bar-plugins`
+
+**A configured directory adds to the path rather than replacing it**, so naming
+one does not cost the user the plugins already in `~/.config`. Every directory is
+scanned at startup in name order, each at most once however often the path is
+rebuilt.
+
+```yaml
+modules:
+  bar:
+    plugin-dir: "~/src/mybar/plugins:/opt/gowl/plugins"
+    plugins: "weather stocks"        # bare names, resolved against the path
+    widgets-right: "weather clock battery"
+```
+
+A bare name resolves to `<name>`, then `<name>.so`, then `<name>.c` in each
+directory in turn. **Compiled beats source in the same directory** — the object
+is what was last built, and quietly preferring the source would recompile over
+the top of it. A spec containing `/` is a path, taken as written and never
+searched, so an explicitly named plugin cannot be shadowed by a same-named one
+earlier in the path. When nothing matches, the error names every directory it
+looked in.
+
+`plugins` is read **before** the widget lists, so a plugin named there is
+registered by the time `widgets-right` mentions it. This ordering is load-bearing:
+an unknown widget name is *silently skipped* rather than erroring — right for a
+typo, wrong for a plugin that merely had not loaded yet. A `plugins` entry that
+does not resolve warns and names the directories searched, because a plugin asked
+for by name and not delivered should not have to be discovered as an empty space
+on the bar.
+
+That asymmetry is the first thing to check when a widget does not appear: a
+missing *widget* is quiet, a missing *plugin* is loud.
+
 ### Loading and reloading
 
 ```bash
 gowl bar-widgets                    # the laid-out bar, per slot and region
 gowl bar-plugins                    # what is registered
-gowl bar-plugin-load ~/x/thing.c    # load one now
+gowl bar-plugin-load ~/x/thing.c    # load one now, by path
+gowl bar-plugin-load weather        # ...or by name, through the search path
 gowl bar-plugin-reload pomodoro     # recompile and swap in an edit
 gowl bar-plugin-unload pomodoro     # drop it
 gowl bar-quarantined                # what is held back, and why
 gowl bar-plugin-clear pomodoro      # let a held-back plugin load again
 ```
 
-`~/.config/gowl/bar-plugins/` is scanned at startup in name order;
-`GOWL_BAR_PLUGIN_DIR` overrides the location for a development tree. A `.c` file
-is compiled through **crispy** to a shared object cached on a hash of its
-contents and flags, so an unchanged source loads without invoking the compiler.
-Extra compiler flags go in the source itself:
+A `.c` file is compiled through **crispy** to a shared object cached on a hash of
+its contents and flags, so an unchanged source loads without invoking the
+compiler. Extra compiler flags go in the source itself:
 
 ```c
 #define CRISPY_PARAMS "$(pkg-config --cflags --libs json-glib-1.0)"
@@ -188,8 +229,10 @@ Read those first when diagnosing a compositor crash — see
 [`crash-analysis.md`](crash-analysis.md).
 
 Never edit a shipped plugin under `/usr`. Copy it into
-`~/.config/gowl/bar-plugins/` and edit the copy; the user directory is what
-survives an image update.
+`~/.config/gowl/bar-plugins/` and edit the copy — that directory comes *before*
+`/usr/share/gowl/bar-plugins` in the search path, so a copy under the same name
+shadows the shipped one, and it is what survives an image update. The image's own
+plugins live in the system directory precisely so a user copy can win.
 
 ## cmacs
 
@@ -242,6 +285,7 @@ needs `ydotool.service` running.
 - Do not edit anything under `/usr/src/gitlab/` expecting it to affect the running
   system — that is the *source* the image was built from, not the live config.
   Reading it is the point; changing it does nothing until the image is rebuilt.
-- Do not edit shipped modules or plugins in place. Copy into `~/.config/gowl/`.
+- Do not edit shipped modules or plugins in place. Copy into `~/.config/gowl/`,
+  which precedes the system directories in the plugin search path.
 - Do not assume GNOME advice applies to gowl, or the reverse. Check
   `XDG_CURRENT_DESKTOP` first.
