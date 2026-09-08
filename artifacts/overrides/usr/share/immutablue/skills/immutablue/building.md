@@ -4,9 +4,10 @@ Read this when the change should be true on every machine, survive updates, or
 ship to someone else. On an atomic system this is the *normal* way to change
 things, not the advanced one.
 
-The repository is at **https://gitlab.com/immutablue/immutablue**. A copy of the
-source every shipped component was built from is on the machine at
-`/usr/src/gitlab/`, but the image build itself lives in the repo.
+The repository is at **https://gitlab.com/immutablue/immutablue**. The components
+it builds are git submodules under `deps/`, and the machine records which commit
+of each produced the running binaries in
+`/usr/immutablue/deps/dep_info.json`.
 
 ## The build
 
@@ -32,8 +33,14 @@ make PLATFORM=linux/arm64 build
 (Apple Silicon), `NIX=1`, `ZFS=1`, `LTS=1` are the rest.
 
 Run `git submodule update --init --recursive` after cloning or pulling. The
-components under `artifacts/overrides/usr/src/gitlab/` are submodules, and a stale
-checkout silently builds the wrong source.
+components under `deps/` are submodules, and a stale checkout silently builds the
+wrong source.
+
+`deps/` is compiled into the **deps container** (`deps-container/Containerfile`,
+`make build-deps`), not into the image, and is excluded from the image's build
+context. So a submodule bump changes nothing about the running binaries until
+`make build-deps && make push-deps` has run — the image only gains the updated
+commit in `dep_info.json`.
 
 ## Adding a package
 

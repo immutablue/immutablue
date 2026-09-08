@@ -91,13 +91,18 @@ check_shellcheck_installed() {
 }
 
 # Function to find all shell scripts in the project
+#
+# deps/ is excluded along with the old usr/src path: those are vendored
+# third-party trees (manifold, raylib, solvespace and friends, several levels
+# deep) whose scripts are their upstreams' business, not ours. Linting them
+# fails the build for code we do not own and would not patch.
 find_shell_scripts() {
     local all_scripts=()
     
     # Find all .sh files
     while IFS= read -r -d '' file; do
         all_scripts+=("$file")
-    done < <(find "$PROJECT_ROOT" -type f -name "*.sh" -not -path "*/\.*" -not -path "*/usr/src/*" -print0)
+    done < <(find "$PROJECT_ROOT" -type f -name "*.sh" -not -path "*/\.*" -not -path "*/usr/src/*" -not -path "*/deps/*" -print0)
 
     # Find files with bash shebang but no .sh extension
     while IFS= read -r -d '' file; do
@@ -108,7 +113,7 @@ find_shell_scripts() {
                 all_scripts+=("$file")
             fi
         fi
-    done < <(find "$PROJECT_ROOT" -type f -executable -not -path "*/\.*" -not -path "*/usr/src/*" -print0)
+    done < <(find "$PROJECT_ROOT" -type f -executable -not -path "*/\.*" -not -path "*/usr/src/*" -not -path "*/deps/*" -print0)
     
     # Return the array of scripts
     printf '%s\n' "${all_scripts[@]}"

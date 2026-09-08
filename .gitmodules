@@ -2,35 +2,35 @@
 	path = docs
 	url = git@gitlab.com:immutablue/immutablue-docs.git
 [submodule "artifacts/overrides/usr/src/gitlab/crispy"]
-	path = artifacts/overrides/usr/src/gitlab/crispy
+	path = deps/crispy
 	url = git@gitlab.com:zachpodbielniak/crispy.git
 [submodule "artifacts/overrides/usr/src/gitlab/gst"]
-	path = artifacts/overrides/usr/src/gitlab/gst
+	path = deps/gst
 	url = git@gitlab.com:zachpodbielniak/gst.git
 [submodule "artifacts/overrides/usr/src/gitlab/gowl"]
-	path = artifacts/overrides/usr/src/gitlab/gowl
+	path = deps/gowl
 	url = git@gitlab.com:zachpodbielniak/gowl.git
 [submodule "artifacts/overrides/usr/src/gitlab/yaml-glib"]
-	path = artifacts/overrides/usr/src/gitlab/yaml-glib
+	path = deps/yaml-glib
 	url = git@gitlab.com:copyleft-games/yaml-glib.git
 [submodule "artifacts/overrides/usr/src/gitlab/mcp-glib"]
-	path = artifacts/overrides/usr/src/gitlab/mcp-glib
+	path = deps/mcp-glib
 	url = git@gitlab.com:copyleft-games/mcp-glib.git
 [submodule "artifacts/overrides/usr/src/gitlab/mcp-gdb-glib"]
-	path = artifacts/overrides/usr/src/gitlab/mcp-gdb-glib
+	path = deps/mcp-gdb-glib
 	url = git@gitlab.com:copyleft-games/mcp-gdb-glib.git
 [submodule "artifacts/overrides/usr/src/gitlab/ai-glib"]
-	path = artifacts/overrides/usr/src/gitlab/ai-glib
+	path = deps/ai-glib
 	url = git@gitlab.com:zachpodbielniak/ai-glib.git
 [submodule "artifacts/overrides_kuberblue/usr/src/gitlab/mcp-kuberblue-glib"]
-	path = artifacts/overrides_kuberblue/usr/src/gitlab/mcp-kuberblue-glib
+	path = deps/mcp-kuberblue-glib
 	url = git@gitlab.com:immutablue/mcp-kuberblue-glib.git
 [submodule "artifacts/overrides/usr/src/gitlab/podomation"]
-	path = artifacts/overrides/usr/src/gitlab/podomation
+	path = deps/podomation
 	url = git@gitlab.com:zachpodbielniak/podomation.git
 [submodule "artifacts/overrides/usr/src/gitlab/bacon"]
-	path = artifacts/overrides/usr/src/gitlab/bacon
+	path = deps/bacon
 	url = git@gitlab.com:zachpodbielniak/bacon.git
 [submodule "artifacts/overrides/usr/src/gitlab/gsurf"]
-	path = artifacts/overrides/usr/src/gitlab/gsurf
+	path = deps/gsurf
 	url = git@gitlab.com:zachpodbielniak/gsurf.git

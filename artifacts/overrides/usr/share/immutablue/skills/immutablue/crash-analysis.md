@@ -72,21 +72,32 @@ shared one, and delete it when done.
 
 This is the case that matters most here and has no equivalent on a stock distro.
 `cmacs`, `gowl`, `gst`, `gsurf`, `bacon` and the GLib libraries are built by
-Immutablue from git — no Fedora debuginfo package exists for them, and
-debuginfod has never heard of them. When one of these crashes, the source is
-**already on the machine**:
+Immutablue from git — no Fedora debuginfo package exists for them, and debuginfod
+has never heard of them.
+
+The source is **not** on the machine; it is not worth 1.1 GB in every image for
+the rare occasion it is needed. What ships instead is the provenance:
 
 ```bash
-ls /usr/src/gitlab/          # cmacs, gowl, gst, gsurf, ai-glib, bacon, ...
+cat /usr/immutablue/deps/dep_info.json
 ```
 
-Read the source at the frames you have. The git checkout under `/usr/src/gitlab/`
-is the exact revision the running binary was built from, so line numbers and
-sources agree even without symbols.
+Every component's `remote`, exact `commit`, `describe` and a `dirty` flag. That
+is enough to fetch precisely the source the running binary was built from:
 
-When frames stay unresolved, **say so** — never invent function names to fill the
-gap. An unsymbolized stack still has shape: which library each frame belongs to,
-and whether the crash came from a signal handler, a main loop or a worker thread.
+```bash
+git clone <remote> src/<name>
+git -C src/<name> checkout <commit>
+```
+
+`immutablue-crash analyze` does this for you when the crashing binary belongs to
+one of these components — the clone lands inside the crash-analysis directory,
+at the recorded commit, so the frames line up with the source without anyone
+choosing a revision.
+
+A `dirty: true` entry is worth reading carefully: the binary was built from a
+working tree with uncommitted changes, so no commit describes it exactly and
+line numbers may not agree.
 
 ## Read the whole core, not just frame 0
 
@@ -113,7 +124,7 @@ and a confident wrong answer wastes a maintainer's time.
 **Probably Immutablue** when the fault is in something Immutablue decides: a
 missing or wrong package in the image, a file shipped in `artifacts/overrides/`, an
 `immutablue-*` script, a service Immutablue enables or masks, a variant-specific
-breakage, or a binary built from `/usr/src/gitlab/`.
+breakage, or a binary built from one of the components in `dep_info.json`.
 
 **Probably not Immutablue** when a stock Fedora package crashes doing its own
 work, when the same failure would reproduce on plain Silverblue, or when the

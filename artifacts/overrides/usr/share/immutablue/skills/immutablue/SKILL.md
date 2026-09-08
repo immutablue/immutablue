@@ -54,7 +54,8 @@ rpm-ostree status                       # or: bootc status
 **Never write to `/usr`.** It is read-only at runtime and replaced on update.
 Reading it is safe and encouraged — `/usr/immutablue/` holds the settings and
 package defaults, `/usr/libexec/immutablue/` the scripts and justfiles, and
-`/usr/src/gitlab/` the full source of everything this image builds from git.
+and `/usr/immutablue/deps/dep_info.json` records the exact commit and remote of
+every component this image builds from git.
 
 **Never suggest `dnf install`.** There is no `dnf` on the host in the sense that
 matters. See [`packages.md`](packages.md) for what to do instead; the answer is
@@ -79,7 +80,7 @@ writable and is a debugging tool, not a deployment mechanism.
 | `/usr/immutablue/` | `settings.yaml`, `packages.yaml`, image defaults | no |
 | `/usr/libexec/immutablue/` | scripts, justfiles, header library | no |
 | `/usr/share/immutablue/` | `image-info.json`, skills, dconf examples | no |
-| `/usr/src/gitlab/` | full source of cmacs, gowl, gst, gsurf, ai-glib, … | no |
+| `/usr/immutablue/deps/dep_info.json` | commit + remote of every in-house component | no |
 | `/etc/immutablue/` | system-level setting overrides | yes |
 | `~/.config/immutablue/` | user-level setting overrides | yes |
 | `/var/`, `~/` | all mutable state | yes |

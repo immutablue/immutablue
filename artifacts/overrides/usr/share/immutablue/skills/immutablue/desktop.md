@@ -39,17 +39,21 @@ covers layouts (tile, monocle, fibonacci, scrolling, centeredmaster), effects
 (scratchpad, swallow, dropdown, expo, switcher, screenlock, screenshot,
 recording, ipc, mcp).
 
-Source is on the machine at `/usr/src/gitlab/gowl/modules/`, with the development
-guide in `/usr/src/gitlab/gowl/docs/modules.org`.
-
-The full reference for everything below lives on the machine too — read it rather
-than guessing, it is more current than any summary:
+The source is not on the machine — it is built in the deps container, not shipped.
+`/usr/immutablue/deps/dep_info.json` records gowl's remote and exact commit, and
+the reference below is worth fetching rather than guessing from, because it is
+more current than any summary here:
 
 ```bash
-/usr/src/gitlab/gowl/docs/bar.org          # widgets, panels, toasts, plugins
-/usr/src/gitlab/gowl/docs/configuration.org
-/usr/src/gitlab/gowl/docs/modules.org
-/usr/src/gitlab/gowl/data/example-bar-plugin.c
+remote=$(jq -r '.deps[] | select(.name=="gowl") | .remote' /usr/immutablue/deps/dep_info.json)
+commit=$(jq -r '.deps[] | select(.name=="gowl") | .commit' /usr/immutablue/deps/dep_info.json)
+git clone "${remote}" /tmp/gowl && git -C /tmp/gowl checkout "${commit}"
+
+# then:
+#   docs/bar.org               widgets, panels, toasts, plugins
+#   docs/configuration.org
+#   docs/modules.org
+#   data/example-bar-plugin.c  a complete commented plugin
 ```
 
 ## The bar
@@ -260,7 +264,7 @@ runtime introspection and control), `gsurf` (embedded browser), `whisper`/`piper
 Full source and docs are on the machine:
 
 ```bash
-ls /usr/src/gitlab/          # gowl, gst, gsurf, ai-glib, bacon, crispy, podomation, ...
+jq -r '.deps[].name' /usr/immutablue/deps/dep_info.json
 ```
 
 `gst` is the terminal (a GLib/GObject port of suckless `st`); `gsurf` is the
@@ -282,9 +286,9 @@ needs `ydotool.service` running.
 
 ## What not to do
 
-- Do not edit anything under `/usr/src/gitlab/` expecting it to affect the running
-  system — that is the *source* the image was built from, not the live config.
-  Reading it is the point; changing it does nothing until the image is rebuilt.
+- Do not expect a clone of one of these components to affect the running system.
+  It is the *source* the binary was built from, not the live config; changing it
+  does nothing until the deps container and the image are rebuilt.
 - Do not edit shipped modules or plugins in place. Copy into `~/.config/gowl/`,
   which precedes the system directories in the plugin search path.
 - Do not assume GNOME advice applies to gowl, or the reverse. Check

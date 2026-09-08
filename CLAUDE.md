@@ -153,13 +153,14 @@ Consequences worth knowing:
   `artifacts/overrides/` entry, and an override there would be overwritten
   anyway.
 - **Standalone gowl is a different artifact from the gowl inside cmacs.** It is
-  built here from the `artifacts/overrides/usr/src/gitlab/gowl` submodule
-  (`deps/Containerfile` copies it to `/build/gowl`). `gowl.desktop` comes from
+  built here from the `deps/gowl` submodule (`deps-container/Containerfile`
+  copies it to `/build/gowl`). `gowl.desktop` comes from
   it, because the cmacs image does not ship one. Fixing gowl therefore means
   bumping that submodule, and a fix pushed to gowl reaches no image until you do.
-- **The submodule pin is the version.** `git submodule status
-  artifacts/overrides/usr/src/gitlab/` shows how far behind each in-house
-  project is.
+- **The submodule pin is the version.** `git submodule status deps/` shows how
+  far behind each in-house project is. The commit that actually produced the
+  running binaries is recorded on the machine in
+  `/usr/immutablue/deps/dep_info.json`; the source itself is not shipped.
 
 ### gowl and the two wlroots versions
 

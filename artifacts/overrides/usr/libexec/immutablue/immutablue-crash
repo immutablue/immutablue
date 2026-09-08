@@ -244,6 +244,56 @@ crash_prepare() {
     journalctl -k --since "10 minutes ago" --no-pager > "${dir}/journal-kernel.txt" 2>&1
     free -h > "${dir}/memory.txt" 2>&1
 
+    # When the crash is in something this image builds, fetch that source at the
+    # exact commit it was built from. The tree used to ship at /usr/src/gitlab,
+    # which cost 1.1G in every image for a case that arises rarely; the manifest
+    # costs a few kilobytes and buys the same thing on demand.
+    #
+    # Cloned into the analysis directory rather than a shared location: it is
+    # pinned to one commit for one crash, and a shared checkout would be a
+    # shared mutable thing that the next crash silently disagrees with.
+    local dep_info="/usr/immutablue/deps/dep_info.json"
+    if [[ -f "${dep_info}" ]] && command -v jq &>/dev/null
+    then
+        cp "${dep_info}" "${dir}/dep_info.json"
+
+        # Match on the binary's own name. Anything not in the manifest is a
+        # Fedora package, and ownership.txt already says so.
+        local dep_name remote commit
+        dep_name="$(jq -r --arg n "${name}" \
+            '.deps[] | select(.name == $n) | .name' "${dep_info}" 2>/dev/null | head -1)"
+
+        if [[ -n "${dep_name}" ]]
+        then
+            remote="$(jq -r --arg n "${dep_name}" \
+                '.deps[] | select(.name == $n) | .remote' "${dep_info}" 2>/dev/null)"
+            commit="$(jq -r --arg n "${dep_name}" \
+                '.deps[] | select(.name == $n) | .commit' "${dep_info}" 2>/dev/null)"
+
+            echo "Fetching ${dep_name} at ${commit:0:12} for source context..." >&2
+            if git clone --quiet "${remote}" "${dir}/src" 2>/dev/null \
+                && git -C "${dir}/src" checkout --quiet "${commit}" 2>/dev/null
+            then
+                echo "source: ${dir}/src at ${commit}" > "${dir}/source-checkout.txt"
+            else
+                # A clone can fail for reasons that are not this tool's business
+                # -- no network, an ssh remote with no key here. Say what was
+                # wanted so it can be done by hand, rather than failing the
+                # whole analysis over source that is a convenience.
+                {
+                    echo "Could not fetch source automatically."
+                    echo "  remote: ${remote}"
+                    echo "  commit: ${commit}"
+                    echo
+                    echo "By hand:"
+                    echo "  git clone ${remote} ${dir}/src"
+                    echo "  git -C ${dir}/src checkout ${commit}"
+                } > "${dir}/source-checkout.txt"
+                rm -rf "${dir}/src"
+            fi
+        fi
+    fi
+
     # gowl quarantines a faulting bar plugin here. If the crash is in or under
     # the compositor this file is the fastest route to the cause.
     local gowl_journal="${XDG_STATE_HOME:-${HOME}/.local/state}/gowl/bar-plugins.journal"

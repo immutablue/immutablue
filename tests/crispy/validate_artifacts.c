@@ -30,21 +30,12 @@ should_skip(
     if (g_strstr_len(rel_path, -1, "__pycache__") != NULL)
         return TRUE;
 
-    /* Submodule .git pointer files under /usr/src/gitlab are deliberately
-     * deleted by build/10-copy.sh: they are gitdir references to the
-     * build-time /mnt-ctx paths and are dangling on the installed system, so
-     * the build strips them to leave /usr/src/gitlab as clean, self-contained
-     * source. They exist in artifacts/overrides but must NOT exist in the
-     * image, so comparing them reports a failure for every vendored submodule
-     * (79 of them at the time of writing) on an otherwise correct build.
-     *
-     * Only the pointer itself is skipped. A real .git directory would be
-     * recursed into by collect_files() and its contents still compared, which
-     * is correct -- 10-copy.sh removes only .git entries that are files or
-     * symlinks. */
-    if (g_str_has_prefix(rel_path, "/usr/src/gitlab/")
-        && g_str_has_suffix(rel_path, "/.git"))
-        return TRUE;
+    /* The vendored source no longer ships. It lived at /usr/src/gitlab and
+     * needed a skip here, because the submodule .git pointer files existed in
+     * artifacts/overrides but were deliberately stripped from the image --
+     * every one of them reported a difference on an otherwise correct build.
+     * deps/ is outside artifacts/ now and reaches only the deps container, so
+     * there is nothing left to special-case. */
 
     return FALSE;
 }

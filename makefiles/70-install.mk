@@ -61,7 +61,7 @@ reboot:
 # ------------------------------------------------------------------------------
 # Source Updates
 # ------------------------------------------------------------------------------
-GITLAB_SRC_DIRS := $(wildcard artifacts/overrides*/usr/src/gitlab/*/)
+GITLAB_SRC_DIRS := $(wildcard deps/*/)
 update-gitlab-src:
 	@for dir in $(GITLAB_SRC_DIRS); do \
 		echo "Updating $${dir}..."; \

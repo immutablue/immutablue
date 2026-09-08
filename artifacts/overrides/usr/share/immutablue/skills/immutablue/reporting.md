@@ -15,8 +15,8 @@ It plausibly is when the fault is in something Immutablue *decides*:
 - an `immutablue-*` script or justfile recipe misbehaving
 - a service Immutablue enables, disables or masks
 - a setting default in `settings.yaml`
-- something built from `/usr/src/gitlab/` — but that usually belongs upstream in
-  that component's own repository, not here
+- something built from one of the components in `dep_info.json` — but that
+  usually belongs upstream in that component's own repository, not here
 - a variant-specific breakage (cyan/NVIDIA, trueblue/ZFS, asahi, kuberblue)
 - an update, rollback, snapshot or rebase path failing
 
@@ -33,6 +33,7 @@ cat /usr/share/immutablue/image-info.json    # exact tag and build date
 rpm-ostree status                            # deployment + anything layered
 immutablue doctor_json                       # structured health state
 immutablue check_local_etc_overrides         # how far this machine diverges
+cat /usr/immutablue/deps/dep_info.json       # exact commit of every component
 ```
 
 The last two matter more than they look. `doctor_json` gives a maintainer machine

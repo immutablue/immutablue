@@ -1,11 +1,11 @@
 #!/bin/bash
-# deps/00-build.sh
+# deps-container/00-build.sh
 #
 # Build script for Immutablue dependency builder container.
 # Builds all third-party tools and custom C projects that ship in the
 # final image.
 #
-# This script is called from deps/Containerfile and runs inside a
+# This script is called from deps-container/Containerfile and runs inside a
 # Fedora container. All output goes to /build/ which is later consumed
 # by build/10-copy.sh via the /mnt-build-deps mount.
 #
@@ -16,7 +16,7 @@
 # To add a new dependency:
 #   1. Write a build_<name> function below
 #   2. Add the name to the BUILDS array
-#   3. If it has source in a submodule, add COPY to deps/Containerfile
+#   3. If it has source in a submodule, add COPY to deps-container/Containerfile
 #   4. Add corresponding cp section in build/10-copy.sh
 
 set -euxo pipefail

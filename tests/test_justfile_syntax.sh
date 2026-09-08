@@ -93,15 +93,13 @@ if [[ ! -d "${ARTIFACTS_DIR}" ]]; then
     exit 0
 fi
 
-# Collect every justfile under artifacts/, excluding the vendored source trees
-# under /usr/src/gitlab -- those belong to the submodules and are their own
-# projects' responsibility.
+# Collect every justfile under artifacts/. The vendored source moved to deps/
+# and is outside this tree entirely, so there is nothing to prune any more.
 JUSTFILES=()
 while IFS= read -r -d '' justfile
 do
     JUSTFILES+=("${justfile}")
 done < <(find "${ARTIFACTS_DIR}" \
-              -path '*/usr/src/gitlab' -prune -o \
               \( -name '*.justfile' -o -name 'Justfile' -o -name 'justfile' \) \
               -type f -print0 | sort -z)
 
