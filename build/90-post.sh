@@ -89,8 +89,15 @@ fi
 # image. Kernel RPM %posttrans (dracut) and grub2 scriptlets that ran during
 # dnf5 transactions can pollute /boot with initramfs, symvers, and bootloader
 # config (e.g. extlinux), which trips the bootc nonempty-boot lint and may
-# conflict with bootupd at install time. The kernel/modules live in
-# /usr/lib/modules/$kver and bootc regenerates initramfs at deploy.
+# conflict with bootupd at install time. The kernel, modules and initramfs
+# live in /usr/lib/modules/$kver.
+#
+# Note that bootc *copies* that initramfs to /boot at deploy time; it does
+# not regenerate it. An earlier version of this comment claimed otherwise,
+# and that assumption is why the image shipped Fedora's compose-time
+# initramfs -- ignoring every /usr and /etc override this build makes -- for
+# about two years. 80-initramfs.sh rebuilds it during the build for that
+# reason, and must run before this point.
 find /boot -mindepth 1 -delete 2>/dev/null || true
 
 # -----------------------------------
