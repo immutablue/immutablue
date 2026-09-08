@@ -118,10 +118,6 @@ immutablue:
     - pipewire-devel
     - pkgconf-pkg-config
     - podman-compose
-    # The gowl bar's `power' widget switches profiles through
-    # powerprofilesctl; without this the widget draws but its panel can
-    # do nothing.
-    - power-profiles-daemon
     - powertop
     - pv
     - python3-devel
@@ -141,6 +137,15 @@ immutablue:
     - syncthing-tools
     - tailscale
     - tmux
+    # Backs the gowl bar's `power' widget, which reads and sets the
+    # profile over net.hadess.PowerProfiles.
+    #
+    # tuned-ppd rather than power-profiles-daemon: Fedora 44's base
+    # image ships it, the two CONFLICT (both claim ppd-service) and only
+    # one can be installed.  tuned-ppd serves the same D-Bus interface
+    # but does NOT ship powerprofilesctl, which is why the widget asks
+    # over D-Bus and only prefers the binary when it happens to exist.
+    - tuned-ppd
     - unrar
     - usbip
     - vips
@@ -483,9 +488,9 @@ immutablue:
     # Enabled explicitly for the same reason sshd and tailscaled are:
     # a preset is applied at package-install time and that is not
     # reliable inside an image build, so a daemon that Fedora would
-    # normally start comes up dead.  powerprofilesctl talking to
-    # nothing is a bar widget whose panel silently does nothing.
-    - power-profiles-daemon.service
+    # normally start comes up dead.  Nothing answering on
+    # net.hadess.PowerProfiles is a bar widget whose panel does nothing.
+    - tuned-ppd.service
     - lima-guest-ready.service
     - cloud-init-local.service
     # - docker.service
