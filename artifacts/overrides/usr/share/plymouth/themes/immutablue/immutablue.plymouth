@@ -17,10 +17,10 @@ WatermarkHorizontalAlignment=.5
 WatermarkVerticalAlignment=.96
 Transition=none
 TransitionDuration=0.0
-BackgroundStartColor=0x000000
-BackgroundEndColor=0x000000
-ProgressBarBackgroundColor=0x606060
-ProgressBarForegroundColor=0xffffff
+BackgroundStartColor=0x081016
+BackgroundEndColor=0x172d3d
+ProgressBarBackgroundColor=0x1f3c50
+ProgressBarForegroundColor=0x51a2da
 MessageBelowAnimation=true
 
 [boot-up]
