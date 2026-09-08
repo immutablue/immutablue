@@ -42,38 +42,149 @@ recording, ipc, mcp).
 Source is on the machine at `/usr/src/gitlab/gowl/modules/`, with the development
 guide in `/usr/src/gitlab/gowl/docs/modules.org`.
 
-## Bar plugins
+The full reference for everything below lives on the machine too — read it rather
+than guessing, it is more current than any summary:
+
+```bash
+/usr/src/gitlab/gowl/docs/bar.org          # widgets, panels, toasts, plugins
+/usr/src/gitlab/gowl/docs/configuration.org
+/usr/src/gitlab/gowl/docs/modules.org
+/usr/src/gitlab/gowl/data/example-bar-plugin.c
+```
+
+## The bar
 
 The bar (`gowlbar`) is a plugin host: left/centre/right regions with a centre
 anchor, dropdown **panels** that a plugin *describes* while the host renders and
 hit-tests them, and **toasts** on the overlay layer that can name a panel.
 
+### Configuring it
+
+```yaml
+modules:
+  bar:
+    enabled: true
+    height: 30
+    widgets-left: "tags title"
+    widgets-center: "clock"
+    widgets-right: "cpu memory disk:/var battery network audio"
+    center-anchor: "clock"
 ```
-~/.config/gowl/bar-plugins/        # user plugins — yours to edit
+
+Each list is space separated and ordered. The **right** region reads outward —
+the first entry ends up furthest right, as in every dwm-descended status list.
+`center-anchor` names one widget to centre on the monitor, with the rest of the
+centre region packing around it; without it the centre is centred as a group and
+the clock slides whenever a neighbour appears.
+
+A widget spec is `name`, `name:parameter` or `name:parameter@seconds` —
+`disk:/var`, `weather:Berlin@600`, `cmd:~/bin/pomo@5`. The interval uses the
+**last** `@`, so `cmd:ssh me@host@30` parses as intended. The whole spec is the
+widget's identity, so two `disk:` widgets on different mounts are separately
+addressable.
+
+Per-widget settings live in the same block, either as `<widget>-color` (a palette
+role or hex) or `<widget>.<key>`:
+
+```yaml
+    cpu-color: green
+    clock.format: "%a %b %d  %H:%M"
+    network.ping-host: "1.1.1.1"
 ```
 
-A plugin is a `GowlBarPluginVTable` of plain C functions, loaded either as a
-compiled `.so` or as a `.c` file compiled through **crispy** (cmacs's embedded
-C-like scripting language) and cached. **Only the vtable form hot-reloads**,
-because a GType cannot be unregistered — this is the single most important thing
-to know before writing one.
+**The shipped layout is replaced, not added to.** With no configuration the bar
+shows a default layout — tags and title left, clock anchored centre,
+`cpu memory disk battery tailscale` right. The *first* configuration that names
+any widget list clears that wholesale, **including regions it does not mention**.
 
-Two rules for a plugin that is meant to be shipped rather than local:
+This matters on upgrade: a configuration written before regions existed sets only
+`widgets:`, and that list usually ends with a clock — if the shipped centre clock
+survived, the bar would show the time twice. A pre-regions configuration also
+gets `tags title` put back on its left, because the bar it was written for drew
+those unconditionally rather than listing them. After that first configuration
+the bar is incremental again: setting only `widgets-right` leaves left and centre
+alone.
 
-- **Colours are theme *roles*** resolved from the session palette. A plugin that
-  hard-codes hex fails the source guard.
-- **Containment is the invariant.** Plugins run in-process, so every entry point
-  runs under `gowl_bar_guard_call`, which catches SIGSEGV/BUS/FPE/ILL/ABRT,
-  unwinds, quarantines the plugin and raises a toast.
+### Writing a plugin
 
-When a plugin kills the session anyway, the quarantine journal is what stops the
-next start from loading it and crashing again:
+Copy `data/example-bar-plugin.c` from the gowl tree into
+`~/.config/gowl/bar-plugins/` — it is a complete commented pomodoro timer with a
+panel. A plugin is a `GowlBarPluginVTable` of plain C function pointers plus a
+`GowlBarPluginDesc`, published by a `gowl_bar_plugin_query()` export. Every slot
+may be `NULL`; the minimum viable plugin is a `poll` that calls
+`gowl_bar_plugin_set_label()`, and it gets measurement, drawing, hover and the
+panel machinery for free.
+
+`size` must be the first member and must be `sizeof` the struct **as your file
+sees it**. That is what lets the vtable grow without breaking a plugin built
+against an older gowl: the bar checks each callback lies inside the declared size
+before calling it.
+
+**The threading rule matters more than everything else here.** Plugins run
+in-process inside the compositor, and the compositor's dispatch thread holds the
+lock every editor primitive needs:
+
+| Callback | Thread | May do |
+|----------|--------|--------|
+| `poll`, `draw`, `measure`, `click`, `scroll`, `panel`, `action` | dispatch | read `/proc`, arithmetic, the setters |
+| `poll_async` | worker | subprocesses, network, slow file reads |
+
+Blocking the dispatch thread freezes **the editor**, not just the bar — spawning
+a process or touching the network there is the mistake to watch for. From
+`poll_async` only `set_label()`, `set_icon()`, `set_color()` and `set_tooltip()`
+are thread-safe. For a subprocess in response to a click use
+`gowl_bar_plugin_spawn()` (fire-and-forget) or `gowl_bar_plugin_queue_work()`.
+
+**Name a colour role, never a hex literal.** `GOWL_BAR_COLOR_PEACH` follows a
+theme switch; `#fab387` does not. Shipped plugins are held to this by a source
+guard.
+
+A plugin may also decide whether it belongs at all — the shipped `tailscale`
+widget hides itself where Tailscale is not installed, and carries a set-up flow
+where it is installed but no tailnet has been joined.
+
+### Loading and reloading
+
+```bash
+gowl bar-widgets                    # the laid-out bar, per slot and region
+gowl bar-plugins                    # what is registered
+gowl bar-plugin-load ~/x/thing.c    # load one now
+gowl bar-plugin-reload pomodoro     # recompile and swap in an edit
+gowl bar-plugin-unload pomodoro     # drop it
+gowl bar-quarantined                # what is held back, and why
+gowl bar-plugin-clear pomodoro      # let a held-back plugin load again
+```
+
+`~/.config/gowl/bar-plugins/` is scanned at startup in name order;
+`GOWL_BAR_PLUGIN_DIR` overrides the location for a development tree. A `.c` file
+is compiled through **crispy** to a shared object cached on a hash of its
+contents and flags, so an unchanged source loads without invoking the compiler.
+Extra compiler flags go in the source itself:
+
+```c
+#define CRISPY_PARAMS "$(pkg-config --cflags --libs json-glib-1.0)"
+```
+
+Unloading drops the plugin from the registry and every instance of it, but the
+shared object **stays mapped** — unmapping code a queued worker may still point
+into is how a hot-unload becomes a crash somewhere unrelated. This is also why
+the vtable form is the one to use: a `GType` cannot be unregistered, so a plugin
+defining its own class can be dropped but a recompiled version cannot re-register
+the same class name. Only the vtable form hot-reloads.
+
+### Containment
+
+Plugins run in-process, so every entry point runs under `gowl_bar_guard_call`,
+which catches SIGSEGV/BUS/FPE/ILL/ABRT, unwinds, quarantines the plugin and
+raises a toast. When a plugin kills the session anyway, the load journal is what
+stops the next start from loading it and crashing again:
 
 ```bash
 cat "${XDG_STATE_HOME:-$HOME/.local/state}/gowl/bar-plugins.journal"
+gowl bar-quarantined
 ```
 
-Read that first when diagnosing a compositor crash — see
+Read those first when diagnosing a compositor crash — see
 [`crash-analysis.md`](crash-analysis.md).
 
 Never edit a shipped plugin under `/usr`. Copy it into
