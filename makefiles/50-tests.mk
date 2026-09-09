@@ -20,6 +20,7 @@
 tests: test
 
 test_regressions:
+	bash tests/test_snapshot_restore_guard.sh
 	bash tests/test_boot_hooks.sh
 	bash tests/test_build_image_config.sh
 	bash tests/test_latest_tag.sh

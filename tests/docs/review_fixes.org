@@ -21,3 +21,6 @@ The base boot hook initializes settings without trying to enable the nonexistent
 
 * Login group setup
 Docker group lookup uses NSS (=getent=), and a missing group is an expected no-op. When the group exists, login adds users lacking that exact membership and continues settings initialization. Similar names such as =docker-admin= do not count. The boot-hook regression covers missing groups, missing membership, existing membership, and similar group names. The runtime NSS lookup is provided by Fedora package =glibc-common=.
+
+* Restore target validation
+Restore requires the live source (normally =/var=) to be a Btrfs subvolume, not a bind-mounted directory inside another subvolume. Unsupported layouts fail before mounting or renaming anything, protecting the root subvolume. This guard does not add snapshot support for directory-based =/var= layouts. Run =bash tests/test_snapshot_restore_guard.sh=; all filesystem operations are simulated in a temporary directory.

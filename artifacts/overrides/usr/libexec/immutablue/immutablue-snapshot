@@ -316,6 +316,15 @@ restore_snapshot() {
         return 1
     fi
 
+    # A bind-mounted directory inherits its containing subvolume in findmnt.
+    # Refuse it before mounting or renaming anything: otherwise a /var
+    # snapshot could replace the root subvolume holding that directory.
+    if ! btrfs subvolume show "${SNAPSHOT_SOURCE}" >/dev/null 2>&1
+    then
+        echo "ERROR: ${SNAPSHOT_SOURCE} is not a btrfs subvolume; refusing restore" >&2
+        return 1
+    fi
+
     # The device is reported as '/dev/... [/var]'; the bracketed subvolume has
     # to come off before it can be mounted.
     device="$(findmnt -no SOURCE "${SNAPSHOT_SOURCE}" 2>/dev/null | sed 's/\[.*//')"
