@@ -1,0 +1,8 @@
+#+title: Bootstrap regression checks
+#+description: Local checks for Kuberblue provisioning fixes
+#+authors: Immutablue contributors
+
+* Secret installation
+Run =bash tests/kuberblue/test_config_fetch_permissions.sh=. The test requires Fedora packages =bash=, =coreutils=, =findutils= and =sed=; =ShellCheck= validates the scripts. It uses disposable fixtures and a mock decryptor, without changing the host or contacting a cluster.
+
+Decrypted files are created privately and atomically published only after successful decryption. Installation applies the source permissions even when replacing a previously world-readable destination. A failed decryption stops configuration installation, preserving the encrypted source and previous plaintext without leaving partial output. Ordinary unencrypted configuration retains its source permissions.

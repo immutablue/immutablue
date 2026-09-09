@@ -231,14 +231,23 @@ decrypt_sops_files() {
         local decrypted_name="${basename/.sops/}"
         local decrypted_path
         decrypted_path="$(dirname "$sops_file")/${decrypted_name}"
+        local temporary_path
+
+        # mktemp creates mode 0600 regardless of the service umask. Decrypt
+        # beside the destination so publication is an atomic rename, including
+        # when the repository already contains a world-readable plaintext file.
+        temporary_path="$(mktemp "${decrypted_path}.XXXXXX")" || return 1
 
         echo "Decrypting: $basename -> $decrypted_name"
-        if SOPS_AGE_KEY_FILE="$age_key_file" sops --decrypt "$sops_file" > "$decrypted_path"; then
+        if SOPS_AGE_KEY_FILE="$age_key_file" sops --decrypt "$sops_file" > "$temporary_path"; then
+            mv -f -- "$temporary_path" "$decrypted_path" || return 1
             # Remove the encrypted version (decrypted version replaces it)
             rm -f "$sops_file"
             count=$((count + 1))
         else
-            echo "WARNING: Failed to decrypt $basename — keeping encrypted version"
+            rm -f -- "$temporary_path"
+            echo "ERROR: Failed to decrypt $basename — refusing partial configuration" >&2
+            return 1
         fi
     done < <(find "$src" -type f \( -name "*.sops.yaml" -o -name "*.sops.json" \) -print0)
 
@@ -265,8 +274,10 @@ install_config() {
         local dest_dir
         dest_dir="$(dirname "$dest")"
 
-        mkdir -p "$dest_dir"
-        cp -v "$config_file" "$dest"
+        mkdir -p "$dest_dir" || return 1
+        # cp retains an existing destination's permissions. install replaces
+        # it using the source mode, so decrypted secrets stay private on retry.
+        install -m "$(stat -c '%a' "$config_file")" -- "$config_file" "$dest" || return 1
         count=$((count + 1))
     done < <(find "$src" -type f \( -name "*.yaml" -o -name "*.json" -o -name "*.conf" \) -print0)
 
@@ -345,10 +356,16 @@ if ! clone_config_repo; then
 fi
 
 # Step 3: Decrypt SOPS files in the cloned config
-decrypt_sops_files
+if ! decrypt_sops_files; then
+    cleanup
+    exit 1
+fi
 
 # Step 4: Install config to /etc/kuberblue/
-install_config
+if ! install_config; then
+    cleanup
+    exit 1
+fi
 
 # Step 5: Mark config as fetched
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) fetched from $KB_CONFIG_URL ref=$KB_CONFIG_REF path=$KB_CONFIG_PATH" > "$CONFIG_MARKER"

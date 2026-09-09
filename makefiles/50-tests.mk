@@ -15,6 +15,13 @@
         test_chainsaw test_kuberblue_lima _run_kuberblue_lima_test \
         sbom
 
+# Host-safe regression checks; no image build, root access, or cluster needed.
+.PHONY: tests test_regressions
+tests: test
+
+test_regressions:
+	bash tests/kuberblue/test_config_fetch_permissions.sh
+
 # ------------------------------------------------------------------------------
 # Pre-build Tests
 # ------------------------------------------------------------------------------
@@ -35,7 +42,7 @@ pre_test:
 # ------------------------------------------------------------------------------
 test:
 	@if [ "$(SKIP_TEST)" = "0" ]; then \
-		$(MAKE) test_container test_package_presence test_container_qemu test_artifacts test_setup || exit 1; \
+		$(MAKE) test_regressions test_container test_package_presence test_container_qemu test_artifacts test_setup || exit 1; \
 		if [ "$(KUBERBLUE)" = "1" ]; then \
 			echo "Running Kuberblue-specific tests..."; \
 			$(MAKE) test_kuberblue_container test_kuberblue_components test_kuberblue_security || exit 1; \
