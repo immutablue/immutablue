@@ -22,6 +22,7 @@ tests: test
 test_regressions:
 	bash tests/kuberblue/test_config_fetch_permissions.sh
 	bash tests/kuberblue/test_ha_resume.sh
+	bash tests/kuberblue/test_boot_config_gate.sh
 	bash tests/test_build_variants.sh
 
 # ------------------------------------------------------------------------------

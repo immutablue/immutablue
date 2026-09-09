@@ -2,16 +2,41 @@
 set -uxo pipefail
 # NOTE: -e is intentionally NOT set. This script is the top-level boot
 # entrypoint for zero-touch provisioning. Individual commands handle their
-# own errors; the script must NEVER die from a single transient failure
-# because the systemd oneshot service won't auto-retry.
+# own errors; retry required steps because the systemd oneshot service won't
+# auto-retry. Exhausted config retries must stop before any provisioning.
 
 echo "invoking kuberblue boot script..."
 
-# --- Phase 0: Config fetch (non-fatal) ---
+MAX_RETRIES=5
+RETRY_WAIT=30
+
+# Run each required boot step with bounded retries. A remote configuration
+# failure must never fall through to vendor defaults and initialize a cluster
+# with the wrong role. A fetch with no remote URL is already a successful no-op.
+run_with_retries () {
+    local script="$1"
+    local attempt
+
+    for ((attempt = 1; attempt <= MAX_RETRIES; attempt++)); do
+        if "$script"; then
+            return 0
+        fi
+        if [[ "$attempt" -lt "$MAX_RETRIES" ]]; then
+            echo "${script} attempt ${attempt}/${MAX_RETRIES} failed, retrying in ${RETRY_WAIT}s..."
+            sleep "$RETRY_WAIT"
+        fi
+    done
+
+    echo "ERROR: ${script} failed after ${MAX_RETRIES} attempts. Provisioning stopped." >&2
+    echo "Check journal: journalctl -u kuberblue-onboot.service" >&2
+    return 1
+}
+
+# --- Phase 0: Config fetch (required before provisioning) ---
 # If kuberblue.config is set (kernel cmdline or cloud-init), fetch cluster
 # configuration from the remote git repo before anything else runs.
 # This is a no-op when no config source is specified (local-only deploys).
-/usr/libexec/kuberblue/setup/config_fetch.sh || echo "WARNING: config_fetch.sh failed (continuing with local config)"
+run_with_retries /usr/libexec/kuberblue/setup/config_fetch.sh || exit 1
 
 # --- Debug: show kubelet state at boot ---
 echo "=== kubelet status at boot ==="
@@ -41,17 +66,4 @@ swapoff -a || echo "WARNING: swapoff -a failed (may be no swap to disable)"
 # first_boot.sh is idempotent — safe to retry. Each retry picks up where
 # the previous attempt left off (kubeadm init gated on state, helm upgrade -i
 # is idempotent, marker prevents re-running after success).
-MAX_RETRIES=5
-RETRY_WAIT=30
-
-i=0
-until /usr/libexec/kuberblue/setup/first_boot.sh; do
-    i=$((i + 1))
-    if [[ ${i} -ge ${MAX_RETRIES} ]]; then
-        echo "ERROR: first_boot.sh failed after ${MAX_RETRIES} attempts. Manual intervention required."
-        echo "Check journal: journalctl -u kuberblue-onboot.service"
-        exit 1
-    fi
-    echo "first_boot.sh attempt ${i}/${MAX_RETRIES} failed, retrying in ${RETRY_WAIT}s..."
-    sleep "${RETRY_WAIT}"
-done
+run_with_retries /usr/libexec/kuberblue/setup/first_boot.sh || exit 1
