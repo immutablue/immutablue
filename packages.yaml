@@ -54,6 +54,11 @@ immutablue:
     - bear
     - bemenu-run
     - binutils-devel
+    # bluetoothctl, for the gowl bar's `bluetooth' widget: adapter
+    # power, paired devices, and connect/disconnect from the panel.
+    # The widget hides itself where there is no adapter, so a desktop
+    # without one carries no dead icon.
+    - bluez
     - bpftrace
     - buildah
     - buildstream
@@ -367,14 +372,14 @@ immutablue:
   # Urls to RPMs to download (they are curled)
   rpm_url:
     42:
-    - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-42.noarch.rpm
-    - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-42.noarch.rpm
+    - https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-42.noarch.rpm
+    - https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-42.noarch.rpm
     43:
-    - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-43.noarch.rpm
-    - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-43.noarch.rpm
+    - https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-43.noarch.rpm
+    - https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-43.noarch.rpm
     44:
-    - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-44.noarch.rpm
-    - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-44.noarch.rpm
+    - https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-44.noarch.rpm
+    - https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-44.noarch.rpm
 
 
 
