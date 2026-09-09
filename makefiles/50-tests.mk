@@ -20,6 +20,7 @@
 tests: test
 
 test_regressions:
+	bash tests/test_image_config_strings.sh
 	bash tests/kuberblue/test_token_dns.sh
 	bash tests/test_snapshot_restore_guard.sh
 	bash tests/test_boot_hooks.sh

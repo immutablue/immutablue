@@ -30,3 +30,6 @@ Control-plane discovery returns the peer DNSName, with its terminal dot removed,
 
 * Tailscale tag spelling
 Token discovery, HA first-control-plane detection and automatic role detection accept both =tag:kuberblue-cp= and the historical =kuberblue-cp= spelling. Exactly one optional prefix is removed before matching peer tags. The token DNS regression also checks both spellings against a tagged peer and rejects malformed discovery tags.
+
+* TOML credential strings
+The image config generator encodes usernames, passwords and SSH keys as TOML basic strings, escaping quotes, backslashes and control characters. Interactive reads preserve backslashes too. Run =bash tests/test_image_config_strings.sh= to round-trip dummy credentials through the TOML parser and exercise the prompt reader.
