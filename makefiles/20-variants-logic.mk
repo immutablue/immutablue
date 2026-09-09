@@ -51,12 +51,20 @@ $(foreach v,$(ADDON_VARIANTS),\
 # Order matters: some special variants need to be processed before others.
 # ------------------------------------------------------------------------------
 
+# Special bases replace the selected desktop, but retain independent add-ons.
+# Convert the CSV to words for filtering, then back to CSV with one delimiter.
+BUILD_OPTION_EMPTY :=
+BUILD_OPTION_SPACE := $(BUILD_OPTION_EMPTY) $(BUILD_OPTION_EMPTY)
+BUILD_OPTION_COMMA := ,
+SPECIAL_BUILD_ADDONS := $(subst $(BUILD_OPTION_SPACE),$(BUILD_OPTION_COMMA),$(strip $(filter-out gui silverblue kinoite sericea onyx vauxite lazurite cosmic,$(subst $(BUILD_OPTION_COMMA),$(BUILD_OPTION_SPACE),$(BUILD_OPTIONS)))))
+SPECIAL_BUILD_ADDON_SUFFIX := $(if $(SPECIAL_BUILD_ADDONS),$(BUILD_OPTION_COMMA)$(SPECIAL_BUILD_ADDONS))
+
 # NUCLEUS - Minimal server (no GUI)
 ifeq ($(strip $(filter-out 0 00,$(NUCLEUS))),)
 else
     BASE_IMAGE := quay.io/fedora-ostree-desktops/base-atomic
     TAG := $(TAG)-nucleus
-    BUILD_OPTIONS := nucleus$(BUILD_OPTIONS)
+    BUILD_OPTIONS := nucleus$(SPECIAL_BUILD_ADDON_SUFFIX)
     VARIANT := Server
 endif
 
@@ -68,7 +76,7 @@ else
     BASE_IMAGE_TAG := gnomeos-nightly
     BASE_IMAGE_DEVEL := quay.io/gnome_infrastructure/gnome-build-meta:gnomeos-devel-nightly
     TAG := $(TAG)-distroless
-    BUILD_OPTIONS := gui,distroless$(BUILD_OPTIONS)
+    BUILD_OPTIONS := gui,distroless$(SPECIAL_BUILD_ADDON_SUFFIX)
     VARIANT := None
     IS_DISTROLESS := true
 endif
@@ -79,7 +87,7 @@ else
     GUI_FLAVOR := bazzite
     BASE_IMAGE := ghcr.io/ublue-os/bazzite-deck-gnome
     TAG := $(TAG)-bazzite
-    BUILD_OPTIONS := gui,bazzite$(BUILD_OPTIONS)
+    BUILD_OPTIONS := gui,bazzite$(SPECIAL_BUILD_ADDON_SUFFIX)
     VARIANT := Bazzite
 endif
 
@@ -106,7 +114,7 @@ ifeq ($(strip $(filter-out 0 00,$(BUILD_A_BLUE_WORKSHOP))),)
 else
     BASE_IMAGE := quay.io/fedora-ostree-desktops/base-atomic
     TAG := $(TAG)-build-a-blue-workshop
-    BUILD_OPTIONS := build_a_blue_workshop$(BUILD_OPTIONS)
+    BUILD_OPTIONS := build_a_blue_workshop$(SPECIAL_BUILD_ADDON_SUFFIX)
 endif
 
 # ------------------------------------------------------------------------------

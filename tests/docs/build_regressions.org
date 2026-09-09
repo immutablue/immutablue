@@ -1,0 +1,8 @@
+#+title: Image build regression checks
+#+description: Checks for variant selection and build command generation
+#+authors: Immutablue contributors
+
+* Variant selection
+Run =bash tests/test_build_variants.sh=, requiring Fedora packages =bash= and =make=. These checks evaluate the actual Make variable definitions without building an image.
+
+Nucleus and workshop builds remove GUI and desktop-specific flags. Distroless and Bazzite replace the selected desktop with their own flags. Independent add-ons are retained as separate CSV entries, including when an explicit desktop flag was supplied. This keeps package selection and exact runtime variant checks consistent with the base image.

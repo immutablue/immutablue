@@ -21,6 +21,7 @@ tests: test
 
 test_regressions:
 	bash tests/kuberblue/test_config_fetch_permissions.sh
+	bash tests/test_build_variants.sh
 
 # ------------------------------------------------------------------------------
 # Pre-build Tests
