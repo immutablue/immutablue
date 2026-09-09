@@ -10,6 +10,4 @@ then
     echo -e "# Immutablue Settings file -- see /usr/immutablue/settings.yaml\n" > /etc/immutablue/settings.yaml
 fi
 
-echo "Starting docs..."
-systemctl enable --now immutablue.container
-
+# Documentation is built into the image; no docs server unit is shipped.

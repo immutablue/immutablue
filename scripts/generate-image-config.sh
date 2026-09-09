@@ -80,6 +80,21 @@ write_config_header() {
 EOF
 }
 
+# Encode a TOML basic string, including control characters and literal slashes.
+toml_string() {
+	local value="$1"
+	local code control escape
+	value="${value//\\/\\\\}"
+	value="${value//\"/\\\"}"
+	for code in {1..31} 127
+	do
+		printf -v control '%b' "\\$(printf '%03o' "$code")"
+		printf -v escape '\\u%04x' "$code"
+		value="${value//"$control"/"$escape"}"
+	done
+	printf '"%s"' "$value"
+}
+
 write_user_config() {
     local output="$1"
     local username="$2"
@@ -90,8 +105,8 @@ write_user_config() {
     cat >> "$output" <<EOF
 
 [[customizations.user]]
-name = "${username}"
-password = "${password}"
+name = $(toml_string "${username}")
+password = $(toml_string "${password}")
 EOF
 
     if [[ "$wheel" != "n" ]] && [[ "$wheel" != "N" ]]; then
@@ -99,24 +114,24 @@ EOF
     fi
 
     if [[ -n "$ssh_key" ]]; then
-        echo "key = \"${ssh_key}\"" >> "$output"
+        printf "key = %s\n" "$(toml_string "${ssh_key}")" >> "$output"
     fi
 }
 
 prompt_for_user() {
     local add_user
-    read -p "Add a user account? [y/N]: " add_user
+    read -r -p "Add a user account? [y/N]: " add_user
 
     if [[ "$add_user" != "y" ]] && [[ "$add_user" != "Y" ]]; then
         return 1
     fi
 
     local username
-    read -p "Username [immutablue]: " username
+    read -r -p "Username [immutablue]: " username
     username="${username:-immutablue}"
 
     local password
-    read -s -p "Password: " password
+    read -r -s -p "Password: " password
     echo
 
     if [[ -z "$password" ]]; then
@@ -125,7 +140,7 @@ prompt_for_user() {
     fi
 
     local add_wheel
-    read -p "Add to wheel group (sudo access)? [Y/n]: " add_wheel
+    read -r -p "Add to wheel group (sudo access)? [Y/n]: " add_wheel
 
     local ssh_key=""
     local add_ssh
@@ -148,7 +163,7 @@ prompt_for_user() {
     fi
 
     if [[ -z "$ssh_key" ]]; then
-        read -p "Add SSH public key? [y/N]: " add_ssh
+        read -r -p "Add SSH public key? [y/N]: " add_ssh
         if [[ "$add_ssh" == "y" ]] || [[ "$add_ssh" == "Y" ]]; then
             echo ""
             echo "Available SSH keys:"
@@ -159,7 +174,7 @@ prompt_for_user() {
             echo ""
 
             local ssh_key_path
-            read -p "Path to SSH public key [~/.ssh/id_ed25519.pub]: " ssh_key_path
+            read -r -p "Path to SSH public key [~/.ssh/id_ed25519.pub]: " ssh_key_path
             ssh_key_path="${ssh_key_path:-~/.ssh/id_ed25519.pub}"
             ssh_key_path=$(eval echo "$ssh_key_path")
 
@@ -255,13 +270,13 @@ groups = ["wheel"]
 EOF
 
     if [[ -f "$HOME/.lima/_config/user.pub" ]]; then
-        echo "key = \"$(cat "$HOME/.lima/_config/user.pub")\"" >> "$output"
+        printf "key = %s\n" "$(toml_string "$(cat "$HOME/.lima/_config/user.pub")")" >> "$output"
         echo "Added Lima SSH key to config"
     elif [[ -f "$HOME/.ssh/id_ed25519.pub" ]]; then
-        echo "key = \"$(cat "$HOME/.ssh/id_ed25519.pub")\"" >> "$output"
+        printf "key = %s\n" "$(toml_string "$(cat "$HOME/.ssh/id_ed25519.pub")")" >> "$output"
         echo "Added SSH key (id_ed25519) to config"
     elif [[ -f "$HOME/.ssh/id_rsa.pub" ]]; then
-        echo "key = \"$(cat "$HOME/.ssh/id_rsa.pub")\"" >> "$output"
+        printf "key = %s\n" "$(toml_string "$(cat "$HOME/.ssh/id_rsa.pub")")" >> "$output"
         echo "Added SSH key (id_rsa) to config"
     else
         echo "Warning: LIMA=1 but no SSH key found. Lima SSH access may not work."
@@ -285,7 +300,9 @@ EOF
 
 mkdir -p "$(dirname "$OUTPUT")"
 
-if [[ "$NO_USER" -eq 1 ]]; then
+# An explicit kickstart owns installer customization, including user creation.
+# Select it before automatic user defaults or interactive prompts.
+if [[ "$NO_USER" -eq 1 ]] || [[ -n "$KICKSTART" ]]; then
     generate_minimal_config "$OUTPUT"
 elif [[ "$LIMA" -eq 1 ]]; then
     generate_lima_config "$OUTPUT"

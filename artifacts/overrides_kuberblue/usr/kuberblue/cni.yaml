@@ -17,7 +17,7 @@ networking:
     # Advertise this node as a subnet router (CIDR)
     # Set to pod_subnet to make pods reachable from the tailnet
     advertise_routes: ""
-    # Tailscale ACL tag for this node (e.g. tag:kuberblue-cp)
+    # Control-plane Tailscale ACL tag (tag:kuberblue-cp or kuberblue-cp)
     # Used by auto-discovery in multi-node topologies
     tag: ""
     # Expose the API server on the Tailscale interface

@@ -88,6 +88,7 @@ build: pre_test deps_manifest $(IMAGE_IGNOREFILE)
 ifeq ($(DISTROLESS),1)
 	sudo podman \
 		build \
+		--platform $(PLATFORM) \
 		--format oci \
 		--security-opt label=disable \
 		--squash-all \
@@ -110,6 +111,7 @@ ifeq ($(DISTROLESS),1)
 else
 	buildah \
 		build \
+		--platform $(PLATFORM) \
 		--ignorefile ./$(IMAGE_IGNOREFILE) \
 		--no-cache \
 		-t $(IMAGE):$(TAG) \
@@ -126,6 +128,15 @@ else
 		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS) \
 		--build-arg=IMMUTABLUE_BUILD_OPTIONS=$(BUILD_OPTIONS) \
 		--build-arg=SKIP=$(SKIP)
+endif
+
+# Publish latest only after the selected engine successfully builds this image.
+ifeq ($(SET_AS_LATEST),1)
+ifeq ($(DISTROLESS),1)
+	sudo podman tag $(IMAGE):$(TAG) $(IMAGE):latest
+else
+	buildah tag $(IMAGE):$(TAG) $(IMAGE):latest
+endif
 endif
 
 # ------------------------------------------------------------------------------

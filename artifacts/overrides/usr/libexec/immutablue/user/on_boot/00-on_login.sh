@@ -11,16 +11,16 @@ echo "$USER has logged in"
 
 if [[ "$(immutablue_build_has_package docker null)" == "${TRUE}" ]]
 then
-    has_docker_group=$(grep -iP "docker" < /etc/group)
-    if [[ "${has_docker_group}" != "" ]]
-    then
-        already_in_group=$(groups | grep -iP "docker")
-        if [[ "${already_in_group}" == "" ]]
-        then
-            # Add user to group
-            sudo usermod -aG docker ${USER}
-        fi
-    fi
+	# Missing groups and membership are expected on first login, not errors.
+	# Resolve through NSS and compare whole group names (docker-admin is not docker).
+	if getent group docker > /dev/null
+	then
+		user_groups="$(id -nG "${USER}")"
+		if [[ " ${user_groups} " != *" docker "* ]]
+		then
+			sudo usermod -aG docker "${USER}"
+		fi
+	fi
 fi
 
 

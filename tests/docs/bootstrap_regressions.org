@@ -1,0 +1,18 @@
+#+title: Bootstrap regression checks
+#+description: Local checks for Kuberblue provisioning fixes
+#+authors: Immutablue contributors
+
+* Secret installation
+Run =bash tests/kuberblue/test_config_fetch_permissions.sh=. The test requires Fedora packages =bash=, =coreutils=, =findutils= and =sed=; =ShellCheck= validates the scripts. It uses disposable fixtures and a mock decryptor, without changing the host or contacting a cluster.
+
+Decrypted files are created privately and atomically published only after successful decryption. Installation applies the source permissions even when replacing a previously world-readable destination. A failed decryption stops configuration installation, preserving the encrypted source and previous plaintext without leaving partial output. Ordinary unencrypted configuration retains its source permissions.
+
+* HA retry recovery
+Run =bash tests/kuberblue/test_ha_resume.sh=. The test runs the real first-boot control flow against a disposable filesystem, using mock cluster commands and the production state functions. It injects failures after initialization and joining, then verifies that retry completes setup without repeating either operation. It also checks completed-boot idempotency and rejection of ambiguous initialized state.
+
+The =ha-role= marker is written before kubeadm initialization or joining. Once =cluster-initialized= exists, =init-cp= resumes manifests, certificates and token setup; =join-cp= resumes service-user and kubeconfig setup. The completion marker is still written only after all steps succeed. An older incomplete installation with no valid =ha-role= requires an administrator to identify the node's original role and restore that marker in the configured state directory before retrying; discovery cannot safely infer it. This does not change the existing first-node election or its simultaneous-start limitations.
+
+* Remote configuration gate
+Run =bash tests/kuberblue/test_boot_config_gate.sh=. The test runs the boot orchestrator with mocked host commands, checking permanent and transient fetch failures, subsequent first-boot retries, and successful local-only configuration.
+
+Boot retries configuration fetch up to five times with thirty seconds between attempts. Exhausted retries stop the service before environment preparation or cluster provisioning; an intended worker cannot initialize using the vendor control-plane default because of a fetch error. Fix the configuration source or connectivity and restart =kuberblue-onboot.service= to retry. When no remote URL is specified, the fetcher's successful no-op continues to use local configuration. First-boot setup retains its own five-attempt retry budget.

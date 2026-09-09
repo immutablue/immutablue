@@ -103,15 +103,12 @@ cp_generate_and_serve_token () {
 # First CP: no existing state AND no existing CP discovered via Tailscale
 # -----------------------------------------------------------------------
 ha_is_first_cp () {
-    # If we already have state, this isn't first boot
-    if kuberblue_state_check "cluster-initialized"; then
-        return 1
-    fi
-
     # If Tailscale is enabled and we can find an existing CP, we're not first
     if [[ "${KUBERBLUE_TAILSCALE_ENABLED}" == "true" ]]; then
         local ts_tag
         ts_tag="$(kuberblue_config_get cni.yaml .networking.tailscale.tag "")"
+        # Accept both the documented tag: prefix and historical bare names.
+        ts_tag="${ts_tag#tag:}"
         if [[ -n "${ts_tag}" ]] && [[ "${ts_tag}" != "null" ]]; then
             if tailscale status --json 2>/dev/null \
                 | yq -e '.Peer[] | select(.Tags // [] | .[] == "tag:'"${ts_tag}"'")' &>/dev/null; then
@@ -136,7 +133,19 @@ if [[ "${KUBERBLUE_TOPOLOGY}" == "ha" ]] && [[ "${KUBERBLUE_NODE_ROLE}" == "cont
     source /usr/libexec/kuberblue/kube_setup/kube_vip_setup.sh
     kuberblue_vip_setup
 
-    if ha_is_first_cp; then
+    # Post-install failures leave the completion marker absent. Resume the
+    # persisted role without letting discovery turn an initialized CP into
+    # a joining node, or running kubeadm a second time.
+    if kuberblue_state_check "cluster-initialized"; then
+        case "$(kuberblue_state_get ha-role)" in
+            init-cp) _ha_is_first=true ;;
+            join-cp) _ha_is_first=false ;;
+            *)
+                echo "ERROR: initialized HA node has no valid ha-role; refusing to guess init versus join" >&2
+                exit 1
+                ;;
+        esac
+    elif ha_is_first_cp; then
         # Race condition guard: wait briefly for other CPs that may also
         # think they are first.  If another CP appears during the contention
         # window we back off and fall through to the join flow instead.
@@ -164,8 +173,12 @@ if [[ "${KUBERBLUE_TOPOLOGY}" == "ha" ]] && [[ "${KUBERBLUE_NODE_ROLE}" == "cont
 
     if [[ "${_ha_is_first}" == "true" ]]; then
         # --- First control-plane: initialize the cluster ---
-        echo "HA topology: this is the FIRST control-plane node — initializing cluster..."
-        /usr/libexec/kuberblue/kube_setup/kube_init.sh
+        if ! kuberblue_state_check "cluster-initialized"; then
+            echo "HA topology: this is the FIRST control-plane node — initializing cluster..."
+            # Persist the role before kube_init writes cluster-initialized.
+            kuberblue_state_set "ha-role" "init-cp"
+            /usr/libexec/kuberblue/kube_setup/kube_init.sh
+        fi
 
         kuberblue_state_set "node-role" "control-plane"
         kuberblue_state_set "cluster-initialized" "true"
@@ -204,51 +217,54 @@ if [[ "${KUBERBLUE_TOPOLOGY}" == "ha" ]] && [[ "${KUBERBLUE_NODE_ROLE}" == "cont
 
     else
         # --- Non-first control-plane: join existing HA cluster ---
-        echo "HA topology: joining existing cluster as control-plane..."
+        if ! kuberblue_state_check "cluster-initialized"; then
+            echo "HA topology: joining existing cluster as control-plane..."
 
-        source /usr/libexec/kuberblue/kube_setup/kube_token_distribute.sh
+            source /usr/libexec/kuberblue/kube_setup/kube_token_distribute.sh
 
-        # Discover the first CP
-        cp_ip="$(kuberblue_token_discover_cp)"
-        echo "Found existing control-plane at: ${cp_ip}"
+            # Discover the first CP
+            cp_host="$(kuberblue_token_discover_cp)"
+            echo "Found existing control-plane at: ${cp_host}"
 
-        # Fetch join token
-        kuberblue_token_fetch "${STATE_DIR}/worker-join-command"
-        join_cmd="$(<"${STATE_DIR}/worker-join-command")"
+            # Fetch join token
+            kuberblue_token_fetch "${STATE_DIR}/worker-join-command"
+            join_cmd="$(<"${STATE_DIR}/worker-join-command")"
 
-        # Fetch certificate key
-        echo "Fetching certificate key from first CP..."
-        cert_key=""
-        max_retries=12
-        attempt=0
-        while [[ -z "${cert_key}" ]]; do
-            attempt=$((attempt + 1))
-            if [[ ${attempt} -gt ${max_retries} ]]; then
-                echo "ERROR: Could not fetch certificate key after ${max_retries} attempts" >&2
+            # Fetch certificate key
+            echo "Fetching certificate key from first CP..."
+            cert_key=""
+            max_retries=12
+            attempt=0
+            while [[ -z "${cert_key}" ]]; do
+                attempt=$((attempt + 1))
+                if [[ ${attempt} -gt ${max_retries} ]]; then
+                    echo "ERROR: Could not fetch certificate key after ${max_retries} attempts" >&2
+                    exit 1
+                fi
+                cert_key="$(curl --silent --fail --connect-timeout 10 \
+                    "https://${cp_host}/kuberblue/ha-cert-key" 2>/dev/null)" || true
+                if [[ -z "${cert_key}" ]]; then
+                    echo "Waiting for certificate key... (${attempt}/${max_retries})"
+                    sleep 10
+                fi
+            done
+
+            # Validate cert key looks reasonable (64 hex chars)
+            if ! [[ "${cert_key}" =~ ^[0-9a-f]{64}$ ]]; then
+                echo "ERROR: Fetched certificate key does not look valid" >&2
+                echo "Received: ${cert_key:0:80}" >&2
                 exit 1
             fi
-            cert_key="$(curl --silent --fail --insecure --connect-timeout 10 \
-                "https://${cp_ip}/kuberblue/ha-cert-key" 2>/dev/null)" || true
-            if [[ -z "${cert_key}" ]]; then
-                echo "Waiting for certificate key... (${attempt}/${max_retries})"
-                sleep 10
-            fi
-        done
 
-        # Validate cert key looks reasonable (64 hex chars)
-        if ! [[ "${cert_key}" =~ ^[0-9a-f]{64}$ ]]; then
-            echo "ERROR: Fetched certificate key does not look valid" >&2
-            echo "Received: ${cert_key:0:80}" >&2
-            exit 1
+            # Join as control-plane (safe parse — no eval on network data)
+            echo "Joining HA cluster as control-plane..."
+            kuberblue_state_set "ha-role" "join-cp"
+            kubeadm_join_safe "${join_cmd}" --control-plane --certificate-key "${cert_key}"
+
+            kuberblue_state_set "node-role" "control-plane"
+            kuberblue_state_set "cluster-initialized" "true"
+            kuberblue_state_set "ha-role" "join-cp"
         fi
-
-        # Join as control-plane (safe parse — no eval on network data)
-        echo "Joining HA cluster as control-plane..."
-        kubeadm_join_safe "${join_cmd}" --control-plane --certificate-key "${cert_key}"
-
-        kuberblue_state_set "node-role" "control-plane"
-        kuberblue_state_set "cluster-initialized" "true"
-        kuberblue_state_set "ha-role" "join-cp"
 
         # Non-first CPs need the kuberblue user and kubeconfig for kubectl access,
         # but NOT the full cp_post_init (which would re-deploy manifests, re-bootstrap

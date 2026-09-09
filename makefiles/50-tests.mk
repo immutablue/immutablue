@@ -15,6 +15,25 @@
         test_chainsaw test_kuberblue_lima _run_kuberblue_lima_test \
         sbom
 
+# Host-safe regression checks; no image build, root access, or cluster needed.
+.PHONY: tests test_regressions
+tests: test
+
+test_regressions:
+	bash tests/test_image_config_kickstart.sh
+	bash tests/test_image_config_strings.sh
+	bash tests/kuberblue/test_token_dns.sh
+	bash tests/test_snapshot_restore_guard.sh
+	bash tests/test_boot_hooks.sh
+	bash tests/test_build_image_config.sh
+	bash tests/test_latest_tag.sh
+	bash tests/kuberblue/test_tailscale_bootstrap.sh
+	bash tests/kuberblue/test_config_fetch_permissions.sh
+	bash tests/kuberblue/test_ha_resume.sh
+	bash tests/kuberblue/test_boot_config_gate.sh
+	bash tests/test_build_variants.sh
+	bash tests/test_build_platform.sh
+
 # ------------------------------------------------------------------------------
 # Pre-build Tests
 # ------------------------------------------------------------------------------
@@ -35,7 +54,7 @@ pre_test:
 # ------------------------------------------------------------------------------
 test:
 	@if [ "$(SKIP_TEST)" = "0" ]; then \
-		$(MAKE) test_container test_package_presence test_container_qemu test_artifacts test_setup || exit 1; \
+		$(MAKE) test_regressions test_container test_package_presence test_container_qemu test_artifacts test_setup || exit 1; \
 		if [ "$(KUBERBLUE)" = "1" ]; then \
 			echo "Running Kuberblue-specific tests..."; \
 			$(MAKE) test_kuberblue_container test_kuberblue_components test_kuberblue_security || exit 1; \

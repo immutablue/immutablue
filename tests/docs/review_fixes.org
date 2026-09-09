@@ -1,0 +1,38 @@
+#+title: Repository review regression checks
+#+description: Behavior and validation of fixes from the repository review
+#+authors: Immutablue contributors
+
+* Tailscale bootstrap
+Daemon readiness uses =tailscale status --json=, which can report a logged-out daemon successfully. Authentication follows readiness, so a fresh node can use its configured auth key. Unreachable daemons still fail after bounded retries.
+
+Run =bash tests/kuberblue/test_tailscale_bootstrap.sh=. The complete bootstrap runs with temporary configuration and mocked external commands; it never changes host services or connects to a tailnet. Fedora validation packages are =bash=, =coreutils=, =grep=, =sed=, =gawk=, =make= and =ShellCheck=.
+
+* Auth-key tracing
+Shell tracing is disabled before reading or testing the Tailscale auth key and remains disabled through authentication. Sensitive variables are cleared before tracing resumes. The bootstrap regression verifies that the mock receives the key while successful and failed authentication output omit it.
+
+* Latest image tag
+=make SET_AS_LATEST=1 build= tags the newly built image as =latest= after the build succeeds, using the same engine and storage as the build. The default leaves =latest= untouched. Run =bash tests/test_latest_tag.sh= for both normal and distroless recipe checks; this does not push or build an image.
+
+* Image-builder configuration
+The image wrapper copies configuration only when the source and destination are different files. Missing configuration still produces the minimal fallback, and callers can pass the destination itself or a link to it. Run =bash tests/test_build_image_config.sh= to exercise these cases with container and privilege operations mocked.
+
+* System boot hook
+The base boot hook initializes settings without trying to enable the nonexistent =immutablue.container.service=. The repository ships no docs server unit; Hugo still generates static documentation during the image build. Run =bash tests/test_boot_hooks.sh= to verify fresh settings, preserved existing settings, and absence of service-management calls in this hook.
+
+* Login group setup
+Docker group lookup uses NSS (=getent=), and a missing group is an expected no-op. When the group exists, login adds users lacking that exact membership and continues settings initialization. Similar names such as =docker-admin= do not count. The boot-hook regression covers missing groups, missing membership, existing membership, and similar group names. The runtime NSS lookup is provided by Fedora package =glibc-common=.
+
+* Restore target validation
+Restore requires the live source (normally =/var=) to be a Btrfs subvolume, not a bind-mounted directory inside another subvolume. Unsupported layouts fail before mounting or renaming anything, protecting the root subvolume. This guard does not add snapshot support for directory-based =/var= layouts. Run =bash tests/test_snapshot_restore_guard.sh=; all filesystem operations are simulated in a temporary directory.
+
+* Tailscale Serve hostnames
+Control-plane discovery returns the peer DNSName, with its terminal dot removed, for token and HA certificate downloads. HTTPS therefore supplies the DNS SNI required by Serve and verifies the certificate. Missing DNS names fail discovery rather than falling back to an IP. Run =bash tests/kuberblue/test_token_dns.sh= with Fedora package =yq= in addition to the shell test tools; no tailnet connection is made.
+
+* Tailscale tag spelling
+Token discovery, HA first-control-plane detection and automatic role detection accept both =tag:kuberblue-cp= and the historical =kuberblue-cp= spelling. Exactly one optional prefix is removed before matching peer tags. The token DNS regression also checks both spellings against a tagged peer and rejects malformed discovery tags.
+
+* TOML credential strings
+The image config generator encodes usernames, passwords and SSH keys as TOML basic strings, escaping quotes, backslashes and control characters. Interactive reads preserve backslashes too. Run =bash tests/test_image_config_strings.sh= to round-trip dummy credentials through the TOML parser and exercise the prompt reader.
+
+* Explicit kickstart precedence
+An explicit =--kickstart FILE= selects kickstart configuration before interactive prompts, non-interactive defaults or Lima defaults. The kickstart controls user creation; no default account is injected. =--no-user= is no longer required to preserve a kickstart. Run =bash tests/test_image_config_kickstart.sh= to check each automatic mode and missing-file failure.
