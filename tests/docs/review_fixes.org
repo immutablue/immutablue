@@ -15,3 +15,6 @@ Shell tracing is disabled before reading or testing the Tailscale auth key and r
 
 * Image-builder configuration
 The image wrapper copies configuration only when the source and destination are different files. Missing configuration still produces the minimal fallback, and callers can pass the destination itself or a link to it. Run =bash tests/test_build_image_config.sh= to exercise these cases with container and privilege operations mocked.
+
+* System boot hook
+The base boot hook initializes settings without trying to enable the nonexistent =immutablue.container.service=. The repository ships no docs server unit; Hugo still generates static documentation during the image build. Run =bash tests/test_boot_hooks.sh= to verify fresh settings, preserved existing settings, and absence of service-management calls in this hook.
