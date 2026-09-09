@@ -18,3 +18,6 @@ The image wrapper copies configuration only when the source and destination are 
 
 * System boot hook
 The base boot hook initializes settings without trying to enable the nonexistent =immutablue.container.service=. The repository ships no docs server unit; Hugo still generates static documentation during the image build. Run =bash tests/test_boot_hooks.sh= to verify fresh settings, preserved existing settings, and absence of service-management calls in this hook.
+
+* Login group setup
+Docker group lookup uses NSS (=getent=), and a missing group is an expected no-op. When the group exists, login adds users lacking that exact membership and continues settings initialization. Similar names such as =docker-admin= do not count. The boot-hook regression covers missing groups, missing membership, existing membership, and similar group names. The runtime NSS lookup is provided by Fedora package =glibc-common=.
