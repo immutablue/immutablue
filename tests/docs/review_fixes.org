@@ -9,3 +9,6 @@ Run =bash tests/kuberblue/test_tailscale_bootstrap.sh=. The complete bootstrap r
 
 * Auth-key tracing
 Shell tracing is disabled before reading or testing the Tailscale auth key and remains disabled through authentication. Sensitive variables are cleared before tracing resumes. The bootstrap regression verifies that the mock receives the key while successful and failed authentication output omit it.
+
+* Latest image tag
+=make SET_AS_LATEST=1 build= tags the newly built image as =latest= after the build succeeds, using the same engine and storage as the build. The default leaves =latest= untouched. Run =bash tests/test_latest_tag.sh= for both normal and distroless recipe checks; this does not push or build an image.

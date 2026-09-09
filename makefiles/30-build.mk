@@ -130,6 +130,15 @@ else
 		--build-arg=SKIP=$(SKIP)
 endif
 
+# Publish latest only after the selected engine successfully builds this image.
+ifeq ($(SET_AS_LATEST),1)
+ifeq ($(DISTROLESS),1)
+	sudo podman tag $(IMAGE):$(TAG) $(IMAGE):latest
+else
+	buildah tag $(IMAGE):$(TAG) $(IMAGE):latest
+endif
+endif
+
 # ------------------------------------------------------------------------------
 # Push Targets
 # ------------------------------------------------------------------------------
