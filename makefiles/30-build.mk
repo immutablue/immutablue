@@ -88,6 +88,7 @@ build: pre_test deps_manifest $(IMAGE_IGNOREFILE)
 ifeq ($(DISTROLESS),1)
 	sudo podman \
 		build \
+		--platform $(PLATFORM) \
 		--format oci \
 		--security-opt label=disable \
 		--squash-all \
@@ -110,6 +111,7 @@ ifeq ($(DISTROLESS),1)
 else
 	buildah \
 		build \
+		--platform $(PLATFORM) \
 		--ignorefile ./$(IMAGE_IGNOREFILE) \
 		--no-cache \
 		-t $(IMAGE):$(TAG) \
