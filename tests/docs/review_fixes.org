@@ -6,3 +6,6 @@
 Daemon readiness uses =tailscale status --json=, which can report a logged-out daemon successfully. Authentication follows readiness, so a fresh node can use its configured auth key. Unreachable daemons still fail after bounded retries.
 
 Run =bash tests/kuberblue/test_tailscale_bootstrap.sh=. The complete bootstrap runs with temporary configuration and mocked external commands; it never changes host services or connects to a tailnet. Fedora validation packages are =bash=, =coreutils=, =grep=, =sed=, =gawk=, =make= and =ShellCheck=.
+
+* Auth-key tracing
+Shell tracing is disabled before reading or testing the Tailscale auth key and remains disabled through authentication. Sensitive variables are cleared before tracing resumes. The bootstrap regression verifies that the mock receives the key while successful and failed authentication output omit it.

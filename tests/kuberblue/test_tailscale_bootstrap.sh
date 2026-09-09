@@ -31,7 +31,7 @@ tailscale () {
 			[[ "${2:-}" == --json || -f "$fixture_dir/logged-in" ]]
 			;;
 		ip) [[ -f "$fixture_dir/logged-in" ]] && echo 100.64.0.1 ;;
-		up) touch "$fixture_dir/logged-in" ;;
+		up) [[ "${login_failure:-0}" != 1 ]] && touch "$fixture_dir/logged-in" ;;
 		*) return 1 ;;
 	esac
 }
@@ -39,6 +39,16 @@ export -f systemctl sleep tailscale
 bash "$fixture_dir/bootstrap.sh" > "$fixture_dir/output" 2>&1
 [[ "$(cat "$fixture_dir/state/tailscale-ip")" == 100.64.0.1 ]]
 grep -q '^up ' "$fixture_dir/calls"
+# The fake command sees the key, but journal-bound output must never contain it.
+grep -q 'dummy-bootstrap-auth-key' "$fixture_dir/calls"
+if grep -q 'dummy-bootstrap-auth-key' "$fixture_dir/output"; then exit 1; fi
+rm "$fixture_dir/logged-in"
+if login_failure=1 bash "$fixture_dir/bootstrap.sh" > "$fixture_dir/output" 2>&1
+then
+	echo 'FAIL: failed login accepted' >&2
+	exit 1
+fi
+if grep -q 'dummy-bootstrap-auth-key' "$fixture_dir/output"; then exit 1; fi
 # An unreachable daemon must still fail after bounded retries, without login.
 : > "$fixture_dir/calls"
 if daemon_unavailable=1 bash "$fixture_dir/bootstrap.sh" > "$fixture_dir/output" 2>&1

@@ -50,6 +50,8 @@ if [[ -n "${ADVERTISE_ROUTES}" ]] && [[ "${ADVERTISE_ROUTES}" != "null" ]]; then
 fi
 
 # Check if already authenticated (tailscale ip -4 succeeds only when logged in)
+# Disable tracing before reading the key: assignments and tests also expose it.
+{ set +x; } 2>/dev/null
 if tailscale ip -4 &>/dev/null; then
     echo "Tailscale already authenticated. Updating route settings..."
 else
@@ -70,9 +72,8 @@ else
     fi
 fi
 
-# Suppress xtrace to prevent auth key from leaking into logs
-{ set +x; } 2>/dev/null
 tailscale up "${ts_args[@]}"
+unset AUTH_KEY ts_args
 set -x
 
 TS_IP="$(tailscale ip -4 2>/dev/null | head -1)"
