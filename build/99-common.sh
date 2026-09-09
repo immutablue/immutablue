@@ -79,6 +79,78 @@ else
 fi
 
 
+# -----------------------------------
+# Download retry policy.
+#
+# A transient network failure -- a DNS hiccup, a CDN dropping a connection, a
+# mirror briefly returning 503 -- otherwise kills an entire image build at
+# whichever download happened to be unlucky, after however many minutes of
+# work already went in.
+#
+# IMMUTABLUE_CURL_RETRIES is the number of retries *after* the first attempt,
+# so the default of 5 allows up to 6 attempts. Set it to 0 to disable
+# retrying entirely. IMMUTABLUE_CURL_BASE_DELAY is the first backoff in
+# seconds and doubles on each subsequent failure, giving 1, 2, 4, 8, 16 by
+# default -- 31 seconds of waiting in the worst case, which is nothing next
+# to restarting the build.
+#
+# Both can be overridden from the environment, so a build on a flaky link can
+# raise the retry count without editing this file.
+# -----------------------------------
+IMMUTABLUE_CURL_RETRIES="${IMMUTABLUE_CURL_RETRIES:-5}"
+IMMUTABLUE_CURL_BASE_DELAY="${IMMUTABLUE_CURL_BASE_DELAY:-1}"
+
+
+# Run curl, retrying with exponential backoff on failure.
+#
+# The loop re-executes curl rather than using curl's own --retry, and that is
+# the whole point. curl resolves the host once and reuses that result for the
+# lifetime of the invocation, so when the failure *is* the name resolution --
+# one of the transient errors actually seen here -- every one of its internal
+# retries repeats the same bad answer. Re-executing forces a fresh lookup.
+#
+# Arguments are passed through untouched, so call sites read as plain curl.
+#
+# Do NOT pipe this directly into a consumer that cannot be rewound, such as
+# 'tar' or 'sh'. A retry after a partial transfer would hand the consumer a
+# second, overlapping stream on top of the bytes it already read. Download to
+# a file first and read the file; the call sites that used to pipe were
+# rewritten that way.
+#
+# param $@: arguments for curl
+# returns: 0 on success, otherwise curl's exit status from the final attempt
+immutablue_curl() {
+    local attempts=$(( IMMUTABLUE_CURL_RETRIES + 1 ))
+    local attempt=1
+    local delay="${IMMUTABLUE_CURL_BASE_DELAY}"
+    local rc
+
+    while true
+    do
+        # '|| rc=$?' rather than an if-condition: a failed 'if' with no else
+        # yields status 0, which would silently swallow curl's real exit code.
+        rc=0
+        curl "$@" || rc=$?
+
+        if [[ ${rc} -eq 0 ]]
+        then
+            return 0
+        fi
+
+        if [[ ${attempt} -ge ${attempts} ]]
+        then
+            echo "ERROR: curl failed after ${attempts} attempt(s), last exit ${rc}" >&2
+            return "${rc}"
+        fi
+
+        echo "WARNING: curl attempt ${attempt}/${attempts} failed (exit ${rc}); retrying in ${delay}s" >&2
+        sleep "${delay}"
+        delay=$(( delay * 2 ))
+        attempt=$(( attempt + 1 ))
+    done
+}
+
+
 get_immutablue_build_options() {
     IFS=',' read -ra entry_array <<< "${IMMUTABLUE_BUILD_OPTIONS}" 
     for entry in "${entry_array[@]}"
