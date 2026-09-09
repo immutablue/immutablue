@@ -119,6 +119,8 @@ kuberblue_token_stop_serve () {
 kuberblue_token_discover_cp () {
     local ts_tag
     ts_tag="$(kuberblue_config_get cni.yaml .networking.tailscale.tag "")"
+        # Accept both the documented tag: prefix and historical bare names.
+        ts_tag="${ts_tag#tag:}"
 
     if [[ -z "${ts_tag}" ]] || [[ "${ts_tag}" == "null" ]]; then
         echo "ERROR: networking.tailscale.tag is not set in cni.yaml" >&2

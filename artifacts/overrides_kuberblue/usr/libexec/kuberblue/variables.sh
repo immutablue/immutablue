@@ -105,6 +105,8 @@ kuberblue_detect_node_role () {
     if command -v tailscale &>/dev/null && tailscale ip -4 &>/dev/null 2>&1; then
         local ts_tag
         ts_tag="$(kuberblue_config_get cni.yaml .networking.tailscale.tag "")"
+        # Accept both the documented tag: prefix and historical bare names.
+        ts_tag="${ts_tag#tag:}"
         if [[ -n "${ts_tag}" ]] && [[ "${ts_tag}" != "null" ]]; then
             # Validate ts_tag to prevent yq expression injection
             if ! [[ "${ts_tag}" =~ ^[a-zA-Z0-9_-]+$ ]]; then

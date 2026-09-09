@@ -107,6 +107,8 @@ ha_is_first_cp () {
     if [[ "${KUBERBLUE_TAILSCALE_ENABLED}" == "true" ]]; then
         local ts_tag
         ts_tag="$(kuberblue_config_get cni.yaml .networking.tailscale.tag "")"
+        # Accept both the documented tag: prefix and historical bare names.
+        ts_tag="${ts_tag#tag:}"
         if [[ -n "${ts_tag}" ]] && [[ "${ts_tag}" != "null" ]]; then
             if tailscale status --json 2>/dev/null \
                 | yq -e '.Peer[] | select(.Tags // [] | .[] == "tag:'"${ts_tag}"'")' &>/dev/null; then

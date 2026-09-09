@@ -27,3 +27,6 @@ Restore requires the live source (normally =/var=) to be a Btrfs subvolume, not 
 
 * Tailscale Serve hostnames
 Control-plane discovery returns the peer DNSName, with its terminal dot removed, for token and HA certificate downloads. HTTPS therefore supplies the DNS SNI required by Serve and verifies the certificate. Missing DNS names fail discovery rather than falling back to an IP. Run =bash tests/kuberblue/test_token_dns.sh= with Fedora package =yq= in addition to the shell test tools; no tailnet connection is made.
+
+* Tailscale tag spelling
+Token discovery, HA first-control-plane detection and automatic role detection accept both =tag:kuberblue-cp= and the historical =kuberblue-cp= spelling. Exactly one optional prefix is removed before matching peer tags. The token DNS regression also checks both spellings against a tagged peer and rejects malformed discovery tags.

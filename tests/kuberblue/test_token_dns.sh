@@ -35,3 +35,23 @@ if grep -qx -- '--insecure' "$fixture_dir/curl-args"; then exit 1; fi
 test_dns=''
 if kuberblue_token_discover_cp > /dev/null 2>&1; then exit 1; fi
 echo 'PASS: Serve requests use DNS names with certificate verification'
+
+# The same tag spelling must work in token, HA and automatic role discovery.
+source artifacts/overrides_kuberblue/usr/libexec/kuberblue/variables.sh
+STATE_DIR="$fixture_dir"
+source <(sed -n '/^ha_is_first_cp ()/,/^# ====/{ /^# ====/d; p; }' artifacts/overrides_kuberblue/usr/libexec/kuberblue/setup/first_boot.sh)
+kuberblue_config_get () { printf '%s\n' "$test_tag"; }
+kuberblue_topology () { echo single; }
+KUBERBLUE_TAILSCALE_ENABLED=true
+test_dns=cp.example.ts.net.
+for test_tag in kuberblue-cp tag:kuberblue-cp
+do
+	[[ "$(kuberblue_token_discover_cp)" == cp.example.ts.net ]]
+	if ha_is_first_cp; then echo 'FAIL: existing HA peer missed' >&2; exit 1; fi
+	[[ "$(kuberblue_detect_node_role)" == worker ]]
+done
+for test_tag in 'tag:' 'tag:tag:kuberblue-cp' 'bad"tag'
+do
+	if kuberblue_token_discover_cp > /dev/null 2>&1; then exit 1; fi
+done
+echo 'PASS: prefixed and bare tags discover peers consistently'
