@@ -68,7 +68,7 @@ fi
 if [[ "$DO_INSTALL_LTS" == "true" ]]
 then 
     # Download the LTS kernel repository configuration
-    curl -fLo "/etc/yum.repos.d/kwizart-kernel-longterm-${LTS_VERSION}-fedora-${FEDORA_VERSION}.repo" "${LTS_REPO_URL}"
+    immutablue_curl -fLo "/etc/yum.repos.d/kwizart-kernel-longterm-${LTS_VERSION}-fedora-${FEDORA_VERSION}.repo" "${LTS_REPO_URL}"
     
     # Remove the standard kernel packages
     # The protect_running_kernel=false option allows removing the currently running kernel
@@ -244,7 +244,7 @@ fi
 
 # Install a modern build of Hugo for the documentation site
 # Fedora repositories have an older version, so we download a newer release directly
-curl -fLo /tmp/hugo.tar.gz "${HUGO_RELEASE_URL}"
+immutablue_curl -fLo /tmp/hugo.tar.gz "${HUGO_RELEASE_URL}"
 tar -xzf /tmp/hugo.tar.gz -C /usr/bin/ hugo
 rm /tmp/hugo.tar.gz
 # Verify the Hugo installation
@@ -253,23 +253,27 @@ hugo version
 # Install fzf-git for improved git command-line experience
 # This provides fuzzy finding for git commands
 # https://github.com/junegunn/fzf-git.sh
-curl -fLo /usr/bin/fzf-git "${FZF_GIT_URL}"
+immutablue_curl -fLo /usr/bin/fzf-git "${FZF_GIT_URL}"
 chmod a+x /usr/bin/fzf-git
 
 # Install Starship prompt for a better terminal experience
 # https://starship.rs/
-curl -fLo "/tmp/install_starship.sh" "${STARSHIP_URL}"
+immutablue_curl -fLo "/tmp/install_starship.sh" "${STARSHIP_URL}"
 sh "/tmp/install_starship.sh" -y -b "/usr/bin/"
 rm "/tmp/install_starship.sh"
 
 # Install just command runner
 # We install this manually as it somehow breaks the iso installer 
 # if its installed as a system level package
+# Downloaded to a file rather than piped into tar: immutablue_curl retries by
+# re-running curl, and a retry part-way through a pipe would hand tar a second
+# overlapping stream on top of what it already read.
 mkdir -p /tmp/just
-curl -fL "${JUST_RELEASE_URL}" | tar xz -C /tmp/just
+immutablue_curl -fLo /tmp/just.tar.gz "${JUST_RELEASE_URL}"
+tar xzf /tmp/just.tar.gz -C /tmp/just
 mv /tmp/just/just /usr/bin/just
 chmod +x /usr/bin/just
-rm -rf /tmp/just
+rm -rf /tmp/just /tmp/just.tar.gz
 
 # Install voxtype (push-to-talk voice-to-text).
 #
@@ -283,7 +287,7 @@ rm -rf /tmp/just
 # attacker than a substituted `just` would be.
 if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && [[ "$(is_option_in_build_options build_a_blue_workshop)" == "${FALSE}" ]]
 then
-    curl -fLo /tmp/voxtype "${VOXTYPE_RELEASE_URL}"
+    immutablue_curl -fLo /tmp/voxtype "${VOXTYPE_RELEASE_URL}"
     echo "${VOXTYPE_SHA256}  /tmp/voxtype" | sha256sum -c -
     install -D -m 0755 /tmp/voxtype /usr/bin/voxtype
     rm -f /tmp/voxtype
@@ -315,7 +319,7 @@ fi
 # Special packages for trueblue builds
 if [[ "$(is_option_in_build_options trueblue)" == "${TRUE}" ]]
 then 
-    curl -fLo /tmp/zerofs.tar.gz "${ZEROFS_RELEASE_URL}"
+    immutablue_curl -fLo /tmp/zerofs.tar.gz "${ZEROFS_RELEASE_URL}"
     zerofs_file="zerofs-amd64"
 
     if [[ "${MARCH}" == "aarch64" ]]
@@ -336,20 +340,20 @@ then
     # Only installed in dev/staging builds (KUBERBLUE_DEV=1)
     if [[ "$(is_option_in_build_options kuberblue_dev)" == "${TRUE}" ]]
     then
-        curl -fLo /tmp/chainsaw.tar.gz "${CHAINSAW_RELEASE_URL}"
+        immutablue_curl -fLo /tmp/chainsaw.tar.gz "${CHAINSAW_RELEASE_URL}"
         tar -xzf /tmp/chainsaw.tar.gz -C /usr/bin/ chainsaw
         chmod a+x /usr/bin/chainsaw
         rm /tmp/chainsaw.tar.gz
     fi
 
     # Flux CLI: GitOps continuous delivery for Kubernetes
-    curl -fLo /tmp/flux.tar.gz "${FLUX_RELEASE_URL}"
+    immutablue_curl -fLo /tmp/flux.tar.gz "${FLUX_RELEASE_URL}"
     tar -xzf /tmp/flux.tar.gz -C /usr/bin/ flux
     chmod a+x /usr/bin/flux
     rm /tmp/flux.tar.gz
 
     # CRIO: container runtime for Kubernetes (GCS bucket, binary at cri-o/bin/crio)
-    curl -fLo /tmp/crio.tar.gz "${CRIO_RELEASE_URL}"
+    immutablue_curl -fLo /tmp/crio.tar.gz "${CRIO_RELEASE_URL}"
     tar -xzf /tmp/crio.tar.gz -C /usr/bin/ --strip-components=2 cri-o/bin/crio
     chmod a+x /usr/bin/crio
     mkdir -p /usr/lib/systemd/system
@@ -357,7 +361,7 @@ then
     rm /tmp/crio.tar.gz
 
     # SOPS: secret operations for Kubernetes (not in Fedora repos — binary release)
-    curl -fLo /usr/bin/sops "${SOPS_RELEASE_URL}"
+    immutablue_curl -fLo /usr/bin/sops "${SOPS_RELEASE_URL}"
     chmod a+x /usr/bin/sops
 fi
 
@@ -470,11 +474,16 @@ m nixbld32 nixbld
 EOF
 
     # Install nix
-    curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | \
-        sh -s -- install linux \
+    # Fetched to a file rather than piped into sh, for the same reason as just
+    # above: a retried transfer must not be appended to bytes an interpreter
+    # has already started executing.
+    immutablue_curl --proto '=https' --tlsv1.2 -sSf -Lo /tmp/nix-installer.sh \
+        https://install.determinate.systems/nix
+    sh /tmp/nix-installer.sh install linux \
         --extra-conf "sandbox = false" \
         --init none \
         --no-confirm
+    rm -f /tmp/nix-installer.sh
     
     # Create systemd service for nix-daemon
     cp /nix/var/nix/profiles/default/lib/systemd/system/nix-daemon.service /etc/systemd/system/

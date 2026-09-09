@@ -54,6 +54,11 @@ immutablue:
     - bear
     - bemenu-run
     - binutils-devel
+    # bluetoothctl, for the gowl bar's `bluetooth' widget: adapter
+    # power, paired devices, and connect/disconnect from the panel.
+    # The widget hides itself where there is no adapter, so a desktop
+    # without one carries no dead icon.
+    - bluez
     - bpftrace
     - buildah
     - buildstream

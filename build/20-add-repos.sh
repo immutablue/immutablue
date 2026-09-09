@@ -132,7 +132,7 @@ do
     # Unlike before, a failed download is reported rather than silently
     # swallowed -- a missing repo means the packages it provides will be
     # missing from the image.
-    if ! curl -fLo "/etc/yum.repos.d/${repo}" "${repo_url}"
+    if ! immutablue_curl -fLo "/etc/yum.repos.d/${repo}" "${repo_url}"
     then
         echo "ERROR: failed to download ${repo} from ${repo_url}" >&2
         exit 1
