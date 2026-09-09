@@ -26,9 +26,10 @@ if ! systemctl is-active --quiet tailscaled; then
     systemctl enable --now tailscaled
 fi
 
-# Wait for tailscaled to be ready
+# Query the daemon without requiring login. Human-readable status exits
+# nonzero for NeedsLogin, which would prevent a fresh node reaching `up`.
 i=0
-until tailscale status &>/dev/null; do
+until tailscale status --json &>/dev/null; do
     i=$((i + 1))
     if [[ ${i} -ge 12 ]]; then
         echo "ERROR: tailscaled not ready after 60s"

@@ -1,0 +1,8 @@
+#+title: Repository review regression checks
+#+description: Behavior and validation of fixes from the repository review
+#+authors: Immutablue contributors
+
+* Tailscale bootstrap
+Daemon readiness uses =tailscale status --json=, which can report a logged-out daemon successfully. Authentication follows readiness, so a fresh node can use its configured auth key. Unreachable daemons still fail after bounded retries.
+
+Run =bash tests/kuberblue/test_tailscale_bootstrap.sh=. The complete bootstrap runs with temporary configuration and mocked external commands; it never changes host services or connects to a tailnet. Fedora validation packages are =bash=, =coreutils=, =grep=, =sed=, =gawk=, =make= and =ShellCheck=.
