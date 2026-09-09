@@ -9,7 +9,7 @@
 #   kuberblue_token_serve       — CP: serve join token via tailscale serve
 #   kuberblue_token_fetch       — Worker: discover CP and fetch join token
 #   kuberblue_token_stop_serve  — CP: stop serving the join token
-#   kuberblue_token_discover_cp — Find the control-plane's Tailscale IP
+#   kuberblue_token_discover_cp — Find the control-plane's Tailscale DNS name
 #
 # Usage: source this file, then call functions as needed.
 #   source /usr/libexec/kuberblue/kube_setup/kube_token_distribute.sh
@@ -66,7 +66,7 @@ kuberblue_token_serve () {
     fi
 
     echo "Serving join token via Tailscale HTTPS..."
-    # tailscale serve serves a local file over HTTPS on the Tailscale IP
+    # tailscale serve serves a local file over HTTPS on the Tailscale DNS name
     # --bg runs it in the background
     # --set-path sets the URL path
     tailscale serve --bg \
@@ -113,8 +113,8 @@ kuberblue_token_stop_serve () {
 }
 
 # kuberblue_token_discover_cp
-# Discover the control-plane node's Tailscale IP by filtering peers by tag.
-# Prints the Tailscale IPv4 address of the first matching CP.
+# Discover the control-plane node's Tailscale DNS name by filtering peers by tag.
+# Prints the Tailscale DNS name of the first matching CP.
 # Returns 1 if no CP is found.
 kuberblue_token_discover_cp () {
     local ts_tag
@@ -142,18 +142,24 @@ kuberblue_token_discover_cp () {
         return 1
     fi
 
-    # Find peer(s) with the CP tag and extract their Tailscale IP
-    local cp_ip
-    cp_ip="$(tailscale status --json 2>/dev/null \
-        | yq -r '[.Peer[] | select(.Tags // [] | .[] == "tag:'"${ts_tag}"'")] | .[0].TailscaleIPs[0] // ""')"
+    # Find peer(s) with the CP tag and extract their Tailscale DNS name
+    local cp_host
+    cp_host="$(tailscale status --json 2>/dev/null \
+        | yq -r '[.Peer[] | select(.Tags // [] | .[] == "tag:'"${ts_tag}"'")] | .[0].DNSName // ""')"
 
-    if [[ -z "${cp_ip}" ]] || [[ "${cp_ip}" == "null" ]]; then
+    if [[ -z "${cp_host}" ]] || [[ "${cp_host}" == "null" ]]; then
         echo "ERROR: No control-plane peer found with tag 'tag:${ts_tag}'" >&2
         echo "Ensure the CP node is tagged in Tailscale ACLs." >&2
         return 1
     fi
 
-    echo "${cp_ip}"
+    # Tailscale returns an absolute DNS name; omit its terminal dot for TLS.
+    cp_host="${cp_host%.}"
+    if ! [[ "${cp_host}" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]; then
+        echo "ERROR: invalid control-plane DNS name" >&2
+        return 1
+    fi
+    echo "${cp_host}"
 }
 
 # kuberblue_token_fetch [output_file]
@@ -166,26 +172,26 @@ kuberblue_token_fetch () {
 
     echo "Discovering control-plane node via Tailscale..."
 
-    local cp_ip=""
+    local cp_host=""
     local attempt=0
-    while [[ -z "${cp_ip}" ]]; do
+    while [[ -z "${cp_host}" ]]; do
         attempt=$((attempt + 1))
         if [[ ${attempt} -gt ${max_retries} ]]; then
             echo "ERROR: Could not discover control-plane after ${max_retries} attempts" >&2
             return 1
         fi
 
-        cp_ip="$(kuberblue_token_discover_cp 2>/dev/null)" || true
-        if [[ -z "${cp_ip}" ]]; then
+        cp_host="$(kuberblue_token_discover_cp 2>/dev/null)" || true
+        if [[ -z "${cp_host}" ]]; then
             echo "Waiting for control-plane to appear in tailnet... (${attempt}/${max_retries})"
             sleep "${retry_interval}"
         fi
     done
 
-    echo "Found control-plane at Tailscale IP: ${cp_ip}"
+    echo "Found control-plane at Tailscale DNS name: ${cp_host}"
     echo "Fetching join token..."
 
-    local token_url="https://${cp_ip}${KUBERBLUE_TOKEN_SERVE_PATH}"
+    local token_url="https://${cp_host}${KUBERBLUE_TOKEN_SERVE_PATH}"
     local join_cmd=""
 
     attempt=0
@@ -196,11 +202,9 @@ kuberblue_token_fetch () {
             return 1
         fi
 
-        # --insecure: TLS cert verification skipped because Tailscale WireGuard
-        # provides end-to-end encryption. The self-signed cert on tailscale serve
-        # is not CA-signed.
+        # Verify the Serve certificate using its tailnet DNS name.
         # --connect-timeout: don't hang forever if CP isn't ready yet
-        join_cmd="$(curl --silent --fail --insecure --connect-timeout 10 "${token_url}" 2>/dev/null)" || true
+        join_cmd="$(curl --silent --fail --connect-timeout 10 "${token_url}" 2>/dev/null)" || true
 
         if [[ -z "${join_cmd}" ]]; then
             echo "Waiting for token to be available at ${token_url}... (${attempt}/${max_retries})"

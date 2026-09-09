@@ -24,3 +24,6 @@ Docker group lookup uses NSS (=getent=), and a missing group is an expected no-o
 
 * Restore target validation
 Restore requires the live source (normally =/var=) to be a Btrfs subvolume, not a bind-mounted directory inside another subvolume. Unsupported layouts fail before mounting or renaming anything, protecting the root subvolume. This guard does not add snapshot support for directory-based =/var= layouts. Run =bash tests/test_snapshot_restore_guard.sh=; all filesystem operations are simulated in a temporary directory.
+
+* Tailscale Serve hostnames
+Control-plane discovery returns the peer DNSName, with its terminal dot removed, for token and HA certificate downloads. HTTPS therefore supplies the DNS SNI required by Serve and verifies the certificate. Missing DNS names fail discovery rather than falling back to an IP. Run =bash tests/kuberblue/test_token_dns.sh= with Fedora package =yq= in addition to the shell test tools; no tailnet connection is made.
