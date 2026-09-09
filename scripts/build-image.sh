@@ -47,7 +47,11 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
     echo "# Immutablue ${TYPE} config - no users configured" > "$CONFIG_FILE"
 fi
 
-cp "$CONFIG_FILE" "${BUILD_DIR}/config.toml"
+# The fallback already lives at the destination. Also accept callers passing
+# that path directly, or a symlink/hard link to the same configuration file.
+if [[ ! "$CONFIG_FILE" -ef "${BUILD_DIR}/config.toml" ]]; then
+    cp "$CONFIG_FILE" "${BUILD_DIR}/config.toml"
+fi
 
 sudo podman pull "$IMAGE_TAG"
 
