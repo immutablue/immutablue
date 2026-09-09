@@ -151,6 +151,94 @@ BUILDS=(
 
 
 # ============================================================================
+# NETWORK RETRY
+# ============================================================================
+# Every network fetch below goes through retry_with_backoff. A transient
+# failure -- a DNS hiccup, a forge briefly refusing a clone, a CDN dropping a
+# connection -- otherwise kills the whole dependency build, which is expensive:
+# it compiles a dozen C projects from source.
+#
+# Unlike the image build (see build/99-common.sh, which wraps curl alone) this
+# wraps arbitrary commands, because the fetches here are a mix of curl and
+# git clone.
+#
+# DEPS_FETCH_RETRIES is the number of retries *after* the first attempt, so the
+# default of 5 allows up to 6 attempts; 0 disables retrying. DEPS_FETCH_BASE_DELAY
+# is the first backoff in seconds and doubles on each failure, giving
+# 1, 2, 4, 8, 16. Both can be overridden from the environment.
+DEPS_FETCH_RETRIES="${DEPS_FETCH_RETRIES:-5}"
+DEPS_FETCH_BASE_DELAY="${DEPS_FETCH_BASE_DELAY:-1}"
+
+
+# Run a command, retrying with exponential backoff on failure.
+#
+# The command is re-executed from scratch on each attempt rather than relying
+# on whatever retry the tool has of its own. curl resolves a host once and
+# reuses that result for the lifetime of the invocation, so its --retry keeps
+# repeating the same answer when the failure IS the name resolution;
+# re-executing forces a fresh lookup. git clone has no retry at all.
+#
+# The command must be safe to re-run -- see clone_repo() for the case where it
+# is not.
+#
+# param $@: the command and its arguments
+# returns: 0 on success, otherwise the command's status from the final attempt
+retry_with_backoff () {
+	local attempts=$(( DEPS_FETCH_RETRIES + 1 ))
+	local attempt=1
+	local delay="${DEPS_FETCH_BASE_DELAY}"
+	local rc
+
+	while true
+	do
+		# '|| rc=$?' rather than an if-condition: a failed 'if' with no else
+		# yields status 0, which would swallow the real exit code.
+		rc=0
+		"$@" || rc=$?
+
+		if [[ ${rc} -eq 0 ]]
+		then
+			return 0
+		fi
+
+		if [[ ${attempt} -ge ${attempts} ]]
+		then
+			echo "ERROR: '$*' failed after ${attempts} attempt(s), last exit ${rc}" >&2
+			return "${rc}"
+		fi
+
+		echo "WARNING: '$*' attempt ${attempt}/${attempts} failed (exit ${rc}); retrying in ${delay}s" >&2
+		sleep "${delay}"
+		delay=$(( delay * 2 ))
+		attempt=$(( attempt + 1 ))
+	done
+}
+
+
+# One clone attempt, clearing the destination first.
+#
+# git clone refuses to write into a directory that exists and is non-empty, so
+# a retry after a partly-completed clone would fail permanently with "already
+# exists" -- an error that has nothing to do with what actually went wrong.
+#
+# param $1: repository URL
+# param $2: destination directory
+clone_repo_attempt () {
+	rm -rf "${2}"
+	git clone "${1}" "${2}"
+}
+
+
+# Clone a repository, retrying with exponential backoff.
+#
+# param $1: repository URL
+# param $2: destination directory
+clone_repo () {
+	retry_with_backoff clone_repo_attempt "${1}" "${2}"
+}
+
+
+# ============================================================================
 # BUILD FUNCTIONS
 # ============================================================================
 # Each function is self-contained: clone/build/install and any post-processing.
@@ -158,17 +246,17 @@ BUILDS=(
 
 # blue2go -- Immutablue installer tool for bootc images (bash script)
 build_blue2go () {
-	git clone https://gitlab.com/immutablue/blue2go.git "${BUILD_DIR}/blue2go"
+	clone_repo https://gitlab.com/immutablue/blue2go.git "${BUILD_DIR}/blue2go"
 }
 
 # cigar -- simple CI pipeline runner (bash script)
 build_cigar () {
-	git clone https://gitlab.com/immutablue/cigar.git "${BUILD_DIR}/cigar"
+	clone_repo https://gitlab.com/immutablue/cigar.git "${BUILD_DIR}/cigar"
 }
 
 # zapper -- process argv/env cleaner (C project, compiled with make)
 build_zapper () {
-	git clone https://github.com/hackerschoice/zapper "${BUILD_DIR}/zapper"
+	clone_repo https://github.com/hackerschoice/zapper "${BUILD_DIR}/zapper"
 	cd "${BUILD_DIR}/zapper" && make all
 }
 
@@ -179,6 +267,7 @@ build_nerd_fonts () {
 	local stage_dir="${BUILD_DIR}/nerd_fonts/usr/share/fonts/nerd-fonts"
 	local base_url="https://github.com/ryanoasis/nerd-fonts/releases/latest/download"
 	local fonts=(FiraCode FiraMono Hack)
+	local archive
 
 	mkdir -p "${stage_dir}"
 
@@ -186,7 +275,14 @@ build_nerd_fonts () {
 	do
 		echo "--- Downloading ${font} Nerd Font ---"
 		mkdir -p "${stage_dir}/${font}"
-		curl -fsSL "${base_url}/${font}.tar.xz" | tar -xJ -C "${stage_dir}/${font}"
+
+		# Downloaded to a file rather than piped into tar: a retry
+		# part-way through a pipe would hand tar a second, overlapping
+		# stream on top of the bytes it already read.
+		archive="/tmp/${font}.tar.xz"
+		retry_with_backoff curl -fsSLo "${archive}" "${base_url}/${font}.tar.xz"
+		tar -xJf "${archive}" -C "${stage_dir}/${font}"
+		rm -f "${archive}"
 
 		# Keep only .ttf files, remove READMEs/licenses
 		find "${stage_dir}/${font}" -type f ! -name '*.ttf' -delete
