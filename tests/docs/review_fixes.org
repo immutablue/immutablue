@@ -33,3 +33,6 @@ Token discovery, HA first-control-plane detection and automatic role detection a
 
 * TOML credential strings
 The image config generator encodes usernames, passwords and SSH keys as TOML basic strings, escaping quotes, backslashes and control characters. Interactive reads preserve backslashes too. Run =bash tests/test_image_config_strings.sh= to round-trip dummy credentials through the TOML parser and exercise the prompt reader.
+
+* Explicit kickstart precedence
+An explicit =--kickstart FILE= selects kickstart configuration before interactive prompts, non-interactive defaults or Lima defaults. The kickstart controls user creation; no default account is injected. =--no-user= is no longer required to preserve a kickstart. Run =bash tests/test_image_config_kickstart.sh= to check each automatic mode and missing-file failure.

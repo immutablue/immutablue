@@ -300,7 +300,9 @@ EOF
 
 mkdir -p "$(dirname "$OUTPUT")"
 
-if [[ "$NO_USER" -eq 1 ]]; then
+# An explicit kickstart owns installer customization, including user creation.
+# Select it before automatic user defaults or interactive prompts.
+if [[ "$NO_USER" -eq 1 ]] || [[ -n "$KICKSTART" ]]; then
     generate_minimal_config "$OUTPUT"
 elif [[ "$LIMA" -eq 1 ]]; then
     generate_lima_config "$OUTPUT"
