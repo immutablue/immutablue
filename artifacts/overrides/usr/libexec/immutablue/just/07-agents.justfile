@@ -224,11 +224,14 @@ install_immutablue_skill:
     # These paths are not guesses: they are the user-scope rows of ai-glib's
     # resource registry, which is the thing that actually resolves /immutablue.
     # The harnesses genuinely disagree -- ~/.claude/skills is read by four of
-    # them, ~/.agents/skills by two -- so the union is what gets full coverage.
+    # them, ~/.agents/skills by three -- so the union is what gets full coverage.
+    #
+    # ai-glib's own ~/.config/ai-glib/skills is deliberately NOT linked. ai-glib
+    # also searches ~/.agents/skills, so a second link there only made `ai` find
+    # the same skill twice.
     declare -A targets=(
-        ["${XDG_CONFIG_HOME:-${HOME}/.config}/ai-glib/skills"]="ai"
         ["${HOME}/.claude/skills"]="claude-code, grok, opencode, cursor"
-        ["${HOME}/.agents/skills"]="opencode, cursor"
+        ["${HOME}/.agents/skills"]="ai, opencode, cursor"
         ["${HOME}/.grok/skills"]="grok"
         ["${HOME}/.gemini/config/skills"]="antigravity"
         ["${XDG_CONFIG_HOME:-${HOME}/.config}/opencode/skills"]="opencode"
@@ -255,6 +258,15 @@ install_immutablue_skill:
         linked=$(( linked + 1 ))
     done
 
+    # Older installs also linked into ai-glib's own directory. Remove that link,
+    # but only when it is ours -- anything else under that name is the user's.
+    legacy="${XDG_CONFIG_HOME:-${HOME}/.config}/ai-glib/skills/immutablue"
+    if [[ -L "${legacy}" ]] && [[ "$(readlink -f "${legacy}")" == "$(readlink -f "${src}")" ]]
+    then
+        rm -f "${legacy}"
+        printf 'UNLINK %-51s (legacy: ai reads ~/.agents/skills)\n' "${legacy}"
+    fi
+
     echo
     echo "Installed ${linked} skill link(s) -> ${src}"
     echo
@@ -271,6 +283,8 @@ uninstall_immutablue_skill:
     src="{{ IMMUTABLUE_SKILL_SRC }}"
     removed=0
 
+    # ai-glib/skills is no longer linked by install_immutablue_skill, but stays
+    # in this list so a link left by an older install is still removed.
     for dir in "${XDG_CONFIG_HOME:-${HOME}/.config}/ai-glib/skills" \
                "${HOME}/.claude/skills" \
                "${HOME}/.agents/skills" \
@@ -423,4 +437,4 @@ crash_watch_status:
     printf '  %-22s %s\n' "defaults saved" \
         "$([[ -e "${HOME}/.config/ai-glib/config.yaml" ]] && echo yes || echo 'no -- run: immutablue ai_setup')"
     printf '  %-22s %s\n' "skill installed" \
-        "$([[ -L "${HOME}/.claude/skills/immutablue" || -L "${XDG_CONFIG_HOME:-${HOME}/.config}/ai-glib/skills/immutablue" ]] && echo yes || echo 'no -- run: immutablue install_immutablue_skill')"
+        "$([[ -L "${HOME}/.claude/skills/immutablue" || -L "${HOME}/.agents/skills/immutablue" ]] && echo yes || echo 'no -- run: immutablue install_immutablue_skill')"
