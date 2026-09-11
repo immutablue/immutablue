@@ -39,6 +39,72 @@ cat /usr/share/immutablue/image-info.json
 rpm-ostree status                       # or: bootc status
 ```
 
+## Skill baseline — maintained
+
+This skill is kept in step with specific commits: immutablue's own, and every
+component the image builds from source. They are recorded here and updated
+whenever the skill is — the rule is in `AGENTS.md` in the immutablue
+repository. The machine you are on may run an image built from newer *or older*
+components; `/usr/immutablue/deps/dep_info.json` records exactly which.
+
+When something here does not match what you see, or you are asked about a
+feature this skill does not cover, check how far the image and the skill have
+drifted before answering:
+
+<!-- skill-baseline:start — reviewed 2026-09-10; update with the skill, see AGENTS.md -->
+```bash
+# CHANGED = the image and this skill were written against different commits.
+while read -r name base; do
+    image=$(jq -r --arg n "${name}" 'if $n == "immutablue" then .immutablue.commit else (.deps[] | select(.name == $n) | .commit) end // empty' /usr/immutablue/deps/dep_info.json)
+    if [[ -z "${image}" ]]; then state="not in image"
+    elif [[ "${image}" == "${base}" ]]; then state="same"
+    else state="CHANGED"; fi
+    printf '%-20s %-13s skill=%.12s image=%.12s\n' "${name}" "${state}" "${base}" "${image}"
+done <<'EOF'
+immutablue           4b34affbf2f3d8dbdac466a6e52e5997aa379936
+ai-glib              093aba30a12aa46bcbec49f6447f030fcc12aae8
+bacon                a235a00214e5203b8d09f646ba56d22413e9c2de
+crispy               53b8fc7c5444fb3b94bdb689c5b160483d3a95c4
+gowl                 5287abbfae25cd08b40f5e0d22d31a61b19b856b
+gst                  226d9b5cc866be7b1dd83d641c2910c1141e409a
+gsurf                f9d2b0bd421e029ccdf41c15aed63090670b4ac0
+mcp-gdb-glib         626ee15456e15b37254dcfe0482e5e35586ee4a9
+mcp-glib             ccad2035d84fb081e5ca24c8cc2822c623e6161d
+mcp-kuberblue-glib   a11bcc211e7ccebd24c412a551e73fb396b7faa8
+podomation           30b7dcf9480b672e9b33387e115e5e74de8dd283
+yaml-glib            04c8dffa5d82deceb2cfecb5126f228e4d6f27ab
+EOF
+```
+<!-- skill-baseline:end -->
+
+cmacs is not in `dep_info.json`: it arrives from the cmacs container image, not a
+`deps/` submodule. The cmacs material in this skill was checked against cmacs
+`2de411d4d0f9`, and the manual installed under
+`/usr/share/emacs/*/doc_org/cmacs/` always matches the installed build — read
+that rather than diffing.
+
+For a component marked CHANGED, read the difference from its source at both
+commits. The recorded remotes are SSH URLs; clone over https unless the machine
+has keys. For immutablue itself use `https://gitlab.com/immutablue/immutablue.git`.
+
+```bash
+d=gowl; base=<its commit in the list above>
+remote=$(jq -r --arg d "$d" '.deps[] | select(.name == $d) | .remote' /usr/immutablue/deps/dep_info.json)
+image=$(jq -r --arg d "$d" '.deps[] | select(.name == $d) | .commit' /usr/immutablue/deps/dep_info.json)
+git clone --filter=blob:none "${remote/git@gitlab.com:/https://gitlab.com/}" "/tmp/drift/$d"
+cd "/tmp/drift/$d"
+git log --oneline "$base..$image"           # in the image, not in this skill: learn it from source
+git log --oneline "$image..$base"           # in this skill, not in the image: this machine lacks it
+git diff --stat "$base" "$image" -- docs '*.org' '*.md'
+```
+
+Drift runs both ways, and both matter. A newer image can have features this
+skill has never heard of: answer from the component's docs *at the image's
+commit*, and say the skill is behind. An older image may lack something the
+skill describes: check `git log "$image..$base"` before telling anyone to use it.
+Either way the skill lives under `/usr` and is not edited on the machine — the
+fix is an update to the skill in the immutablue repository.
+
 ## Topic guides
 
 The guides live in `references/` beside this file. Read only the one the task needs.

@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI coding agents (Claude Code, Codex, opencode, grok, and others) when working with code in this repository.
 
 ## Project Overview
 
@@ -280,6 +280,51 @@ Structure:
 - `system-components/` - Scheduled scripts, systemd, header library
 - `variants/` - Variant-specific documentation
 - `building/` - Architecture, customization, testing
+
+## The /immutablue agent skill
+
+`artifacts/overrides/usr/share/immutablue/skills/immutablue/` is an agent skill
+shipped in the image and symlinked into every agent harness by
+`immutablue install_immutablue_skill`. `SKILL.md` is the router; topic guides live
+in `references/` and follow the skill file-structure convention: `SKILL.md` links
+a guide as `references/<guide>.md`, and guides link each other by bare filename.
+Keep the table of guides in `docs/content/user-guide/agent-skill.md` in step when
+adding or removing one. A skill-only change needs no image build to verify —
+check that every relative link resolves.
+
+### The baseline is maintained
+
+`SKILL.md` records, between the `skill-baseline` markers, the commit of
+immutablue and of every `deps/` submodule that the skill was last written
+against, plus the cmacs commit its cmacs material was checked against. On a
+machine, an agent compares that list with `/usr/immutablue/deps/dep_info.json` and
+reads whatever changed between the two from source, in either direction. That
+only works if the list is honest:
+
+- **Update it in the same commit as the skill change it covers**, along with the
+  review date in the start marker.
+- **Change a line only for a component whose changes you actually reviewed into
+  the skill.** A pin that moved without being reviewed keeps its old line — that
+  gap is exactly what the drift check exists to surface. A full review of the
+  skill updates every line.
+- cmacs is not a submodule — it arrives from `quay.io/zachpodbielniak/cmacs` — so
+  its commit is recorded in the prose under the block, not in the list.
+
+The current values, to copy from:
+
+```bash
+git rev-parse HEAD
+git submodule status deps/ | awk '{sub(/^[-+U ]/, "", $1); print $2, $1}' | sed 's|^deps/||' | column -t
+git -C ../cmacs rev-parse HEAD
+```
+
+And what a component gained since the skill last covered it — read this before
+deciding whether the skill needs more:
+
+```bash
+git -C deps/<name> log --oneline <baseline>..HEAD
+git -C deps/<name> diff --stat <baseline>..HEAD -- docs '*.org' '*.md'
+```
 
 ## Code Style
 
