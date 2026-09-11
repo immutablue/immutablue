@@ -18,7 +18,7 @@
 
 [Unit]
 Description=Immutablue crash watcher
-Documentation=file:///usr/share/immutablue/skills/immutablue/crash-analysis.md
+Documentation=file:///usr/share/immutablue/skills/immutablue/references/crash-analysis.md
 PartOf=graphical-session.target
 After=graphical-session.target
 

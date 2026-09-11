@@ -10,7 +10,7 @@ description: >
   immutablue-doctor, immutablue-update, immutablue-snapshot, rollback, rebase,
   deployment, coredump, segfault, "why did X crash", packages.yaml, settings.yaml,
   artifacts/overrides, gowl, gowlbar, bar plugin, cmacs, dictation, voxtype.
-  Covers reporting a confirmed Immutablue bug -- see reporting.md.
+  Covers reporting a confirmed Immutablue bug.
 ---
 
 # Immutablue
@@ -30,7 +30,7 @@ comes from forgetting one of them:
 ## Before doing anything else
 
 Read what this machine actually is. Variants differ a great deal — Nucleus is
-headless, Kuberblue is a Kubernetes node, Trueblue is ZFS-on-root — and advice for
+headless, Kuberblue is a Kubernetes node, Trueblue adds ZFS and the LTS kernel — and advice for
 one is wrong for another.
 
 ```bash
@@ -41,13 +41,17 @@ rpm-ostree status                       # or: bootc status
 
 ## Topic guides
 
-- [`configuration.md`](configuration.md) — settings.yaml cascade, `/etc` vs `/usr`, dconf defaults, what is safe to edit
-- [`packages.md`](packages.md) — installing software, and the decision tree that keeps you off `rpm-ostree install`
-- [`updates.md`](updates.md) — updating, `/var` snapshots, deployment rollback, rebasing between variants
-- [`desktop.md`](desktop.md) — the gowl compositor, cmacs, gowlbar plugins, dictation
-- [`crash-analysis.md`](crash-analysis.md) — analysing a coredump and deciding whether Immutablue is at fault
-- [`building.md`](building.md) — changing the image: packages.yaml, overrides, build scripts, variants, tests
-- [`reporting.md`](reporting.md) — filing an Immutablue bug that can actually be acted on
+The guides live in `references/` beside this file. Read only the one the task needs.
+
+This skill is always installed at `/usr/share/immutablue/skills/immutablue/`. If your harness has not told you this skill's directory, resolve the paths below against that: `references/packages.md` is `/usr/share/immutablue/skills/immutablue/references/packages.md`. The guides link to each other by bare filename, relative to `references/`.
+
+- [`references/configuration.md`](references/configuration.md) — settings.yaml cascade, `/etc` vs `/usr`, dconf defaults, what is safe to edit
+- [`references/packages.md`](references/packages.md) — installing software, and the decision tree that keeps you off `rpm-ostree install`
+- [`references/updates.md`](references/updates.md) — updating, `/var` snapshots, deployment rollback, rebasing between variants
+- [`references/desktop.md`](references/desktop.md) — the gowl compositor, cmacs, gowlbar plugins, dictation
+- [`references/crash-analysis.md`](references/crash-analysis.md) — analysing a coredump and deciding whether Immutablue is at fault
+- [`references/building.md`](references/building.md) — changing the image: packages.yaml, overrides, build scripts, variants, tests
+- [`references/reporting.md`](references/reporting.md) — filing an Immutablue bug that can actually be acted on
 
 ## Critical rules
 
@@ -58,7 +62,7 @@ and `/usr/immutablue/deps/dep_info.json` records the exact commit and remote of
 every component this image builds from git.
 
 **Never suggest `dnf install`.** There is no `dnf` on the host in the sense that
-matters. See [`packages.md`](packages.md) for what to do instead; the answer is
+matters. See [`references/packages.md`](references/packages.md) for what to do instead; the answer is
 usually a flatpak, a distrobox, or a change to the image.
 
 **`rpm-ostree install` is a last resort, not a first answer.** It creates a layered
@@ -130,16 +134,16 @@ and `doctor_json` is the cheapest way for an agent to get structured system stat
 ## Deciding what kind of change you are making
 
 1. **A setting Immutablue already exposes?** → `/etc/immutablue/settings.yaml` or
-   `~/.config/immutablue/settings.yaml`. See [`configuration.md`](configuration.md).
-2. **Installing software?** → the decision tree in [`packages.md`](packages.md).
+   `~/.config/immutablue/settings.yaml`. See [`references/configuration.md`](references/configuration.md).
+2. **Installing software?** → the decision tree in [`references/packages.md`](references/packages.md).
    Flatpak, brew and distrobox come before layering.
 3. **Something that should be true on every machine you build?** → change the
-   image. See [`building.md`](building.md).
-4. **Desktop, compositor or bar behaviour?** → [`desktop.md`](desktop.md).
+   image. See [`references/building.md`](references/building.md).
+4. **Desktop, compositor or bar behaviour?** → [`references/desktop.md`](references/desktop.md).
    gowl config is YAML plus optional C; bar plugins are cloned into
    `~/.config/gowl/bar-plugins/`, never edited in place under `/usr`.
-5. **Something crashed?** → [`crash-analysis.md`](crash-analysis.md).
-6. **Broken after an update?** → [`updates.md`](updates.md). Deployment rollback
+5. **Something crashed?** → [`references/crash-analysis.md`](references/crash-analysis.md).
+6. **Broken after an update?** → [`references/updates.md`](references/updates.md). Deployment rollback
    and `/var` snapshot restore are separate recoveries and a bad update usually
    wants both.
 
@@ -147,14 +151,14 @@ and `doctor_json` is the cheapest way for an agent to get structured system stat
 
 | Request | Answer |
 |---------|--------|
-| "Install `<gui app>`" | `flatpak install` — see [`packages.md`](packages.md) |
+| "Install `<gui app>`" | `flatpak install` — see [`references/packages.md`](references/packages.md) |
 | "Install `<cli tool>`" | `brew install`, or a distrobox; layering last |
-| "Install a build dependency" | Do not. Add it to `packages.yaml` and rebuild — [`building.md`](building.md) |
+| "Install a build dependency" | Do not. Add it to `packages.yaml` and rebuild — [`references/building.md`](references/building.md) |
 | "Enable/disable a service" | `systemctl` for now; `packages.yaml` `services_*` to make it stick |
-| "Change a GNOME default" | dconf — [`configuration.md`](configuration.md) |
+| "Change a GNOME default" | dconf — [`references/configuration.md`](references/configuration.md) |
 | "Undo the last update" | `immutablue rollback`, and consider `immutablue restore_snapshot` |
-| "Move to the NVIDIA/LTS/ZFS variant" | `immutablue rebase` — [`updates.md`](updates.md) |
-| "Why did `<program>` crash?" | [`crash-analysis.md`](crash-analysis.md) |
-| "Add a package to the image" | `packages.yaml` — [`building.md`](building.md) |
-| "Ship a config file in the image" | `artifacts/overrides/` — [`building.md`](building.md) |
-| "Report this as a bug" | [`reporting.md`](reporting.md) |
+| "Move to the NVIDIA/LTS/ZFS variant" | `immutablue rebase` — [`references/updates.md`](references/updates.md) |
+| "Why did `<program>` crash?" | [`references/crash-analysis.md`](references/crash-analysis.md) |
+| "Add a package to the image" | `packages.yaml` — [`references/building.md`](references/building.md) |
+| "Ship a config file in the image" | `artifacts/overrides/` — [`references/building.md`](references/building.md) |
+| "Report this as a bug" | [`references/reporting.md`](references/reporting.md) |
