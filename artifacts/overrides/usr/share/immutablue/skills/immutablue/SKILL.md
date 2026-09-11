@@ -45,10 +45,16 @@ The guides live in `references/` beside this file. Read only the one the task ne
 
 This skill is always installed at `/usr/share/immutablue/skills/immutablue/`. If your harness has not told you this skill's directory, resolve the paths below against that: `references/packages.md` is `/usr/share/immutablue/skills/immutablue/references/packages.md`. The guides link to each other by bare filename, relative to `references/`.
 
+- [`references/troubleshooting.md`](references/troubleshooting.md) — **start here when something is broken**: symptom → first check → guide, across the whole system
 - [`references/configuration.md`](references/configuration.md) — settings.yaml cascade, `/etc` vs `/usr`, dconf defaults, what is safe to edit
 - [`references/packages.md`](references/packages.md) — installing software, and the decision tree that keeps you off `rpm-ostree install`
 - [`references/updates.md`](references/updates.md) — updating, `/var` snapshots, deployment rollback, rebasing between variants
-- [`references/desktop.md`](references/desktop.md) — the gowl compositor, cmacs, gowlbar plugins, dictation
+- [`references/desktop.md`](references/desktop.md) — which session is running, polkit under gowl, dictation, and a map of the desktop guides
+- [`references/gowl.md`](references/gowl.md) — configuring gowl (YAML and C), keybinds, rules, and writing and loading compositor modules
+- [`references/gowl-bar.md`](references/gowl-bar.md) — the bar: layout, widgets, and writing, loading and hot-reloading plugins
+- [`references/cmacs.md`](references/cmacs.md) — configuring cmacs (`init.el`, `init.c`, `init.bacon`), and the manuals installed on the machine
+- [`references/gst.md`](references/gst.md) — configuring gst, the terminal
+- [`references/gsurf.md`](references/gsurf.md) — configuring gsurf, the browser, standalone and inside cmacs
 - [`references/crash-analysis.md`](references/crash-analysis.md) — analysing a coredump and deciding whether Immutablue is at fault
 - [`references/building.md`](references/building.md) — changing the image: packages.yaml, overrides, build scripts, variants, tests
 - [`references/reporting.md`](references/reporting.md) — filing an Immutablue bug that can actually be acted on
@@ -88,6 +94,8 @@ writable and is a debugging tool, not a deployment mechanism.
 | `/usr/immutablue/` | `settings.yaml`, `packages.yaml`, image defaults | no |
 | `/usr/libexec/immutablue/` | scripts, justfiles, header library | no |
 | `/usr/share/immutablue/` | `image-info.json`, skills, dconf examples | no |
+| `/usr/immutablue/docs/content/` | Immutablue's full documentation, as markdown, matching this image | no |
+| `/usr/share/emacs/*/doc_org/cmacs/` | the cmacs manual and the manuals of everything it embeds | no |
 | `/usr/immutablue/deps/dep_info.json` | commit + remote of every in-house component | no |
 | `/etc/immutablue/` | system-level setting overrides | yes |
 | `/etc/immutablue/scripts/{system,user}/<mode>/` | your hook scripts: `on_boot`, `daily`, `pre_update`, … | yes |
@@ -138,6 +146,11 @@ system and user services, crash capture, and variant-specific checks. Run it
 before forming a theory: it answers most "why is this broken" questions directly,
 and `doctor_json` is the cheapest way for an agent to get structured system state.
 
+When `doctor` is clean and something is still wrong, go to
+[`references/troubleshooting.md`](references/troubleshooting.md): it maps symptoms across the
+system, the desktop and every in-house program to a first check and the guide
+with the detail.
+
 ## Deciding what kind of change you are making
 
 1. **A setting Immutablue already exposes?** → `/etc/immutablue/settings.yaml` or
@@ -146,9 +159,11 @@ and `doctor_json` is the cheapest way for an agent to get structured system stat
    Flatpak, brew and distrobox come before layering.
 3. **Something that should be true on every machine you build?** → change the
    image. See [`references/building.md`](references/building.md).
-4. **Desktop, compositor or bar behaviour?** → [`references/desktop.md`](references/desktop.md).
-   gowl config is YAML plus optional C; bar plugins are cloned into
-   `~/.config/gowl/bar-plugins/`, never edited in place under `/usr`.
+4. **Desktop, compositor or bar behaviour?** → [`references/gowl.md`](references/gowl.md) for the compositor,
+   [`references/gowl-bar.md`](references/gowl-bar.md) for the bar, [`references/cmacs.md`](references/cmacs.md) for the editor.
+   Configuration is YAML plus optional crispy C in `~/.config/<program>/`; nothing is
+   ever edited in place under `/usr`. For how any cmacs component works, read the
+   manual installed at `/usr/share/emacs/*/doc_org/cmacs/` before answering from memory.
 5. **Something crashed?** → [`references/crash-analysis.md`](references/crash-analysis.md).
 6. **Broken after an update?** → [`references/updates.md`](references/updates.md). Deployment rollback
    and `/var` snapshot restore are separate recoveries and a bad update usually
@@ -173,8 +188,12 @@ and `doctor_json` is the cheapest way for an agent to get structured system stat
 | "Add a package to the image" | `packages.yaml` — [`references/building.md`](references/building.md) |
 | "Ship a config file in the image" | `artifacts/overrides/` — [`references/building.md`](references/building.md) |
 | "Report this as a bug" | [`references/reporting.md`](references/reporting.md) |
-| "Write / reload a bar plugin" | `~/.config/gowl/bar-plugins/`, `gowl bar-plugin-reload` — [`references/desktop.md`](references/desktop.md) |
-| "Add a gowl compositor module" | `.so` in the system module dir, or C in `~/.config/gowl/config.c` — [`references/desktop.md`](references/desktop.md) |
+| "Write / reload a bar plugin" | `~/.config/gowl/bar-plugins/`, `gowl bar-plugin-reload` — [`references/gowl-bar.md`](references/gowl-bar.md) |
+| "Write a gowl compositor module" | a `GowlModule` `.so`, loaded from `config.c` or `CMACS_GOWL_MODULE_DIR` — [`references/gowl.md`](references/gowl.md) |
+| "Change a gowl keybind / rule / effect" | `~/.config/gowl/config.yaml` — [`references/gowl.md`](references/gowl.md) |
+| "Configure cmacs" / "where is the cmacs manual" | `M-x cmacs-manual`, `/usr/share/emacs/*/doc_org/cmacs/` — [`references/cmacs.md`](references/cmacs.md) |
+| "Change the terminal font / colours / keys" | `~/.config/gst/config.yaml` — [`references/gst.md`](references/gst.md) |
+| "Configure the browser" | `~/.config/gsurf/config.yaml`, or Elisp under cmacs — [`references/gsurf.md`](references/gsurf.md) |
 | "Run this every day / at boot / before updates" | `/etc/immutablue/scripts/…` — [`references/automation.md`](references/automation.md) |
 | "Enable VMs" | `immutablue enable_libvirt` — [`references/hardware.md`](references/hardware.md) |
 | "Video is stuttering / battery dies in the browser" | VA-API check — [`references/hardware.md`](references/hardware.md) |

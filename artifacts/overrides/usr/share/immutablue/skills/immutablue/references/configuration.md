@@ -108,8 +108,11 @@ own cascades. Do not try to drive them through `settings.yaml`:
 
 | Component | Config |
 |-----------|--------|
-| gowl compositor | `~/.config/gowl/` — YAML plus optional C; see [`desktop.md`](desktop.md) |
-| cmacs | `~/.config/cmacs/init.el`, or `init.c` via crispy |
+| gowl compositor | `~/.config/gowl/` — YAML plus optional C; see [`gowl.md`](gowl.md) |
+| the gowl bar | `~/.config/gowl/bar-plugins/`; see [`gowl-bar.md`](gowl-bar.md) |
+| cmacs | `init.el`, `~/.config/cmacs/init.c`, `init.bacon`; see [`cmacs.md`](cmacs.md) |
+| gst | `~/.config/gst/config.yaml`, `config.c`; see [`gst.md`](gst.md) |
+| gsurf | `~/.config/gsurf/config.yaml`, `config.c`, or Elisp under cmacs; see [`gsurf.md`](gsurf.md) |
 | voxtype dictation | `~/.config/voxtype/config.toml`, or `voxtype configure` |
 | `ai` (ai-glib) | `/usr/share/ai-glib/config.yaml` → `/etc/ai-glib/config.yaml` → `~/.config/ai-glib/config.yaml`, or `ai --setup` |
 

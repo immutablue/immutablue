@@ -114,7 +114,7 @@ is actually implicated.
 compositor. gowl guards every plugin entry point and quarantines a plugin that
 faults, journaling it to `$XDG_STATE_HOME/gowl/bar-plugins.journal`. If the crash
 is in or under gowl, read that journal before anything else — see
-[`desktop.md`](desktop.md).
+[`gowl-bar.md`](gowl-bar.md).
 
 ## Is it Immutablue's fault?
 
