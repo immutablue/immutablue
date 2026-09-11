@@ -52,9 +52,9 @@ load:
   or rebuilt `.so` means restarting the session. `reload_config` (the IPC
   module) and `M-x gowl-reload-config` reload *configuration*, not modules.
 
-The module development guide (`docs/modules.org` in the gowl tree) mentions
-`~/.local/lib/gowl/modules/` as a user location. The shipped binary does not
-list it; check `gowl --help` on the machine before relying on it.
+There is no per-user module directory. A `.so` under `~/.local` or `~/.config`
+is never picked up as a compositor module, whatever an older guide may say;
+`gowl --help` on the machine prints the two directories that are searched.
 
 ### The C config: crispy in your home directory
 
