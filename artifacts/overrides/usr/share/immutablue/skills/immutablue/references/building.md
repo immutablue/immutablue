@@ -114,6 +114,27 @@ existing ones, with `_x86_64`/`_aarch64` variants selected by `MARCH`.
 2. Read it with `immutablue-settings .path.to.key`, handling empty and `null`.
 3. Document it in `docs/content/user-guide/settings.md`.
 
+## Producing something bootable
+
+`make build` produces a container image. Everything else is derived from it, and
+every one of these refuses on `DISTROLESS=1`:
+
+| Target | Produces |
+|--------|----------|
+| `make iso` / `make iso-config` | an installer ISO; `anaconda-iso` for the Anaconda flavour |
+| `make qcow2` / `make qcow2-config` | a VM disk; `qcow2-config` prompts for user, password, wheel, SSH key |
+| `make raw` / `make vhd` / `make vmdk` | disk images for bare metal, Hyper-V, VMware |
+| `make ami` / `make gce` | cloud images, with `push_ami` / `push_gce` to upload |
+| `make LIMA=1 qcow2 && make lima` | a Lima VM definition; then `lima-start`, `lima-shell`, `lima-stop`, `lima-delete` |
+| `make run_qcow2` / `run_iso_qemu` / `run_raw_qemu` | boot the artefact in QEMU locally |
+
+Lima is the quickest way to boot what you just built on the same machine. Output
+paths come from `immutablue.gen.*` in `settings.yaml`.
+
+`make build-deps` / `push-deps` rebuild and publish the deps container;
+`build-cyan-deps` / `push-cyan-deps` do the NVIDIA kmods. `make sbom` writes a
+software bill of materials for the image.
+
 ## Tests
 
 ```bash

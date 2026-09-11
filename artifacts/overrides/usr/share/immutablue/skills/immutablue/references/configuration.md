@@ -52,6 +52,11 @@ groups today:
 - `immutablue.header.*` — connectivity detection and preferred terminal
 - `immutablue.profile.*` — starship, brew completions, fzf-git, `ulimit -n`
 - `services.syncthing.*`, `kuberblue.*` — per-service and variant settings
+- `immutablue.run_first_boot_*` — whether the first-boot wizard and scripts run
+
+`immutablue.profile.*` drives `/etc/profile.d/25-immutablue.sh` and
+`immutablue.header.*` drives the shared bash header; both are described in
+[`automation.md`](automation.md).
 
 ## GNOME settings (dconf)
 

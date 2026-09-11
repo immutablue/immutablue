@@ -17,6 +17,12 @@ holds a lock so two updates cannot overlap, and inhibits sleep and shutdown for
 the duration. An OS update is staged and applies at the **next boot**; nothing
 changes underneath a running system.
 
+Machine-specific work can be attached to an update without editing
+`immutablue-update` (which lives in `/usr`): scripts in
+`/etc/immutablue/scripts/user/pre_update/` run before anything is touched, and
+`post_update/` runs only after every component succeeded. Run as root to use the
+`system/` trees instead. See [`automation.md`](automation.md).
+
 ```bash
 rpm-ostree status          # what is booted, what is staged, what is the rollback
 bootc status

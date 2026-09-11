@@ -52,6 +52,10 @@ This skill is always installed at `/usr/share/immutablue/skills/immutablue/`. If
 - [`references/crash-analysis.md`](references/crash-analysis.md) — analysing a coredump and deciding whether Immutablue is at fault
 - [`references/building.md`](references/building.md) — changing the image: packages.yaml, overrides, build scripts, variants, tests
 - [`references/reporting.md`](references/reporting.md) — filing an Immutablue bug that can actually be acted on
+- [`references/recipes.md`](references/recipes.md) — every `immutablue` recipe, by justfile, including the variant ones
+- [`references/automation.md`](references/automation.md) — scheduled and event hooks, the update hooks, the bash header, `immutablue-settings`, profile.d, first-boot
+- [`references/hardware.md`](references/hardware.md) — libvirt, video acceleration, suspend, hardware overrides, print-to-cmacs, variant hardware recipes
+- [`references/crash-capture.md`](references/crash-capture.md) — the *kernel* crash policy: panics, watchdog, netconsole; distinct from coredump analysis
 
 ## Critical rules
 
@@ -86,6 +90,8 @@ writable and is a debugging tool, not a deployment mechanism.
 | `/usr/share/immutablue/` | `image-info.json`, skills, dconf examples | no |
 | `/usr/immutablue/deps/dep_info.json` | commit + remote of every in-house component | no |
 | `/etc/immutablue/` | system-level setting overrides | yes |
+| `/etc/immutablue/scripts/{system,user}/<mode>/` | your hook scripts: `on_boot`, `daily`, `pre_update`, … | yes |
+| `/etc/immutablue/setup/` | first-boot completion markers (`did_first_boot_setup`, …) | wheel |
 | `~/.config/immutablue/` | user-level setting overrides | yes |
 | `/var/`, `~/` | all mutable state | yes |
 
@@ -111,6 +117,7 @@ grep -A 30 '^recipe_name' /usr/libexec/immutablue/just/*.justfile
 Only some recipes carry a `[group(...)]` tag — currently `agents`, `rollback` and
 `dictation`. The rest are ungrouped and appear in the flat listing, so do not
 assume a group exists for a topic: list the recipes and read the names.
+[`references/recipes.md`](references/recipes.md) is that list with a line per recipe.
 
 Recipes are spread across numbered justfiles, and that numbering is the map:
 `00-base` (install, update, doctor, services), `03-power`, `05-hardware-overrides`,
@@ -146,6 +153,10 @@ and `doctor_json` is the cheapest way for an agent to get structured system stat
 6. **Broken after an update?** → [`references/updates.md`](references/updates.md). Deployment rollback
    and `/var` snapshot restore are separate recoveries and a bad update usually
    wants both.
+7. **Something should run on a schedule, at boot, or around an update?** → a script in
+   `/etc/immutablue/scripts/`, not a hand-written timer. [`references/automation.md`](references/automation.md).
+8. **The whole machine froze or rebooted itself?** → [`references/crash-capture.md`](references/crash-capture.md),
+   not crash-analysis; there is no coredump for a kernel panic.
 
 ## Common requests
 
@@ -162,3 +173,10 @@ and `doctor_json` is the cheapest way for an agent to get structured system stat
 | "Add a package to the image" | `packages.yaml` — [`references/building.md`](references/building.md) |
 | "Ship a config file in the image" | `artifacts/overrides/` — [`references/building.md`](references/building.md) |
 | "Report this as a bug" | [`references/reporting.md`](references/reporting.md) |
+| "Write / reload a bar plugin" | `~/.config/gowl/bar-plugins/`, `gowl bar-plugin-reload` — [`references/desktop.md`](references/desktop.md) |
+| "Add a gowl compositor module" | `.so` in the system module dir, or C in `~/.config/gowl/config.c` — [`references/desktop.md`](references/desktop.md) |
+| "Run this every day / at boot / before updates" | `/etc/immutablue/scripts/…` — [`references/automation.md`](references/automation.md) |
+| "Enable VMs" | `immutablue enable_libvirt` — [`references/hardware.md`](references/hardware.md) |
+| "Video is stuttering / battery dies in the browser" | VA-API check — [`references/hardware.md`](references/hardware.md) |
+| "Machine hard-locks / reboots by itself" | [`references/crash-capture.md`](references/crash-capture.md) |
+| "Re-run first-boot setup" | `immutablue initial_setup` — [`references/automation.md`](references/automation.md) |

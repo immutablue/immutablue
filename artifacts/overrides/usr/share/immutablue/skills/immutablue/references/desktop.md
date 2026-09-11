@@ -32,28 +32,78 @@ anything nontrivial it is preferred over a large declarative blob.
 
 ## Compositor modules
 
-gowl's features are GModule `.so` plugins loaded at runtime, each a GObject
-subclass of `GowlModule` implementing compositor interfaces. The shipped set
-covers layouts (tile, monocle, fibonacci, scrolling, centeredmaster), effects
-(blur, alpha, roundcorners, animation, magnifier, cube), and behaviour
-(scratchpad, swallow, dropdown, expo, switcher, screenlock, screenshot,
-recording, ipc, mcp).
+gowl's features are GModule `.so` plugins, each a GObject subclass of
+`GowlModule` exporting one symbol, `gowl_module_register()`, which returns the
+type. The shipped set (`gowl --list-modules`) covers layouts (tile, monocle,
+float, scrolling, centeredmaster, fibonacci), effects (animation, cube, expo,
+switcher, magnifier, blur), and behaviour (autostart, scratchpad, swallow,
+pertag, movestack, vanitygaps, copyhighlight, ipc, mcp).
 
-The source is not on the machine — it is built in the deps container, not shipped.
-`/usr/immutablue/deps/dep_info.json` records gowl's remote and exact commit, and
-the reference below is worth fetching rather than guessing from, because it is
-more current than any summary here:
+How they load is worth knowing precisely, because it is **not** how bar plugins
+load:
+
+- Only modules with `enabled: true` under `modules:` in the YAML are loaded.
+  `tile`, `monocle` and `float` are on unless explicitly disabled.
+- Each is found as `<name>.so` in `<exe-dir>/modules/` (a development tree) and
+  then `/usr/lib64/gowl/modules/`. That is the whole search path on the shipped
+  binary — `gowl --help` prints it. There is no home-directory module scan, no
+  `.c` compilation, and no load/unload/reload IPC for compositor modules.
+- Loading happens once, at startup, before the compositor object exists. A new
+  or rebuilt `.so` means restarting the session. `reload_config` (the IPC
+  module) and `M-x gowl-reload-config` reload *configuration*, not modules.
+
+The module development guide (`docs/modules.org` in the gowl tree) mentions
+`~/.local/lib/gowl/modules/` as a user location. The shipped binary does not
+list it; check `gowl --help` on the machine before relying on it.
+
+### The C config: crispy in your home directory
+
+The supported way to run your own compositor C code from `$HOME` is
+`~/.config/gowl/config.c`. At startup `GowlConfigCompiler` compiles it through
+**crispy** to a `.so` cached by content hash in `$XDG_CACHE_HOME/gowl/`, dlopens
+it, and calls `gowl_config_init()`; after the compositor is up it calls the
+optional `gowl_config_ready()`. Compile failure logs a warning and falls back to
+the YAML config, so a broken `config.c` does not lock you out.
+
+```bash
+gowl --generate-c-config > ~/.config/gowl/config.c     # a commented template
+gowl --recompile                                       # compile only, report errors, exit
+gowl --no-c-config                                     # boot without it
+```
+
+Extra compiler flags go in the source: `#define CRISPY_PARAMS "$(pkg-config
+--cflags --libs json-glib-1.0)"` — shell expansion runs at compile time. Inside,
+`extern GowlCompositor *gowl_compositor; extern GowlConfig *gowl_config;` are
+resolved at dlopen. `gowl_config_init` runs before the compositor starts, so
+treat `gowl_compositor` as usable only from `gowl_config_ready`. Precedence is
+built-in < YAML < C < CLI, so C wins over YAML.
+
+```c
+#include <gowl/gowl.h>
+#include <xkbcommon/xkbcommon.h>
+
+G_MODULE_EXPORT gboolean
+gowl_config_init(void)
+{
+	g_object_set(gowl_config, "border-width", 3, "mfact", 0.60, NULL);
+	gowl_config_add_keybind_full(gowl_config, GOWL_KEY_MOD_LOGO, XKB_KEY_Return,
+	                             GOWL_ACTION_SPAWN, "gst", "Terminal");
+	return TRUE;
+}
+```
+
+"Reloading" a C config is: edit, `gowl --recompile` to check it builds, restart
+the session. The cache means an unchanged file never recompiles.
+
+The source of gowl is not on the machine — it is built in the deps container.
+`/usr/immutablue/deps/dep_info.json` records the remote and exact commit; clone
+that when you need the headers, `docs/modules.org`, `docs/configuration.org`, or
+`data/example-bar-plugin.c`:
 
 ```bash
 remote=$(jq -r '.deps[] | select(.name=="gowl") | .remote' /usr/immutablue/deps/dep_info.json)
 commit=$(jq -r '.deps[] | select(.name=="gowl") | .commit' /usr/immutablue/deps/dep_info.json)
 git clone "${remote}" /tmp/gowl && git -C /tmp/gowl checkout "${commit}"
-
-# then:
-#   docs/bar.org               widgets, panels, toasts, plugins
-#   docs/configuration.org
-#   docs/modules.org
-#   data/example-bar-plugin.c  a complete commented plugin
 ```
 
 ## The bar
@@ -108,6 +158,39 @@ gets `tags title` put back on its left, because the bar it was written for drew
 those unconditionally rather than listing them. After that first configuration
 the bar is incremental again: setting only `widgets-right` leaves left and centre
 alone.
+
+### Make and reload a bar plugin in five steps
+
+This is the thing that *does* live in your home directory, load as a crispy `.c`
+file or a prebuilt `.so`, and hot-reload:
+
+```bash
+# 1. start from the shipped example (clone gowl as above if /tmp/gowl is absent)
+mkdir -p ~/.config/gowl/bar-plugins
+cp /tmp/gowl/data/example-bar-plugin.c ~/.config/gowl/bar-plugins/pomo.c
+
+# 2. load it into the running bar, by path or by name
+gowl bar-plugin-load ~/.config/gowl/bar-plugins/pomo.c
+gowl bar-plugin-load pomo                 # resolved through the search path
+
+# 3. put it on the bar -- an unknown widget name is silently skipped, so spell it right
+#    ~/.config/gowl/config.yaml -> modules: bar: widgets-right: "pomo clock battery"
+
+# 4. edit, then swap the new build in without restarting anything
+gowl bar-plugin-reload pomo
+
+# 5. when it misbehaves
+gowl bar-quarantined                      # held back after a caught signal?
+cat "${XDG_STATE_HOME:-$HOME/.local/state}/gowl/bar-plugins.journal"
+gowl bar-plugin-unload pomo
+```
+
+The same commands exist as `M-x gowl-bar-plugin-load`, `gowl-bar-plugin-reload`,
+`gowl-bar-plugin-unload`, `gowl-bar-plugin-clear`, and `gowl-bar-plugins` inside
+cmacs. Make it persistent by naming it in `plugins:` (see "Where plugins are
+found"); otherwise it is gone at the next session start. A `.so` you built
+yourself goes in the same directory and loads the same way — compiled beats
+source when both exist under one name.
 
 ### Writing a plugin
 
@@ -270,6 +353,23 @@ jq -r '.deps[].name' /usr/immutablue/deps/dep_info.json
 `gst` is the terminal (a GLib/GObject port of suckless `st`); `gsurf` is the
 browser (a port of `surf`).
 
+## Polkit under gowl
+
+GNOME Shell registers its own polkit authentication agent; a bare wlroots session
+does not, so without one every GUI action needing authorisation — `pkexec`,
+system Flatpak installs, virt-manager reaching the system libvirt socket — fails
+with no dialog and no obvious cause. Immutablue ships `mate-polkit` and starts it
+from `immutablue-polkit-agent.service`, a user unit bound to `gowl-session.target`
+rather than `graphical-session.target`, so it runs only in gowl sessions and never
+competes with GNOME's agent.
+
+```bash
+systemctl --user status immutablue-polkit-agent.service
+```
+
+A "permission denied" with no password prompt under gowl is this unit not
+running, before it is anything to do with libvirt or Flatpak.
+
 ## Dictation
 
 voxtype ships in GUI variants. Setup, the Super+D keybinding, and the reason the
@@ -291,5 +391,9 @@ needs `ydotool.service` running.
   does nothing until the deps container and the image are rebuilt.
 - Do not edit shipped modules or plugins in place. Copy into `~/.config/gowl/`,
   which precedes the system directories in the plugin search path.
+- Do not tell someone to drop a compositor module `.c` file in `~/.config/gowl/`
+  and expect it to load. That path is for *bar* plugins. A compositor module is a
+  `.so` in the system module directory, enabled in YAML, loaded at session start;
+  the home-directory C hook for the compositor itself is `config.c`.
 - Do not assume GNOME advice applies to gowl, or the reverse. Check
   `XDG_CURRENT_DESKTOP` first.
