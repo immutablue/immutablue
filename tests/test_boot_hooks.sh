@@ -31,8 +31,19 @@ STUB
 sed -e "s|/usr/libexec/immutablue/immutablue-header.sh|$fixture_dir/header.sh|" \
 	-e "s|\${HOME}|$fixture_dir/home|g" \
 	"$repo_dir/artifacts/overrides/usr/libexec/immutablue/user/on_boot/00-on_login.sh" > "$fixture_dir/on-login.sh"
+# Pin the identity the hook should act on rather than borrowing the caller's:
+# CI runners do not export USER, and the hook must not depend on the ambient
+# environment either way.
+test_user='immutablue-test'
+export test_user
 getent () { [[ "$test_membership" != absent ]]; }
 id () {
+	# -un resolves the passwd name (the hook's USER fallback), -nG the groups.
+	if [[ "${1:-}" == -un ]]
+	then
+		echo "$test_user"
+		return 0
+	fi
 	case "$test_membership" in
 		member) echo 'users docker wheel' ;;
 		lookalike) echo 'users docker-admin wheel' ;;
@@ -41,16 +52,29 @@ id () {
 }
 sudo () { printf '%s\n' "$*" >> "$fixture_dir/usermod-calls"; }
 export -f getent id sudo
-for test_membership in absent missing member lookalike
-do
-	export test_membership
+run_login_hook () {
 	rm -rf "${fixture_dir:?}/home"
 	: > "$fixture_dir/usermod-calls"
 	bash "$fixture_dir/on-login.sh" > /dev/null
 	[[ -s "$fixture_dir/home/.config/immutablue/settings.yaml" ]]
+}
+export USER="$test_user"
+for test_membership in absent missing member lookalike
+do
+	export test_membership
+	run_login_hook
 	case "$test_membership" in
-		missing|lookalike) grep -qx "usermod -aG docker $USER" "$fixture_dir/usermod-calls" ;;
+		missing|lookalike) grep -qx "usermod -aG docker $test_user" "$fixture_dir/usermod-calls" ;;
 		*) [[ ! -s "$fixture_dir/usermod-calls" ]] ;;
 	esac
 done
 echo 'PASS: first-login settings and exact Docker group membership'
+
+# Contexts without a login shell (systemd user units, CI containers, `su`
+# without -) leave USER unset; the hook runs under `set -u` and must fall back
+# to the passwd entry instead of aborting.
+test_membership=missing
+export test_membership
+( unset USER; run_login_hook )
+grep -qx "usermod -aG docker $test_user" "$fixture_dir/usermod-calls"
+echo 'PASS: login hook resolves the user without USER in the environment'
