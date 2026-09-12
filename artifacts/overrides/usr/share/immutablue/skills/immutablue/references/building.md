@@ -13,9 +13,9 @@ of each produced the running binaries in
 
 ```bash
 make build                    # default Silverblue image
-make build SKIP_TEST=1        # skip the pre/post-build tests
+make build SKIP_TEST=1        # skip the build's prechecks
 make pre_test                 # shellcheck + justfile syntax, before building
-make test                     # the full post-build suite
+make test                     # full suite, including prechecks; requires a built image
 ```
 
 Variants are flags, and they compose:
@@ -36,11 +36,28 @@ Run `git submodule update --init --recursive` after cloning or pulling. The
 components under `deps/` are submodules, and a stale checkout silently builds the
 wrong source.
 
-`deps/` is compiled into the **deps container** (`deps-container/Containerfile`,
-`make build-deps`), not into the image, and is excluded from the image's build
-context. So a submodule bump changes nothing about the running binaries until
-`make build-deps && make push-deps` has run — the image only gains the updated
-commit in `dep_info.json`.
+`deps/` is compiled into the **deps container** (`deps-container/Containerfile`, `make build-deps`) and excluded from the main image's build context. A submodule bump reaches the image only after that dependency container is rebuilt and published. `make build` runs prechecks but does not automatically run the post-build suite; run `make test` separately.
+
+### Artifact provenance
+
+`make build-deps` captures `deps-container/dep_info.json` from the same source context used for compilation and packages it at `/build/dep_info.json`. Uninitialized submodules fail generation rather than borrowing the parent repository's HEAD; dirty dependency checkouts are marked explicitly.
+
+`make build` creates `.image-source.json` for the current image checkout, resolves `DEPS_IMAGE` once with Skopeo, and passes a `repository@sha256:...` reference to the dependency stage. `build/10-copy.sh` merges that artifact's manifest with the image source metadata after applying overrides. The result ships at `/usr/immutablue/deps/dep_info.json`: `.immutablue` describes the image checkout, `.deps` describes the compiled dependency source, and `.dependency_image`, `.dependency_build`, and `.dependency_generated` identify the artifact and its build context. Advancing local pins cannot relabel older dependency binaries.
+
+**Migration:** rebuild and publish the dependency container before the first main image build using this workflow. Older dependency containers without the manifest fail the image build. Publishing is a separate action; do not infer permission to push from a request to edit or build locally.
+
+```bash
+make build-deps
+make push-deps                # when publishing is authorized
+make build
+make test
+```
+
+`DEPS_IMAGE` defaults to the configured dependency tag, normally `quay.io/immutablue/immutablue:44-deps`. Supply `DEPS_IMAGE=repository@sha256:<actual-digest>` to reuse a known published artifact without a tag lookup. Resolution failures stop the build before either engine runs. Direct Containerfile builds must provide the digest argument and generate `.image-source.json` themselves.
+
+Fedora host tools for this workflow and its host checks: `bash`, `git`, `jq`, `yq`, `skopeo`, `make`, `ShellCheck`, and `just`, alongside the existing container build tools.
+
+The dependency list includes components a final variant may omit. It does not cover independently supplied cmacs, its bundled libraries, Linuxbrew, RPMs, or external downloads. If cmacs overwrites a dependency file, that file needs cmacs provenance. A dirty checkout cannot be reconstructed from its commit alone; avoid editing source between manifest capture and build-context capture. For older installed manifests without `dependency_image`, verify the binary's originating artifact before trusting local-pin-derived metadata for crash analysis.
 
 ## Adding a package
 
@@ -138,13 +155,24 @@ software bill of materials for the image.
 ## Tests
 
 ```bash
-./tests/run_tests.sh
+make test                         # same suite as the standalone runner
+bash tests/run_tests.sh --list     # inspect selection without running anything
+make test_regressions              # host-safe checks, no image or root needed
+bash tests/run_tests.sh --suite regressions
 ./tests/test_shellcheck.sh          # strict, per .shellcheckrc
 ./tests/test_justfile_syntax.sh     # every shipped justfile parses
 ./tests/test_package_presence.sh    # packages.yaml matches the built image
 ./tests/test_artifacts.sh           # every override file reached the image intact
 ./tests/test_container.sh
 ```
+
+`tests/run_tests.sh` owns the suite registry used by `make test`, `make tests`, and `make run_all_tests`; the default image reference comes from Make, or an explicit image argument. The full suite includes prechecks, regressions, container/package/QEMU/artifact checks, and setup checks. `make pre_test` selects `pre`; individual suite names are `container`, `package_presence`, `container_qemu`, `artifacts`, and `setup`.
+
+Each child script runs in a fresh Bash process. Failures are recorded while later checks continue, and any failure makes the suite exit nonzero. ShellCheck is fatal, without `--report-only`. `SKIP_TEST=1` skips execution consistently; `--list` still lists the selection. Individual checks can skip unavailable dependencies, so inspect their output rather than reading a zero exit status as proof every check executed; setup needs `python3-pyyaml`.
+
+`KUBERBLUE=1` or an image name containing `kuberblue` adds container, component, and security checks. `make test_kuberblue` and `--suite kuberblue` share that selection. Cluster checks require `KUBERBLUE_CLUSTER_TEST=1`; integration additionally requires `KUBERBLUE_INTEGRATION_TEST=1`. Chainsaw is opt-in through `KUBERBLUE_CHAINSAW_TEST=1` or its dedicated Make target.
+
+The host regression suite covers provenance source drift, missing metadata, digest-resolution failures, Make/CLI parity, and failure aggregation. Brew selection uses fixture paths and a fake executable: the production selector uses an absolute brew path, so a shell function named `brew` alone cannot isolate it. Make-variable tests scrub inherited command-line variables and `MAKEFLAGS` to keep the calling CI variant from rewriting their test cases.
 
 `test_artifacts` compares the working tree against the built image, so **editing
 an override after starting a build makes it fail** — that is the test working, not
@@ -154,8 +182,7 @@ Shell code must be shellcheck-clean; that is enforced, not aspirational.
 
 ## Documentation
 
-Docs are a Hugo site in `docs/` (a submodule), with TOML frontmatter. Update them
-in the same change as the code:
+Docs are a Hugo site in `docs/` (a submodule). Older pages use Markdown with TOML frontmatter; write new documentation in org-mode and update it alongside code. `docs/content/building/provenance-and-tests.org` explains the artifact fields and suite interface in detail.
 
 ```bash
 cd docs && hugo server        # preview at :1313

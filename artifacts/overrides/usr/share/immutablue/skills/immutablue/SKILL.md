@@ -45,23 +45,23 @@ This skill is kept in step with specific commits: immutablue's own, and every
 component the image builds from source. They are recorded here and updated
 whenever the skill is — the rule is in `AGENTS.md` in the immutablue
 repository. The machine you are on may run an image built from newer *or older*
-components; `/usr/immutablue/deps/dep_info.json` records exactly which.
+components; `/usr/immutablue/deps/dep_info.json` records the image source and dependency artifact's source separately. Its dependency entries are not an inventory of every installed binary; cmacs and its bundled components need their own provenance.
 
 When something here does not match what you see, or you are asked about a
 feature this skill does not cover, check how far the image and the skill have
 drifted before answering:
 
-<!-- skill-baseline:start — reviewed 2026-09-10; update with the skill, see AGENTS.md -->
+<!-- skill-baseline:start — reviewed 2026-09-12; update with the skill, see AGENTS.md -->
 ```bash
 # CHANGED = the image and this skill were written against different commits.
 while read -r name base; do
     image=$(jq -r --arg n "${name}" 'if $n == "immutablue" then .immutablue.commit else (.deps[] | select(.name == $n) | .commit) end // empty' /usr/immutablue/deps/dep_info.json)
-    if [[ -z "${image}" ]]; then state="not in image"
+    if [[ -z "${image}" ]]; then state="not recorded"
     elif [[ "${image}" == "${base}" ]]; then state="same"
     else state="CHANGED"; fi
     printf '%-20s %-13s skill=%.12s image=%.12s\n' "${name}" "${state}" "${base}" "${image}"
 done <<'EOF'
-immutablue           4b34affbf2f3d8dbdac466a6e52e5997aa379936
+immutablue           28babfe4d820eeaa288055544a47a6e31511ca58
 ai-glib              093aba30a12aa46bcbec49f6447f030fcc12aae8
 bacon                a235a00214e5203b8d09f646ba56d22413e9c2de
 crispy               53b8fc7c5444fb3b94bdb689c5b160483d3a95c4
@@ -76,6 +76,10 @@ yaml-glib            04c8dffa5d82deceb2cfecb5126f228e4d6f27ab
 EOF
 ```
 <!-- skill-baseline:end -->
+
+The Immutablue baseline includes the artifact provenance and shared test-runner changes. Dependency baselines retain their earlier reviewed commits; subsequent submodule pin bumps have not been reviewed into their guides.
+
+For manifests with `dependency_image`, `.deps` comes from the digest-pinned dependency container, while `.immutablue` identifies the main image checkout. Older manifests were generated from that checkout's submodules and can misidentify binaries from a separately built dependency container. Do not treat a missing entry as proof that a component is absent, or replace an artifact's recorded commit with a newer local submodule pin. See [the build guide](references/building.md) for migration and scope.
 
 cmacs is not in `dep_info.json`: it arrives from the cmacs container image, not a
 `deps/` submodule. The cmacs material in this skill was checked against cmacs
@@ -134,8 +138,7 @@ This skill is always installed at `/usr/share/immutablue/skills/immutablue/`. If
 **Never write to `/usr`.** It is read-only at runtime and replaced on update.
 Reading it is safe and encouraged — `/usr/immutablue/` holds the settings and
 package defaults, `/usr/libexec/immutablue/` the scripts and justfiles, and
-and `/usr/immutablue/deps/dep_info.json` records the exact commit and remote of
-every component this image builds from git.
+`/usr/immutablue/deps/dep_info.json` records source metadata for the image and the submodules compiled into its dependency artifact.
 
 **Never suggest `dnf install`.** There is no `dnf` on the host in the sense that
 matters. See [`references/packages.md`](references/packages.md) for what to do instead; the answer is
@@ -162,7 +165,7 @@ writable and is a debugging tool, not a deployment mechanism.
 | `/usr/share/immutablue/` | `image-info.json`, skills, dconf examples | no |
 | `/usr/immutablue/docs/content/` | Immutablue's full documentation, as markdown, matching this image | no |
 | `/usr/share/emacs/*/doc_org/cmacs/` | the cmacs manual and the manuals of everything it embeds | no |
-| `/usr/immutablue/deps/dep_info.json` | commit + remote of every in-house component | no |
+| `/usr/immutablue/deps/dep_info.json` | image source, dependency artifact digest, and dependency source commits | no |
 | `/etc/immutablue/` | system-level setting overrides | yes |
 | `/etc/immutablue/scripts/{system,user}/<mode>/` | your hook scripts: `on_boot`, `daily`, `pre_update`, … | yes |
 | `/etc/immutablue/setup/` | first-boot completion markers (`did_first_boot_setup`, …) | wheel |
