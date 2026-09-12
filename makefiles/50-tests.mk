@@ -16,107 +16,23 @@
         sbom
 
 # Host-safe regression checks; no image build, root access, or cluster needed.
+export SKIP_TEST
 .PHONY: tests test_regressions
 tests: test
 
 test_regressions:
-	bash tests/test_image_config_kickstart.sh
-	bash tests/test_image_config_strings.sh
-	bash tests/kuberblue/test_token_dns.sh
-	bash tests/test_snapshot_restore_guard.sh
-	bash tests/test_boot_hooks.sh
-	bash tests/test_build_image_config.sh
-	bash tests/test_latest_tag.sh
-	bash tests/kuberblue/test_tailscale_bootstrap.sh
-	bash tests/kuberblue/test_config_fetch_permissions.sh
-	bash tests/kuberblue/test_ha_resume.sh
-	bash tests/kuberblue/test_boot_config_gate.sh
-	bash tests/test_build_variants.sh
-	bash tests/test_build_platform.sh
+	@bash tests/run_tests.sh --suite regressions $(IMAGE):$(TAG)
 
-# ------------------------------------------------------------------------------
-# Pre-build Tests
-# ------------------------------------------------------------------------------
 pre_test:
-	@if [ "$(SKIP_TEST)" = "0" ]; then \
-		echo "Running pre-build shellcheck tests..."; \
-		chmod +x ./tests/test_shellcheck.sh; \
-		./tests/test_shellcheck.sh || exit 1; \
-		echo "Running pre-build justfile syntax tests..."; \
-		chmod +x ./tests/test_justfile_syntax.sh; \
-		./tests/test_justfile_syntax.sh || exit 1; \
-	else \
-		echo "Skipping pre-build tests (SKIP_TEST=1)"; \
-	fi
+	@bash tests/run_tests.sh --suite pre $(IMAGE):$(TAG)
 
-# ------------------------------------------------------------------------------
-# Standard Tests
-# ------------------------------------------------------------------------------
-test:
-	@if [ "$(SKIP_TEST)" = "0" ]; then \
-		$(MAKE) test_regressions test_container test_package_presence test_container_qemu test_artifacts test_setup || exit 1; \
-		if [ "$(KUBERBLUE)" = "1" ]; then \
-			echo "Running Kuberblue-specific tests..."; \
-			$(MAKE) test_kuberblue_container test_kuberblue_components test_kuberblue_security || exit 1; \
-		fi; \
-	else \
-		echo "Skipping tests (SKIP_TEST=1)"; \
-	fi
+test run_all_tests:
+	@IMMUTABLUE_BUILD_OPTIONS="$(BUILD_OPTIONS)" VERSION="$(VERSION)" KUBERBLUE="$(KUBERBLUE)" \
+		bash tests/run_tests.sh $(IMAGE):$(TAG)
 
-test_container:
-	@if [ "$(SKIP_TEST)" = "0" ]; then \
-		chmod +x ./tests/test_container.sh; \
-		./tests/test_container.sh $(IMAGE):$(TAG); \
-	else \
-		echo "Skipping container tests (SKIP_TEST=1)"; \
-	fi
-
-# Asserts that every package packages.yaml requested for THIS variant is
-# actually in the built image. BUILD_OPTIONS is passed through so the test does
-# not have to re-derive the variant from the image when the Makefile already
-# knows it.
-test_package_presence:
-	@if [ "$(SKIP_TEST)" = "0" ]; then \
-		chmod +x ./tests/test_package_presence.sh; \
-		IMMUTABLUE_BUILD_OPTIONS="$(BUILD_OPTIONS)" VERSION="$(VERSION)" \
-			./tests/test_package_presence.sh $(IMAGE):$(TAG); \
-	else \
-		echo "Skipping package presence tests (SKIP_TEST=1)"; \
-	fi
-
-test_container_qemu:
-	@if [ "$(SKIP_TEST)" = "0" ]; then \
-		chmod +x ./tests/test_container_qemu.sh; \
-		./tests/test_container_qemu.sh $(IMAGE):$(TAG); \
-	else \
-		echo "Skipping container QEMU tests (SKIP_TEST=1)"; \
-	fi
-
-test_artifacts:
-	@if [ "$(SKIP_TEST)" = "0" ]; then \
-		chmod +x ./tests/test_artifacts.sh; \
-		./tests/test_artifacts.sh $(IMAGE):$(TAG); \
-	else \
-		echo "Skipping artifacts tests (SKIP_TEST=1)"; \
-	fi
-
-test_setup:
-	@if [ "$(SKIP_TEST)" = "0" ]; then \
-		echo "Running setup tests..."; \
-		chmod +x ./tests/test_setup.sh; \
-		./tests/test_setup.sh; \
-	else \
-		echo "Skipping setup tests (SKIP_TEST=1)"; \
-	fi
-
-run_all_tests:
-	@if [ "$(SKIP_TEST)" = "0" ]; then \
-		echo "Running all tests..."; \
-		chmod +x ./tests/run_tests.sh; \
-		./tests/run_tests.sh $(IMAGE):$(TAG); \
-	else \
-		echo "Skipping all tests (SKIP_TEST=1)"; \
-	fi
+test_container test_package_presence test_container_qemu test_artifacts test_setup:
+	@IMMUTABLUE_BUILD_OPTIONS="$(BUILD_OPTIONS)" VERSION="$(VERSION)" \
+		bash tests/run_tests.sh --suite $(patsubst test_%,%,$@) $(IMAGE):$(TAG)
 
 # ------------------------------------------------------------------------------
 # Kuberblue Tests
@@ -125,23 +41,7 @@ test_kuberblue:
 	@$(MAKE) KUBERBLUE=1 _run_kuberblue_suite
 
 _run_kuberblue_suite:
-	@if [ "$(SKIP_TEST)" = "0" ]; then \
-		echo "Running Kuberblue test suite..."; \
-		$(MAKE) test_kuberblue_container test_kuberblue_components test_kuberblue_security || exit 1; \
-		if [ "$${KUBERBLUE_CLUSTER_TEST:-0}" = "1" ]; then \
-			echo "Running cluster tests..."; \
-			$(MAKE) test_kuberblue_cluster || exit 1; \
-			if [ "$${KUBERBLUE_INTEGRATION_TEST:-0}" = "1" ]; then \
-				echo "Running integration tests..."; \
-				$(MAKE) test_kuberblue_integration || exit 1; \
-			fi; \
-		else \
-			echo "INFO: Set KUBERBLUE_CLUSTER_TEST=1 to enable cluster testing"; \
-			echo "INFO: Set KUBERBLUE_INTEGRATION_TEST=1 to enable integration testing"; \
-		fi; \
-	else \
-		echo "Skipping Kuberblue tests (SKIP_TEST=1)"; \
-	fi
+	@KUBERBLUE=1 bash tests/run_tests.sh --suite kuberblue $(IMAGE):$(TAG)
 
 test_kuberblue_container:
 	@$(MAKE) KUBERBLUE=1 _run_kuberblue_container_test

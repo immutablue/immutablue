@@ -9,12 +9,13 @@ ARG BASE_IMAGE_TAG=43
 ARG BASE_IMAGE_DEVEL=registry.fedoraproject.org/fedora:latest
 ARG FEDORA_VERSION=43
 ARG IS_DISTROLESS=false
+ARG DEPS_IMAGE
 
 FROM scratch as ctx
 COPY / /
 
 FROM quay.io/zachpodbielniak/nautilusopenwithcode:${FEDORA_VERSION} AS nautilusopenwithcode
-FROM quay.io/immutablue/immutablue:${FEDORA_VERSION}-deps as build-deps
+FROM ${DEPS_IMAGE} as build-deps
 FROM quay.io/immutablue/immutablue:${FEDORA_VERSION}-cyan-deps AS cyan-deps
 FROM quay.io/zachpodbielniak/cmacs:${FEDORA_VERSION} AS cmacs-build
 FROM quay.io/immutablue/linuxbrew:latest AS linuxbrew
@@ -64,6 +65,7 @@ ARG IMAGE_TAG=immutablue
 ARG IMMUTABLUE_BUILD_OPTIONS=${IMMUTABLUE_BUILD_OPTIONS}
 ARG IS_DISTROLESS=false
 ARG SKIP=
+ARG DEPS_IMAGE
 
 
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
