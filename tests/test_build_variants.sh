@@ -10,13 +10,24 @@ esac
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." > /dev/null && pwd)"
 cd "$repo_dir"
 
+# The image build jobs invoke the suite as `make ZFS=1 test`, and Make exports
+# command-line assignments into every recipe's environment as well as into
+# MAKEFLAGS. Both channels leak into the Make instances evaluated below and
+# silently rewrite the variables under test. Scrub the environment so these
+# assertions describe the Makefiles themselves rather than the job that
+# happened to launch them; PATH is kept because the Makefiles shell out to
+# date(1) while expanding variables.
+hermetic_make () {
+	env -i PATH="$PATH" make "$@"
+}
+
 # Compare the complete option list: missing delimiters, lost add-ons and
 # retained desktop flags must all fail, including explicit desktop selection.
 check_options () {
 	local expected="$1"
 	shift
 	local actual
-	actual="$(make --no-print-directory -s -f - "$@" print_options <<'MAKE'
+	actual="$(hermetic_make --no-print-directory -s -f - "$@" print_options <<'MAKE'
 include makefiles/00-variables.mk
 include makefiles/10-variants-data.mk
 include makefiles/20-variants-logic.mk

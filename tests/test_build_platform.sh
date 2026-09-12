@@ -10,13 +10,24 @@ esac
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." > /dev/null && pwd)"
 cd "$repo_dir"
 
+# The image build jobs invoke the suite as `make ZFS=1 test`, and Make exports
+# command-line assignments into every recipe's environment as well as into
+# MAKEFLAGS. Both channels leak into the Make instances evaluated below and
+# silently rewrite the variables under test. Scrub the environment so these
+# assertions describe the Makefiles themselves rather than the job that
+# happened to launch them; PATH is kept because the Makefiles shell out to
+# date(1) while expanding variables.
+hermetic_make () {
+	env -i PATH="$PATH" make "$@"
+}
+
 # Dry-run the complete Makefile so conditional recipe selection is tested too.
 # Mark generated prerequisites old to avoid regenerating any context metadata.
 check_platform () {
 	local platform="$1"
 	shift
 	local recipe
-	recipe="$(make --no-print-directory -n -o pre_test -o deps_manifest \
+	recipe="$(hermetic_make --no-print-directory -n -o pre_test -o deps_manifest \
 		-o .containerignore.image "PLATFORM=${platform}" "$@")"
 	if [[ "$(printf '%s\n' "$recipe" | grep -Fc -- "--platform ${platform} " || true)" != 1 ]]; then
 		printf 'FAIL: expected exactly one --platform %s in %s\n%s\n' "$platform" "$*" "$recipe" >&2

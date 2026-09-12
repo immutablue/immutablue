@@ -8,11 +8,22 @@ case "${1:-}" in
 	*) exit 2 ;;
 esac
 cd "$(dirname "${BASH_SOURCE[0]}")/.." > /dev/null
+# The image build jobs invoke the suite as `make ZFS=1 test`, and Make exports
+# command-line assignments into every recipe's environment as well as into
+# MAKEFLAGS. Both channels leak into the Make instances evaluated below and
+# silently rewrite the variables under test. Scrub the environment so these
+# assertions describe the Makefiles themselves rather than the job that
+# happened to launch them; PATH is kept because the Makefiles shell out to
+# date(1) while expanding variables.
+hermetic_make () {
+	env -i PATH="$PATH" make "$@"
+}
+
 for distroless in 0 1
 do
 	for latest in 0 1
 	do
-		recipe="$(make --no-print-directory -n -o pre_test -o deps_manifest -o .containerignore.image \
+		recipe="$(hermetic_make --no-print-directory -n -o pre_test -o deps_manifest -o .containerignore.image \
 			build IMAGE=example.invalid/review VERSION=44 DISTROLESS="$distroless" SET_AS_LATEST="$latest")"
 		engine=buildah
 		tag=44
