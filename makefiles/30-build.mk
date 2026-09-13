@@ -22,8 +22,23 @@ IMAGE_IGNOREFILE := .containerignore.image
 DEP_INFO := .image-source.json
 DEPS_IMAGE ?= $(DEPS_CONTAINER)
 
+# Provenance used to be generated straight into artifacts/overrides, which is
+# deployed to /, so the file the image shipped was the file on disk. It is now
+# merged inside the build from $(DEP_INFO) and the dependency artifact, and
+# regenerating it under overrides would be wrong twice over: the deps come from
+# the digest-pinned artifact, not this checkout, and the .generated timestamp
+# can never match one recorded during the build.
+#
+# A working tree that built before that change still has the old file, and
+# test_artifacts compares every override against the image -- so it reports a
+# checksum mismatch on an otherwise correct build, on that machine only. Remove
+# it here rather than ignoring it in validate_artifacts.c: the test is right
+# that overrides must match, the leftover is what is wrong.
+LEGACY_DEP_INFO := artifacts/overrides/usr/immutablue/deps
+
 .PHONY: deps_manifest
 deps_manifest:
+	@rm -rf $(LEGACY_DEP_INFO)
 	@./scripts/gen-dep-info.sh --image $(DEP_INFO)
 
 .PHONY: deps_build_manifest

@@ -84,3 +84,4 @@ clean: manifest_rm
 	rm -rf ./sbom
 	rm -rf ./images
 	rm -rf ./.lima
+	rm -rf ./$(LEGACY_DEP_INFO)
