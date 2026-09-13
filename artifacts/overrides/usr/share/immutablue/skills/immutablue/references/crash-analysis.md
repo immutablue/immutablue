@@ -82,8 +82,9 @@ the rare occasion it is needed. What ships instead is the provenance:
 cat /usr/immutablue/deps/dep_info.json
 ```
 
-Every component's `remote`, exact `commit`, `describe` and a `dirty` flag. That
-is enough to fetch precisely the source the running binary was built from:
+Dependency entries contain `remote`, `commit`, `describe`, and a `dirty` flag. In manifests with `dependency_image`, these entries come from the digest-pinned dependency artifact; `.immutablue` is the main image checkout, and `.dependency_build` is the checkout that produced the dependency artifact. Older manifests can record local pins that differ from the compiled binaries: verify their originating artifact before relying on those commits. See [building.md](building.md).
+
+The list is not a complete installed-binary inventory: variants can omit listed components, and cmacs or its bundled libraries can supply different files. Check the actual provider before choosing a source revision. For a matching dependency entry, fetch its source with:
 
 ```bash
 git clone <remote> src/<name>

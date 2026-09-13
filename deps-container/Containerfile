@@ -20,3 +20,5 @@ COPY deps/podomation /build/podomation
 COPY deps/bacon /build/bacon
 COPY deps/mcp-kuberblue-glib /build/mcp-kuberblue-glib
 RUN bash /tmp/00-build.sh
+# This manifest was captured from the same source context before compilation.
+COPY deps-container/dep_info.json /build/dep_info.json

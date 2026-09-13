@@ -1,223 +1,68 @@
 #!/bin/bash
-# test_brew_variants.sh
-#
-# Test brew variant functionality to ensure correct package selection
-# based on build options without breaking existing behavior
+# Run the production package selector against fixture paths and a fake brew.
+# The installer uses an absolute brew path; a shell function cannot intercept it.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-
-print_header() {
-    echo -e "\n==========================================="
-    echo "  $1"
-    echo -e "===========================================\n"
-}
-
-# Test backward compatibility with existing packages.yaml
-test_backward_compatibility() {
-    print_header "Testing backward compatibility"
-    
-    # Source the packages script
-    source "$PROJECT_ROOT/scripts/packages.sh"
-    
-    # Mock brew to capture commands but prevent actual installation
-    local install_called=""
-    brew() {
-        if [[ "${1:-}" == "install" ]]; then
-            install_called="yes"
-            echo "Would install: ${*:2}"
-        elif [[ "${1:-}" == "uninstall" ]]; then
-            echo "Would uninstall: ${*:2}"
-        fi
-    }
-    export -f brew
-    export PATH="/mock:$PATH"
-    
-    # Test with existing packages.yaml (no build options file exists)
-    if ! brew_install_all_from_yaml "$PROJECT_ROOT/packages.yaml" 2>/dev/null; then
-        echo "FAIL: Function failed with existing packages.yaml"
-        return 1
-    fi
-    
-    if [[ "$install_called" == "yes" ]]; then
-        echo "PASS: Backward compatibility maintained"
-        return 0
-    else
-        echo "FAIL: Base packages not processed"
-        return 1
-    fi
-}
-
-# Test variant-specific package selection
-test_variant_selection() {
-    print_header "Testing variant package selection"
-    
-    source "$PROJECT_ROOT/scripts/packages.sh"
-    
-    # Mock the build options file to contain variants
-    cat() {
-        if [[ "${1:-}" == "/usr/immutablue/build_options" ]]; then
-            echo "gui,kuberblue,trueblue"
-        else
-            "$(which cat)" "$@"
-        fi
-    }
-    export -f cat
-    
-    # Mock file test to make build options file appear to exist
-    test() {
-        if [[ "${1:-}" == "-f" && "${2:-}" == "/usr/immutablue/build_options" ]]; then
-            return 0
-        else
-            "$(which test)" "$@"
-        fi
-    }
-    export -f test
-    
-    # Mock brew to capture what gets installed
-    local packages_installed=""
-    brew() {
-        if [[ "${1:-}" == "install" ]]; then
-            packages_installed="${*:2}"
-            echo "Would install: ${*:2}"
-        elif [[ "${1:-}" == "uninstall" ]]; then
-            echo "Would uninstall: ${*:2}"
-        fi
-    }
-    export -f brew
-    export PATH="/mock:$PATH"
-    
-    # Create test YAML with variant packages
-    local temp_yaml
-    temp_yaml=$(mktemp)
-    cat > "$temp_yaml" << 'EOF'
-brew:
-  install:
-    - base-package
-  uninstall:
-  install_kuberblue:
-    - kubectl
-  uninstall_kuberblue:
-  install_trueblue:
-    - zfs-utils
-  uninstall_trueblue:
-  install_gui:
-    - gui-package
-  uninstall_gui:
-EOF
-    
-    # Test the function
-    if ! brew_install_all_from_yaml "$temp_yaml" 2>/dev/null; then
-        echo "FAIL: Function failed with variant packages"
-        rm -f "$temp_yaml"
-        return 1
-    fi
-    
-    # Verify all expected packages were processed (variant sections exist but are empty)
-    if [[ "$packages_installed" == *"base-package"* && "$packages_installed" == *"kubectl"* && "$packages_installed" == *"zfs-utils"* && "$packages_installed" == *"gui-package"* ]]; then
-        echo "PASS: All variants processed correctly"
-        rm -f "$temp_yaml"
-        return 0
-    elif [[ "$packages_installed" == "base-package" ]]; then
-        echo "PASS: Variant sections processed correctly (empty variant lists)"
-        rm -f "$temp_yaml"
-        return 0
-    else
-        echo "FAIL: Not all variants processed (installed: $packages_installed)"
-        rm -f "$temp_yaml"
-        return 1
-    fi
-}
-
-# Test handling of missing variant keys
-test_missing_variant_keys() {
-    print_header "Testing missing variant keys handling"
-    
-    source "$PROJECT_ROOT/scripts/packages.sh"
-    
-    # Mock build options with variant not in YAML
-    cat() {
-        if [[ "${1:-}" == "/usr/immutablue/build_options" ]]; then
-            echo "nonexistent_variant"
-        else
-            "$(which cat)" "$@"
-        fi
-    }
-    export -f cat
-    
-    # Mock file test
-    test() {
-        if [[ "${1:-}" == "-f" && "${2:-}" == "/usr/immutablue/build_options" ]]; then
-            return 0
-        else
-            "$(which test)" "$@"
-        fi
-    }
-    export -f test
-    
-    # Mock brew
-    local install_called=""
-    brew() {
-        if [[ "${1:-}" == "install" ]]; then
-            install_called="yes"
-            echo "Would install: ${*:2}"
-        fi
-    }
-    export -f brew
-    export PATH="/mock:$PATH"
-    
-    # Create minimal test YAML
-    local temp_yaml
-    temp_yaml=$(mktemp)
-    cat > "$temp_yaml" << 'EOF'
-brew:
-  install:
-    - base-package
-  uninstall:
-EOF
-    
-    # Test should not fail even with missing variant keys
-    if ! brew_install_all_from_yaml "$temp_yaml" 2>/dev/null; then
-        echo "FAIL: Function failed with missing variant keys"
-        rm -f "$temp_yaml"
-        return 1
-    fi
-    
-    if [[ "$install_called" == "yes" ]]; then
-        echo "PASS: Missing variant keys handled gracefully"
-        rm -f "$temp_yaml"
-        return 0
-    else
-        echo "FAIL: Base packages not processed with missing variants"
-        rm -f "$temp_yaml"
-        return 1
-    fi
-}
-
-# Main function
-main() {
-    local failed=0
-    
-    if ! test_backward_compatibility; then
-        failed=1
-    fi
-    
-    if ! test_variant_selection; then
-        failed=1
-    fi
-    
-    if ! test_missing_variant_keys; then
-        failed=1
-    fi
-    
-    if [ $failed -eq 0 ]; then
-        print_header "All brew variant tests passed!"
-        return 0
-    else
-        print_header "Some brew variant tests failed"
-        return 1
-    fi
-}
-
-main "$@"
+case "${1:-}" in
+	-h|--help) echo 'Usage: bash tests/test_brew_variants.sh'; echo 'Example: bash tests/test_brew_variants.sh'; exit 0 ;;
+	--license) echo 'AGPL-3.0-or-later'; exit 0 ;;
+	'') ;;
+	*) exit 2 ;;
+esac
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." > /dev/null && pwd)"
+fixture="$(mktemp -d)"
+trap 'rm -rf "$fixture"' EXIT
+[[ -n "${HOME:-}" ]] || { echo 'ERROR: test requires a user home' >&2; exit 1; }
+export BREW_TRACE="$fixture/trace" BREW_OPTIONS="$fixture/options"
+cat > "$fixture/header.sh" <<'MOCK'
+immutablue_get_image_version () { echo 44; }
+get_immutablue_build_options () { cat "$BREW_OPTIONS"; }
+MOCK
+cat > "$fixture/brew" <<'MOCK'
+#!/bin/bash
+printf '%s\n' "$@" >> "$BREW_TRACE"
+MOCK
+chmod +x "$fixture/brew"
+# Extract the real function, substitute only its three external filesystem
+# dependencies, and never source the machine's installed header or packages.
+sed -n '/^brew_install_all_from_yaml()/,/^}/p' "$root/scripts/packages.sh" | \
+	sed -e "s|/usr/libexec/immutablue/immutablue-header.sh|$fixture/header.sh|g" \
+		-e "s|/usr/immutablue/build_options|$fixture/options|g" \
+		-e "s|/var/home/linuxbrew/.linuxbrew/bin/brew|$fixture/brew|g" > "$fixture/selector.sh"
+# Fail closed if the implementation changes enough that path substitution misses it.
+! grep -qE '/(usr|var|home)/' "$fixture/selector.sh"
+# shellcheck disable=SC1091
+source "$fixture/selector.sh"
+cat > "$fixture/packages.yaml" <<'YAML'
+immutablue:
+  brew:
+    install:
+      all: [base-package]
+      44: [version-package]
+    uninstall:
+      all: [obsolete-package]
+    install_gui:
+      all: [gui-package]
+    install_kuberblue:
+      all: [kubectl]
+      44: [cluster-version-package]
+    install_trueblue:
+      all: [zfs-utils]
+YAML
+# No variants: both common and versioned packages, plus removals.
+brew_install_all_from_yaml "$fixture/packages.yaml"
+printf '%s\n' install base-package version-package uninstall obsolete-package > "$fixture/expected"
+cmp "$BREW_TRACE" "$fixture/expected"
+# Several variants: require every package, rather than accepting base-only output.
+: > "$BREW_TRACE"
+printf '%s\n' gui kuberblue trueblue > "$BREW_OPTIONS"
+brew_install_all_from_yaml "$fixture/packages.yaml"
+printf '%s\n' install base-package version-package gui-package kubectl cluster-version-package zfs-utils uninstall obsolete-package > "$fixture/expected"
+cmp "$BREW_TRACE" "$fixture/expected"
+# Unknown variants contribute nothing and do not suppress base packages.
+: > "$BREW_TRACE"
+echo nonexistent_variant > "$BREW_OPTIONS"
+brew_install_all_from_yaml "$fixture/packages.yaml"
+printf '%s\n' install base-package version-package uninstall obsolete-package > "$fixture/expected"
+cmp "$BREW_TRACE" "$fixture/expected"
+echo 'PASS: brew selection covers versions, variants, removals, and missing keys without host changes'

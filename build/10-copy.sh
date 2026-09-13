@@ -262,3 +262,12 @@ if [[ -f "${LINUXBREW_MNT}/etc/security/limits.d/30-brew-limits.conf" ]]; then
 fi
 
 echo "Linuxbrew files copied successfully"
+
+# Apply provenance last, after every override. The dependency list comes from
+# the same digest-pinned artifact that supplied /mnt-build-deps, never from
+# submodule pins in the image checkout. Preserve the current image's commit.
+mkdir -p "${INSTALL_DIR}/deps"
+bash /mnt-ctx/scripts/merge-dep-info.sh \
+    /mnt-ctx/.image-source.json \
+    /mnt-build-deps/dep_info.json "${DEPS_IMAGE}" \
+    > "${INSTALL_DIR}/deps/dep_info.json"

@@ -17,14 +17,18 @@
 # a copy that drifts would silently start shipping one of them.
 IMAGE_IGNOREFILE := .containerignore.image
 
-# The image ships provenance instead of source: which commit of which
-# repository produced each binary. Regenerated on every build so it can never
-# describe a tree other than the one being built.
-DEP_INFO := artifacts/overrides/usr/immutablue/deps/dep_info.json
+# Image source and compiled dependency source have separate lifetimes.
+# The final manifest gets its dependency entries from the dependency artifact.
+DEP_INFO := .image-source.json
+DEPS_IMAGE ?= $(DEPS_CONTAINER)
 
 .PHONY: deps_manifest
 deps_manifest:
-	@./scripts/gen-dep-info.sh $(DEP_INFO)
+	@./scripts/gen-dep-info.sh --image $(DEP_INFO)
+
+.PHONY: deps_build_manifest
+deps_build_manifest:
+	@./scripts/gen-dep-info.sh deps-container/dep_info.json
 
 $(IMAGE_IGNOREFILE): .containerignore
 	@cat $< > $@
@@ -43,7 +47,7 @@ $(IMAGE_IGNOREFILE): .containerignore
 # ------------------------------------------------------------------------------
 # Dependency Container Builds
 # ------------------------------------------------------------------------------
-build-deps:
+build-deps: deps_build_manifest
 	buildah \
 		build \
 		--ignorefile ./.containerignore \
@@ -86,7 +90,7 @@ push-cyan-deps:
 # ------------------------------------------------------------------------------
 build: pre_test deps_manifest $(IMAGE_IGNOREFILE)
 ifeq ($(DISTROLESS),1)
-	sudo podman \
+	deps_image="$$(bash scripts/resolve-deps-image.sh "$(DEPS_IMAGE)")" && sudo podman \
 		build \
 		--platform $(PLATFORM) \
 		--format oci \
@@ -97,6 +101,7 @@ ifeq ($(DISTROLESS),1)
 		-t $(IMAGE):$(TAG) \
 		-f ./Containerfile \
 		--build-arg=BASE_IMAGE=$(BASE_IMAGE) \
+		--build-arg=DEPS_IMAGE="$$deps_image" \
 		--build-arg=BASE_IMAGE_TAG=$(BASE_IMAGE_TAG) \
 		--build-arg=BASE_IMAGE_DEVEL=$(BASE_IMAGE_DEVEL) \
 		--build-arg=IS_DISTROLESS=$(IS_DISTROLESS) \
@@ -109,7 +114,7 @@ ifeq ($(DISTROLESS),1)
 		--build-arg=SKIP=$(SKIP)
 	sudo podman tag $(IMAGE):$(TAG) $(IMAGE):$(DATE_TAG)
 else
-	buildah \
+	deps_image="$$(bash scripts/resolve-deps-image.sh "$(DEPS_IMAGE)")" && buildah \
 		build \
 		--platform $(PLATFORM) \
 		--ignorefile ./$(IMAGE_IGNOREFILE) \
@@ -118,6 +123,7 @@ else
 		-t $(IMAGE):$(DATE_TAG) \
 		-f ./Containerfile \
 		--build-arg=BASE_IMAGE=$(BASE_IMAGE) \
+		--build-arg=DEPS_IMAGE="$$deps_image" \
 		--build-arg=BASE_IMAGE_TAG=$(BASE_IMAGE_TAG) \
 		--build-arg=BASE_IMAGE_DEVEL=$(BASE_IMAGE_DEVEL) \
 		--build-arg=IS_DISTROLESS=$(IS_DISTROLESS) \

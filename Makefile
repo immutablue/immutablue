@@ -100,3 +100,8 @@ help:
 	@echo "Run 'make list' for all targets"
 
 .PHONY: $(ALL_PHONY_TARGETS) help
+
+# Used by the standalone test runner so its default matches the build settings.
+.PHONY: image-reference
+image-reference:
+	@echo "$(IMAGE):$(TAG)"

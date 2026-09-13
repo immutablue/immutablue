@@ -119,6 +119,8 @@ places it after system defaults and before `90-` user drop-ins, so a later
 
 ## First boot and first login
 
+The shipped login/logout hooks use `${USER:-$(id -un)}` so systemd user units and other contexts without `USER` do not abort under `set -u`.
+
 `immutablue-first-boot.service` runs `/usr/libexec/immutablue/setup/first_boot.sh`
 once; on GUI variants `immutablue-first-login.service` then runs the graphical
 wizard at first login. Nucleus gets the TUI immediately. Gated by
