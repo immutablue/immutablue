@@ -116,6 +116,7 @@ immutablue:
     - make
     - mediainfo
     - mbuffer
+    - mutter-devkit
     - neovim
     - NetworkManager-tui
     - opencascade-devel
