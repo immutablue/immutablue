@@ -86,6 +86,7 @@ immutablue:
     - git
     - gjs-devel
     - glib2-devel
+    - gmime30-devel
     - gobject-introspection-devel
     - heaptrack
     - htop
