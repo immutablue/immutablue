@@ -182,8 +182,10 @@ if [[ "$(is_option_in_build_options cyan)" == "${TRUE}" ]]
 then 
     echo "Installing NVIDIA drivers for cyan variant..."
     
-    # Check if pre-built cyan deps are available
-    if [[ -d "/mnt-cyan-deps/nvidia" ]] && ls /mnt-cyan-deps/nvidia/kmod-nvidia-*.rpm &>/dev/null 2>&1; then
+    # Fedora 44+ carries both branches in isolated, boot-selectable extensions.
+    if [[ "$FEDORA_VERSION" -ge 44 ]]; then
+        bash "${INSTALL_DIR}/build/75-nvidia.sh" install
+    elif [[ -d "/mnt-cyan-deps/nvidia" ]] && ls /mnt-cyan-deps/nvidia/kmod-nvidia-*.rpm &>/dev/null 2>&1; then
         echo "Using pre-built NVIDIA kernel modules from cyan-deps..."
         
         # Install pre-built kernel modules
@@ -208,10 +210,12 @@ then
     fi
     
     # Add NVIDIA modules to load at boot
-    echo 'nvidia' >> "${MODULES_CONF}"
-    echo 'nvidia_drm' >> "${MODULES_CONF}"
-    echo 'nvidia_modeset' >> "${MODULES_CONF}"
-    echo 'nvidia_uvm' >> "${MODULES_CONF}"
+    if [[ "$FEDORA_VERSION" -lt 44 ]]; then
+        echo 'nvidia' >> "${MODULES_CONF}"
+        echo 'nvidia_drm' >> "${MODULES_CONF}"
+        echo 'nvidia_modeset' >> "${MODULES_CONF}"
+        echo 'nvidia_uvm' >> "${MODULES_CONF}"
+    fi
 fi
 
 # Install the main packages defined in packages.yaml
@@ -295,7 +299,7 @@ then
 fi
 
 # Verify NVIDIA kernel modules are built if cyan variant
-if [[ "$(is_option_in_build_options cyan)" == "${TRUE}" ]]
+if [[ "$(is_option_in_build_options cyan)" == "${TRUE}" && "$FEDORA_VERSION" -lt 44 ]]
 then
     # Check if NVIDIA kernel modules exist for the installed kernel
     KERNEL_VERSION=$(rpm -qa | grep -P 'kernel-(|longterm-)(\d+\.\d+\.\d+)' | sed -E 's/kernel-(|longterm-)//')
@@ -509,4 +513,3 @@ EOF
     # Restore the original symlink
     ln -s var/roothome /root
 fi
-
