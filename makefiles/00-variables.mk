@@ -114,6 +114,8 @@ CYAN_DEPS_CONTAINER := $(IMAGE):$(VERSION)-cyan-deps
 CYAN_DEPS_CONTAINER_DATE := $(IMAGE):$(VERSION)-cyan-deps-$(shell date +%Y%m%d)
 CYAN_DEPS_IMAGE ?= quay.io/immutablue/immutablue:$(VERSION)-cyan-deps
 CYAN_KERNEL_VERSION ?=
+CYAN_KERNEL_PACKAGE := kernel
+CYAN_LTS_VERSION :=
 
 # ------------------------------------------------------------------------------
 # Output Directories

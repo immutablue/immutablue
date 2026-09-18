@@ -30,7 +30,7 @@ elif [[ "$FEDORA_VERSION" -ge 44 ]]; then
     printf '%%_with_kmod_nvidia_open 1\n' > /etc/rpm/macros.immutablue-nvidia
 fi
 dnf install -y "${packages[@]}"
-kver="$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n')"
+kver="$(rpm -q "${KERNEL_PACKAGE:-kernel}" --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n')"
 [[ "$kver" != *$'\n'* ]]
 akmods --kernels "$kver" --force
 module_list=$(find /var/cache/akmods -name "kmod-nvidia${suffix}-${kver}-*.rpm")

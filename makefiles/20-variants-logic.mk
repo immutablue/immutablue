@@ -128,6 +128,18 @@ else
     DO_INSTALL_LTS := true
 endif
 
+# Cyan NVIDIA kmods must match the kernel the image will boot, including LTS.
+ifeq ($(DO_INSTALL_LTS),true)
+    CYAN_KERNEL_PACKAGE := kernel-longterm
+    CYAN_LTS_VERSION := $(shell yq '.immutablue.lts_version.$(VERSION)' packages.yaml | tr -d '"')
+    CYAN_DEPS_CONTAINER := $(IMAGE):$(VERSION)-cyan-deps-lts
+    CYAN_DEPS_CONTAINER_DATE := $(IMAGE):$(VERSION)-cyan-deps-lts-$(shell date +%Y%m%d)
+    CYAN_DEPS_IMAGE := $(CYAN_DEPS_CONTAINER)
+else
+    CYAN_KERNEL_PACKAGE := kernel
+    CYAN_LTS_VERSION :=
+endif
+
 # ZFS modules (no tag suffix — installs ZFS on top of any variant without renaming)
 ifeq ($(strip $(filter-out 0 00,$(ZFS))),)
 else

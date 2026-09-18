@@ -5,42 +5,52 @@ ARG FEDORA_VERSION=44
 FROM quay.io/fedora/fedora:${FEDORA_VERSION} AS base
 ARG FEDORA_VERSION=44
 ARG KERNEL_VERSION
+ARG KERNEL_PACKAGE=kernel
+ARG LTS_VERSION=
 
 RUN dnf install -y \
     fedora-repos-archive \
+    dnf-plugins-core \
     https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA_VERSION}.noarch.rpm \
     https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA_VERSION}.noarch.rpm
+
+RUN if [ "$KERNEL_PACKAGE" = kernel-longterm ]; then \
+        dnf -y copr enable "kwizart/kernel-longterm-${LTS_VERSION}"; \
+    fi
 
 RUN if [ "$FEDORA_VERSION" -ge 44 ] && [ -z "$KERNEL_VERSION" ]; then \
         echo 'Cyan requires KERNEL_VERSION from the target image; use make build-cyan-deps' >&2; exit 1; \
     fi && dnf update -y && \
-    dnf install -y --enablerepo=updates-archive \
-    akmods \
-    mock \
-    rpm-build \
-    kernel${KERNEL_VERSION:+-${KERNEL_VERSION}} \
-    kernel-devel${KERNEL_VERSION:+-${KERNEL_VERSION}} \
-    kernel-devel-matched${KERNEL_VERSION:+-${KERNEL_VERSION}} \
-    kernel-headers \
-    gcc \
-    make \
-    elfutils-libelf-devel \
-    jq \
-    xz
+    if [ "$KERNEL_PACKAGE" = kernel-longterm ]; then \
+        dnf install -y \
+            akmods mock rpm-build gcc make elfutils-libelf-devel jq xz kernel-headers \
+            "kernel-longterm-${KERNEL_VERSION}" \
+            "kernel-longterm-devel-${KERNEL_VERSION}"; \
+    else \
+        dnf install -y --enablerepo=updates-archive \
+            akmods mock rpm-build gcc make elfutils-libelf-devel jq xz kernel-headers \
+            kernel${KERNEL_VERSION:+-${KERNEL_VERSION}} \
+            kernel-devel${KERNEL_VERSION:+-${KERNEL_VERSION}} \
+            kernel-devel-matched${KERNEL_VERSION:+-${KERNEL_VERSION}}; \
+    fi
 
 COPY deps-container/cyan/build-stack.sh /build/
 
 FROM base AS open
+ARG FEDORA_VERSION=44
+ARG KERNEL_PACKAGE=kernel
 RUN bash /build/build-stack.sh open
 COPY deps-container/cyan/export-stack.sh /build/
 RUN if [ "$FEDORA_VERSION" -ge 44 ]; then \
-    bash /build/export-stack.sh open "$(rpm -q kernel --qf '%{VERSION}-%{RELEASE}.%{ARCH}')" /rpms/stacks/open; fi
+    bash /build/export-stack.sh open "$(rpm -q "$KERNEL_PACKAGE" --qf '%{VERSION}-%{RELEASE}.%{ARCH}')" /rpms/stacks/open; fi
 
 FROM base AS nvidia580
+ARG FEDORA_VERSION=44
+ARG KERNEL_PACKAGE=kernel
 RUN bash /build/build-stack.sh 580
 COPY deps-container/cyan/export-stack.sh /build/
 RUN if [ "$FEDORA_VERSION" -ge 44 ]; then \
-    bash /build/export-stack.sh 580 "$(rpm -q kernel --qf '%{VERSION}-%{RELEASE}.%{ARCH}')" /rpms/stacks/580; fi
+    bash /build/export-stack.sh 580 "$(rpm -q "$KERNEL_PACKAGE" --qf '%{VERSION}-%{RELEASE}.%{ARCH}')" /rpms/stacks/580; fi
 
 FROM scratch
 COPY --from=open /rpms /rpms

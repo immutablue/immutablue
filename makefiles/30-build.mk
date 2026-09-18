@@ -87,7 +87,7 @@ push-deps:
 # NVIDIA/Cyan Dependency Build
 # ------------------------------------------------------------------------------
 build-cyan-deps:
-	kernel_version="$$(bash scripts/cyan-kernel-version.sh "$(BASE_IMAGE):$(BASE_IMAGE_TAG)" "$(PLATFORM)" "$(CYAN_KERNEL_VERSION)")" && buildah \
+	kernel_version="$$(bash scripts/cyan-kernel-version.sh "$(BASE_IMAGE):$(BASE_IMAGE_TAG)" "$(PLATFORM)" "$(CYAN_KERNEL_VERSION)" "$(CYAN_KERNEL_PACKAGE)" "$(VERSION)" "$(CYAN_LTS_VERSION)")" && buildah \
 		build \
 		--no-cache \
 		--platform $(PLATFORM) \
@@ -96,6 +96,8 @@ build-cyan-deps:
 		-f ./deps-container/cyan/Containerfile \
 		--build-arg=FEDORA_VERSION=$(VERSION) \
 		--build-arg=KERNEL_VERSION="$$kernel_version" \
+		--build-arg=KERNEL_PACKAGE="$(CYAN_KERNEL_PACKAGE)" \
+		--build-arg=LTS_VERSION="$(CYAN_LTS_VERSION)" \
 		.
 
 push-cyan-deps:
