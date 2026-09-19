@@ -54,6 +54,9 @@ for package in "${packages[@]}"; do
         cp -a -- "$filename" "$target"
     done < "$stage/files"
 done
+# RPM %post presets write /etc links that are not in rpm -ql. Keep their
+# NVIDIA dependencies inside the selected extension, including 580 sleep hooks.
+bash "$(dirname "${BASH_SOURCE[0]}")/export-unit-links.sh" /etc/systemd/system "$extension"
 shopt -s nullglob
 module_kernels=("$extension/usr/lib/modules/"*)
 [[ ${#module_kernels[@]} == 1 && "${module_kernels[0]##*/}" == "$kernel" ]] || {

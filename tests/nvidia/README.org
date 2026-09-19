@@ -37,7 +37,8 @@ arguments. Relabel boots skip activation until the next normal boot.
 The selected read-only system extension supplies matching kernel modules,
 graphics libraries and CUDA driver libraries. CUDA development toolkits are
 not provided by this selector. Existing NVIDIA RPMs in the base image are
-rejected to avoid mixing stacks.
+rejected to avoid mixing stacks. RPM-enabled NVIDIA service dependencies are
+carried inside each extension, including the 580 suspend/resume hooks.
 
 * Build
 
@@ -70,7 +71,8 @@ bash tests/run_tests.sh --suite regressions
 =test_nvidia_selector.sh= uses private PCI/config trees and stubbed activation
 commands. It covers no GPU, modern/legacy/mixed GPUs, unsupported GPUs, failed
 PCI reads, atomic configuration writes, malformed CLI/configuration input,
-activation ordering and merge failure propagation. =test_cyan_kernel.sh=
+activation ordering, merge failure propagation and preservation of RPM-enabled
+service dependencies. =test_cyan_kernel.sh=
 covers exact kernel resolution, ambiguity rejection, explicit overrides and
 LTS image routing. These tests do not prove that kernel modules compile or that
 systemd can mount the extension on a real OSTree boot.

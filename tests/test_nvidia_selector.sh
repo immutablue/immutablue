@@ -87,3 +87,18 @@ rm "$CONFIG"
 bash -euo pipefail -c activate
 [[ $(jq -r .driver "$CONFIG") == 580 ]]
 echo 'PASS: NVIDIA detection, atomic persistence, CLI validation and activation failures'
+
+# RPM-created enablement links are not file-list payloads. Preserve only links
+# whose service belongs to this stack, and do not export unrelated services.
+units="$fixture/units"
+extension="$fixture/extension"
+mkdir -p "$units/systemd-suspend.service.wants" "$extension/usr/lib/systemd/system"
+touch "$extension/usr/lib/systemd/system/nvidia-suspend.service"
+ln -s /usr/lib/systemd/system/nvidia-suspend.service "$units/systemd-suspend.service.wants/nvidia-suspend.service"
+ln -s /usr/lib/systemd/system/nvidia-fallback.service "$units/systemd-suspend.service.wants/nvidia-fallback.service"
+ln -s /usr/lib/systemd/system/unrelated.service "$units/systemd-suspend.service.wants/unrelated.service"
+ln -s /dev/null "$units/nvidia-powerd.service"
+bash "$root/deps-container/cyan/export-unit-links.sh" "$units" "$extension"
+[[ $(readlink "$extension/usr/lib/systemd/system/systemd-suspend.service.wants/nvidia-suspend.service") == /usr/lib/systemd/system/nvidia-suspend.service ]]
+[[ $(find "$extension" -type l | wc -l) == 1 ]]
+echo 'PASS: extension retains only its own RPM-enabled service dependencies'
