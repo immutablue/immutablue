@@ -1,7 +1,7 @@
 #!/bin/bash
 # Kernel resolution must never silently select the builder's running kernel.
 set -euo pipefail
-root="$(cd "$(dirname "$0")/.." && pwd)"
+root="$(cd "$(dirname "$0")/.." > /dev/null && pwd)"
 temporary="$(mktemp -d)"
 trap 'rm -rf "$temporary"' EXIT
 cat > "$temporary/podman" <<'EOF'
@@ -27,3 +27,27 @@ for TEST_KERNEL in '' 'not installed' $'7.2.4-200.fc44.x86_64\n7.2.5-200.fc44.x8
     fi
 done
 echo 'PASS: Cyan kernel follows the target base, supports explicit override, and rejects ambiguity'
+
+# LTS routing must not make ordinary Trueblue builds consume a Cyan LTS image.
+cd "$root"
+check_make() {
+    local expected=$1 actual
+    shift
+    actual=$(env -i PATH="$PATH" make --no-print-directory -s -f - "$@" review-vars <<'MAKE'
+include makefiles/00-variables.mk
+include makefiles/10-variants-data.mk
+include makefiles/20-variants-logic.mk
+review-vars:
+	@printf '%s %s\n' '$(CYAN_KERNEL_PACKAGE)' '$(CYAN_DEPS_IMAGE)'
+MAKE
+)
+    [[ "$actual" == "$expected" ]] || { echo "FAIL: Cyan routing: $actual"; return 1; }
+}
+check_make 'kernel-longterm quay.io/immutablue/immutablue:44-cyan-deps' VERSION=44 TRUEBLUE=1
+check_make 'kernel-longterm example/review:44-cyan-deps-lts' VERSION=44 TRUEBLUE=1 CYAN=1 IMAGE=example/review
+check_make 'kernel-longterm example/custom:tag' VERSION=44 LTS=1 CYAN=1 CYAN_DEPS_IMAGE=example/custom:tag
+check_make 'kernel quay.io/immutablue/immutablue:44-cyan-deps' VERSION=44 CYAN=1
+export TEST_KERNEL=6.18.1-1.fc44.x86_64
+[[ $(bash "$root/scripts/cyan-kernel-version.sh" unused linux/amd64 '' kernel-longterm 44 6.18) == "$TEST_KERNEL" ]]
+grep -Fq kwizart/kernel-longterm-6.18 "$CALL_LOG"
+echo 'PASS: Cyan LTS resolution and Make image routing'

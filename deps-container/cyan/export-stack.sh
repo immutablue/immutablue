@@ -62,11 +62,8 @@ module_kernels=("$extension/usr/lib/modules/"*)
 archives=(/usr/share/nvidia*-kmod-*/*.tar.xz)
 [[ ${#archives[@]} == 1 ]] || { echo 'Expected exactly one driver source archive' >&2; exit 1; }
 tar -xOf "${archives[0]}" supported-gpus/supported-gpus.json > "$stage/gpus"
-jq -e --arg branch "$branch" '
-    .chips |= map(select((.legacybranch | not) and
-        (((.features // []) | index("kernelopen") != null) == ($branch == "open")))) |
-    if (.chips | length) > 0 then . else error("No supported GPUs") end
-    ' "$stage/gpus" > "$output/supported-gpus.json"
+jq -e --arg branch "$branch" -f "$(dirname "${BASH_SOURCE[0]}")/supported-gpus.jq" \
+    "$stage/gpus" > "$output/supported-gpus.json"
 suffix=''
 [[ "$branch" != 580 ]] || suffix=-580xx
 version=$(rpm -q --qf '%{VERSION}' "xorg-x11-drv-nvidia$suffix")

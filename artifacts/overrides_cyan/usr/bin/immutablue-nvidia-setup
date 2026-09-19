@@ -4,18 +4,19 @@ set -euo pipefail
 STACKS=/usr/lib/immutablue/nvidia
 CONFIG=/etc/immutablue/nvidia.json
 EXTENSIONS=/run/extensions
+PCI_DEVICES=/sys/bus/pci/devices
 
 fail() { echo "NVIDIA setup: $*" >&2; exit 1; }
 
 gpu_ids() {
     local device vendor class
-    for device in /sys/bus/pci/devices/*; do
+    for device in "$PCI_DEVICES"/*; do
         [[ -d "$device" ]] || continue
-        vendor=$(<"$device/vendor")
+        vendor=$(cat "$device/vendor") || return $?
         [[ "${vendor,,}" == 0x10de ]] || continue
-        class=$(<"$device/class")
+        class=$(cat "$device/class") || return $?
         (( class >> 16 == 3 )) || continue
-        tr 'A-F' 'a-f' < "$device/device"
+        tr 'A-F' 'a-f' < "$device/device" || return $?
     done
 }
 
@@ -30,22 +31,29 @@ ids_supported() {
 }
 
 pick() {
-    local ids
-    mapfile -t ids < <(gpu_ids)
+    local ids detected
+    detected=$(gpu_ids) || return $?
+    ids=()
+    if [[ -n "$detected" ]]; then mapfile -t ids <<< "$detected"; fi
     if ((${#ids[@]} == 0)); then echo none; return; fi
     if ids_supported "$STACKS/open/supported-gpus.json" "${ids[@]}"; then echo open; return; fi
     if ids_supported "$STACKS/580/supported-gpus.json" "${ids[@]}"; then echo 580; return; fi
     fail 'no bundled driver supports all NVIDIA GPUs'
 }
 
-save() {
-    local driver=$1
-    mkdir -p "$(dirname "$CONFIG")"
-    jq -n --arg driver "$driver" '{driver:$driver}' > "$CONFIG"
-}
+# Publish complete JSON on the same filesystem; failed writes preserve the choice.
+save() (
+    local driver=$1 pending
+    mkdir -p "$(dirname "$CONFIG")" || exit $?
+    pending=$(mktemp "${CONFIG}.XXXXXX") || exit $?
+    trap 'rm -f -- "$pending"' EXIT
+    jq -n --arg driver "$driver" '{driver:$driver}' > "$pending" || exit $?
+    chmod 0644 "$pending" || exit $?
+    mv -fT -- "$pending" "$CONFIG" || exit $?
+)
 
 activate() {
-    local driver
+    local driver image
     if [[ -f "$CONFIG" ]]; then
         driver=$(jq -er '.driver' "$CONFIG")
     else
@@ -62,34 +70,44 @@ activate() {
     mkdir -p "$EXTENSIONS"
     ln -sfn "$image" "$EXTENSIONS/immutablue-nvidia.raw"
     systemd-sysext refresh
-    ldconfig
+    ldconfig -X
     modprobe nvidia_drm
     modprobe nvidia_uvm
 }
 
 main() {
     local action=setup driver=''
+    local action_set=false
     while (($#)); do
         case "$1" in
-            --activate) action=activate ;;
+            --activate|--status)
+                [[ "$action_set" == false ]] || fail 'choose one action'
+                action=${1#--}
+                action_set=true
+                ;;
             --driver)
                 (($# >= 2)) || fail '--driver needs a value'
+                [[ -z "$driver" && -n "$2" ]] || fail 'supply one nonempty driver'
                 driver=$2
                 shift
                 ;;
-            --status)
-                if [[ -f "$CONFIG" ]]; then cat "$CONFIG"
-                else echo 'not configured'; fi
-                return 0
-                ;;
             -h|--help)
-                echo 'Usage: immutablue-nvidia-setup [--activate] [--driver open|580|none]'
+                echo 'Usage: immutablue-nvidia-setup [--driver open|580|none] | --status | --activate'
+                echo 'Default: detect all NVIDIA GPUs and save a driver for the next reboot.'
+                echo 'Example: sudo immutablue-nvidia-setup --driver 580'
+                echo '--activate is for the early-boot service; do not switch live graphics.'
                 return 0
                 ;;
+            --license) echo 'AGPL-3.0-or-later'; return 0 ;;
             *) fail "unknown argument: $1" ;;
         esac
         shift
     done
+    [[ "$action" == setup || -z "$driver" ]] || fail '--driver cannot be combined with --status or --activate'
+    if [[ "$action" == status ]]; then
+        if [[ -f "$CONFIG" ]]; then cat "$CONFIG"; else echo 'not configured'; fi
+        return 0
+    fi
     ((EUID == 0)) || fail 'run with sudo, or use immutablue nvidia_setup'
     [[ -f "$STACKS/open/manifest.json" ]] || fail 'this image has no selectable NVIDIA stacks'
     if [[ "$action" == activate ]]; then
@@ -102,4 +120,4 @@ main() {
     echo "Selected NVIDIA driver: $driver. Reboot to apply."
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then main "$@"; fi

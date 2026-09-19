@@ -30,6 +30,9 @@ Head over to the [Immutablue Quay Repository](https://quay.io/repository/immutab
 - nix: `43-nix` — Nix package manager
 - asahi: `43-asahi` — Apple Silicon
 
+Fedora 44+ Cyan supports saved current/legacy NVIDIA selection. See the
+[Cyan driver guide](tests/nvidia/README.org) for setup, build requirements, and validation limits.
+
 ### Customizing
 
 If you want a custom version or have specific needs, this is **not** the repo to fork or modify. We have another repo dedicated for that purpose.

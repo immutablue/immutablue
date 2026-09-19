@@ -134,7 +134,9 @@ ifeq ($(DO_INSTALL_LTS),true)
     CYAN_LTS_VERSION := $(shell yq '.immutablue.lts_version.$(VERSION)' packages.yaml | tr -d '"')
     CYAN_DEPS_CONTAINER := $(IMAGE):$(VERSION)-cyan-deps-lts
     CYAN_DEPS_CONTAINER_DATE := $(IMAGE):$(VERSION)-cyan-deps-lts-$(shell date +%Y%m%d)
-    CYAN_DEPS_IMAGE := $(CYAN_DEPS_CONTAINER)
+    ifneq ($(strip $(filter-out 0 00,$(CYAN))),)
+        CYAN_DEPS_IMAGE := $(CYAN_DEPS_CONTAINER)
+    endif
 else
     CYAN_KERNEL_PACKAGE := kernel
     CYAN_LTS_VERSION :=

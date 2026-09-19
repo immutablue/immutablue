@@ -40,7 +40,7 @@ FROM base AS open
 ARG FEDORA_VERSION=44
 ARG KERNEL_PACKAGE=kernel
 RUN bash /build/build-stack.sh open
-COPY deps-container/cyan/export-stack.sh /build/
+COPY deps-container/cyan/export-stack.sh deps-container/cyan/supported-gpus.jq /build/
 RUN if [ "$FEDORA_VERSION" -ge 44 ]; then \
     bash /build/export-stack.sh open "$(rpm -q "$KERNEL_PACKAGE" --qf '%{VERSION}-%{RELEASE}.%{ARCH}')" /rpms/stacks/open; fi
 
@@ -48,7 +48,7 @@ FROM base AS nvidia580
 ARG FEDORA_VERSION=44
 ARG KERNEL_PACKAGE=kernel
 RUN bash /build/build-stack.sh 580
-COPY deps-container/cyan/export-stack.sh /build/
+COPY deps-container/cyan/export-stack.sh deps-container/cyan/supported-gpus.jq /build/
 RUN if [ "$FEDORA_VERSION" -ge 44 ]; then \
     bash /build/export-stack.sh 580 "$(rpm -q "$KERNEL_PACKAGE" --qf '%{VERSION}-%{RELEASE}.%{ARCH}')" /rpms/stacks/580; fi
 
