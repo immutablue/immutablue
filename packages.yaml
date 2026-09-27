@@ -74,6 +74,7 @@ immutablue:
     - elfutils-devel
     - elfutils-debuginfod-client-devel
     - fastfetch
+    - flatpak-builder
     - fuse-sshfs
     - fzf
     - gcc
@@ -91,6 +92,7 @@ immutablue:
     - heaptrack
     - htop
     - innoextract
+    - jansson-devel
     - json-glib-devel
     - libadwaita-devel
     - libasan
@@ -99,6 +101,7 @@ immutablue:
     - libdex-devel
     - libeis-devel
     - libetpan-devel
+    - libjose-devel
     - libpq-devel
     - librsvg2-devel
     - libsoup3
