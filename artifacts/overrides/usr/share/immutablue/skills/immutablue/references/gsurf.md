@@ -16,8 +16,10 @@ Configuration merges in this order, later overriding earlier:
 ```bash
 gsurf --generate-yaml-config > ~/.config/gsurf/config.yaml   # every key, and which modules default on
 gsurf --generate-c-config    > ~/.config/gsurf/config.c
-gsurf --list-modules
+gsurf --list-modules                                         # alphabetical
 gsurf --no-modules / --no-c-config / --no-yaml-config        # isolate a problem
+gsurf -c PATH / --c-config PATH                              # use a specific file
+gsurf -f URI / --lrg URI                                     # fullscreen; libregnum/raylib backend
 ```
 
 ```yaml
@@ -33,6 +35,8 @@ webkit:                         # web engine settings, surf's defconfig
   javascript: true
   images: true
   webgl: false
+  webrtc: false                 # true also forces media_stream on (WebKit requires it)
+  media_stream: false           # getUserMedia; independent only while webrtc is off
   default_font_size: 16
 
 window:
@@ -52,7 +56,15 @@ modules:                        # one block per module; enabled: gates it
   modal:
     enabled: true
     hint_chars: "asdfghjkl"
+    hint_font_size: 15          # f/F hint labels, CSS px; default 11
 ```
+
+`search_engines` trims the input, then the **longest** matching prefix wins
+(`g ` and `g site ` can coexist); prefixes are case-sensitive literals, so keep
+the trailing space. Explicit schemes, dotted hosts and `localhost` pass through
+as addresses; anything else goes to `default` while `default_is_search` is true.
+History is appended to `$XDG_DATA_HOME/gsurf/history` unless `modules.history.file`
+says otherwise (`file: ""` disables it).
 
 The C config defines `gsurf_config_init()` and edits the config object
 directly:
@@ -96,6 +108,13 @@ are normalised. Values are action names, with `-` or `_` accepted.
 | `Ctrl+plus` / `minus` / `0` | zoom in / out / reset |
 | `Ctrl+f`, `Ctrl+g` / `Ctrl+Shift+g` | find, next / previous |
 | `F11`, `Ctrl+q` | `toggle-fullscreen`, `quit` |
+| `o`, `Ctrl+l` | `open-prompt` (address bar) |
+| `?` (keyval `question`) | `show-keybinds` |
+
+`?` opens a help overlay listing every binding **currently active** — the core
+table plus each enabled module's own keys — rebuilt on each press, so it is the
+quickest way to see what a config actually produced. Inside it `j`/`k` move,
+`h`/`l` scroll sideways, `q`, `?` or `Escape` close.
 
 The vim-style layer comes from the `modal` module, not the core table, and is
 focus-aware — it never eats typing. With no editable element focused: `hjkl`
@@ -103,13 +122,55 @@ scroll, `gg`/`G` top/bottom, `H`/`L` history, `r` reload, `d`/`u` half-page,
 `f` link hints (`F` opens in a new view). With a text field or the address bar
 focused, keys go to it; `Escape` returns to command context, `i` forces insert
 mode for pages that want raw keys. Hint appearance is `modules.modal.hint_chars`,
-`hint_bg`, `hint_fg`. `tabs` adds `Ctrl+t` / `Ctrl+w` / `Ctrl+Tab`, and
+`hint_bg`, `hint_fg`, `hint_font_size`. `tabs` adds `Ctrl+t` / `Ctrl+w` / `Ctrl+Tab`, and
 `toggles` adds `Ctrl+Shift+…` setting toggles.
 
 Other actions: `home`, `open-prompt`, `open-new-view`,
 `scroll-{up,down,left,right,top,bottom}`, `page-{up,down}`,
 `half-page-{up,down}`, `tab-{new,close,next,prev,reopen}`,
-`enter-{normal,insert}-mode`, `follow-hints`, `copy-url`, `paste-url`.
+`enter-{normal,insert}-mode`, `follow-hints`, `copy-url`, `paste-url`,
+`show-keybinds`.
+
+## Kiosk windows and site launchers (PWA)
+
+```bash
+gsurf --kiosk https://example.org                          # one view, no chrome
+gsurf --kiosk --fullscreen https://example.org
+gsurf --pwa https://mail.example.org                       # install a launcher, then exit
+gsurf --pwa --pwa-name 'My Mail' https://mail.example.org
+```
+
+`--kiosk` takes exactly one URI and hides the address/tab/status bars; URL
+entry, `home`, new tabs, popups (`target=_blank`, `window.open`), the context
+menu and the inspector are blocked, and rebinding cannot re-enable them. Links,
+forms, back/forward, reload and zoom still work, and YAML/C config and
+non-chrome modules (adblock, modal, userscripts, …) load as usual. It is a UI
+restriction, **not** a domain allowlist or security boundary.
+
+`--pwa` needs one absolute `http(s)` URL; it writes
+`gsurf-pwa-<sha256 of the URI>.desktop` running `gsurf --kiosk -- URL` and
+prints the path, without opening a window. As a user it goes to
+`$XDG_DATA_HOME/applications` (`~/.local/share/applications`); as root
+(`sudo`) to `/usr/local/share/applications` — writable on Immutablue, since
+`/usr/local` lives under `/var`. Reinstalling the same URI replaces it;
+uninstall by deleting the printed file. No manifest, favicon or separate
+profile is fetched — it is a shortcut to a kiosk window.
+
+## Gopher and Gemini
+
+`gopher://` and `gemini://` load natively — address bar, CLI, links, bookmarks,
+history — with no module or proxy, and the desktop entry registers both
+schemes. Gopher+ attributes, views and ASK forms work; Gopher is unencrypted
+(`AskP` only masks the field). Gemini renders Gemtext; input prompts become
+forms, redirects show a *Continue* link rather than following, and client
+certificates (status 60–69) are not supported.
+
+Gemini server certificates are pinned on first use (TOFU) under
+`~/.local/share/gsurf/gemini/certificates/`, one file per host:port. A changed
+certificate fails closed and the error page names the exact pin file — verify
+the new certificate with the capsule operator, delete only that file, reload.
+Gemini needs `glib-networking` for TLS. Proxy settings (`network.proxy`) apply
+to both protocols.
 
 ## Modules
 
@@ -118,9 +179,9 @@ Other actions: `home`, `open-prompt`, `open-new-view`,
 | Group | Modules |
 |---|---|
 | chrome | `chromebar`, `omnibar`, `tabs`, `find_bar`, `status_bar`, `downloads` |
-| navigation | `modal`, `search_engines`, `spacesearch`, `homepage`, `history`, `bookmarks` |
+| navigation | `modal`, `search_engines`, `spacesearch`, `homepage`, `history`, `bookmarks`, `session` |
 | content | `adblock`, `dark_mode`, `site_styles`, `userscripts`, `uri_params`, `useragent` |
-| privacy and trust | `cookie_policy`, `cert_manager`, `toggles` |
+| privacy and trust | `cookie_policy`, `cert_manager`, `geolocation`, `proxy_switch`, `toggles` |
 | integration | `externalpipe`, `playexternal` (mpv), `notifications`, `inspector`, `mcp` |
 
 A module is on only if the effective config says `enabled: true`.
@@ -144,8 +205,8 @@ installed library with `$(pkg-config --cflags --libs gsurf)`.
 ## Embedded in cmacs
 
 `cmacs-gsurf` does **not** read `~/.config/gsurf/config.yaml` or `config.c` by
-default. It tells gsurf to ignore YAML (`cmacs-gsurf-ignore-yaml`, default
-`t`) and configures it from Elisp, before modules load:
+default (only when `cmacs-gsurf-load-user-config` is `t`). It is configured
+from Elisp, before modules load:
 
 ```elisp
 (setq cmacs-gsurf-modules
@@ -171,6 +232,15 @@ To use gsurf's own files as well — layering, last wins:
 (setq cmacs-gsurf-config-c-file "~/.config/cmacs/init.c")   ; any crispy file with gsurf_config_init()
 ```
 
+**The embedded copy is a separate build.** cmacs vendors its own
+`deps/gsurf`, pinned independently of the standalone `gsurf` binary, and it can
+lag well behind: at this skill's last review it predated native Gopher/Gemini,
+kiosk/PWA, the `?` overlay and `hint_font_size`, and cmacs exposes no kiosk or
+PWA Elisp. If a feature above is missing inside cmacs, use standalone `gsurf`
+(`(start-process "gsurf" nil "gsurf" URL)`), and check whether
+`deps/gsurf/protocols.org` exists in the installed manual to tell which side
+you are on.
+
 Modules are searched in `$CMACS_GSURF_MODULE_DIR`, `$GSURF_MODULE_PATH`, the
 cmacs tree, gsurf's build tree, then `$libdir/cmacs/gsurf/modules/` — first
 match by filename, like `$PATH`. `(cmacs-gsurf-modules-list)` reports each
@@ -195,6 +265,9 @@ env | grep -E '^GSURF_'     # GSURF_CONFIG_C or GSURF_MODULE_PATH redirecting th
 | Every shipped module is gone | `GSURF_MODULE_PATH` names a directory without them — standalone uses exactly one module directory | unset it, or make it a directory of symlinks to `/usr/lib64/gsurf/modules/*.so` plus your own |
 | Pages are blank, or flicker, on some GPUs | WebKitGTK's compositing or DMA-BUF renderer | WebKitGTK's own switches: `WEBKIT_DISABLE_DMABUF_RENDERER=1`, then `WEBKIT_DISABLE_COMPOSITING_MODE=1` |
 | Letters scroll the page instead of typing | nothing editable is focused, so `modal` treats keys as commands | click the field; `i` forces insert mode |
+| Unsure which keys a config produced | | press `?` for the live binding list |
+| A Gemini capsule shows a certificate-mismatch page | its certificate changed since first visit (TOFU pin) | verify out of band, delete the pin file the page names, reload |
+| A kiosk window will not open a link | the link needs a popup or new view, which kiosk blocks | expected; open it in a normal `gsurf` |
 
 Embedded in cmacs:
 
@@ -217,3 +290,15 @@ Under `/usr/share/emacs/<version>/doc_org/cmacs/`, openable with
 | `deps/gsurf/configuration.org`, `c-config.org`, `keybindings.org` | the standalone config reference |
 | `deps/gsurf/modules.org`, `module-system.org` | every module, and writing one |
 | `cmacs-gsurf.org` | the embedded browser: focus model, keymap, config from Elisp, JS bridge, caret mode, `gsurf-lite` |
+
+That tree documents **cmacs's** gsurf copy, so it can be older than the
+standalone binary — at the last review it lacked `protocols.org` (Gopher/Gemini)
+and `kiosk-pwa.org`. For those, read the source at the commit the standalone
+binary was built from:
+
+```bash
+remote=$(jq -r '.deps[] | select(.name=="gsurf") | .remote' /usr/immutablue/deps/dep_info.json)
+commit=$(jq -r '.deps[] | select(.name=="gsurf") | .commit' /usr/immutablue/deps/dep_info.json)
+git clone "${remote}" /tmp/gsurf && git -C /tmp/gsurf checkout "${commit}"
+# docs/protocols.org  docs/kiosk-pwa.org  docs/keybindings.org  docs/modules.org
+```

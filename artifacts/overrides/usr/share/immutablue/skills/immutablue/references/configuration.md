@@ -114,7 +114,30 @@ own cascades. Do not try to drive them through `settings.yaml`:
 | gst | `~/.config/gst/config.yaml`, `config.c`; see [`gst.md`](gst.md) |
 | gsurf | `~/.config/gsurf/config.yaml`, `config.c`, or Elisp under cmacs; see [`gsurf.md`](gsurf.md) |
 | voxtype dictation | `~/.config/voxtype/config.toml`, or `voxtype configure` |
-| `ai` (ai-glib) | `/usr/share/ai-glib/config.yaml` → `/etc/ai-glib/config.yaml` → `~/.config/ai-glib/config.yaml`, or `ai --setup` |
+| `ai` (ai-glib) | `/usr/share/ai-glib/config.yaml` → `/etc/ai-glib/config.yaml` → `~/.config/ai-glib/config.yaml`, or `ai --setup`; see below |
+| podomation | `$PODOMATION_CONFIG` → `~/.config/podomation/config.yaml` → `/etc/podomation/config.yaml`, or a bare `.pod` file; see [`automation.md`](automation.md#podomation-event-driven-automation) |
+
+### ai-glib keys worth knowing
+
+The ai-glib cascade is the same three layers as Immutablue's, later wins, and the
+image ships no `/usr/share/ai-glib/config.yaml` of its own. `ai` and `ai-tui`
+keep **separate** saved defaults; `immutablue ai_defaults` shows what resolved.
+
+| Key | Default | Note |
+|-----|---------|------|
+| `updates.check` | `false` | Leave it off. The self-updater cannot work on an image build — see [`packages.md`](packages.md#updating-ai-and-ai-tui-update-the-image-not-the-binary). `ai --setup` scope `4` writes only this key |
+| `updates.source-dir`, `updates.upstream`, `updates.interval`, `updates.run-tests` | — | Only meaningful for a from-source install; ignore on the image |
+| `apps.ai-tui.open-dashboard-on-load` | `false` | A bare `ai-tui` opens the project dashboard (`ai-tui --dashboard`, `Ctrl+\`) |
+
+A malformed value makes ai-glib **skip the whole file**, not just that key, and
+it says so only at debug level. After editing, confirm the change took —
+`immutablue ai_defaults`, or `ai --dry-run "hi"` for the provider and model —
+before assuming the key does nothing; `yq . ~/.config/ai-glib/config.yaml`
+catches a file that is not YAML at all. Environment overrides: `AI_GLIB_NO_UPDATE_CHECK=1`
+forces update checks off, `AI_LOOP_DISABLE=1` stops every `/loop` and `/goal`
+(see [`automation.md`](automation.md#scheduled-ai-prompts-loop-and-goal)), and `LAYA_BASE_URL` /
+`LAYA_API_KEY` point `ai decide` at a Laya classification server — ai-glib
+ships no Laya server or weights.
 
 ## Checking your work
 

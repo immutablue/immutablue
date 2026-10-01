@@ -41,6 +41,10 @@ state without a round trip, and `check_local_etc_overrides` answers the first
 question any maintainer of an image-based OS asks: *is this a stock image, or has
 this machine been modified?*
 
+On 44+ cyan with a display or GPU problem, add `immutablue nvidia_status`,
+`journalctl -b -u immutablue-nvidia.service`, `systemd-sysext status`,
+`lspci -nn | grep -i nvidia`, and whether the driver was forced with `--driver`.
+
 For a crash, add what [`crash-analysis.md`](crash-analysis.md) produced — the
 backtrace, the signal, and the correlation work. For an update failure, the
 `immutablue-update` transcript.

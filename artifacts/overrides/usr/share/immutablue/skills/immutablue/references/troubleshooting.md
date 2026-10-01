@@ -47,6 +47,7 @@ before answering from memory. See [`cmacs.md`](cmacs.md).
 | The whole machine froze or rebooted itself | there is no coredump; `immutablue crash_capture_status`, `logs_since_last_boot` | [`crash-capture.md`](crash-capture.md) |
 | VMs will not start | `immutablue status_libvirt`; SELinux relabel recipe | [`hardware.md`](hardware.md) |
 | Video stutters, battery drains in the browser | `vainfo` | [`hardware.md`](hardware.md) |
+| Black screen or no NVIDIA driver on a cyan (Fedora 44+) image | `immutablue nvidia_status`; `journalctl -b -u immutablue-nvidia.service` | [`hardware.md`](hardware.md) |
 | An always-on machine suspended anyway | the sleep targets are not masked | [`hardware.md`](hardware.md) |
 | Image build fails | `make pre_test` first; then the failing build script's output | [`building.md`](building.md) |
 
@@ -55,17 +56,26 @@ before answering from memory. See [`cmacs.md`](cmacs.md).
 | Symptom | First check | Guide |
 |---|---|---|
 | gowl / cmacs session returns straight to the login screen | `journalctl --user -b --grep gowl`; stale `WAYLAND_DISPLAY` in `systemctl --user show-environment` | [`gowl.md`](gowl.md) |
-| A gowl keybind, rule or effect change does nothing | `~/.config/gowl/gowl.log`; `config.c` overrides YAML | [`gowl.md`](gowl.md) |
+| A gowl keybind, rule or effect change does nothing | `gowl --check-config`; `~/.config/gowl/gowl.log`; `config.c` overrides YAML | [`gowl.md`](gowl.md) |
+| Super+space menu / Super+q hints do nothing in standalone gowl | the `menu` / `hints` module is not enabled | [`gowl.md`](gowl.md) |
+| A gowl macro is refused, held back, or freezes the desktop | `gowl-msg macro-status`; `macro-compile NAME` | [`gowl-macros.md`](gowl-macros.md) |
+| A foot pedal / macro pad remap does nothing | `gowl-msg inputremap-devices` — is it claimed? is the module loaded? | [`gowl-macros.md`](gowl-macros.md) |
+| Locked out after the lock screen crashed | from a TTY or SSH: `gowl-msg unlock` | [`gowl.md`](gowl.md) |
 | A compositor module does not load, or loads and does nothing | "enabled but .so not found" in the log; `activate()` must return `TRUE` | [`gowl.md`](gowl.md) |
 | An Electron app forgets its login under gowl | `echo $XDG_CURRENT_DESKTOP` must end in `:GNOME` | [`gowl.md`](gowl.md) |
-| A bar widget is missing | `gowl bar-widgets`, `gowl bar-plugins` — unknown widget names are skipped silently | [`gowl-bar.md`](gowl-bar.md) |
-| A bar plugin disappeared after a crash | `gowl bar-quarantined`, then the plugin journal | [`gowl-bar.md`](gowl-bar.md) |
+| A bar widget is missing | `gowl-msg bar-widgets`, `gowl-msg bar-plugins` — unknown widget names are skipped silently | [`gowl-bar.md`](gowl-bar.md) |
+| A bar plugin disappeared after a crash | `gowl-msg bar-quarantined`, then the plugin journal | [`gowl-bar.md`](gowl-bar.md) |
 | No password dialog for a privileged action under gowl | `systemctl --user status immutablue-polkit-agent.service` | [`desktop.md`](desktop.md) |
 | Dictation does not type | `immutablue dictation_status` — the typing backend differs by session | [`desktop.md`](desktop.md) |
+| `immutablue enable_dictation`: recipe not found | the image predates the `09-dictation` import; `just -f /usr/libexec/immutablue/just/09-dictation.justfile …` | [`desktop.md`](desktop.md) |
 | cmacs will not start, or `init.c` has no effect | `cmacs --debug-init`; the `*Warnings*` buffer | [`cmacs.md`](cmacs.md) |
 | A cmacs feature is missing | `emacsctl describe instance` lists what this build has | [`cmacs.md`](cmacs.md) |
 | Terminal font, colours, keys or images wrong | run `gst` from another terminal and read its stderr | [`gst.md`](gst.md) |
 | Browser keys go to the page, or a module does nothing | under cmacs: Escape returns focus to Emacs; `(cmacs-gsurf-modules-list)` | [`gsurf.md`](gsurf.md) |
+| `ai --update` or ai-tui `/update` says "unavailable" | expected: an image build has no checkout and `/usr` is read-only | [`packages.md`](packages.md) |
+| A podomation config or `.pod` does nothing | `podomation validate FILE`, then `podomation simulate FILE` | [`automation.md`](automation.md) |
+| A scheduled `/loop` or `/goal` never fires | `ai loop list` (is its session running?); `AI_LOOP_DISABLE` | [`automation.md`](automation.md) |
+| gowl keybinds and rules vanished after a reload in cmacs | `(gowl-reload-config)` with no argument resets to defaults; pass the YAML path | [`cmacs.md`](cmacs.md) |
 | `ai` uses the wrong provider or model | `immutablue ai_defaults` shows what resolved and from where | [`configuration.md`](configuration.md) |
 | The agent does not know about this system | `immutablue install_immutablue_skill`; `ls -l ~/.agents/skills/immutablue` | this skill |
 

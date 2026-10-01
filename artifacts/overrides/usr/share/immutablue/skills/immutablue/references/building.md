@@ -32,6 +32,45 @@ make PLATFORM=linux/arm64 build
 `NUCLEUS=1` (headless), `KINOITE=1`/`SERICEA=1` (other desktops), `ASAHI=1`
 (Apple Silicon), `NIX=1`, `ZFS=1`, `LTS=1` are the rest.
 
+### Cyan (NVIDIA) on Fedora 44+
+
+The image consumes a separate **cyan-deps** container holding two prebuilt
+driver stacks, `open` and `580`, each compiled against the *exact* kernel the
+image will boot. Build it first, with the same flags as the image:
+
+```bash
+make VERSION=44 CYAN=1 build-cyan-deps
+make VERSION=44 CYAN=1 build
+make VERSION=44 CYAN=1 TRUEBLUE=1 build-cyan-deps   # LTS/Trueblue: kernel-longterm, tag <ver>-cyan-deps-lts
+make VERSION=44 CYAN=1 TRUEBLUE=1 build
+```
+
+| Knob | Effect |
+|------|--------|
+| `CYAN_KERNEL_VERSION=<ver-rel.arch>` | skip resolution (`scripts/cyan-kernel-version.sh` reads the base image's `kernel`, or the newest `kernel-longterm` in the kwizart COPR for LTS) |
+| `CYAN_DEPS_IMAGE=<ref>` | which cyan-deps the image build pulls; default `quay.io/immutablue/immutablue:<ver>-cyan-deps`, auto-switched to the `-lts` tag under `CYAN=1` + LTS. Pass it explicitly with a custom `IMAGE` |
+
+`deps-container/cyan/` builds each branch in its own stage (`build-stack.sh`), turns
+the RPM payload into a sysext tree (`export-stack.sh`) and records
+`manifest.json`, `supported-gpus.json` (filtered by `supported-gpus.jq`) and
+`requirements.txt`. In the image, `30-install-packages.sh` calls
+`75-nvidia.sh install` (copies stacks to `/usr/lib/immutablue/nvidia/`, installs
+their non-NVIDIA requirements, writes the nouveau/nova/nvidia blacklist and
+dracut omit, enables `immutablue-nvidia.service`); `75-nvidia.sh` then finalizes
+each stack into a SELinux-labelled squashfs `immutablue-nvidia.raw`, and
+`80-initramfs.sh` fails if any GPU module reached the initramfs. Runtime behaviour
+is in [`hardware.md`](hardware.md).
+
+| Build error | Fix |
+|-------------|-----|
+| `rebuild cyan-deps: missing the <branch> NVIDIA stack` | cyan-deps is old or absent: `build-cyan-deps` |
+| `<branch> NVIDIA is for <k1>, image kernel is <k2>` | the kernel moved between the two builds: rebuild cyan-deps |
+| `selectable NVIDIA drivers require initramfs regeneration` | drop `initramfs` from `SKIP=` |
+| `the base image already has an NVIDIA stack` | base ships NVIDIA RPMs; stacks are never mixed |
+
+Fedora 42/43 cyan keeps the old path: one akmod-built `kmod-nvidia` from cyan-deps
+installed as RPMs.
+
 Run `git submodule update --init --recursive` after cloning or pulling. The
 components under `deps/` are submodules, and a stale checkout silently builds the
 wrong source.
@@ -43,6 +82,8 @@ wrong source.
 `make build-deps` captures `deps-container/dep_info.json` from the same source context used for compilation and packages it at `/build/dep_info.json`. Uninitialized submodules fail generation rather than borrowing the parent repository's HEAD; dirty dependency checkouts are marked explicitly.
 
 `make build` creates `.image-source.json` for the current image checkout, resolves `DEPS_IMAGE` once with Skopeo, and passes a `repository@sha256:...` reference to the dependency stage. `build/10-copy.sh` merges that artifact's manifest with the image source metadata after applying overrides. The result ships at `/usr/immutablue/deps/dep_info.json`: `.immutablue` describes the image checkout, `.deps` describes the compiled dependency source, and `.dependency_image`, `.dependency_build`, and `.dependency_generated` identify the artifact and its build context. Advancing local pins cannot relabel older dependency binaries.
+
+Older checkouts generated the manifest into `artifacts/overrides/usr/immutablue/deps/`. `make deps_manifest` (run by `make build`) and `make clean` delete that leftover; if `test_artifacts` reports a checksum mismatch on `dep_info.json`, that stale file is why.
 
 **Migration:** rebuild and publish the dependency container before the first main image build using this workflow. Older dependency containers without the manifest fail the image build. Publishing is a separate action; do not infer permission to push from a request to edit or build locally.
 
@@ -69,12 +110,12 @@ Edit `packages.yaml` and rebuild. Pick the section by who should get it:
 | `rpm_gui` | every graphical variant |
 | `rpm_silverblue`, `rpm_kinoite`, `rpm_sericea`, … | one desktop base |
 | `rpm_nucleus`, `rpm_kuberblue`, `rpm_trueblue`, … | one specialised variant |
-| `rpm_x86_64`, `rpm_<version>_aarch64` | one architecture |
+| `rpm_x86_64`, `rpm_aarch64`, `rpm_<variant>_<arch>` | one architecture |
 | `rpm_rm*` | removed from the base image |
 
 There are matching sections for flatpaks, distrobox definitions, brew, pip, and
-nix. Version-specific keys (`rpm.43`, `rpm.44`) exist for packages whose name
-changes between Fedora releases.
+nix. Under each section, `all` applies everywhere; `<version>` (`44`), `all_<arch>`
+and `<version>_<arch>` narrow it — see `get_yaml_array` in `build/99-common.sh`.
 
 ## Shipping a file
 
@@ -95,8 +136,11 @@ the image. A file placed here is read-only at runtime — which is the point.
 ## Adding a command
 
 Recipes live in `artifacts/overrides/usr/libexec/immutablue/just/`, in numbered
-justfiles that are concatenated by the wrapper. Add to an existing one or create a
-new numbered file; the number controls order, not much else.
+justfiles pulled in by `import` lines in that directory's `Justfile`. Add to an
+existing one, or create a new numbered file **and add its `import`** — a file
+without one ships but its recipes are unreachable. Variant justfiles
+(`overrides_<variant>/…/10-cyan.justfile` etc.) get their `import` appended by
+`build/90-post.sh`.
 
 Tag related recipes with `[group('name')]` so they list together. Keep the recipe
 a thin front end over a script in `/usr/libexec/immutablue/` when there is real
@@ -104,7 +148,8 @@ logic — the justfile is the interface, not the place for a hundred lines of ba
 
 ## Build scripts
 
-`build/` runs in alphanumeric order inside the container:
+`build/*.sh` runs in alphanumeric order inside the container, each fed to `bash`
+on stdin (so no arguments):
 
 | Script | Stage |
 |--------|-------|
@@ -112,10 +157,14 @@ logic — the justfile is the interface, not the place for a hundred lines of ba
 | `10-copy.sh` | overrides and prebuilt deps into the image |
 | `20-add-repos.sh` | third-party repos (set to priority 200, below Fedora's 99) |
 | `30-install-packages.sh` | package installation, and binaries fetched from releases |
+| `35-mesa-freeworld.sh`, `36-ffmpeg-freeworld.sh` | swap in RPM Fusion's full codecs |
 | `40-uninstall-packages.sh` | removals |
 | `50-remove-files.sh` | file removals |
 | `60-services.sh` | enable/disable/mask units |
-| `90-post.sh` | image-info.json, dconf update, cleanup |
+| `65-crash-capture.sh` | unattended-tier kernel crash policy — [`crash-capture.md`](crash-capture.md) |
+| `75-nvidia.sh` | cyan 44+: finalize the NVIDIA sysext images (its `install` phase is called from `30-`) |
+| `80-initramfs.sh` | regenerate and verify the initramfs; `SKIP=initramfs` skips it |
+| `90-post.sh` | variant justfile imports, image-info.json, dconf update, cleanup |
 | `99-common.sh` | shared helpers — **sourced**, not run |
 
 Always source `99-common.sh`, and use `set -euxo pipefail`. That last point has
@@ -149,7 +198,8 @@ Lima is the quickest way to boot what you just built on the same machine. Output
 paths come from `immutablue.gen.*` in `settings.yaml`.
 
 `make build-deps` / `push-deps` rebuild and publish the deps container;
-`build-cyan-deps` / `push-cyan-deps` do the NVIDIA kmods. `make sbom` writes a
+`build-cyan-deps` / `push-cyan-deps` do the NVIDIA stacks (see above), and
+`clean-deps` / `clean-cyan-deps` remove them locally. `make sbom` writes a
 software bill of materials for the image.
 
 ## Tests
@@ -172,7 +222,7 @@ Each child script runs in a fresh Bash process. Failures are recorded while late
 
 `KUBERBLUE=1` or an image name containing `kuberblue` adds container, component, and security checks. `make test_kuberblue` and `--suite kuberblue` share that selection. Cluster checks require `KUBERBLUE_CLUSTER_TEST=1`; integration additionally requires `KUBERBLUE_INTEGRATION_TEST=1`. Chainsaw is opt-in through `KUBERBLUE_CHAINSAW_TEST=1` or its dedicated Make target.
 
-The host regression suite covers provenance source drift, missing metadata, digest-resolution failures, Make/CLI parity, and failure aggregation. Brew selection uses fixture paths and a fake executable: the production selector uses an absolute brew path, so a shell function named `brew` alone cannot isolate it. Make-variable tests scrub inherited command-line variables and `MAKEFLAGS` to keep the calling CI variant from rewriting their test cases.
+The host regression suite covers cyan kernel resolution (`test_cyan_kernel.sh`), the NVIDIA selector against fake PCI/config trees (`test_nvidia_selector.sh` — neither proves modules compile or a sysext mounts on real hardware; `tests/nvidia/README.org` lists the manual boot checks), provenance source drift, missing metadata, digest-resolution failures, Make/CLI parity, and failure aggregation. Brew selection uses fixture paths and a fake executable: the production selector uses an absolute brew path, so a shell function named `brew` alone cannot isolate it. Make-variable tests scrub inherited command-line variables and `MAKEFLAGS` to keep the calling CI variant from rewriting their test cases.
 
 `test_artifacts` compares the working tree against the built image, so **editing
 an override after starting a build makes it fail** — that is the test working, not

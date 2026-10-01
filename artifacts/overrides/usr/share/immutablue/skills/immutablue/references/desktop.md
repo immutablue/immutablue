@@ -54,6 +54,10 @@ immutablue enable_dictation
 immutablue dictation_status
 ```
 
+If `immutablue` says the recipe does not exist, the image's `Justfile` is missing
+its `import "./09-dictation.justfile"` line (images built from immutablue `f549e2d` or earlier). Run it as
+`just -f /usr/libexec/immutablue/just/09-dictation.justfile enable_dictation`.
+
 The short version: `wtype` speaks `wlr-virtual-keyboard-v1`, which gowl implements
 and Mutter does not, so under GNOME voxtype falls through to `ydotool`, which
 needs `ydotool.service` running.

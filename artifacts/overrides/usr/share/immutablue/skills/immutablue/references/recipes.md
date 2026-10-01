@@ -30,7 +30,8 @@ twice unless the comment says so.
 | `enable_libvirt` / `disable_libvirt` / `status_libvirt` | libvirt services and group membership; `_dry_run` variants show the plan. Group membership needs a re-login |
 | `fix_libvirt_selinux_mislabel` | relabel libvirt state under `/var`; the symptom is "network 'default' is not active" or virtlogd "Permission denied" |
 | `doctor` / `doctor_verbose` / `doctor_fix` / `doctor_json` / `doctor_yaml` | health checks; `_json`/`_yaml` are for scripts and agents |
-| `choose` | fzf picker over every recipe |
+| `choose` (alias `c`) | fzf picker over every recipe |
+| `immutablue_make_command COMMAND` | runs `make COMMAND` in the install dir; internal plumbing, rarely called directly |
 
 ## 03-power — idle suspend
 
@@ -81,15 +82,23 @@ Details and the reasoning behind the two tiers: [`crash-capture.md`](crash-captu
 `enable_dictation model=""`, `bind_dictation_key`, `dictation_status`,
 `disable_dictation`. Covered in [`desktop.md`](desktop.md).
 
+Images built from immutablue `f549e2d` or earlier shipped a `Justfile` that did not
+`import` this file, so there the recipes are **not** reachable as
+`immutablue <recipe>`. Call the justfile directly on such an image:
+
+```bash
+just -f /usr/libexec/immutablue/just/09-dictation.justfile enable_dictation
+```
+
 ## Variant justfiles
 
 These exist only on the variant that ships them:
 
 | Variant | Recipes |
 |---------|---------|
-| cyan (`10-cyan`) | `enable_nvidia_kmod` (reboot), `disable_nvidia_kmod` (before rebasing off `-cyan`) |
+| cyan (`10-cyan`) | `nvidia_status` (saved driver choice, no root), `nvidia_setup *args` (re-detect and save, or `--driver open\|580\|none`; reboot to apply), `enable_nvidia_kmod` (44+: re-detect; all: append kargs; reboot), `disable_nvidia_kmod` (44+: save `none`; remove kargs — before rebasing off `-cyan`). See [`hardware.md`](hardware.md) |
 | asahi (`25-asahi`) | `asahi_enable_notch_render` / `asahi_disable_notch_render` |
-| kuberblue (`30-kuberblue`) | `kube_init`, `kube_join *ARGS`, `kube_reset *FLAGS`, `kube_status`, `kube_doctor`, `kube_get_config`, `deploy file_path`, `deploy_all`, `kube_override file`, `kube_sops_setup`, `kube_encrypt` / `kube_decrypt *FILES`, `kube_refresh_token`, `kube_upgrade *ARGS`, `kube_untaint_master`, `kube_add_kuberblue_user`, `kube_mcp_serve`, plus the boot hooks `on_boot`, `on_shutdown`, `first_boot`, `systemd_settings` |
+| kuberblue (`30-kuberblue`) | `kube_init`, `kube_join *ARGS`, `kube_reset *FLAGS`, `kube_status`, `kube_doctor`, `kube_get_config`, `deploy file_path`, `deploy_all`, `kube_override file`, `kube_sops_setup`, `kube_encrypt` / `kube_decrypt *FILES`, `kube_refresh_token *FLAGS`, `kube_upgrade *ARGS`, `kube_untaint_master`, `kube_post_install`, `kube_add_kuberblue_user`, `kube_mcp_serve`, plus the boot hooks `on_boot`, `on_shutdown`, `first_boot`, `systemd_settings`, `run_post_install` |
 
 Kuberblue is a Kubernetes node with its own setup flow; read
 `/usr/libexec/immutablue/just/30-kuberblue.justfile` and
@@ -106,4 +115,5 @@ Kuberblue is a Kubernetes node with its own setup flow; read
 | `immutablue-crash` | what the crash recipes wrap |
 | `immutablue-agents` | what the agent recipes wrap |
 | `immutablue-libvirt-manager` | what the libvirt recipes wrap |
+| `immutablue-nvidia-setup` | what the cyan `nvidia_*` recipes wrap (44+ cyan only) |
 | `immutablue-script-orchestrator <mode>` | runs the hook directories — [`automation.md`](automation.md) |

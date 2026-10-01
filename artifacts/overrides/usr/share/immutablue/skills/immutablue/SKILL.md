@@ -9,7 +9,9 @@ description: >
   /usr is read-only, rpm-ostree install, layering, flatpak, distrobox, brew,
   immutablue-doctor, immutablue-update, immutablue-snapshot, rollback, rebase,
   deployment, coredump, segfault, "why did X crash", packages.yaml, settings.yaml,
-  artifacts/overrides, gowl, gowlbar, bar plugin, cmacs, dictation, voxtype.
+  artifacts/overrides, gowl, gowl-msg, gowlbar, bar plugin, gowl macro, input
+  remap, foot pedal, macro pad, gowl menu, cmacs, gsurf, gst, NVIDIA, cyan,
+  dictation, voxtype.
   Covers reporting a confirmed Immutablue bug.
 ---
 
@@ -51,7 +53,7 @@ When something here does not match what you see, or you are asked about a
 feature this skill does not cover, check how far the image and the skill have
 drifted before answering:
 
-<!-- skill-baseline:start — reviewed 2026-09-12; update with the skill, see AGENTS.md -->
+<!-- skill-baseline:start — reviewed 2026-10-01; update with the skill, see AGENTS.md -->
 ```bash
 # CHANGED = the image and this skill were written against different commits.
 while read -r name base; do
@@ -61,31 +63,37 @@ while read -r name base; do
     else state="CHANGED"; fi
     printf '%-20s %-13s skill=%.12s image=%.12s\n' "${name}" "${state}" "${base}" "${image}"
 done <<'EOF'
-immutablue           28babfe4d820eeaa288055544a47a6e31511ca58
-ai-glib              093aba30a12aa46bcbec49f6447f030fcc12aae8
-bacon                a235a00214e5203b8d09f646ba56d22413e9c2de
+immutablue           f549e2dbd19f2a3a614647f7695762e245035c9b
+ai-glib              6ad8a37557fcbb926f120377f584e2ceb40f56bb
+bacon                cf8bfadef33b379bf2954258048a9ad7dd359ebc
 crispy               53b8fc7c5444fb3b94bdb689c5b160483d3a95c4
-gowl                 5287abbfae25cd08b40f5e0d22d31a61b19b856b
-gst                  226d9b5cc866be7b1dd83d641c2910c1141e409a
-gsurf                f9d2b0bd421e029ccdf41c15aed63090670b4ac0
+gowl                 cf647db44e80713f76787f8efc82057be4dd092a
+gst                  0c56dea2c9089004e60d86152cb5c9436a8dc1cd
+gsurf                722fc8c8701855c4dc73b5f08e4abcb95c4e0ed2
 mcp-gdb-glib         626ee15456e15b37254dcfe0482e5e35586ee4a9
 mcp-glib             ccad2035d84fb081e5ca24c8cc2822c623e6161d
 mcp-kuberblue-glib   a11bcc211e7ccebd24c412a551e73fb396b7faa8
-podomation           30b7dcf9480b672e9b33387e115e5e74de8dd283
+podomation           2639ff8f8fac28747bb1f376a6acf28444347ae2
 yaml-glib            04c8dffa5d82deceb2cfecb5126f228e4d6f27ab
 EOF
 ```
 <!-- skill-baseline:end -->
 
-The Immutablue baseline includes the artifact provenance and shared test-runner changes. Dependency baselines retain their earlier reviewed commits; subsequent submodule pin bumps have not been reviewed into their guides.
+Every line above was reviewed on 2026-10-01: each component's changes since the previous baseline were read from source and written into the guides (crispy, the three mcp libraries and yaml-glib had no changes). Of note since the last review: gowl's macro module, per-device input remapping, IPC socket and `gowl-msg`, menu, lock program and output profiles; cyan's NVIDIA driver selection; gsurf's Gopher/Gemini and kiosk/PWA mode; ai-glib's loops, goals and self-updater.
 
 For manifests with `dependency_image`, `.deps` comes from the digest-pinned dependency container, while `.immutablue` identifies the main image checkout. Older manifests were generated from that checkout's submodules and can misidentify binaries from a separately built dependency container. Do not treat a missing entry as proof that a component is absent, or replace an artifact's recorded commit with a newer local submodule pin. See [the build guide](references/building.md) for migration and scope.
 
 cmacs is not in `dep_info.json`: it arrives from the cmacs container image, not a
 `deps/` submodule. The cmacs material in this skill was checked against cmacs
-`2de411d4d0f9`, and the manual installed under
-`/usr/share/emacs/*/doc_org/cmacs/` always matches the installed build — read
-that rather than diffing.
+`a85f24f7032fc46ef95b47b70848bb029f2e0e46` (reviewed 2026-10-01). The manual
+installed under `/usr/share/emacs/*/doc_org/cmacs/` matches the installed cmacs
+and what it links in — read that rather than diffing. Its `deps/<dep>/` docs
+follow **cmacs's own submodule pins**, which differ from immutablue's: at this
+review cmacs pinned ai-glib `058bb8256d2f`, bacon `02d4843581d2`, podomation
+`cb82ff16ab87` and gsurf `f9d2b0bd421e` (gowl, crispy, mcp-glib and yaml-glib
+matched). The standalone `ai`, `ai-tui`, `podomation`, `bacon` and `gsurf` come
+from immutablue's `deps/` and can be ahead of or behind that manual — see
+[`references/cmacs.md`](references/cmacs.md).
 
 For a component marked CHANGED, read the difference from its source at both
 commits. The recorded remotes are SSH URLs; clone over https unless the machine
@@ -120,7 +128,8 @@ This skill is always installed at `/usr/share/immutablue/skills/immutablue/`. If
 - [`references/packages.md`](references/packages.md) — installing software, and the decision tree that keeps you off `rpm-ostree install`
 - [`references/updates.md`](references/updates.md) — updating, `/var` snapshots, deployment rollback, rebasing between variants
 - [`references/desktop.md`](references/desktop.md) — which session is running, polkit under gowl, dictation, and a map of the desktop guides
-- [`references/gowl.md`](references/gowl.md) — configuring gowl (YAML and C), keybinds, rules, and writing and loading compositor modules
+- [`references/gowl.md`](references/gowl.md) — configuring gowl (YAML and C), keybinds, rules, outputs, the menu, `gowl-msg`, and writing and loading compositor modules
+- [`references/gowl-macros.md`](references/gowl-macros.md) — gowl macros (crispy C run in the compositor, triggers, filters) and per-device input remapping (foot pedals, macro pads)
 - [`references/gowl-bar.md`](references/gowl-bar.md) — the bar: layout, widgets, and writing, loading and hot-reloading plugins
 - [`references/cmacs.md`](references/cmacs.md) — configuring cmacs (`init.el`, `init.c`, `init.bacon`), and the manuals installed on the machine
 - [`references/gst.md`](references/gst.md) — configuring gst, the terminal
@@ -130,7 +139,7 @@ This skill is always installed at `/usr/share/immutablue/skills/immutablue/`. If
 - [`references/reporting.md`](references/reporting.md) — filing an Immutablue bug that can actually be acted on
 - [`references/recipes.md`](references/recipes.md) — every `immutablue` recipe, by justfile, including the variant ones
 - [`references/automation.md`](references/automation.md) — scheduled and event hooks, the update hooks, the bash header, `immutablue-settings`, profile.d, first-boot
-- [`references/hardware.md`](references/hardware.md) — libvirt, video acceleration, suspend, hardware overrides, print-to-cmacs, variant hardware recipes
+- [`references/hardware.md`](references/hardware.md) — libvirt, video acceleration, suspend, hardware overrides, print-to-cmacs, NVIDIA driver selection on cyan, variant hardware recipes
 - [`references/crash-capture.md`](references/crash-capture.md) — the *kernel* crash policy: panics, watchdog, netconsole; distinct from coredump analysis
 
 ## Critical rules
@@ -257,12 +266,22 @@ with the detail.
 | "Add a package to the image" | `packages.yaml` — [`references/building.md`](references/building.md) |
 | "Ship a config file in the image" | `artifacts/overrides/` — [`references/building.md`](references/building.md) |
 | "Report this as a bug" | [`references/reporting.md`](references/reporting.md) |
-| "Write / reload a bar plugin" | `~/.config/gowl/bar-plugins/`, `gowl bar-plugin-reload` — [`references/gowl-bar.md`](references/gowl-bar.md) |
+| "Write / reload a bar plugin" | `~/.config/gowl/bar-plugins/`, `gowl-msg bar-plugin-reload` — [`references/gowl-bar.md`](references/gowl-bar.md) |
 | "Write a gowl compositor module" | a `GowlModule` `.so`, loaded from `config.c` or `CMACS_GOWL_MODULE_DIR` — [`references/gowl.md`](references/gowl.md) |
-| "Change a gowl keybind / rule / effect" | `~/.config/gowl/config.yaml` — [`references/gowl.md`](references/gowl.md) |
+| "Change a gowl keybind / rule / effect" | `~/.config/gowl/config.yaml`, then `gowl --check-config` — [`references/gowl.md`](references/gowl.md) |
+| "Query or drive the running gowl session from a script" | `gowl-msg` (`clients`, `focused`, `action`, `-s` for events) — [`references/gowl.md`](references/gowl.md) |
+| "Add something to the Super+space menu" | `~/.config/gowl/menu.yaml` overlay — [`references/gowl.md`](references/gowl.md) |
+| "Write a gowl macro" / "run X when a window opens" | `~/.config/gowl/macros/NAME.c`, `modules: macro:` triggers — [`references/gowl-macros.md`](references/gowl-macros.md) |
+| "Remap a foot pedal / macro pad / one mouse" | `modules: inputremap:` + `input-remap:`, `gowl-msg inputremap-identify` — [`references/gowl-macros.md`](references/gowl-macros.md) |
+| "NVIDIA not working / switch NVIDIA driver" | `immutablue nvidia_status`, `immutablue nvidia_setup` — [`references/hardware.md`](references/hardware.md) |
 | "Configure cmacs" / "where is the cmacs manual" | `M-x cmacs-manual`, `/usr/share/emacs/*/doc_org/cmacs/` — [`references/cmacs.md`](references/cmacs.md) |
 | "Change the terminal font / colours / keys" | `~/.config/gst/config.yaml` — [`references/gst.md`](references/gst.md) |
 | "Configure the browser" | `~/.config/gsurf/config.yaml`, or Elisp under cmacs — [`references/gsurf.md`](references/gsurf.md) |
+| "Open a site as its own app window / launcher" | `gsurf --kiosk URL`, `gsurf --pwa [--pwa-name NAME] URL` — [`references/gsurf.md`](references/gsurf.md) |
+| "Browse gopher:// or gemini://" | standalone `gsurf` (the cmacs-embedded copy is older) — [`references/gsurf.md`](references/gsurf.md) |
+| "Update ai" / "`ai --update` fails" | expected on an image — update the image — [`references/packages.md`](references/packages.md) |
+| "When X happens, do Y" / "watch a container registry" | podomation — [`references/automation.md`](references/automation.md) |
+| "Repeat this prompt every N minutes" / "keep going until the tests pass" | `/loop`, `/goal`, `ai loop` — [`references/automation.md`](references/automation.md) |
 | "Run this every day / at boot / before updates" | `/etc/immutablue/scripts/…` — [`references/automation.md`](references/automation.md) |
 | "Enable VMs" | `immutablue enable_libvirt` — [`references/hardware.md`](references/hardware.md) |
 | "Video is stuttering / battery dies in the browser" | VA-API check — [`references/hardware.md`](references/hardware.md) |
