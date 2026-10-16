@@ -52,6 +52,13 @@ PACKAGES=(
 	libadwaita-devel
 	libadwaita
 
+	# ai-glib: voice sessions (0.6.0+). gstreamer-1.0 and gstreamer-app-1.0
+	# are in ai-glib's PKG_DEPS; if either .pc is missing the whole
+	# `pkg-config --cflags` call fails and every glib include path is lost.
+	# Also needed by podomation/bacon, which build ai-glib statically.
+	gstreamer1-devel
+	gstreamer1-plugins-base-devel
+
 	# yaml-glib + gst: YAML + JSON
 	libyaml-devel
 	json-glib-devel

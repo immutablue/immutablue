@@ -25,7 +25,7 @@ select_tests () {
 				test_build_image_config.sh test_latest_tag.sh kuberblue/test_tailscale_bootstrap.sh
 				kuberblue/test_config_fetch_permissions.sh kuberblue/test_ha_resume.sh
 				kuberblue/test_boot_config_gate.sh test_build_variants.sh test_build_platform.sh
-				test_brew_variants.sh test_dep_provenance.sh test_runner.sh) ;;
+				test_brew_variants.sh test_dep_provenance.sh test_cyan_kernel.sh test_nvidia_selector.sh test_runner.sh) ;;
 		container|package_presence|container_qemu|artifacts|setup) selected+=("test_${suite}.sh") ;;
 		kuberblue)
 			selected+=(kuberblue/test_kuberblue_container.sh kuberblue/test_kuberblue_components.sh

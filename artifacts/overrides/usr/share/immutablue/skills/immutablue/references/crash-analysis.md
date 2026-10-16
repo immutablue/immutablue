@@ -141,6 +141,15 @@ immutablue check_local_etc_overrides    # is this machine stock?
 Fedora package and the machine is stock, the bug is upstream in that package, and
 the right destination is Fedora's tracker — not Immutablue's.
 
+**Exception: NVIDIA on Fedora 44+ cyan.** Its libraries and modules come from a
+`systemd-sysext` image, so `rpm -qf` on a `libnvidia-*`/`libcuda*` frame says
+*not owned by any package*. That is expected, not a sign of tampering. Get the
+driver from `cat /etc/immutablue/nvidia.json` and its version from
+`/usr/lib/immutablue/nvidia/<driver>/manifest.json`. NVIDIA's userspace is closed
+in both stacks and has no debuginfod coverage: a crash inside it belongs to
+NVIDIA unless the wrong stack was selected for the GPU — see
+[`hardware.md`](hardware.md).
+
 If it does turn out to be Immutablue's, read [`reporting.md`](reporting.md) before
 offering to file anything.
 

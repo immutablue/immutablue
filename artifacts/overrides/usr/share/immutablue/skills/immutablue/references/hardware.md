@@ -72,20 +72,73 @@ Masking is also what the crash-capture watchdog interlock requires — see
 `dmesg` shows repeated `uas_eh_device_reset_handler` / `uas_eh_abort_handler` on
 an external drive. `..._unprefer_...` undoes it.
 
-## Variant-specific
+## NVIDIA (cyan)
 
-| Variant | Recipe | Note |
-|---------|--------|------|
-| cyan | `enable_nvidia_kmod` / `disable_nvidia_kmod` | disable **before** rebasing off `-cyan`, or the next boot tries to load a kmod that is not there |
-| asahi | `asahi_enable_notch_render` / `asahi_disable_notch_render` | render into, or avoid, the display notch |
+**Fedora 44+ cyan carries two driver stacks in one image** and picks one per
+machine at boot. Fedora 42/43 cyan still bakes a single akmod-built driver into
+the image (modules in `modules-load.d`) and has none of the below.
 
-`lsmod | grep nvidia` and `dkms status` are the first checks on a cyan box that
-lost its display after an update.
+| Stack | Driver | Hardware |
+|-------|--------|----------|
+| `open` | current branch, open kernel modules | Turing and newer; the only choice for Blackwell |
+| `580` | proprietary 580xx legacy branch | Maxwell, Pascal, Volta; also Turing–Ada, so a Pascal + Ampere box gets `580` |
+| `none` | neither is activated | no NVIDIA GPU, or deliberately off |
+
+How it picks: `immutablue-nvidia.service` (early boot, before the display
+manager) runs `immutablue-nvidia-setup --activate`. With no saved choice it reads
+every NVIDIA display device from `/sys/bus/pci/devices` and selects `open` if
+`open` supports **all** of them, else `580` if that does, else **fails without
+saving** — a mix with one pre-Maxwell (legacy-branch) card is unsupported. No
+NVIDIA GPU saves `none`. The choice is written once to
+`/etc/immutablue/nvidia.json` and reused on every later boot and update; it is
+**not** re-detected automatically.
+
+Activation links `/usr/lib/immutablue/nvidia/<driver>/immutablue-nvidia.raw` to
+`/run/extensions/` and merges it with `systemd-sysext` — kernel modules, GL/Vulkan,
+CUDA driver libraries and the NVIDIA systemd units (580 suspend/resume hooks
+included) all live in that read-only image, not in the RPM database. Nouveau and
+Nova are blacklisted and kept out of the initramfs; `none` does **not** bring
+Nouveau back.
+
+```bash
+immutablue nvidia_status                 # the saved choice (no root); not proof it loaded
+immutablue nvidia_setup                  # re-detect and save — after swapping a GPU
+immutablue nvidia_setup --driver 580     # force a stack; not checked against the hardware
+immutablue nvidia_setup --driver none    # turn both off
+systemctl reboot                         # a choice applies at the next boot, never live
+```
+
+When the display is gone or `nvidia-smi` fails:
+
+```bash
+journalctl -b -u immutablue-nvidia.service    # "no bundled driver supports all NVIDIA GPUs", "missing … stack", "invalid saved driver"
+systemd-sysext status                         # is immutablue-nvidia merged into /usr?
+cat /etc/immutablue/nvidia.json
+cat /usr/lib/immutablue/nvidia/*/manifest.json   # driver version and the kernel each stack was built for
+lsmod | grep -E 'nvidia|nouveau'
+nvidia-smi
+```
+
+- A malformed `nvidia.json` fails activation; `immutablue nvidia_setup` rewrites it atomically.
+- A boot with `/.autorelabel` present skips activation; the next normal boot activates.
+- `enable_nvidia_kmod` on 44+ re-runs detection (replacing a forced `--driver`) and
+  appends the nouveau-blacklist and `nvidia-drm.modeset=1` kargs; `disable_nvidia_kmod`
+  saves `none` and removes those kargs. Run `disable_nvidia_kmod` **before** rebasing
+  off `-cyan` — the image-level blacklists leave with the image, the kargs do not.
+- `rpm -q` shows no NVIDIA packages on 44+; the version is in `manifest.json`.
+- CUDA *toolkits* are not included, only the driver libraries.
+- Secure Boot module signing is not established; do not promise it works.
+
+## Asahi
+
+`asahi_enable_notch_render` / `asahi_disable_notch_render` render into, or avoid,
+the display notch.
 
 ## Print to cmacs
 
-GUI variants ship a virtual CUPS printer named `cmacs`: print from any
-application and the job becomes a directory under
+GUI variants ship (from the cmacs image, not `artifacts/overrides/`) a virtual
+CUPS printer named `cmacs`: print from any application and the job becomes a
+directory under
 `~/Documents/notes/03_resources/cmacs-print/` with `index.org`, `source.pdf`,
 and one PNG per page. Nothing to install.
 

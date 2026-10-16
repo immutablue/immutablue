@@ -1,0 +1,123 @@
+#!/bin/bash
+# Pick the NVIDIA stack that supports this GPU; --activate merges it at boot.
+set -euo pipefail
+STACKS=/usr/lib/immutablue/nvidia
+CONFIG=/etc/immutablue/nvidia.json
+EXTENSIONS=/run/extensions
+PCI_DEVICES=/sys/bus/pci/devices
+
+fail() { echo "NVIDIA setup: $*" >&2; exit 1; }
+
+gpu_ids() {
+    local device vendor class
+    for device in "$PCI_DEVICES"/*; do
+        [[ -d "$device" ]] || continue
+        vendor=$(cat "$device/vendor") || return $?
+        [[ "${vendor,,}" == 0x10de ]] || continue
+        class=$(cat "$device/class") || return $?
+        (( class >> 16 == 3 )) || continue
+        tr 'A-F' 'a-f' < "$device/device" || return $?
+    done
+}
+
+ids_supported() {
+    local json=$1 id
+    shift
+    for id in "$@"; do
+        jq -e --arg id "$id" '
+            any(.chips[]; (.legacybranch | not) and ((.devid | ascii_downcase) == $id))
+        ' "$json" >/dev/null || return 1
+    done
+}
+
+pick() {
+    local ids detected
+    detected=$(gpu_ids) || return $?
+    ids=()
+    if [[ -n "$detected" ]]; then mapfile -t ids <<< "$detected"; fi
+    if ((${#ids[@]} == 0)); then echo none; return; fi
+    if ids_supported "$STACKS/open/supported-gpus.json" "${ids[@]}"; then echo open; return; fi
+    if ids_supported "$STACKS/580/supported-gpus.json" "${ids[@]}"; then echo 580; return; fi
+    fail 'no bundled driver supports all NVIDIA GPUs'
+}
+
+# Publish complete JSON on the same filesystem; failed writes preserve the choice.
+save() (
+    local driver=$1 pending
+    mkdir -p "$(dirname "$CONFIG")" || exit $?
+    pending=$(mktemp "${CONFIG}.XXXXXX") || exit $?
+    trap 'rm -f -- "$pending"' EXIT
+    jq -n --arg driver "$driver" '{driver:$driver}' > "$pending" || exit $?
+    chmod 0644 "$pending" || exit $?
+    mv -fT -- "$pending" "$CONFIG" || exit $?
+)
+
+activate() {
+    local driver image
+    if [[ -f "$CONFIG" ]]; then
+        driver=$(jq -er '.driver' "$CONFIG")
+    else
+        driver=$(pick)
+        save "$driver"
+    fi
+    case "$driver" in
+        none) return 0 ;;
+        open|580) ;;
+        *) fail "invalid saved driver: $driver" ;;
+    esac
+    image="$STACKS/$driver/immutablue-nvidia.raw"
+    [[ -f "$image" ]] || fail "missing $driver stack"
+    mkdir -p "$EXTENSIONS"
+    ln -sfn "$image" "$EXTENSIONS/immutablue-nvidia.raw"
+    systemd-sysext refresh
+    ldconfig -X
+    modprobe nvidia_drm
+    modprobe nvidia_uvm
+}
+
+main() {
+    local action=setup driver=''
+    local action_set=false
+    while (($#)); do
+        case "$1" in
+            --activate|--status)
+                [[ "$action_set" == false ]] || fail 'choose one action'
+                action=${1#--}
+                action_set=true
+                ;;
+            --driver)
+                (($# >= 2)) || fail '--driver needs a value'
+                [[ -z "$driver" && -n "$2" ]] || fail 'supply one nonempty driver'
+                driver=$2
+                shift
+                ;;
+            -h|--help)
+                echo 'Usage: immutablue-nvidia-setup [--driver open|580|none] | --status | --activate'
+                echo 'Default: detect all NVIDIA GPUs and save a driver for the next reboot.'
+                echo 'Example: sudo immutablue-nvidia-setup --driver 580'
+                echo '--activate is for the early-boot service; do not switch live graphics.'
+                return 0
+                ;;
+            --license) echo 'AGPL-3.0-or-later'; return 0 ;;
+            *) fail "unknown argument: $1" ;;
+        esac
+        shift
+    done
+    [[ "$action" == setup || -z "$driver" ]] || fail '--driver cannot be combined with --status or --activate'
+    if [[ "$action" == status ]]; then
+        if [[ -f "$CONFIG" ]]; then cat "$CONFIG"; else echo 'not configured'; fi
+        return 0
+    fi
+    ((EUID == 0)) || fail 'run with sudo, or use immutablue nvidia_setup'
+    [[ -f "$STACKS/open/manifest.json" ]] || fail 'this image has no selectable NVIDIA stacks'
+    if [[ "$action" == activate ]]; then
+        activate
+        return
+    fi
+    [[ -n "$driver" ]] || driver=$(pick)
+    case "$driver" in open|580|none) ;; *) fail 'invalid driver' ;; esac
+    save "$driver"
+    echo "Selected NVIDIA driver: $driver. Reboot to apply."
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then main "$@"; fi

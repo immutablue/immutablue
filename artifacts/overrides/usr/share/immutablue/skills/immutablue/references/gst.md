@@ -61,7 +61,7 @@ cursor:
   blink: false
   blink_rate: 500
 
-keybinds:
+keybinds:                      # REPLACES every default; list all you want
   "Ctrl+Shift+c": clipboard_copy
   "Ctrl+Shift+v": clipboard_paste
 
@@ -82,18 +82,29 @@ top level skips the YAML entirely, for someone who configures only in C.
 
 Key strings are `Modifier+Modifier+KeyName` with X11 keysym names (`a`,
 `Page_Up`, `Return`, `plus`, `F1`). Modifiers are `Ctrl` (`Control`),
-`Shift`, `Alt` (`Mod1`), `Super` (`Mod4`), `Hyper`, `Meta`, case-insensitive.
-Mouse bindings use `Button1`–`Button9` (4/5 are the wheel).
+`Shift`, `Alt` (`Mod1`), `Super` (`Mod4`), case-insensitive; `Hyper` and
+`Meta` are **rejected**. Lock keys (Caps/Num/Scroll) are ignored when
+matching. Mouse bindings use `Button1`–`Button9` (4/5 are the wheel).
+
+A YAML `keybinds:` section replaces the whole default table — omit it to keep
+the defaults; in C, `gst_config_add_keybind()` appends
+(`gst_config_clear_keybinds()` first to replace). With Shift held, gst matches
+the translated keysym first and then the layout's unshifted one, so
+`Ctrl+Shift+minus` / `Ctrl+Shift+0` fire even when the keyboard reports
+`underscore` / `parenright`; an explicit binding for the shifted symbol wins.
+Module keys (scrollback, `keyboard_select`, `externalpipe`) use the same matcher.
 
 | Default | Action |
 |---|---|
 | `Ctrl+Shift+c` / `Ctrl+Shift+v` | `clipboard_copy` / `clipboard_paste` |
-| `Shift+Page_Up` / `Shift+Page_Down` | `scroll_up` / `scroll_down` |
-| `Ctrl+Shift+Home` / `Ctrl+Shift+End` | `scroll_top` / `scroll_bottom` |
+| `Shift+Insert` | `paste_primary` |
+| `Shift+Page_Up` / `Shift+Page_Down` | `scroll_up` / `scroll_down` — one page |
+| `Shift+Home` / `Shift+End`, `Ctrl+Shift+Home` / `End`, `Ctrl+Shift+Page_Up` / `Page_Down` | `scroll_top` / `scroll_bottom` |
 | `Ctrl+Shift+plus` / `minus` / `0` | `zoom_in` / `zoom_out` / `zoom_reset` |
 | `Ctrl+Shift+y` | `copy-command-output` — the selected or latest command's output |
 | `Ctrl+Shift+o` | `export-command-output` — open it in `terminal.editor` |
-| `Shift+Button4` / `Shift+Button5` | `scroll_up_fast` / `scroll_down_fast` |
+| `Button4` / `Button5` | `scroll_up` / `scroll_down` (mouse step) |
+| `Shift+Button4` / `Shift+Button5` | `scroll_up_fast` / `scroll_down_fast` (three pages from the keyboard) |
 
 The two command-output actions need the `shell_integration` module and a shell
 that emits OSC 133 prompt markers. Some keys belong to modules rather than the
@@ -170,12 +181,16 @@ output is lost, so reproduce from another terminal: `gst 2>&1 | tee /tmp/gst.log
 | A config change does nothing | another file won the search, the YAML failed to parse, or `config.c` overrode it | read stderr; bisect with `--no-c-config` and `--no-yaml-config` |
 | A `config.c` edit does nothing | it failed to compile and gst fell back to YAML | `gst --recompile` prints the gcc error |
 | The font is wrong, or glyphs are boxes | the fontconfig pattern matched something else, or no fallback has the glyph | `fc-match "JetBrains Mono:pixelsize=14"` shows what the pattern resolves to; add a `fallback`, or enable `font2` |
-| A keybind does nothing | an X11 keysym name is needed (`plus`, not `+`), the key belongs to a module, or the compositor took it first | check the module table above; gowl binds `Super` combinations before any client sees them |
+| A keybind does nothing | an X11 keysym name is needed (`plus`, not `+`), a `Hyper`/`Meta` modifier was rejected, the key belongs to a module, or the compositor took it first | read stderr; check the module table above; gowl binds `Super` combinations before any client sees them |
+| Defaults like zoom or paste vanished | a YAML `keybinds:` section replaces the whole table | add them back to that section, or delete it |
+| Zoom leaves glyphs overlapping or clipped (Wayland), or entering scrollback (`Shift+Page_Up`) crashes | gst bugs present through `b7a5784`, fixed by `3e607b8` (zoom grid) and `fc34279` (scrollback overlay) | compare the gst commit in `dep_info.json`; on an affected image set the font size at launch instead of zooming. After an update restart gst — a running terminal keeps the old library |
+| Spacing goes uneven or the font changes after repeated zooms | font-name corruption on reload, fixed in `b7a5784` | as above |
 | Copy / export command output does nothing | needs the `shell_integration` module and a shell emitting OSC 133 markers | enable the module; configure the shell's prompt markers |
 | Mouse selection or tmux mouse mode misbehaves | | `GST_MOUSE_DEBUG=1 gst` logs every mouse event, its pixel-to-cell mapping, and whether it went to the application or to local selection |
 | Images do not render | `kittygfx` / `sixel` are off | enable them under `modules:` |
 | A personal module does not load | wrong directory, or no `gst_module_register` export | `GST_MODULE_PATH=$PWD gst` from the build directory; `nm -D mine.so \| grep gst_module_register` |
-| Oddities under `--lrg` | expected limits of that backend | `PRIMARY` is the clipboard, `--windid` embedding is unsupported, `3d`/`3dvr` are rejected, and it repaints at ~60 fps |
+| Oddities under `--lrg` | expected limits of that backend | `PRIMARY` is the clipboard, `--windid` embedding is unsupported, `3d`/`3dvr` are rejected, keyboard shortcuts assume a US physical layout, and it repaints at ~60 fps |
+| `transparency` has no effect under `--lrg` | gst older than `9e8202b` used GLFW window opacity, which gowl ignores | newer gst fades the framebuffer itself; needs a compositing display server |
 | It picked the wrong display backend | | force it with `--wayland` or `--x11` |
 
 ## Documentation
@@ -190,4 +205,5 @@ commit=$(jq -r '.deps[] | select(.name=="gst") | .commit' /usr/immutablue/deps/d
 git clone "${remote}" /tmp/gst && git -C /tmp/gst checkout "${commit}"
 # docs/configuration.org  docs/keybindings.org  docs/colors.org  docs/c-config.org
 # docs/modules/*.org      one file per module, with every option
+# docs/known-issues.org   resolved and open bugs, by symptom
 ```

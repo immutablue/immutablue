@@ -22,8 +22,23 @@ IMAGE_IGNOREFILE := .containerignore.image
 DEP_INFO := .image-source.json
 DEPS_IMAGE ?= $(DEPS_CONTAINER)
 
+# Provenance used to be generated straight into artifacts/overrides, which is
+# deployed to /, so the file the image shipped was the file on disk. It is now
+# merged inside the build from $(DEP_INFO) and the dependency artifact, and
+# regenerating it under overrides would be wrong twice over: the deps come from
+# the digest-pinned artifact, not this checkout, and the .generated timestamp
+# can never match one recorded during the build.
+#
+# A working tree that built before that change still has the old file, and
+# test_artifacts compares every override against the image -- so it reports a
+# checksum mismatch on an otherwise correct build, on that machine only. Remove
+# it here rather than ignoring it in validate_artifacts.c: the test is right
+# that overrides must match, the leftover is what is wrong.
+LEGACY_DEP_INFO := artifacts/overrides/usr/immutablue/deps
+
 .PHONY: deps_manifest
 deps_manifest:
+	@rm -rf $(LEGACY_DEP_INFO)
 	@./scripts/gen-dep-info.sh --image $(DEP_INFO)
 
 .PHONY: deps_build_manifest
@@ -72,14 +87,18 @@ push-deps:
 # NVIDIA/Cyan Dependency Build
 # ------------------------------------------------------------------------------
 build-cyan-deps:
-	buildah \
+	kernel_version="$$(bash scripts/cyan-kernel-version.sh "$(BASE_IMAGE):$(BASE_IMAGE_TAG)" "$(PLATFORM)" "$(CYAN_KERNEL_VERSION)" "$(CYAN_KERNEL_PACKAGE)" "$(VERSION)" "$(CYAN_LTS_VERSION)")" && buildah \
 		build \
 		--no-cache \
 		--platform $(PLATFORM) \
 		-t $(CYAN_DEPS_CONTAINER) \
 		-t $(CYAN_DEPS_CONTAINER_DATE) \
 		-f ./deps-container/cyan/Containerfile \
-		--build-arg=FEDORA_VERSION=$(VERSION)
+		--build-arg=FEDORA_VERSION=$(VERSION) \
+		--build-arg=KERNEL_VERSION="$$kernel_version" \
+		--build-arg=KERNEL_PACKAGE="$(CYAN_KERNEL_PACKAGE)" \
+		--build-arg=LTS_VERSION="$(CYAN_LTS_VERSION)" \
+		.
 
 push-cyan-deps:
 	buildah push $(CYAN_DEPS_CONTAINER)
@@ -102,6 +121,7 @@ ifeq ($(DISTROLESS),1)
 		-f ./Containerfile \
 		--build-arg=BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg=DEPS_IMAGE="$$deps_image" \
+		--build-arg=CYAN_DEPS_IMAGE="$(CYAN_DEPS_IMAGE)" \
 		--build-arg=BASE_IMAGE_TAG=$(BASE_IMAGE_TAG) \
 		--build-arg=BASE_IMAGE_DEVEL=$(BASE_IMAGE_DEVEL) \
 		--build-arg=IS_DISTROLESS=$(IS_DISTROLESS) \
@@ -124,6 +144,7 @@ else
 		-f ./Containerfile \
 		--build-arg=BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg=DEPS_IMAGE="$$deps_image" \
+		--build-arg=CYAN_DEPS_IMAGE="$(CYAN_DEPS_IMAGE)" \
 		--build-arg=BASE_IMAGE_TAG=$(BASE_IMAGE_TAG) \
 		--build-arg=BASE_IMAGE_DEVEL=$(BASE_IMAGE_DEVEL) \
 		--build-arg=IS_DISTROLESS=$(IS_DISTROLESS) \

@@ -87,6 +87,16 @@ Variants include `-cyan` (NVIDIA), `-lts`, `-trueblue` (ZFS + LTS), `-kuberblue`
 `-nucleus` (headless), `-asahi` (Apple Silicon), `-kinoite`/`-sericea`/other
 desktop bases, and `-nix`.
 
+NVIDIA and rebasing (details in [`hardware.md`](hardware.md)):
+
+- **Onto 44+ `-cyan`:** nothing to run first. The first boot detects the GPU
+  and saves `open`, `580` or `none` to `/etc/immutablue/nvidia.json`.
+- **Off `-cyan`:** run `immutablue disable_nvidia_kmod` *before* rebasing; the
+  kargs it removes outlive the image.
+- **Updates and rollback on cyan** keep the saved choice (it is in `/etc`); each
+  deployment brings stacks built for its own kernel. A saved choice is never
+  re-detected — after a GPU swap run `immutablue nvidia_setup`.
+
 ## When an update fails
 
 ```bash

@@ -1,48 +1,57 @@
-# Build NVIDIA kernel modules for Immutablue Cyan variant
-# This creates pre-built kernel modules that can be consumed by the main build
+# Build NVIDIA kernel modules for Immutablue Cyan.
+# Fedora 44+ also exports isolated open and 580 stacks for boot-time selection.
 
 ARG FEDORA_VERSION=44
-FROM quay.io/fedora/fedora:${FEDORA_VERSION} AS builder
+FROM quay.io/fedora/fedora:${FEDORA_VERSION} AS base
 ARG FEDORA_VERSION=44
+ARG KERNEL_VERSION
+ARG KERNEL_PACKAGE=kernel
+ARG LTS_VERSION=
 
-# Install RPM Fusion repositories
 RUN dnf install -y \
-    https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA_VERSION}.noarch.rpm \
-    https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA_VERSION}.noarch.rpm
+    fedora-repos-archive \
+    dnf-plugins-core \
+    https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA_VERSION}.noarch.rpm \
+    https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA_VERSION}.noarch.rpm
 
-# Update and install base requirements
-RUN dnf update -y && \
-    dnf install -y \
-    akmods \
-    mock \
-    rpm-build \
-    kernel \
-    kernel-devel \
-    kernel-headers \
-    gcc \
-    make \
-    elfutils-libelf-devel
+RUN if [ "$KERNEL_PACKAGE" = kernel-longterm ]; then \
+        dnf -y copr enable "kwizart/kernel-longterm-${LTS_VERSION}"; \
+    fi
 
-# Install NVIDIA akmod source
-RUN dnf install -y akmod-nvidia
+RUN if [ "$FEDORA_VERSION" -ge 44 ] && [ -z "$KERNEL_VERSION" ]; then \
+        echo 'Cyan requires KERNEL_VERSION from the target image; use make build-cyan-deps' >&2; exit 1; \
+    fi && dnf update -y && \
+    if [ "$KERNEL_PACKAGE" = kernel-longterm ]; then \
+        dnf install -y \
+            akmods mock rpm-build gcc make elfutils-libelf-devel jq xz kernel-headers \
+            "kernel-longterm-${KERNEL_VERSION}" \
+            "kernel-longterm-devel-${KERNEL_VERSION}"; \
+    else \
+        dnf install -y --enablerepo=updates-archive \
+            akmods mock rpm-build gcc make elfutils-libelf-devel jq xz kernel-headers \
+            kernel${KERNEL_VERSION:+-${KERNEL_VERSION}} \
+            kernel-devel${KERNEL_VERSION:+-${KERNEL_VERSION}} \
+            kernel-devel-matched${KERNEL_VERSION:+-${KERNEL_VERSION}}; \
+    fi
 
-# Get the installed kernel version
-RUN KERNEL_VER=$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | head -n1) && \
-    echo "Building NVIDIA modules for kernel: ${KERNEL_VER}"
+COPY deps-container/cyan/build-stack.sh /build/
 
-# Create build directory
-RUN mkdir -p /var/cache/akmods /rpms/nvidia
+FROM base AS open
+ARG FEDORA_VERSION=44
+ARG KERNEL_PACKAGE=kernel
+RUN bash /build/build-stack.sh open
+COPY deps-container/cyan/export-stack.sh deps-container/cyan/supported-gpus.jq deps-container/cyan/export-unit-links.sh /build/
+RUN if [ "$FEDORA_VERSION" -ge 44 ]; then \
+    bash /build/export-stack.sh open "$(rpm -q "$KERNEL_PACKAGE" --qf '%{VERSION}-%{RELEASE}.%{ARCH}')" /rpms/stacks/open; fi
 
-# Build NVIDIA kernel modules
-RUN KERNEL_VER=$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | head -n1) && \
-    akmods --kernels ${KERNEL_VER} --force
+FROM base AS nvidia580
+ARG FEDORA_VERSION=44
+ARG KERNEL_PACKAGE=kernel
+RUN bash /build/build-stack.sh 580
+COPY deps-container/cyan/export-stack.sh deps-container/cyan/supported-gpus.jq deps-container/cyan/export-unit-links.sh /build/
+RUN if [ "$FEDORA_VERSION" -ge 44 ]; then \
+    bash /build/export-stack.sh 580 "$(rpm -q "$KERNEL_PACKAGE" --qf '%{VERSION}-%{RELEASE}.%{ARCH}')" /rpms/stacks/580; fi
 
-# Copy built modules to output directory
-RUN find /var/cache/akmods -name "kmod-nvidia-*.rpm" -exec cp {} /rpms/nvidia/ \;
-
-# Also copy the akmod source package for reference
-RUN cp /usr/src/akmods/akmod-nvidia-*.src.rpm /rpms/nvidia/ || true
-
-# Final stage - just the built artifacts
 FROM scratch
-COPY --from=builder /rpms /rpms
+COPY --from=open /rpms /rpms
+COPY --from=nvidia580 /rpms/stacks/580 /rpms/stacks/580

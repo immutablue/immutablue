@@ -77,11 +77,12 @@ brew list
 distrobox list
 ```
 
-`packages.yaml` is organised by variant and architecture: `rpm.all`, `rpm_gui`,
+`packages.yaml` is organised by variant and architecture: `rpm`, `rpm_gui`,
 `rpm_silverblue`, `rpm_kinoite`, `rpm_nucleus`, `rpm_kuberblue`, `rpm_trueblue`,
-`rpm_x86_64`, `rpm_<version>_aarch64`, and so on, plus `rpm_rm*` lists of packages
-removed from the base image. If you are asked why some package is or is not
-present, that file is the answer.
+`rpm_x86_64`, and so on, each split into `all`, `<version>`, `all_<arch>` and
+`<version>_<arch>` sub-keys (`.immutablue.rpm.all`, `.immutablue.rpm_gui.all`),
+plus `rpm_rm*` lists of packages removed from the base image. If you are asked
+why some package is or is not present, that file is the answer.
 
 ## Updating what is installed
 
@@ -108,3 +109,34 @@ immutablue install_agents all
 The list is data in `packages.yaml` under `.immutablue.agent_harnesses`. Note that
 `ai` itself is different: it is a **shipped binary**, part of ai-glib, built into
 the image. It is the built-in harness and needs no installation.
+
+### Updating `ai` and `ai-tui`: update the image, not the binary
+
+ai-glib ships a self-updater — `ai --check-update`, `ai --update`, and `/update`
+in `ai-tui` — that fast-forwards the git checkout the binary was built from,
+rebuilds, and `sudo make install`s into the build's prefix. **None of that
+applies here.** The image builds `ai` from a submodule copy under `/build`
+inside the dependency container: there is no checkout on the machine, the
+binary records no commit, and its prefix is the read-only `/usr`. The updater
+reports the state `unavailable` ("the source checkout /build/ai-glib does not
+exist", or "not built from a git checkout") and refuses; `ai --update` exits 1.
+That is the correct outcome, not a fault to fix.
+
+Do not work around it — no `AI_GLIB_SOURCE_DIR` pointed at a clone, no
+`make install` into `/usr`, no `bootc usr-overlay` to make it stick. A newer
+`ai` arrives with a newer image (`immutablue update`), and a pin bump in the
+immutablue repository is how it gets there ([`building.md`](building.md)). To
+try a newer ai-glib before the image has it, build and run it inside a
+distrobox, never over the host's copy.
+
+What does work:
+
+```bash
+ai --version            # "ai (ai-glib) 0.4.0 (built …)": no git describe on an image build
+jq '.deps[] | select(.name == "ai-glib")' /usr/immutablue/deps/dep_info.json   # the commit it was built from
+```
+
+The background update check is off unless `updates.check: true` is set (or
+`ai --setup` scope `4` answered yes); leave it off. `ai-gui`, the GTK4 client,
+is not built into the image — the dependency container has no `gtk4-devel` or
+`libadwaita-devel`, so ai-glib's build skips it.

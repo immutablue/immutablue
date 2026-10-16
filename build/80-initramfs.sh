@@ -103,6 +103,16 @@ do
         --kver "${kver}" \
         "${initramfs}"
 
+    if [[ -f /usr/lib/immutablue/nvidia/open/manifest.json ]]; then
+        # Loading either stack (or Nouveau) before extension selection would
+        # defeat the saved driver choice. Verify omission, not just the config.
+        initramfs_listing="$(lsinitrd "${initramfs}")"
+        if grep -Eq '/(nouveau|nova[_-](core|drm)|nvidia([_-](drm|modeset|uvm|peermem))?)\.ko' <<< "$initramfs_listing"; then
+            echo "ERROR: ${initramfs} contains a GPU module that bypasses NVIDIA selection" >&2
+            exit 1
+        fi
+    fi
+
     # -----------------------------------
     # Verify the result before shipping it.
     #

@@ -13,6 +13,15 @@ echo "$XDG_CURRENT_DESKTOP"; pgrep -a gowl; pgrep -af 'emacs.*--gowl'
 ```
 
 The bar and its plugins are their own topic: [`gowl-bar.md`](gowl-bar.md).
+Macros and per-device input remapping (foot pedals, macro pads) are in
+[`gowl-macros.md`](gowl-macros.md).
+
+| Program | What it is |
+|---|---|
+| `gowl` | the compositor; `--check-config`, `--recompile`, `--list-modules`, `--supervise` |
+| `gowl-msg` | the IPC client — query and drive a running session from a shell, standalone or under cmacs |
+| `gowl-lock` | the lock screen, a separate program on purpose (it holds the password and dlopens PAM) |
+| `gowl-mcp`, `gowlbar` | the MCP server and the standalone bar |
 
 ## Configuration files
 
@@ -20,8 +29,10 @@ YAML, then C, then the command line — later wins over earlier:
 
 | Kind | Searched in order, first hit is used |
 |---|---|
-| YAML | `--config PATH`, `./data/config.yaml`, `~/.config/gowl/config.yaml`, `/etc/gowl/config.yaml`, `/usr/local/share/gowl/config.yaml` |
-| C | `--c-config PATH`, `~/.config/gowl/config.c`, `/etc/gowl/config.c`, `/usr/local/share/gowl/config.c`, `./data/config.c` |
+| YAML | `--config PATH`, `./data/config.yaml`, `~/.config/gowl/config.yaml`, `/etc/gowl/config.yaml`, `/usr/share/gowl/config.yaml` (none ships there) |
+| C | `--c-config PATH`, `~/.config/gowl/config.c`, `/etc/gowl/config.c`, `/usr/share/gowl/config.c`, `./data/config.c` |
+| Rules | every `rules.d/*.yaml` beside the YAML file, in sorted order, after its `rules:` |
+| Menu | `/usr/share/gowl/menu.yaml`, overlaid by `~/.config/gowl/menu.yaml` |
 
 Precedence is built-in defaults < YAML < C < CLI. `gowl --help` prints the
 resolved lists for the binary actually installed.
@@ -31,8 +42,13 @@ gowl --generate-yaml-config > ~/.config/gowl/config.yaml   # every key, commente
 gowl --modules=cube,expo --generate-yaml-config            # include those modules' sections
 gowl --generate-c-config    > ~/.config/gowl/config.c
 gowl --list-modules
+gowl --check-config                                         # validate; non-zero exit on any problem
 less /usr/share/gowl/default-config.yaml                    # the shipped defaults, commented
 ```
+
+`--check-config` knows every top-level key and suggests the one probably meant
+(`boarder-width` → `border-width`); a reload logs the same count. Settings
+under `modules:` are not checked — each module reads its own.
 
 `/usr/share/gowl/default-config.yaml` is a reference copy, not a search-path
 entry — copy what you need into `~/.config/gowl/config.yaml`. The log goes to
@@ -41,13 +57,20 @@ entry — copy what you need into `~/.config/gowl/config.yaml`. The log goes to
 
 ### What the YAML covers
 
-Top-level scalars: `terminal`, `menu`, `repeat-rate`, `repeat-delay`,
-`sloppyfocus`, `manage_lid`, `border-width`, `border-color-*`, `mfact`,
-`nmaster`, `tag-count`, `palette`, and the effect families — `animation-*`,
-`cube-*`, `expo-*`, `switcher-*`, `magnifier-*`, `blur-*`, `shadow-*`,
-`wallpaper-fade`. Tables: `keybinds`, `rules`, `dropdowns`, `autostart`,
-`monitors`, `modules`. Colours may name a palette role (`accent`, `surface`,
-`red`) instead of a hex value, and should — a role follows a theme switch.
+Top-level scalars: `terminal`, `menu` (the *external* launcher command, not
+the menu module), `repeat-rate`, `repeat-delay`, `sloppyfocus`, `manage_lid`,
+`border-width`, `border-color-*`, `mfact`, `nmaster`, `tag-count`, `palette`,
+`xkb-layout`/`-variant`/`-options`/`-model`/`-rules`/`-file`, `lock-command`,
+`lock-on-suspend`, `idle-timeout`, `dpms-timeout`, `allow-tearing`,
+`focus-on-activate`, `window-backdrop`, `wallpaper`, `wallpaper-tags`,
+`wallpaper-outputs`, `no-fx-apps`, `hints-*`, and the effect families —
+`animation-*`, `cube-*`, `expo-*`, `switcher-*`, `magnifier-*`, `blur-*`,
+`shadow-*`, `glass-*`, `water-*`, `rain-*`, `crt-*`, `hdr-*`. Tables:
+`keybinds`, `modes`, `mousebinds`, `gestures`, `rules`, `dropdowns`,
+`autostart`, `input`, `input-remap`, `monitors`, `profiles`, `modules`.
+Colours may name a palette role (`accent`, `surface`, `red`, or `base/cc` for
+alpha) instead of a hex value, and should — a role follows a theme switch.
+The effect families are long; `deps/gowl/configuration.org` has every key.
 
 Keybinds map a key string to an action object:
 
@@ -63,29 +86,140 @@ keybinds:
 |---|---|
 | `spawn` | command string |
 | `kill_client`, `toggle_float`, `toggle_fullscreen`, `zoom`, `cycle_layout`, `quit`, `reload_config` | — |
-| `focus_stack`, `focus_monitor`, `move_to_monitor`, `inc_nmaster` | `"+1"` or `"-1"` |
+| `focus_stack`, `focus_monitor`, `move_to_monitor`, `inc_nmaster`, `move_stack` | `"+1"` or `"-1"` |
+| `focus_dir` | `left`, `right`, `up`, `down` |
+| `focus_client` | `"app-id:GLOB"`, `"title:GLOB"`, or a bare app-id glob — views its tags and focuses it |
+| `focus_urgent`, `focus_last`, `lock`, `toggle_sticky`, `move_window`, `resize_window` | — |
+| `toggle_below`, `toggle_below_all`, `toggle_crt` | —, `"on"`, `"off"` |
+| `toggle_hdr` | —, `"on"`, `"off"`, or an output name |
+| `cycle_backdrop` | —, `next`, `prev`, or a style (`glass`, `water`, `rain`, `snow`, `blur`, `none`, …) |
+| `output_power` | `"on"`, `"off"`, or — to toggle |
+| `mode` | a mode name, or `default` to leave |
+| `switch_layout` | keyboard layout: `next`, `prev`, or an index |
 | `tag_view`, `tag_set` | `"0"`–`"9"`, 0 meaning all tags |
 | `tag_toggle_view`, `tag_toggle` | `"1"`–`"9"` |
 | `set_mfact` | `"+0.05"` or `"-0.05"` |
-| `set_layout` | `"tile"`, `"float"`, `"monocle"`, or any loaded layout module |
+| `set_layout` | `tile`, `monocle`, `tabbed`, `float`, or any loaded layout module (`scrolling`, `bstack`, `deck`, `grid`, `mirrortile`, `columns`, `centeredmaster`, `fibonacci`) |
 | `set_split` | `"vsplit"` or `"normal"` |
-| `ipc_command` | an IPC command string |
+| `ipc_command` | an IPC command line — any `gowl-msg` word, e.g. `menu`, `hints`, `scratchpad-toggle`, `macro-run NAME` |
 | `custom` | passed to the embedder: an Elisp form under cmacs, inert standalone |
+
+Action names take `_` or `-` interchangeably. A bind may also carry `mode:`
+(the key mode it belongs to), `locked: true` (also runs on the lock screen —
+media keys), `release: true`, and `repeat: false`. A bind needs no modifier, so
+`XF86AudioRaiseVolume` works bare.
 
 `desc` never affects dispatch — it feeds the keybind cheatsheet and the MCP
 `list_keybinds` tool. `custom` is how a compositor key runs editor code under
 cmacs: `"XF86AudioRaiseVolume": { action: custom, arg: "(cmacs-volume-raise)" }`.
 
-Rules match on `app_id` and/or `title` and set `tags` (a bitmask), `floating`
-and `monitor` (`-1` for the default):
+Key modes, pointer binds and gestures use the same action objects:
+
+```yaml
+keybinds:
+  "Super+r": { action: mode, arg: resize, desc: "Resize mode" }
+modes:
+  resize:
+    "h":      { action: set_mfact, arg: "-0.05" }
+    "l":      { action: set_mfact, arg: "+0.05" }
+    "Escape": { action: mode, arg: default }
+mousebinds:                       # Super+Button1 move / Super+Button3 resize are implicit
+  "Super+Button2":   { action: toggle_float }
+  "Super+WheelDown": { action: focus_stack, arg: "+1" }
+gestures:                         # swipe-<dir>-<3|4>, pinch-<in|out>-<3|4>
+  "swipe-up-4": { action: ipc_command, arg: expo }
+```
+
+A gesture bound for a finger count takes every gesture of that count from the
+cube and expo.
+
+Rules: every matcher set must match, and the **first** matching rule wins.
+
+| Matchers | Effects |
+|---|---|
+| `app_id`, `title` (globs; `regex: true` for PCRE), `initial-title` (only at map), `xwayland`, `pid`, `is-floating`, `is-fullscreen`, `on-tag` | `tags` (bitmask), `floating`, `monitor` (`-1` default), `width`/`height` or `width-pct`/`height-pct`, `center`, `sticky`, `fullscreen`, `focus`, `no-focus`, `opacity`, `no-blur`, `no-shadow`, `no-anim`, `idle-inhibit` |
 
 ```yaml
 rules:
   - app_id: "pavucontrol"
     floating: true
+    width-pct: 0.4
   - app_id: "firefox"
-    tags: 2
+    tags: 2                 # silent: the view does not follow…
+    focus: true             # …unless focus: true
 ```
+
+Assigning `tags` never moves the view or marks the window urgent. One file per
+application in `~/.config/gowl/rules.d/` (`10-steam.yaml` holding its own
+`rules:` list) is easier to maintain than one long list; a broken fragment is
+skipped with a warning and costs nothing else.
+
+### Input, outputs and the session
+
+```yaml
+xkb-layout: "us,de"
+xkb-options: "grp:alt_shift_toggle,caps:escape"
+input:                                   # libinput, per device class or name glob; later blocks win
+  touchpad: { tap: true, natural-scroll: true, click-method: clickfinger, accel-speed: 0.2 }
+  pointer:  { accel-profile: flat }
+  "*TrackPoint*": { accel-speed: -0.3 }
+monitors:                                # key: connector, "Make Model Serial", "Make Model", or "*"
+  "Dell Inc. U2720Q ABC123": { scale: 1.5, x: 0, y: 0, vrr: on-demand }
+  eDP-1: { transform: 90 }
+profiles:                                # kanshi in the config: first profile whose outputs are all connected wins
+  docked:
+    eDP-1: { enabled: false }
+    "Dell Inc. U2720Q ABC123": { x: 0, y: 0 }
+  mobile:
+    eDP-1:
+lock-command: "gowl-lock"                # "" uses the in-process screenlock module
+lock-on-suspend: true                    # logind delay inhibitor: locked before the screen goes dark
+idle-timeout: 300
+dpms-timeout: 600
+```
+
+Device names come from `libinput list-devices`; output names and descriptions
+from `gowl-msg monitors`. Connector names move with the dock, so key monitors
+by description. `gowl-msg profile` shows the active profile. `monitors: <out>:
+hdr: true` drives HDR — read *HDR* in `configuration.org` first: it needs a
+renderer that can convert colour and is not tone mapping. `gowl-lock`
+authenticates against `/etc/pam.d/gowl` (shipped in the image). `loginctl
+lock-session` works.
+
+### The menu
+
+`modules: menu: {enabled: true}` gives a searchable card of everything the
+session can do — `Super+space` (with `$PATH` programs: `Super+Shift+space`),
+`Super+Alt+space` at Applications, `Super+Ctrl+Escape` at System. Until the
+module is enabled those shipped binds do nothing. It is loaded by default
+under cmacs.
+
+The tree is data. Add or change rows in `~/.config/gowl/menu.yaml`, an
+**overlay matched by `id`** — repeat a shipped id to change only the fields you
+name:
+
+```yaml
+menu:
+  - id: system
+    items:
+      - {id: backup, icon: "", label: "Backup now", spawn: "borg-backup"}
+  - id: mine
+    label: My tools
+    items:
+      - {id: tidy, label: "Tidy windows", command: "macro-run sort-windows"}
+      - {id: vpn, label: "VPN", spawn: "nmcli con up work",
+         when: {exists: nmcli}}
+```
+
+A row is exactly one of `items:`, `provider:` (`apps`, `windows`, `tags`,
+`layouts`, `backdrops`, `keybinds`, `tray`, `macros`, `path`), `target:`,
+`action:` + `arg:`, `command:` (IPC), `spawn:`, or `elisp:` (cmacs only), plus
+`keep-open: true` for repeatable rows. Guards `when:`/`checked:`/`disabled:`
+take `{exists: PROG}`, `{file: PATH}`, `{module: NAME}`, `{embedder: true}`,
+`{ipc: "QUERY"[, is: X]}`, each with optional `not: true`; there is no shell
+guard by design, and an `ipc:` guard must be a read-only query. A file that
+will not parse leaves the shipped tree standing. `gowl-msg menu-refresh`
+re-reads it; `gowl-msg menu-list ROUTE` shows what is there.
 
 The full key reference is gowl's own `configuration.org`, installed at
 `/usr/share/emacs/*/doc_org/cmacs/deps/gowl/configuration.org`.
@@ -142,10 +276,19 @@ implements one or more hook interfaces (`GowlKeybindHandler`,
 `GowlStartupHandler`, `GowlLayoutProvider`, `GowlClientDecorator`,
 `GowlRuleProvider`, `GowlIpcHandler`, … — eighteen in all), and exports one
 symbol, `gowl_module_register()`, returning its type. The shipped set is
-`gowl --list-modules`: layouts (tile, monocle, float, scrolling,
-centeredmaster, fibonacci), effects (animation, cube, expo, switcher,
-magnifier, blur), and behaviour (autostart, scratchpad, swallow, pertag,
-movestack, vanitygaps, copyhighlight, ipc, mcp).
+`gowl --list-modules`:
+
+| Kind | Modules |
+|---|---|
+| layouts | tile, monocle, tabbed, float, scrolling, bstack, deck, grid, mirrortile, columns, centeredmaster, fibonacci |
+| effects | animation, alpha, roundcorners, cube, expo, switcher, magnifier, crt, layout-indicator, osd |
+| backdrops (behind translucent windows; `window-backdrop:` picks one) | blur (also `bokeh`), liquidglass, liquidwater, liquidrain (also `storm`), snow, leaves, fizz, soapfilm, submerged, embers, dew |
+| session | menu, hints, scratchpad, dropdown, screenlock, notifyd (notification daemon, standalone only), clipboard, screenshot, recording, wallpaper, bar |
+| behaviour | autostart, swallow, pertag, movestack, vanitygaps, copyhighlight, windowrules, ipc, mcp |
+| opt-in automation | macro, inputremap — [`gowl-macros.md`](gowl-macros.md) |
+
+An app that should get no effects at all: `no-fx-apps:` in the config, or
+`GOWL_NO_FX=1` in its environment.
 
 How the binary loads them, which is **not** how bar plugins load:
 
@@ -341,18 +484,69 @@ there.
 container) and set `enabled: true` — see [`building.md`](building.md). That is
 the only route that reaches every machine.
 
+## Driving a running session: `gowl-msg`
+
+The compositor listens on `$XDG_RUNTIME_DIR/gowl.sock`, standalone and under
+cmacs alike. One command line in, one reply line out: queries answer JSON,
+the rest `OK …` / `ERROR …`. `gowl-msg` exits non-zero on `ERROR`.
+
+```bash
+gowl-msg ping; gowl-msg version
+gowl-msg clients | jq .                 # id, app_id, title, tags, monitor, floating, geometry…
+gowl-msg focused | jq -r .app_id
+gowl-msg monitors                       # names, make/model/serial, HDR capability, layout
+gowl-msg keybinds                       # what is bound, with desc and mode
+gowl-msg view 4                         # TAG BITMASK: tag 3 is 4, all nine 511
+gowl-msg action focus-client app-id:librewolf
+gowl-msg dispatch Super+Return          # run whatever a key is bound to
+gowl-msg reload                         # "OK with problems" when the validator found any
+gowl-msg lock; gowl-msg locked
+gowl-msg backdrop next; gowl-msg hints; gowl-msg menu
+gowl-msg expo                           # anything else is a module's command, by name
+gowl-msg -s                             # subscribe: EVENT client-added|focus|tags|layout|mode|lock|… lines
+```
+
+A module command is the same word everywhere: the `ipc_command` keybind
+action, a menu row's `command:`, a remap `command:` target, MCP, and
+`(gowl-run-command "…")` under cmacs. `gowl-msg help` lists the core words;
+`deps/gowl/ipc.org` has every reply and event. `gowl-msg unlock` opens the
+session with no password — it is the administrative escape for a broken lock
+program, not something to script.
+
+`gowl --supervise` runs the compositor in a child and restarts it after a
+crash signal (up to five a minute), keeping the login alive.
+
 ## Under cmacs
 
-- cmacs reads the same `~/.config/gowl/config.yaml`, and compiles
+- `cmacs --gowl` reads the same `~/.config/gowl/config.yaml`, and compiles
   `~/.config/gowl/config.c` and runs its `gowl_config_init()` — but never its
-  `gowl_config_ready()`.
-- cmacs loads several modules itself — `animation`, `cube`, `expo`, `blur`,
-  `scrolling`, the layout indicator — which is why the shipped YAML leaves them
-  `enabled: false` with a comment saying so.
+  `gowl_config_ready()`. Two root-level YAML booleans,
+  `evaluate_gowl_config_with_cmacs` and `evaluate_c_config_with_cmacs` (both
+  default true), switch either off; `cmacs-gowl-config-evaluation` mirrors
+  them for later `gowl-reload-config` calls (pass the file path; see below). Some current cmacs and gowl docs
+  say the YAML is "never read" under `--gowl`: that is true only of a
+  compositor started later from Elisp (`gowl-start`), not of `cmacs --gowl`
+  — verified in cmacs `src/emacs.c`.
+- cmacs loads its own module set — every layout, `animation`, `cube`, `expo`,
+  `switcher`, `magnifier`, `blur`, the liquid and weather backdrops,
+  `wallpaper`, and the menu and hints — which is why the shipped YAML leaves
+  several `enabled: false` with a comment saying so. `macro` and `inputremap`
+  are loaded by their Elisp surfaces on first use, not from YAML
+  ([`gowl-macros.md`](gowl-macros.md)).
+- Monitor settings and output profiles are also set from Elisp
+  (`cmacs-gowl-monitor-configs`, `cmacs-gowl-output-profiles`,
+  `gowl-add-output-profile`), and HDR through `gobject-set` on the config
+  object and its defcustoms.
+- The menu is `M-x cmacs-gowl-menu` (a `completing-read` version that works in
+  a terminal frame) as well as Super+space. Super+Escape is cmacs's menu key,
+  so the macro stop key moves to Super+Alt+Escape.
+- The IPC socket is opened by `cmacs-gowl-mode`, so `gowl-msg` works against
+  an embedded session; `cmacs-gowl-ipc` turns it off or moves it.
 - Much of the session is also set from Elisp: `cmacs-gowl-mode` pushes
   defcustoms into the running compositor, `(gobject-set (gowl-config-object)
-  "manage-lid" nil)` sets a single property, `M-x gowl-reload-config` rereads
-  the YAML, and `M-x cmacs-gowl-describe-keybinds` renders the cheatsheet.
+  "manage-lid" nil)` sets a single property, `(gowl-reload-config
+  "~/.config/gowl/config.yaml")` rereads the YAML — with **no argument it resets
+  to built-in defaults** and reads no file, dropping your keybinds and rules, and `M-x cmacs-gowl-describe-keybinds` renders the cheatsheet.
 - The embedding manual is `gowl.org` in the cmacs docs — see
   [`cmacs.md`](cmacs.md) for where those live.
 
@@ -368,19 +562,27 @@ All under `/usr/share/emacs/<version>/doc_org/cmacs/` (`ls -d
 | `deps/gowl/modules.org` | writing modules: every interface and vfunc, step by step |
 | `deps/gowl/architecture.org` | core objects, dispatch, signals |
 | `deps/gowl/bar.org` | the bar and its plugin contract |
+| `deps/gowl/ipc.org` | the socket, every `gowl-msg` command, reply and event |
+| `deps/gowl/macros.org` | macros: ABI, API, triggers and filters, containment, the 25 examples |
+| `deps/gowl/input-remap.org` | per-device remapping: rules, targets, identify, C API |
+| `deps/gowl/mcp.org`, `deps/gowl/input-capture.org` | the MCP tools; KVM/deskflow input capture |
 | `gowl.org` | gowl embedded in cmacs: startup, Elisp API, modules, bar, monitors |
 | `gowl/bar-widgets.org`, `gowl/multi-display.org`, `gowl/screenshot-recording.org` | cmacs-side topics |
 
-These are generated from the gowl submodule at the cmacs build, so they
-describe the installed gowl, not upstream `master`. Headers are in
-`/usr/include/gowl/`.
+These are generated from **cmacs's** gowl submodule at the cmacs build, so they
+describe the gowl embedded in cmacs — usually, but not necessarily, the same
+commit as the standalone gowl from `dep_info.json`. Headers are in
+`/usr/include/gowl/`; the shipped examples are `/usr/share/gowl/macros/*.c`,
+`/usr/share/gowl/example-input-remap.{yaml,c}`, `example-bar.c` and
+`menu.yaml`.
 
 ## Troubleshooting
 
 Start with what the compositor itself will tell you:
 
 ```bash
-gowl ping; gowl status; gowl version           # is it answering IPC?
+gowl-msg ping; gowl-msg version                # is it answering IPC?
+gowl --check-config                             # unknown keys and bad values, with suggestions
 tail -f ~/.config/gowl/gowl.log                 # log-file; set log-level: debug, or start with gowl --debug
 journalctl --user -b --grep gowl                # session start-up and the systemd bootstrap
 systemctl --user status gowl-session.target graphical-session.target
@@ -388,7 +590,13 @@ systemctl --user status gowl-session.target graphical-session.target
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| A YAML change does nothing | `config.c` runs after the YAML and overrides it, or a different file won the search | read the log; `gowl --no-c-config` rules the C config out |
+| A YAML change does nothing | a misspelt key, `config.c` overriding it, or a different file won the search | `gowl --check-config`; read the log; `gowl --no-c-config` rules the C config out |
+| Super+space / Super+q do nothing standalone | the `menu` / `hints` module is not enabled; the shipped binds are inert until it is | `modules: menu: {enabled: true}` |
+| A `menu.yaml` row is missing | a guard hid it, the overlay did not parse, or its submenu has no visible children | `gowl-msg menu-list ROUTE`; the log names a parse error |
+| A rule does not apply | an earlier rule matched first, or `title` changed after map (use `initial-title`) | reorder; `gowl-msg clients` shows the real `app_id`/`title` |
+| Wrong layout after docking | a connector-name key moved ports | key `monitors:`/`profiles:` by description; `gowl-msg profile` |
+| Locked out after a lock-program crash | `gowl-lock` died; the session stays locked by design | from a TTY or SSH: `gowl-msg unlock` |
+| Macro or foot pedal problems | | [`gowl-macros.md`](gowl-macros.md) |
 | A `config.c` edit does nothing | it failed to compile, and gowl fell back to YAML with only a log warning | `gowl --recompile` prints the gcc error |
 | `Module 'x' is enabled but .so not found` | no `x.so` in `<exe-dir>/modules/` or `/usr/lib64/gowl/modules/` | check the name matches the file; for `$HOME` modules see [Loading a module from your own directory](#loading-a-module-from-your-own-directory) |
 | A module loads but does nothing | its `activate()` returned `FALSE`, so every dispatcher skips it | return `TRUE`; a module loaded from `config.c` must be activated explicitly |

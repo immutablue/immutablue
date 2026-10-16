@@ -174,7 +174,7 @@ immutablue_build_is_silverblue() {
 }
 
 immutablue_build_is_kinoite() {
-    immutablue_is_option_in_build_options kionite
+    immutablue_is_option_in_build_options kinoite
 }
 
 immutablue_build_is_vauxite() {

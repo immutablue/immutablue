@@ -74,6 +74,7 @@ immutablue:
     - elfutils-devel
     - elfutils-debuginfod-client-devel
     - fastfetch
+    - flatpak-builder
     - fuse-sshfs
     - fzf
     - gcc
@@ -86,10 +87,12 @@ immutablue:
     - git
     - gjs-devel
     - glib2-devel
+    - gmime30-devel
     - gobject-introspection-devel
     - heaptrack
     - htop
     - innoextract
+    - jansson-devel
     - json-glib-devel
     - libadwaita-devel
     - libasan
@@ -98,6 +101,7 @@ immutablue:
     - libdex-devel
     - libeis-devel
     - libetpan-devel
+    - libjose-devel
     - libpq-devel
     - librsvg2-devel
     - libsoup3
@@ -116,6 +120,7 @@ immutablue:
     - make
     - mediainfo
     - mbuffer
+    - mutter-devkit
     - neovim
     - NetworkManager-tui
     - opencascade-devel

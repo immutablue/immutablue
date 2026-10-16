@@ -44,6 +44,15 @@ role or hex) or `<widget>.<key>`:
     network.ping-host: "1.1.1.1"
 ```
 
+For the pressure readings (`cpu`, `memory`, `disk`, `temp`, `battery`) a
+`<widget>-color` is the *calm* colour: the peach/red pressure colours still
+fire over it. Other widgets keep it unconditionally.
+
+The `tray` widget is a StatusNotifierItem system tray; gowl itself owns
+`org.kde.StatusNotifierWatcher`, so tray apps register even with no bar drawn,
+and `gowl-msg tray list` shows them. Double left click activates, right click
+opens the app's menu.
+
 **The shipped layout is replaced, not added to.** With no configuration the bar
 shows a default layout — tags and title left, clock anchored centre,
 `cpu memory disk battery tailscale` right. The *first* configuration that names
@@ -116,19 +125,19 @@ mkdir -p ~/.config/gowl/bar-plugins
 $EDITOR ~/.config/gowl/bar-plugins/hello.c
 
 # 2. load it into the running bar, by path or by name
-gowl bar-plugin-load ~/.config/gowl/bar-plugins/hello.c
-gowl bar-plugin-load hello                # resolved through the search path
+gowl-msg bar-plugin-load ~/.config/gowl/bar-plugins/hello.c
+gowl-msg bar-plugin-load hello                # resolved through the search path
 
 # 3. put it on the bar -- an unknown widget name is skipped silently, so spell it right
 #    ~/.config/gowl/config.yaml:  modules: bar: widgets-right: "hello clock battery"
 
 # 4. edit, then swap the new build in without restarting anything
-gowl bar-plugin-reload hello
+gowl-msg bar-plugin-reload hello
 
 # 5. when it misbehaves
-gowl bar-quarantined                      # held back after a caught signal?
+gowl-msg bar-quarantined                      # held back after a caught signal?
 cat "${XDG_STATE_HOME:-$HOME/.local/state}/gowl/bar-plugins.journal"
-gowl bar-plugin-unload hello
+gowl-msg bar-plugin-unload hello
 ```
 
 A plugin loaded only by hand is gone at the next session start. Make it
@@ -169,6 +178,15 @@ are thread-safe. For a subprocess in response to a click use
 **Name a colour role, never a hex literal.** `GOWL_BAR_COLOR_PEACH` follows a
 theme switch; `#fab387` does not. Shipped plugins are held to this by a source
 guard.
+
+**Read the output you are drawn on, not the focused one.** There is one set of
+plugin objects for every screen; `gowl_bar_plugin_get_monitor(plugin)` returns
+the output being measured, drawn, clicked or paneled (`NULL` in `poll` and
+`poll_async`). A widget whose drawing depends on the output must also append
+that reading in the `signature` vfunc, or the bar never redraws it per screen
+— `deps/gowl/bar.org`, *Which output you are on*. Never `g_timeout_add()` /
+`g_idle_add()` from a plugin: under cmacs the default main context is Emacs's
+thread. Use `wl_event_loop_add_timer()` on `gowl_compositor_get_event_loop()`.
 
 A plugin may also decide whether it belongs at all — the shipped `tailscale`
 widget hides itself where Tailscale is not installed, and carries a set-up flow
@@ -219,14 +237,14 @@ missing *widget* is quiet, a missing *plugin* is loud.
 ## Loading and reloading
 
 ```bash
-gowl bar-widgets                    # the laid-out bar, per slot and region
-gowl bar-plugins                    # what is registered
-gowl bar-plugin-load ~/x/thing.c    # load one now, by path
-gowl bar-plugin-load weather        # ...or by name, through the search path
-gowl bar-plugin-reload pomodoro     # recompile and swap in an edit
-gowl bar-plugin-unload pomodoro     # drop it
-gowl bar-quarantined                # what is held back, and why
-gowl bar-plugin-clear pomodoro      # let a held-back plugin load again
+gowl-msg bar-widgets                    # the laid-out bar, per slot and region
+gowl-msg bar-plugins                    # what is registered
+gowl-msg bar-plugin-load ~/x/thing.c    # load one now, by path
+gowl-msg bar-plugin-load weather        # ...or by name, through the search path
+gowl-msg bar-plugin-reload pomodoro     # recompile and swap in an edit
+gowl-msg bar-plugin-unload pomodoro     # drop it
+gowl-msg bar-quarantined                # what is held back, and why
+gowl-msg bar-plugin-clear pomodoro      # let a held-back plugin load again
 ```
 
 A `.c` file is compiled through **crispy** to a shared object cached on a hash of
@@ -253,7 +271,7 @@ stops the next start from loading it and crashing again:
 
 ```bash
 cat "${XDG_STATE_HOME:-$HOME/.local/state}/gowl/bar-plugins.journal"
-gowl bar-quarantined
+gowl-msg bar-quarantined
 ```
 
 Read those first when diagnosing a compositor crash — see
@@ -268,21 +286,21 @@ plugins live in the system directory precisely so a user copy can win.
 ## Troubleshooting
 
 ```bash
-gowl bar-widgets          # what is laid out, per slot and region
-gowl bar-plugins          # what is registered
-gowl bar-quarantined      # what is held back, and why
+gowl-msg bar-widgets          # what is laid out, per slot and region
+gowl-msg bar-plugins          # what is registered
+gowl-msg bar-quarantined      # what is held back, and why
 cat "${XDG_STATE_HOME:-$HOME/.local/state}/gowl/bar-plugins.journal"
 ```
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| A widget is not on the bar | an unknown widget name is skipped **silently** — a typo, or a plugin not yet loaded when the widget lists were read | compare `gowl bar-widgets` with `gowl bar-plugins`; name the plugin in `plugins:` so it loads first |
+| A widget is not on the bar | an unknown widget name is skipped **silently** — a typo, or a plugin not yet loaded when the widget lists were read | compare `gowl-msg bar-widgets` with `gowl-msg bar-plugins`; name the plugin in `plugins:` so it loads first |
 | A `plugins:` entry warns | it resolved to nothing on the search path | the warning lists every directory searched; check the name and `plugin-dir` |
-| A plugin vanished after a crash | it was quarantined, and the journal keeps it held back across restarts | fix it, then `gowl bar-plugin-clear NAME` |
-| An edit is not picked up | not reloaded yet, or an older `.so` of the same name shadows the `.c` | `gowl bar-plugin-reload NAME`; delete the stale `.so` |
+| A plugin vanished after a crash | it was quarantined, and the journal keeps it held back across restarts | fix it, then `gowl-msg bar-plugin-clear NAME` |
+| An edit is not picked up | not reloaded yet, or an older `.so` of the same name shadows the `.c` | `gowl-msg bar-plugin-reload NAME`; delete the stale `.so` |
 | Reload fails with the class already registered | the plugin defines its own `GType`, which cannot be re-registered | use the vtable form; only it hot-reloads |
 | The editor freezes while the bar updates | `poll` blocks on the dispatch thread | move subprocesses, network and slow reads to `poll_async` |
-| A `.c` plugin fails to load | a compile error | the `gowl bar-plugin-load PATH` reply carries it; building with the gcc line above shows the full diagnostic |
+| A `.c` plugin fails to load | a compile error | the `gowl-msg bar-plugin-load PATH` reply carries it; building with the gcc line above shows the full diagnostic |
 | Building a `.so` fails with `cairo.h: No such file` | an older `gowl.pc` omits cairo and pango | `pkg-config --cflags --libs gowl cairo pangocairo` |
 | Colours are wrong after a theme switch | a hex literal instead of a colour role | use the `GOWL_BAR_COLOR_*` roles |
 | The whole session died | a plugin crashed outside the guard | see [Containment](#containment) — the journal stops it loading again |

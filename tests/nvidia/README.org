@@ -1,0 +1,89 @@
+#+title: Cyan selectable NVIDIA drivers
+
+* User behavior (Fedora 44 and later)
+
+Cyan bundles an open NVIDIA stack and a proprietary 580 stack. On first boot,
+=immutablue-nvidia.service= detects NVIDIA PCI display devices and selects a
+single stack supporting every detected GPU. It prefers =open=, then =580=.
+No NVIDIA display device selects =none=; an unsupported combination fails
+without saving a selection. Fedora 42/43 retain the previous single-stack path.
+
+The choice is saved in =/etc/immutablue/nvidia.json=. It persists across boots
+and OS updates. After replacing a GPU, run =immutablue nvidia_setup= to detect
+again. =immutablue nvidia_status= reports the *saved* choice, not proof of a
+loaded or working driver. =journalctl -b -u immutablue-nvidia.service= and
+=nvidia-smi= help diagnose activation.
+
+#+begin_src sh
+immutablue nvidia_setup                 # detect again and save
+immutablue nvidia_setup --driver 580    # explicitly select proprietary 580
+immutablue nvidia_setup --driver open   # explicitly select the open stack
+immutablue nvidia_setup --driver none   # disable both NVIDIA stacks
+immutablue nvidia_status
+systemctl reboot                       # apply the saved choice
+#+end_src
+
+Explicit choices are overrides; the administrator must choose a stack compatible
+with the hardware. The selector never switches a running graphics session.
+=--activate= is reserved for the early-boot service. A malformed saved JSON file
+causes activation to fail; running setup again replaces it atomically.
+
+Both Nouveau and Nova are omitted from the initramfs and blacklisted in this
+image. Selecting =none= disables NVIDIA activation; it does not enable Nouveau.
+Rebasing away from Cyan removes image-level blacklists; use
+=immutablue disable_nvidia_kmod= before rebasing to remove persistent kernel
+arguments. Relabel boots skip activation until the next normal boot.
+
+The selected read-only system extension supplies matching kernel modules,
+graphics libraries and CUDA driver libraries. CUDA development toolkits are
+not provided by this selector. Existing NVIDIA RPMs in the base image are
+rejected to avoid mixing stacks. RPM-enabled NVIDIA service dependencies are
+carried inside each extension, including the 580 suspend/resume hooks.
+
+* Build
+
+Build dependencies against the exact target kernel before building Cyan:
+
+#+begin_src sh
+make VERSION=44 CYAN=1 build-cyan-deps
+make VERSION=44 CYAN=1 build
+# Match both commands for an LTS/Trueblue build:
+make VERSION=44 CYAN=1 TRUEBLUE=1 build-cyan-deps
+make VERSION=44 CYAN=1 TRUEBLUE=1 build
+#+end_src
+
+=CYAN_KERNEL_VERSION= can supply an exact version-release.arch override.
+Ordinary builds query the target base image; LTS builds query the configured
+kernel-longterm repository. The final image rejects a kernel/module mismatch.
+A repository update between dependency and image builds can therefore require
+rebuilding dependencies. =CYAN_DEPS_IMAGE= selects an alternate dependency
+image (pass it explicitly when using a custom =IMAGE=). LTS dependencies have
+a separate =<fedora>-cyan-deps-lts= tag. =SKIP=initramfs= is unsupported for
+selectable stacks.
+
+* Checks and limits
+
+#+begin_src sh
+bash tests/run_tests.sh --suite pre
+bash tests/run_tests.sh --suite regressions
+#+end_src
+
+=test_nvidia_selector.sh= uses private PCI/config trees and stubbed activation
+commands. It covers no GPU, modern/legacy/mixed GPUs, unsupported GPUs, failed
+PCI reads, atomic configuration writes, malformed CLI/configuration input,
+activation ordering, merge failure propagation and preservation of RPM-enabled
+service dependencies. =test_cyan_kernel.sh=
+covers exact kernel resolution, ambiguity rejection, explicit overrides and
+LTS image routing. These tests do not prove that kernel modules compile or that
+systemd can mount the extension on a real OSTree boot.
+
+Before shipping an image, build the complete Cyan image and run its container,
+package and initramfs checks. Boot an OSTree deployment with SELinux enforcing;
+check no-GPU, current and legacy selection, persistence, GPU replacement,
+updates and rollback. Test graphics, CUDA and suspend/resume on supported
+modern hardware and a GTX 970. Repeat for the LTS/Trueblue kernel.
+
+Module signing and Secure Boot trust/enrollment must be configured and verified
+before claiming Secure Boot support. A successful package build or a VM with
+no NVIDIA device cannot establish that. Do not treat claims in an older PR
+summary as validation of a different source revision.

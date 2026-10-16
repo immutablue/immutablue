@@ -10,13 +10,14 @@ ARG BASE_IMAGE_DEVEL=registry.fedoraproject.org/fedora:latest
 ARG FEDORA_VERSION=43
 ARG IS_DISTROLESS=false
 ARG DEPS_IMAGE
+ARG CYAN_DEPS_IMAGE=quay.io/immutablue/immutablue:${FEDORA_VERSION}-cyan-deps
 
 FROM scratch as ctx
 COPY / /
 
 FROM quay.io/zachpodbielniak/nautilusopenwithcode:${FEDORA_VERSION} AS nautilusopenwithcode
 FROM ${DEPS_IMAGE} as build-deps
-FROM quay.io/immutablue/immutablue:${FEDORA_VERSION}-cyan-deps AS cyan-deps
+FROM ${CYAN_DEPS_IMAGE} AS cyan-deps
 FROM quay.io/zachpodbielniak/cmacs:${FEDORA_VERSION} AS cmacs-build
 FROM quay.io/immutablue/linuxbrew:latest AS linuxbrew
 FROM docker.io/mikefarah/yq AS yq
