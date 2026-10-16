@@ -44,6 +44,14 @@ PACKAGES=(
 	# ai-glib: GObject introspection bindings (built with GIR=1)
 	gobject-introspection-devel
 
+	# ai-glib: the ai-gui desktop client. Without these, HAVE_GTK is
+	# 0, the binary is dropped, and make install has nothing to put
+	# org.copyleft.AiGlib.Gui.desktop next to. libadwaita is the
+	# runtime the binary needs once it is copied into the image.
+	gtk4-devel
+	libadwaita-devel
+	libadwaita
+
 	# yaml-glib + gst: YAML + JSON
 	libyaml-devel
 	json-glib-devel
@@ -512,8 +520,15 @@ build_mcp_gdb_glib () {
 
 
 # ai-glib -- GObject AI provider library (Claude, OpenAI, Gemini, Grok, Ollama)
-# Produces: libai-glib-1.0.so, headers, pkg-config
+# Produces: libai-glib-1.0.so, headers, pkg-config, ai-gui and
+#           org.copyleft.AiGlib.Gui.desktop
 # Source: /build/ai-glib (COPY'd from submodule)
+#
+# gtk4-devel and libadwaita-devel are in PACKAGES so `make all` builds
+# ai-gui. `make install` then copies data/org.copyleft.AiGlib.Gui.desktop
+# into ${stage_dir}/usr/share/applications/ because the built binary
+# exists. build/10-copy.sh copies that whole usr/ tree into the image,
+# which is how the launcher reaches a desktop session.
 build_ai_glib () {
 	local src_dir="${BUILD_DIR}/ai-glib"
 	local stage_dir="${BUILD_DIR}/ai-glib"
