@@ -66,7 +66,7 @@ while read -r name base; do
     printf '%-20s %-13s skill=%.12s image=%.12s\n' "${name}" "${state}" "${base}" "${image}"
 done <<'EOF'
 immutablue           e7b055a1189c5440a59d58d68ae8fdbc4f2d5c3c
-ai-glib              adc932d89898dd580e3ebfeee197aad807e374ac
+ai-glib              7c772d6fc01d667059a3c216f5b34b4680fd6599
 bacon                cf8bfadef33b379bf2954258048a9ad7dd359ebc
 crispy               53b8fc7c5444fb3b94bdb689c5b160483d3a95c4
 gowl                 fcf3ac67ef789e875ba799fc27834297772ded32
