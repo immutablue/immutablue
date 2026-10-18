@@ -135,6 +135,77 @@ the maintenance prompt from `.ai-glib/loop.md` (or `~/.config/ai-glib/loop.md`).
 This needs a running `ai-tui` session; for an unattended job with no session,
 use a podomation `ai_*` handler or a hook script calling `ai`.
 
+## Voice sessions: `ai-call`
+
+`ai-call` is ai-glib's voice frontend: a speech-recognition → model → speech
+loop around an ordinary ai-glib conversation (tools, background agents and the
+provider factory included). It is built into the image next to `ai` and
+`ai-tui`, but **the services it talks to are not shipped**: you supply a
+streaming STT websocket (`ws://HOST:8001/stt/stream`), a streaming TTS HTTP
+endpoint (`http://HOST:8089/synthesize/stream`) and, for Matrix calls, a
+LiveKit server, a Matrix account, and GStreamer's `livekitwebrtcsrc` /
+`livekitwebrtcsink` plugins (from `gst-plugins-rs`, with the patch in ai-glib's
+`deps/`). The image does not carry those plugins, so a Matrix call without them
+fails at join with a clear error; `--local` does not need them.
+
+```bash
+ai-call --list-call-settings                       # every ai_call property, type and default; contacts nothing
+ai-call --config ~/.config/ai-glib/voice.yaml --identity ~/.config/ai-glib/identity.md --local
+ai-call --config voice.yaml --identity identity.md --credentials matrix.json   # answer MatrixRTC calls
+ai-call --local --call-set voice-commands=yes --call-set state-file=$XDG_RUNTIME_DIR/ai-call.json ...
+```
+
+| Fact | |
+|---|---|
+| `--local` | one session on this machine's microphone and speaker; no Matrix, no credentials, no LiveKit. It **still needs an identity file** (the system prompt): `--identity PATH` or `voice.identity_file` |
+| Endpoints | `voice.stt_url`, `voice.tts_url`, `voice.livekit_url`, `voice.identity_file` in the ai-glib YAML, or `AI_VOICE_STT_URL`, `AI_VOICE_TTS_URL`, `AI_VOICE_LIVEKIT_URL`, `AI_VOICE_IDENTITY_FILE`; defaults are `localhost` ports 8001, 8089 and 7880 |
+| Provider | `-p`/`-m`, or `apps.ai-call.default_provider` / `default_model`; the same factory as `ai` |
+| Behaviour | the `ai_call:` YAML mapping, `AI_CALL_*` / `AI_VOICE_*` environment, or `--call-set PROPERTY=VALUE` (repeatable); later wins in that order after the explicit `--config`. Unknown names and out-of-range numbers are errors, and nothing reloads while it runs |
+| Device I/O | `local-input` / `local-output` are GStreamer descriptions (`autoaudiosrc`, `alsasrc device=hw:1`); `local-echo-cancel: yes` when the speaker is near the microphone (needs `webrtcdsp` — check `gst-inspect-1.0 webrtcdsp`); `noise-suppression: low|moderate|high|very-high` for received audio |
+| Voice commands | `voice-commands: yes` makes a whole utterance of *stop*, *mute*, *unmute* or *hang up* (optionally led by an `assistant-names` entry) a command, not a prompt |
+| Mute from outside | `kill -USR1 $(pidof ai-call)` toggles mute on every live session; `state-file` is a JSON file rewritten atomically (0600) with `state`, `muted`, `heard`, `said`, for a display beside the speaker |
+| Transcripts | one JSON Lines file per call in `ai_call.transcript-dir` (default `$XDG_STATE_HOME/ai-glib/calls`, dir 0700, files 0600; empty value disables); `transcript-hook` is run with the file path as its last argument when the call ends, not waited for |
+| Stopping | the first `SIGINT`/`SIGTERM` says `goodbye-message` (two-second budget) and leaves; a second exits without waiting for Matrix cleanup |
+
+Run it as a user service if it must stay up — the image ships no unit
+(`ExecStart=/usr/bin/ai-call --local --config %h/.config/ai-glib/voice.yaml
+--identity %h/.config/ai-glib/identity.md`, `Restart=on-failure`). The full
+reference is `voice.org` (config, wire protocols, barge-in, failure modes) and
+`cli.org` in ai-glib's docs; the standalone binary can be newer than the copy in
+cmacs's manual, so read `docs/voice.org` at the commit in `dep_info.json` if the
+two differ.
+
+## Projects, tmux and queued follow-ups
+
+For scripting around `ai-tui` and `ai-gui` sessions:
+
+```bash
+ai project                       # every project, most urgent first (INPUT, ERROR, WORK, DONE, …)
+ai project list --json           # {"schema_version":1,"projects":[{id,name,root,status,session_count,live_count,busy_count,attention_count}]}
+ai project show .                # sessions of the project holding this directory, worktrees included
+ai project show NAME --registry DIR
+```
+
+- A project is the repository's Git common directory, so every worktree of one
+  repository is one project; outside Git the directory is the project. A name
+  two projects share is refused with both roots listed — pass a path.
+- `ai project` only reads the registry (`$XDG_STATE_HOME/ai-glib/sessions`);
+  exit 1 means no match or an unreadable registry, 2 a usage error. A prompt
+  that is literally `project` is `ai -- project`.
+- Inside tmux, a worker started from the `ai-tui` dashboard (`n`, `p`, `w` for a new
+  Git worktree, `/project DIR`) opens as a window in that project's **own tmux session**, named
+  after the project (`alpha`, `alpha-2` for a second repository with the same
+  name) and claimed by the tmux user option `@ai_project`. `prefix s` lists
+  projects with their workers beneath. `/cwd OTHER_PROJECT` opens a worker there
+  instead of moving the current conversation.
+- `Alt+Q` or `/queue` (ai-tui and ai-gui) opens the queued follow-up messages:
+  Up/Down selects, Enter edits, `d` removes, Escape resumes sending. Dispatch is
+  paused while it is open. The queue is memory-only.
+- Dashboard cleanup removes disconnected session records whose ownership lock is
+  free; provider histories, saved GUI conversations and loop schedules are never
+  deleted by it. Recent project directories survive separately, so `p` and the
+  project headers can reopen them.
+
 ## `immutablue-settings`
 
 One key, resolved through the cascade

@@ -6,7 +6,7 @@ most of this file applies to both:
 | How it runs | Started by | What differs |
 |---|---|---|
 | standalone | `gowl` | the reference behaviour described here |
-| embedded in cmacs | `cmacs --gowl` | also driven from Elisp, loads some modules itself — see [Under cmacs](#under-cmacs) |
+| embedded in cmacs | `emacs --gowl` | also driven from Elisp, loads some modules itself — see [Under cmacs](#under-cmacs) |
 
 ```bash
 echo "$XDG_CURRENT_DESKTOP"; pgrep -a gowl; pgrep -af 'emacs.*--gowl'
@@ -223,6 +223,23 @@ re-reads it; `gowl-msg menu-list ROUTE` shows what is there.
 
 The full key reference is gowl's own `configuration.org`, installed at
 `/usr/share/emacs/*/doc_org/cmacs/deps/gowl/configuration.org`.
+
+### Other opt-in modules and keys
+
+All of these are inert until enabled with `modules: <name>: {enabled: true}` (cmacs loads several by default — see [Under cmacs](#under-cmacs)). Full pages are `deps/gowl/floatdesk.org`, `broadcast.org` and `configuration.org`.
+
+| Feature | Enable | Use |
+|---|---|---|
+| Pointer confinement | built in, no module | **Super+g** (`toggle_pointer_confine`) keeps the pointer in the focused window; Super+Ctrl+Escape always lets go. A rule `confine-pointer: true` does it whenever that window has focus (an X11/Proton window's app-id is its `WM_CLASS`; read it with `gowl-msg clients`). `gowl-msg pointer-confine [on\|off\|toggle\|state]`; `pointer-confine-focus-pin` (true) pins keyboard focus meanwhile, `pointer-confine-escape` moves the escape key |
+| Floating desktop | `floatdesk` | workspaces that float with title bars and a dock. Floats nothing until `gowl-msg floatdesk-toggle [TAG]`; also `floatdesk-minimize`, `-restore`, `-maximize`, `-default on\|off\|toggle`, `-dock-apps`, `-dock-autohide`. Per-workspace choices and the dock persist in `$XDG_STATE_HOME/gowl/floatdesk.yaml` and win over YAML at the next start |
+| Input broadcasting (multiboxing) | `broadcast` | repeats keys/clicks from one window of a *team* into the others; teams and rules live in a top-level `broadcast:` section (`data/example-broadcast.yaml`). `gowl-msg broadcast-on\|-off\|-toggle\|-panic\|-status\|-list\|-assign TEAM SLOT\|-focus-slot`. Several games forbid it — check their rules first |
+| Region OCR / colour pick | `screenshot` (+ `tesseract` for OCR) | Super+Alt+Shift+s puts a region's text on the clipboard (`screenshot-ocr`); Super+Alt+c puts a pixel's `#rrggbb` there (`screenshot-color`) |
+| Macro record / voice | `macro` | Super+Alt+r, Super+Alt+Shift+r, Super+Alt+m — [`gowl-macros.md`](gowl-macros.md) |
+| Keybinding list | `menu` | **Super+?** opens the menu at *Keybindings*: every bind read live from the compositor, saying what it runs (macros and custom code called out), with mouse, gesture and remapped-device views. Super+Alt+v opens the clipboard history (a private entry) |
+
+Under MCP these have tools too: `broadcast_*`, `macro_record`, `macro_voice_match`, `screen_text`, `pick_color`, recorder and clipboard tools.
+
+A touchpad's two-finger right click needs `click-method: clickfinger` in its `input` block (libinput's default on many clickpads is button areas; the click-method value is read in `src/core/gowl-input-config.c`).
 
 ### The C config
 
@@ -518,15 +535,16 @@ crash signal (up to five a minute), keeping the login alive.
 
 ## Under cmacs
 
-- `cmacs --gowl` reads the same `~/.config/gowl/config.yaml`, and compiles
+- `emacs --gowl` reads the same `~/.config/gowl/config.yaml`, and compiles
   `~/.config/gowl/config.c` and runs its `gowl_config_init()` — but never its
   `gowl_config_ready()`. Two root-level YAML booleans,
   `evaluate_gowl_config_with_cmacs` and `evaluate_c_config_with_cmacs` (both
   default true), switch either off; `cmacs-gowl-config-evaluation` mirrors
   them for later `gowl-reload-config` calls (pass the file path; see below). Some current cmacs and gowl docs
   say the YAML is "never read" under `--gowl`: that is true only of a
-  compositor started later from Elisp (`gowl-start`), not of `cmacs --gowl`
+  compositor started later from Elisp (`gowl-start`), not of `emacs --gowl`
   — verified in cmacs `src/emacs.c`.
+- cmacs also loads `floatdesk` by default (nothing floats until Super+w toggles a workspace). Its Elisp surfaces cover the new features: `cmacs-gowl-floatdesk-*` (Super+w, Super+n, Super+Shift+n, Super+Shift+w), `cmacs-gowl-broadcast-*` (nothing is on until `cmacs-gowl-broadcast-enable` is set, a team/rule is defined, or `-start` is called; Super+b toggles, Super+Shift+b panics), `(gowl-pointer-confine 'on|'off|'toggle)` and `cmacs-gowl-pointer-confine-changed-functions`.
 - cmacs loads its own module set — every layout, `animation`, `cube`, `expo`,
   `switcher`, `magnifier`, `blur`, the liquid and weather backdrops,
   `wallpaper`, and the menu and hints — which is why the shipped YAML leaves
@@ -566,6 +584,7 @@ All under `/usr/share/emacs/<version>/doc_org/cmacs/` (`ls -d
 | `deps/gowl/macros.org` | macros: ABI, API, triggers and filters, containment, the 25 examples |
 | `deps/gowl/input-remap.org` | per-device remapping: rules, targets, identify, C API |
 | `deps/gowl/mcp.org`, `deps/gowl/input-capture.org` | the MCP tools; KVM/deskflow input capture |
+| `deps/gowl/floatdesk.org`, `deps/gowl/broadcast.org` | the floating desktop and input broadcasting |
 | `gowl.org` | gowl embedded in cmacs: startup, Elisp API, modules, bar, monitors |
 | `gowl/bar-widgets.org`, `gowl/multi-display.org`, `gowl/screenshot-recording.org` | cmacs-side topics |
 
@@ -597,6 +616,9 @@ systemctl --user status gowl-session.target graphical-session.target
 | Wrong layout after docking | a connector-name key moved ports | key `monitors:`/`profiles:` by description; `gowl-msg profile` |
 | Locked out after a lock-program crash | `gowl-lock` died; the session stays locked by design | from a TTY or SSH: `gowl-msg unlock` |
 | Macro or foot pedal problems | | [`gowl-macros.md`](gowl-macros.md) |
+| Super+g or a `confine-pointer` rule does not hold the pointer | a client's own pointer lock wins while it holds one; a manual release sticks until focus has been elsewhere | `gowl-msg pointer-confine` (JSON: `client_constraint`, `by_rule`) |
+| `floatdesk-*` / `broadcast-*` reply `unknown command` | the module is not enabled | `modules: floatdesk: {enabled: true}` / `broadcast` |
+| Two-finger click is not a right click | libinput default is button areas | `click-method: clickfinger` in the touchpad's `input` block |
 | A `config.c` edit does nothing | it failed to compile, and gowl fell back to YAML with only a log warning | `gowl --recompile` prints the gcc error |
 | `Module 'x' is enabled but .so not found` | no `x.so` in `<exe-dir>/modules/` or `/usr/lib64/gowl/modules/` | check the name matches the file; for `$HOME` modules see [Loading a module from your own directory](#loading-a-module-from-your-own-directory) |
 | A module loads but does nothing | its `activate()` returned `FALSE`, so every dispatcher skips it | return `TRUE`; a module loaded from `config.c` must be activated explicitly |

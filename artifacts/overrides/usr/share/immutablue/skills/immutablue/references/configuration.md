@@ -127,10 +127,14 @@ keep **separate** saved defaults; `immutablue ai_defaults` shows what resolved.
 |-----|---------|------|
 | `updates.check` | `false` | Leave it off. The self-updater cannot work on an image build — see [`packages.md`](packages.md#updating-ai-and-ai-tui-update-the-image-not-the-binary). `ai --setup` scope `4` writes only this key |
 | `updates.source-dir`, `updates.upstream`, `updates.interval`, `updates.run-tests` | — | Only meaningful for a from-source install; ignore on the image |
-| `apps.ai-tui.open-dashboard-on-load` | `false` | A bare `ai-tui` opens the project dashboard (`ai-tui --dashboard`, `Ctrl+\`) |
+| `apps.ai-tui.open-dashboard-on-load` | `false` | A bare `ai-tui` opens the project dashboard (`ai-tui --dashboard`, `Ctrl+\`); `ai-tui --no-dashboard` overrides it for one run |
+| `apps.<app>.default_provider`, `default_model` | — | Per-app defaults for `ai`, `ai-tui`, `ai-gui` and `ai-call` (note the underscores here, against the hyphens of `open-dashboard-on-load`); an unknown provider name invalidates the file |
+| `voice.stt_url`, `tts_url`, `livekit_url`, `identity_file` | `ws://localhost:8001/stt/stream`, `http://localhost:8089/synthesize/stream`, `ws://localhost:7880`, none | `ai-call` only. The image ships no speech server; point these at yours. Overridden by `AI_VOICE_STT_URL`, `AI_VOICE_TTS_URL`, `AI_VOICE_LIVEKIT_URL`, `AI_VOICE_IDENTITY_FILE` |
+| `ai_call:` (a mapping) | see `ai-call --list-call-settings` | `ai-call`'s own policy: `credentials`, `jwt-url`, `focus-url`, `greeting`, `turn-deadline-ms`, `barge-in-ms`, `noise-suppression`, `voice-commands`, `transcript-dir`, `state-file`, `local-input`, `local-output`, … — see [`automation.md`](automation.md#voice-sessions-ai-call). Kebab-case keys; an unknown name or an out-of-range number fails startup and leaves the previous values |
 
 A malformed value makes ai-glib **skip the whole file**, not just that key, and
-it says so only at debug level. After editing, confirm the change took —
+it says so only at debug level (`ai-call` is stricter about its own `ai_call:`
+mapping: it refuses to start). After editing, confirm the change took —
 `immutablue ai_defaults`, or `ai --dry-run "hi"` for the provider and model —
 before assuming the key does nothing; `yq . ~/.config/ai-glib/config.yaml`
 catches a file that is not YAML at all. Environment overrides: `AI_GLIB_NO_UPDATE_CHECK=1`
