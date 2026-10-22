@@ -112,6 +112,7 @@ immutablue:
     - libvirt
     - libvirt-dbus
     - libvirt-devel
+    - libvorbis-devel
     - libxml2-devel
     - libyaml-devel
     - libzip-devel
