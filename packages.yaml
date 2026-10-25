@@ -102,6 +102,8 @@ immutablue:
     - libeis-devel
     - libetpan-devel
     - libjose-devel
+    - libspnav
+    - libspnav-devel
     - libpq-devel
     - librsvg2-devel
     - libsoup3
