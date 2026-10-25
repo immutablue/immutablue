@@ -114,6 +114,7 @@ immutablue:
     - libvirt
     - libvirt-dbus
     - libvirt-devel
+    - libvorbis-devel
     - libxml2-devel
     - libyaml-devel
     - libzip-devel
@@ -333,9 +334,8 @@ immutablue:
     - smartmontools
     - samba
     - samba-client
-    # - znapzend
-    # - cockpit-zfs-manager
-    # - cockpit-file-sharing
+    - znapzend      # from spike/znapzend copr (repo_urls_trueblue); required by cockpit-zfs-manager
+    # cockpit-zfs-manager / cockpit-file-sharing are not in Fedora; see rpm_post_url_trueblue
     # - cockpit-benchmark
     # - cockpit-tailscale
 
@@ -388,6 +388,15 @@ immutablue:
     - https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-44.noarch.rpm
     - https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-44.noarch.rpm
 
+
+  # trueblue cockpit plugins from 45Drives GitHub releases (installed after rpm_trueblue).
+  # Not packaged for Fedora, and the 45Drives .repo is Rocky-only, so these are pinned
+  # URLs that must be bumped by hand. cockpit-zfs-manager is archived upstream (last
+  # release 2023); its successor cockpit-zfs needs an el9-only python3-libzfs.
+  rpm_post_url_trueblue:
+    all:
+    - https://github.com/45Drives/cockpit-file-sharing/releases/download/v4.6.3/cockpit-file-sharing-4.6.3-1.el9.noarch.rpm
+    - https://github.com/45Drives/cockpit-zfs-manager/releases/download/v1.3.1/cockpit-zfs-manager-1.3.1-1.el8.noarch.rpm
 
 
   

@@ -150,7 +150,7 @@ lp -d cmacs file.pdf                              # scripted print
 
 Three pieces: the CUPS backend `/usr/lib/cups/backend/cmacs-print` writes the PDF
 to `/tmp/cmacs-print-<uid>/`; a user `path`+`service` pair drains it with
-`cmacs --batch`; `cmacs-print-register.service` runs `lpadmin` at boot. The
+`emacs --batch`; `cmacs-print-register.service` runs `lpadmin` at boot. The
 `/tmp` spool is deliberate — it is the one place stock SELinux lets `cupsd_t`
 write that a user service can read; the obvious D-Bus and `/run/user` designs
 fail with no AVC logged.

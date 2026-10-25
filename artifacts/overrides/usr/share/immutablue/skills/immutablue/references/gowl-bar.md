@@ -53,6 +53,56 @@ The `tray` widget is a StatusNotifierItem system tray; gowl itself owns
 and `gowl-msg tray list` shows them. Double left click activates, right click
 opens the app's menu.
 
+### Adding or removing one widget
+
+Setting a region replaces it. To change one widget and leave the rest, use the
+amendment keys (they do *not* count as "a configuration that names a widget
+list", so the shipped layout survives them):
+
+```yaml
+modules:
+  bar:
+    widgets-right-remove: "tailscale"
+    widgets-right-add: "meeting-notes ai-assistant"
+    bottom-widgets-left-add: "wow-gold"      # bottom- prefix for the bottom bar
+```
+
+`widgets-{left,center,right}-{add,remove}`; removals run before additions, a
+removal matches the whole spec (`disk` does not remove `disk:/var`), and an
+addition is not deduplicated — send the matching `-remove` first if the code may
+run twice. Adding to the centre region forgets `center-anchor`. Under cmacs the
+same keys go through `cmacs-gowl-bar-configure-top` / `-bottom`. A
+`<widget>.<key>` setting may be given before its widget is on the bar; the bar
+remembers it.
+
+### The extended widget set
+
+Shipped in `bar.so` but **off** unless named in a widget list (under
+`emacs --gowl`, `cpu` activity mode, `ai-assistant`, `meeting-notes` and
+`ai-rewrite` are added by cmacs's defaults; ai-rewrite is on Super+e).
+
+| Widget | Does |
+|---|---|
+| `cpu` (`cpu.style: creature`) | activity mode: load creature, process list, kill |
+| `ai-assistant` | chat with any provider, manage local ollama models |
+| `meeting-notes` | record outputs and mics, transcribe, summarise, file the notes (cmacs opens them) |
+| `ai-rewrite` | rewrite the selected text: fix, improve, shorten, translate, custom; shows a diff |
+| `translate` | two-pane translator overlay |
+| `keywheel` | radial cheat sheet of every keybinding |
+| `webmail` | themed web mail window with an unread count |
+| `devservices` | start, stop and watch a project's dev services |
+| `netshares` | mount CIFS, NFS and SSHFS shares |
+| `tvremote` | Fire TV, Android TV, Roku, Samsung, LG remote |
+| `wow-gold` | World of Warcraft gold and sales via `tsmctl` |
+
+Each has a page under `deps/gowl/bar-widgets/<name>.org` (standalone and cmacs
+configuration). Open a panel from a key with `gowl-msg bar-panel NAME`, or send a
+panel action with `gowl-msg bar-widget-action WIDGET ID [INDEX [VALUE]]` (e.g.
+`bar-widget-action tvremote key:vol_up`). The AI widgets pick a backend with
+`<widget>.ai-backend`: `cmacs` (under cmacs), `ai` (the ai-glib CLI, prompt on
+stdin, never argv), `none`, or `auto` (default: `ai` if installed). Also
+`ai-provider`, `ai-model`, `ai-command`, `emacsctl`, `ai-timeout` (300).
+
 **The shipped layout is replaced, not added to.** With no configuration the bar
 shows a default layout — tags and title left, clock anchored centre,
 `cpu memory disk battery tailscale` right. The *first* configuration that names
@@ -158,7 +208,16 @@ panel machinery for free.
 `size` must be the first member and must be `sizeof` the struct **as your file
 sees it**. That is what lets the vtable grow without breaking a plugin built
 against an older gowl: the bar checks each callback lies inside the declared size
-before calling it.
+before calling it. Slots appended after the first release — `panel_opened`, `panel_closed`,
+`panel_key`, `signature`, `panel_text` (text fields) and `panel_canvas` (cairo canvases) — follow
+`action` in `GowlBarPluginVTable`; the minimal example above stops at `panel_closed`, which is fine
+because `size` bounds it.
+
+Panels also take `gowl_bar_panel_add_entry()` (a text field the host edits; `panel_text`
+reports edits and Return), `gowl_bar_panel_add_canvas()` (you paint it in `panel_canvas`; a click
+arrives in `action` with `index`/`value` as the local x/y), `GOWL_BAR_ROW_PROP_DETAIL` for one-line table
+rows, `GOWL_BAR_PANEL_PROP_FOCUS` to move the keyboard and `gowl_bar_panel_set_centered()` for overlay-style panels
+(`deps/gowl/bar.org`).
 
 **The threading rule matters more than everything else here.** Plugins run
 in-process inside the compositor, and the compositor's dispatch thread holds the
@@ -333,7 +392,8 @@ Under `/usr/share/emacs/<version>/doc_org/cmacs/`, openable with
 |---|---|
 | `deps/gowl/bar.org` | the full plugin contract: vtable, panels, toasts, threading, search path, containment |
 | `gowl.org` (Status Bar) | the bar under cmacs and its Elisp commands |
-| `gowl/bar-widgets.org` | the shipped widgets and their options |
+| `gowl/bar-widgets.org`, `gowl/bar-widgets-extended.org` | the shipped widgets and their options; the extended set under cmacs |
+| `deps/gowl/bar-widgets/*.org` | one page per extended widget |
 
 The commented pomodoro example, `data/example-bar-plugin.c`, is in the gowl
 source only; `/usr/immutablue/deps/dep_info.json` has the remote and commit to

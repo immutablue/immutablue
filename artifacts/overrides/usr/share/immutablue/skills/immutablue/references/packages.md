@@ -132,11 +132,28 @@ distrobox, never over the host's copy.
 What does work:
 
 ```bash
-ai --version            # "ai (ai-glib) 0.4.0 (built …)": no git describe on an image build
+ai --version            # "ai (ai-glib) 0.7.2 (built …)": no git describe on an image build
 jq '.deps[] | select(.name == "ai-glib")' /usr/immutablue/deps/dep_info.json   # the commit it was built from
 ```
 
 The background update check is off unless `updates.check: true` is set (or
-`ai --setup` scope `4` answered yes); leave it off. `ai-gui`, the GTK4 client,
-is not built into the image — the dependency container has no `gtk4-devel` or
-`libadwaita-devel`, so ai-glib's build skips it.
+`ai --setup` scope `4` answered yes); leave it off.
+
+### What ai-glib installs
+
+All from the one build, so one image update moves them together:
+
+| Binary | What it is |
+|---|---|
+| `ai` | the CLI (`ai project`, `ai loop`, `ai goal`, `ai --usage`, `ai --setup`, …) |
+| `ai-tui` | the terminal client and project dashboard |
+| `ai-gui` | the GTK4/libadwaita client, with a launcher (`org.copyleft.AiGlib.Gui.desktop`, `StartupWMClass=ai-gui`) |
+| `ai-call` | the voice frontend — needs a speech service you provide, see [`automation.md`](automation.md#voice-sessions-ai-call) |
+
+`ai-gui` is built into the image: the dependency container carries `gtk4-devel`
+and `libadwaita-devel` precisely so ai-glib's `make` does not skip it, and
+`make install` copies the desktop file because the built binary exists. If it
+is missing from the launcher on a given machine, check that the file is
+installed (`ls /usr/share/applications/org.copyleft.AiGlib.Gui.desktop`) before
+concluding anything — a dependency container built without the toolkit drops
+both the binary and the launcher silently.

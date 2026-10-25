@@ -294,6 +294,10 @@ check that every relative link resolves.
 
 ### The baseline is maintained
 
+The full review-and-rebaseline procedure is the repo skill
+`.claude/skills/skill-update-immutable-skill/` (`/skill-update-immutable-skill` in Claude
+Code); its `scripts/drift-report.sh` prints the baseline against the current pins.
+
 `SKILL.md` records, between the `skill-baseline` markers, the commit of
 immutablue and of every `deps/` submodule that the skill was last written
 against, plus the cmacs commit its cmacs material was checked against. On a

@@ -36,7 +36,9 @@ if FAIL_TEST=test_shellcheck.sh bash "$fixture/tests/run_tests.sh" example/image
 	echo 'FAIL: ShellCheck failure ignored' >&2; exit 1
 fi
 grep -q '^test_setup.sh:$' "$TRACE"
-! grep -q -- '--report-only\|errexit disabled' "$TRACE"
+if grep -q -- '--report-only\|errexit disabled' "$TRACE"; then
+	echo 'FAIL: child ran report-only or without errexit' >&2; exit 1
+fi
 grep -q '^test_dep_provenance.sh:$' "$TRACE"
 grep -q '^test_container.sh:example/image:44$' "$TRACE"
 grep -q '1 failed' "$fixture/output"
@@ -47,18 +49,25 @@ if SKIP_TEST=1 bash "$fixture/tests/run_tests.sh" --suite nonexistent example/im
 	echo 'FAIL: skip accepted an invalid suite' >&2; exit 1
 fi
 bash "$fixture/tests/run_tests.sh" --suite regressions example/image:44 > /dev/null
-! grep -q '^test_container.sh:' "$TRACE"
+if grep -q '^test_container.sh:' "$TRACE"; then
+	echo 'FAIL: regressions suite ran container tests' >&2; exit 1
+fi
 # Make and CLI must dispatch identical tests, including configured image arguments.
 cp "$root/Makefile" "$fixture/"
 cp -a "$root/makefiles" "$fixture/"
+# Scrub the environment so caller variant flags (e.g. TRUEBLUE=1 from `make TRUEBLUE=1 all`)
+# cannot change the fixture's TAG or make it read files the fixture does not carry.
+clean_env=(env -i PATH="$PATH" HOME="$HOME" TRACE="$TRACE")
 : > "$TRACE"
-env -u MAKEFLAGS -u MAKEOVERRIDES make --no-print-directory -s -C "$fixture" test \
+"${clean_env[@]}" make --no-print-directory -s -C "$fixture" test \
 	IMAGE=example/image VERSION=44 KUBERBLUE=0 SKIP_TEST=0 > /dev/null
 cp "$TRACE" "$fixture/make-trace"
 : > "$TRACE"
-KUBERBLUE=0 bash "$fixture/tests/run_tests.sh" example/image:44 > /dev/null
+"${clean_env[@]}" KUBERBLUE=0 bash "$fixture/tests/run_tests.sh" example/image:44 > /dev/null
 cmp "$TRACE" "$fixture/make-trace"
 KUBERBLUE_CLUSTER_TEST=1 KUBERBLUE_INTEGRATION_TEST=1 bash "$fixture/tests/run_tests.sh" --list example/image:44-kuberblue > "$fixture/list"
 grep -q '^kuberblue/test_kuberblue_integration.sh$' "$fixture/list"
-! grep -q 'chainsaw' "$fixture/list"
+if grep -q 'chainsaw' "$fixture/list"; then
+	echo 'FAIL: chainsaw listed without opt-in' >&2; exit 1
+fi
 echo 'PASS: runner aggregates failures, preserves errexit, and matches Make'

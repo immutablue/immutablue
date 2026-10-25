@@ -10,7 +10,9 @@ description: >
   immutablue-doctor, immutablue-update, immutablue-snapshot, rollback, rebase,
   deployment, coredump, segfault, "why did X crash", packages.yaml, settings.yaml,
   artifacts/overrides, gowl, gowl-msg, gowlbar, bar plugin, gowl macro, input
-  remap, foot pedal, macro pad, gowl menu, cmacs, gsurf, gst, NVIDIA, cyan,
+  remap, foot pedal, macro pad, gowl menu, macro-record, floatdesk, broadcast,
+  pointer confine, bar widget, ai-call, ai project, emacs --lrg, VR headset,
+  Steam Frame, cmacs-mcp, cmacs, gsurf, gst, NVIDIA, cyan,
   dictation, voxtype.
   Covers reporting a confirmed Immutablue bug.
 ---
@@ -53,7 +55,7 @@ When something here does not match what you see, or you are asked about a
 feature this skill does not cover, check how far the image and the skill have
 drifted before answering:
 
-<!-- skill-baseline:start — reviewed 2026-10-01; update with the skill, see AGENTS.md -->
+<!-- skill-baseline:start — reviewed 2026-10-18; update with the skill, see AGENTS.md -->
 ```bash
 # CHANGED = the image and this skill were written against different commits.
 while read -r name base; do
@@ -63,11 +65,11 @@ while read -r name base; do
     else state="CHANGED"; fi
     printf '%-20s %-13s skill=%.12s image=%.12s\n' "${name}" "${state}" "${base}" "${image}"
 done <<'EOF'
-immutablue           f549e2dbd19f2a3a614647f7695762e245035c9b
-ai-glib              6ad8a37557fcbb926f120377f584e2ceb40f56bb
+immutablue           e7b055a1189c5440a59d58d68ae8fdbc4f2d5c3c
+ai-glib              7c772d6fc01d667059a3c216f5b34b4680fd6599
 bacon                cf8bfadef33b379bf2954258048a9ad7dd359ebc
 crispy               53b8fc7c5444fb3b94bdb689c5b160483d3a95c4
-gowl                 cf647db44e80713f76787f8efc82057be4dd092a
+gowl                 fcf3ac67ef789e875ba799fc27834297772ded32
 gst                  0c56dea2c9089004e60d86152cb5c9436a8dc1cd
 gsurf                722fc8c8701855c4dc73b5f08e4abcb95c4e0ed2
 mcp-gdb-glib         626ee15456e15b37254dcfe0482e5e35586ee4a9
@@ -79,19 +81,19 @@ EOF
 ```
 <!-- skill-baseline:end -->
 
-Every line above was reviewed on 2026-10-01: each component's changes since the previous baseline were read from source and written into the guides (crispy, the three mcp libraries and yaml-glib had no changes). Of note since the last review: gowl's macro module, per-device input remapping, IPC socket and `gowl-msg`, menu, lock program and output profiles; cyan's NVIDIA driver selection; gsurf's Gopher/Gemini and kiosk/PWA mode; ai-glib's loops, goals and self-updater.
+Every line above was reviewed on 2026-10-18: each component's changes since the previous baseline were read from source and written into the guides (bacon, crispy, gst, gsurf, the three mcp libraries, podomation and yaml-glib had no changes). Of note since the last review: gowl's macro recorder and voice macros, region OCR and colour pick, pointer confinement, input broadcasting, the floating desktop, live Keybindings menu and the extended bar widget set; ai-glib's projects, `ai-call` voice sessions and `ai-gui`; cmacs's VR display backend and MCP additions; and the image's non-Fedora RPM routes and deps-container packages.
 
 For manifests with `dependency_image`, `.deps` comes from the digest-pinned dependency container, while `.immutablue` identifies the main image checkout. Older manifests were generated from that checkout's submodules and can misidentify binaries from a separately built dependency container. Do not treat a missing entry as proof that a component is absent, or replace an artifact's recorded commit with a newer local submodule pin. See [the build guide](references/building.md) for migration and scope.
 
 cmacs is not in `dep_info.json`: it arrives from the cmacs container image, not a
 `deps/` submodule. The cmacs material in this skill was checked against cmacs
-`a85f24f7032fc46ef95b47b70848bb029f2e0e46` (reviewed 2026-10-01). The manual
+`ef1d85e56cfe26b4bc6b04514b83ffab0193c2e9` (reviewed 2026-10-18). The manual
 installed under `/usr/share/emacs/*/doc_org/cmacs/` matches the installed cmacs
 and what it links in — read that rather than diffing. Its `deps/<dep>/` docs
 follow **cmacs's own submodule pins**, which differ from immutablue's: at this
-review cmacs pinned ai-glib `058bb8256d2f`, bacon `02d4843581d2`, podomation
-`cb82ff16ab87` and gsurf `f9d2b0bd421e` (gowl, crispy, mcp-glib and yaml-glib
-matched). The standalone `ai`, `ai-tui`, `podomation`, `bacon` and `gsurf` come
+review cmacs pinned ai-glib `adc932d89898` (same as immutablue), bacon `02d4843581d2`,
+podomation `643fe8313d95` and gsurf `f9d2b0bd421e` (gowl, crispy, mcp-glib and yaml-glib
+matched). Only podomation and bacon differ from immutablue's pins. The standalone `ai`, `ai-tui`, `podomation`, `bacon` and `gsurf` come
 from immutablue's `deps/` and can be ahead of or behind that manual — see
 [`references/cmacs.md`](references/cmacs.md).
 
@@ -273,6 +275,13 @@ with the detail.
 | "Add something to the Super+space menu" | `~/.config/gowl/menu.yaml` overlay — [`references/gowl.md`](references/gowl.md) |
 | "Write a gowl macro" / "run X when a window opens" | `~/.config/gowl/macros/NAME.c`, `modules: macro:` triggers — [`references/gowl-macros.md`](references/gowl-macros.md) |
 | "Remap a foot pedal / macro pad / one mouse" | `modules: inputremap:` + `input-remap:`, `gowl-msg inputremap-identify` — [`references/gowl-macros.md`](references/gowl-macros.md) |
+| "Record / replay a macro" / "run a macro by voice" | Super+Alt+r, Super+Alt+m (needs `modules: macro:`) — [`references/gowl-macros.md`](references/gowl-macros.md) |
+| "Float windows like a normal desktop" / "multibox" / "keep the pointer in a game" | `floatdesk-toggle`, `broadcast-*`, Super+g — [`references/gowl.md`](references/gowl.md) |
+| "Add one widget to the bar" / "which bar widgets exist" | `widgets-right-add:`, the extended widget set — [`references/gowl-bar.md`](references/gowl-bar.md) |
+| "Package not in Fedora" / "a dep's feature is missing from the image" | `rpm_url*`, `rpm_post_url*`, `repo_urls*`; deps container `-devel` packages — [`references/building.md`](references/building.md) |
+| "Run cmacs in a VR headset / Steam Frame" | `emacs --lrg=3dvr`, `M-x cmacs-lrg-vr-describe` — [`references/cmacs.md`](references/cmacs.md) |
+| "Talk to the AI by voice" / `ai-call` | needs your own STT/TTS service — [`references/automation.md`](references/automation.md) |
+| "List my AI projects / sessions" | `ai project [--json]` — [`references/automation.md`](references/automation.md) |
 | "NVIDIA not working / switch NVIDIA driver" | `immutablue nvidia_status`, `immutablue nvidia_setup` — [`references/hardware.md`](references/hardware.md) |
 | "Configure cmacs" / "where is the cmacs manual" | `M-x cmacs-manual`, `/usr/share/emacs/*/doc_org/cmacs/` — [`references/cmacs.md`](references/cmacs.md) |
 | "Change the terminal font / colours / keys" | `~/.config/gst/config.yaml` — [`references/gst.md`](references/gst.md) |

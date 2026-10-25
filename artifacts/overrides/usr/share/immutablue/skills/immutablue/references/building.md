@@ -71,6 +71,15 @@ is in [`hardware.md`](hardware.md).
 Fedora 42/43 cyan keeps the old path: one akmod-built `kmod-nvidia` from cyan-deps
 installed as RPMs.
 
+Which optional pieces of a component get built is decided by the build packages in
+`deps-container/00-build.sh`, and a missing one is dropped quietly rather than
+failing. ai-glib needs `gtk4-devel` and `libadwaita-devel` or its `ai-gui` client
+and the `org.copyleft.AiGlib.Gui.desktop` launcher are not built, and (0.6.0+, voice)
+`gstreamer1-devel` and `gstreamer1-plugins-base-devel`, since a missing
+gstreamer `.pc` makes ai-glib's whole `pkg-config --cflags` call fail. podomation
+and bacon build ai-glib statically and need the same. When a component's new
+feature is absent from the image although its pin moved, look there first.
+
 Run `git submodule update --init --recursive` after cloning or pulling. The
 components under `deps/` are submodules, and a stale checkout silently builds the
 wrong source.
@@ -112,6 +121,22 @@ Edit `packages.yaml` and rebuild. Pick the section by who should get it:
 | `rpm_nucleus`, `rpm_kuberblue`, `rpm_trueblue`, … | one specialised variant |
 | `rpm_x86_64`, `rpm_aarch64`, `rpm_<variant>_<arch>` | one architecture |
 | `rpm_rm*` | removed from the base image |
+
+Packages that are not in Fedora's repositories have two more routes, keyed the
+same way (`rpm_url_<variant>`, `rpm_post_url_<variant>`, `repo_urls_<variant>`):
+
+| Key | Does |
+|-----|------|
+| `repo_urls*` | adds a `.repo` file (`name:` and `url:` per entry, keyed by Fedora version) before packages install; Trueblue's `znapzend` comes from a COPR this way |
+| `rpm_url*` | `dnf5 install <url>` **before** the `rpm` list — for release RPMs such as RPM Fusion |
+| `rpm_post_url*` | `dnf5 install <url>` **after** the `rpm` list, for packages that need something from it |
+
+Trueblue's `rpm_post_url_trueblue` installs 45Drives' `cockpit-file-sharing` and
+`cockpit-zfs-manager` from pinned GitHub release URLs (neither is in Fedora, and
+the 45Drives repo file is Rocky-only), with `znapzend` in `rpm_trueblue` as the
+latter's dependency. The URLs are exact versions and move only when someone edits
+them; `cockpit-zfs-manager` is archived upstream. A dead URL fails the whole
+image build, not just that package.
 
 There are matching sections for flatpaks, distrobox definitions, brew, pip, and
 nix. Under each section, `all` applies everywhere; `<version>` (`44`), `all_<arch>`
@@ -222,7 +247,7 @@ Each child script runs in a fresh Bash process. Failures are recorded while late
 
 `KUBERBLUE=1` or an image name containing `kuberblue` adds container, component, and security checks. `make test_kuberblue` and `--suite kuberblue` share that selection. Cluster checks require `KUBERBLUE_CLUSTER_TEST=1`; integration additionally requires `KUBERBLUE_INTEGRATION_TEST=1`. Chainsaw is opt-in through `KUBERBLUE_CHAINSAW_TEST=1` or its dedicated Make target.
 
-The host regression suite covers cyan kernel resolution (`test_cyan_kernel.sh`), the NVIDIA selector against fake PCI/config trees (`test_nvidia_selector.sh` — neither proves modules compile or a sysext mounts on real hardware; `tests/nvidia/README.org` lists the manual boot checks), provenance source drift, missing metadata, digest-resolution failures, Make/CLI parity, and failure aggregation. Brew selection uses fixture paths and a fake executable: the production selector uses an absolute brew path, so a shell function named `brew` alone cannot isolate it. Make-variable tests scrub inherited command-line variables and `MAKEFLAGS` to keep the calling CI variant from rewriting their test cases.
+The host regression suite covers cyan kernel resolution (`test_cyan_kernel.sh`), the NVIDIA selector against fake PCI/config trees (`test_nvidia_selector.sh` — neither proves modules compile or a sysext mounts on real hardware; `tests/nvidia/README.org` lists the manual boot checks), provenance source drift, missing metadata, digest-resolution failures, Make/CLI parity, and failure aggregation. Brew selection uses fixture paths and a fake executable: the production selector uses an absolute brew path, so a shell function named `brew` alone cannot isolate it. Make-variable tests run the fixture's `make` under `env -i`, so neither inherited variant flags (`TRUEBLUE=1` from `make TRUEBLUE=1 all`) nor `MAKEFLAGS` can rewrite the fixture's tag or make it read files it does not carry.
 
 `test_artifacts` compares the working tree against the built image, so **editing
 an override after starting a build makes it fail** — that is the test working, not

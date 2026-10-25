@@ -68,7 +68,7 @@ before answering from memory. See [`cmacs.md`](cmacs.md).
 | No password dialog for a privileged action under gowl | `systemctl --user status immutablue-polkit-agent.service` | [`desktop.md`](desktop.md) |
 | Dictation does not type | `immutablue dictation_status` — the typing backend differs by session | [`desktop.md`](desktop.md) |
 | `immutablue enable_dictation`: recipe not found | the image predates the `09-dictation` import; `just -f /usr/libexec/immutablue/just/09-dictation.justfile …` | [`desktop.md`](desktop.md) |
-| cmacs will not start, or `init.c` has no effect | `cmacs --debug-init`; the `*Warnings*` buffer | [`cmacs.md`](cmacs.md) |
+| cmacs will not start, or `init.c` has no effect | `emacs --debug-init`; the `*Warnings*` buffer | [`cmacs.md`](cmacs.md) |
 | A cmacs feature is missing | `emacsctl describe instance` lists what this build has | [`cmacs.md`](cmacs.md) |
 | Terminal font, colours, keys or images wrong | run `gst` from another terminal and read its stderr | [`gst.md`](gst.md) |
 | Browser keys go to the page, or a module does nothing | under cmacs: Escape returns focus to Emacs; `(cmacs-gsurf-modules-list)` | [`gsurf.md`](gsurf.md) |
@@ -77,6 +77,12 @@ before answering from memory. See [`cmacs.md`](cmacs.md).
 | A scheduled `/loop` or `/goal` never fires | `ai loop list` (is its session running?); `AI_LOOP_DISABLE` | [`automation.md`](automation.md) |
 | gowl keybinds and rules vanished after a reload in cmacs | `(gowl-reload-config)` with no argument resets to defaults; pass the YAML path | [`cmacs.md`](cmacs.md) |
 | `ai` uses the wrong provider or model | `immutablue ai_defaults` shows what resolved and from where | [`configuration.md`](configuration.md) |
+| Image build fails installing a 45Drives URL on trueblue | the pinned `rpm_post_url_trueblue` URL is dead or wrong | edit `packages.yaml` — [`building.md`](building.md) |
+| A dep's GUI or voice feature is missing after a submodule bump | its `-devel` package is not in `deps-container/00-build.sh`; optional parts are dropped silently | add it and rebuild the deps container — [`building.md`](building.md) |
+| Super+Alt+r / Super+Alt+m / Super+g / floatdesk keys do nothing | the module behind them is not enabled | [`gowl.md`](gowl.md), [`gowl-macros.md`](gowl-macros.md) |
+| `emacs --lrg=3dvr` opens a desktop 3D frame, or controllers do nothing | stderr; `M-x cmacs-lrg-vr-describe`; SteamVR dashboard must be closed | [`cmacs.md`](cmacs.md) |
+| `ai-call` fails at join or has no audio | STT/TTS/LiveKit endpoints; `gst-inspect-1.0 livekitwebrtcsrc`; try `--local` | [`automation.md`](automation.md) |
+| `cmacs-mcp` finds no socket | `emacsctl eval '(cmacs-mcp-socket-path)'`, then pass `--socket` | [`cmacs.md`](cmacs.md) |
 | The agent does not know about this system | `immutablue install_immutablue_skill`; `ls -l ~/.agents/skills/immutablue` | this skill |
 
 ## Troubleshooting docs already on the machine

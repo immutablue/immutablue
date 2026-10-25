@@ -88,6 +88,8 @@ The `#define`s are read from the source text, so write them literally.
 `gowl_macro_key_code`, `gowl_macro_text(ctx, target, "make\n")`,
 `gowl_macro_button(ctx, BTN_MIDDLE)`, `gowl_macro_wait(ctx, ms)`,
 `gowl_macro_command(ctx, "scratchpad-toggle")`,
+`gowl_macro_button_state(ctx, BTN_LEFT, TRUE)` (half a click: press, or `FALSE` for release),
+`gowl_macro_pointer(ctx, x, y)` (move to a layout position), `gowl_macro_scroll(ctx, horizontal, delta, notch120ths)`,
 `gowl_macro_action(ctx, GOWL_ACTION_SET_LAYOUT, "tile")`, `gowl_macro_focus(ctx, client)`.
 A key/text `target` of `NULL` is the focused window **through the
 compositor's keybinds**; a `GowlClient` is that window only, with focus left
@@ -99,7 +101,7 @@ where it is.
 `gowl_macro_call_on_compositor` (required for raw API calls from a threaded macro).
 
 **Context** — `gowl_macro_get_arg/argc/argv`, `gowl_macro_get_trigger`
-(`API`, `IPC`, `DBUS`, `EVENT`, `TIMER`, `REMAP`), `gowl_macro_get_trigger_detail`,
+(`API`, `IPC`, `DBUS`, `EVENT`, `TIMER`, `REMAP`, `VOICE`), `gowl_macro_get_trigger_detail`,
 `gowl_macro_set_result` (the `macro-run` reply), `gowl_macro_log`,
 `gowl_macro_notify` (a toast), `gowl_macro_set_timeout`, `gowl_macro_is_cancelled`.
 
@@ -160,6 +162,43 @@ bug, do not rely on the guard. Settings worth knowing: `macro-dir`,
 `on-fault-custom`.
 
 Do not use macros to automate a game or to type secrets.
+
+### Record one, or say one
+
+Two keys write and run macros without hand-writing C. Both need `macro` enabled
+(the shipped binds are inert until it is).
+
+| Key | IPC word | Does |
+|---|---|---|
+| Super+Alt+r | `macro-record` | start recording what you do; again to stop and write `last-recording.c` |
+| Super+Alt+Shift+r | `macro-run last-recording` | replay it (`macro-run last-recording 2` is double speed) |
+| Super+Alt+m | `macro-voice` | listen, transcribe, run the macro you named; again to finish |
+
+```bash
+gowl-msg macro-record start tidy-mail   # also writes tidy-mail.c on stop
+gowl-msg macro-record cancel            # stop, write nothing
+gowl-msg macro-record status            # JSON: recording, name, dir, max-seconds
+gowl-msg macro-voice-match --dry-run "pip corner twenty five"   # what would run, runs nothing
+```
+
+- The output is an ordinary macro file in `record-dir` (default `~/.config/gowl/macros`): edit it like any other. Keys, clicks, drags and scrolls become `gowl_macro_key_code`, `_button`, `_button_state`, `_pointer`, `_scroll` and `gowl_macro_wait` steps, so a recording is only as portable as the screen layout it was made on.
+- It is a *private* recording through the input recorder: a frame is drawn round the screen, nothing is recorded while locked or while a password manager, pinentry or polkit window has focus, and it stops at `record-max-seconds` (300) or on **Super+Shift+Escape**. A pause longer than `record-max-gap-ms` (3000) is shortened to it.
+- The Super+Alt+r key needs no consent, but a *program* asking (MCP `macro_record`, cmacs `gowl_macro_record`) passes `--require-consent` and is refused unless `input-recording: true`.
+- Voice runs `voice-command` (default `gowl-stt`, a bash script that records with `pw-record` or `arecord` and transcribes with whisper.cpp's `whisper-cli`; it needs a `ggml-base.en.bin` model — `$GOWL_STT_MODEL` or a copy under `~/.local/share`). Matching order: a `voice-phrases` entry (`"tidy up: sort-windows"`), then a macro name said as words ("pip corner 25" runs `pip-corner 25`), then every word of a name anywhere. A match runs with trigger `VOICE`.
+
+```yaml
+modules:
+  macro:
+    enabled: true
+    record-dir: "~/.config/gowl/macros"
+    voice-command: "gowl-stt -l en"
+    voice-max-seconds: 8
+    voice-phrases:
+      - "tidy up: sort-windows"
+```
+
+Under cmacs, Super+Alt+m records with cmacs's own audio and embedded whisper
+instead of `gowl-stt` (see [Under cmacs](#under-cmacs)).
 
 ## Per-device input remapping
 
@@ -301,8 +340,9 @@ use and reinstalls rules and definitions at every compositor start.
 | | Elisp |
 |---|---|
 | remap | `cmacs-gowl-input-remap-{define,remove,clear,list,devices,identify,status,enable,disable}`, `cmacs-gowl-input-remap-rules` (defcustom) |
-| macros | `cmacs-gowl-macro-{run,bind,define,undefine,stop,clear,compile,reload,new,visit,list-macros,filter-test}`, `cmacs-gowl-macro-definitions`, `cmacs-gowl-macro-triggers`, `cmacs-gowl-macro-fault-functions` |
+| macros | `cmacs-gowl-macro-{run,bind,define,undefine,stop,clear,compile,reload,new,visit,list-macros,filter-test,record,record-status,replay,voice,voice-text}`, `cmacs-gowl-macro-definitions`, `cmacs-gowl-macro-triggers`, `cmacs-gowl-macro-fault-functions` |
 
+- Recording and voice under cmacs: `(cmacs-gowl-macro-record)` / `(cmacs-gowl-macro-replay 2)` / `(cmacs-gowl-macro-voice-text "pip corner 25")` (matching with no microphone). Voice defaults to cmacs's embedded whisper (`cmacs-gowl-macro-voice-backend` = `whisper`; `M-x cmacs-whisper-download-model` the first time); set it to `command` to use the module's `gowl-stt`. Also `cmacs-gowl-macro-voice-phrases` and `-voice-max-seconds`.
 - The stop key under cmacs is **Super+Alt+Escape** (`cmacs-gowl-macro-stop-key`) — Super+Escape is cmacs's menu.
 - A crispy macro must never call Lisp: define the Elisp half with `cmacs-gowl-macro-define` and have the C half run it by name.
 - `M-x cmacs-gowl-macro-new` writes a skeleton into your macro directory.
@@ -323,3 +363,6 @@ sections of `gowl.org` in the cmacs manual.
 | The rule is silently missing | it was refused at load (`NOT_ONE_TO_ONE`, no match criterion): the gowl log names it; `gowl --check-config` counts problems |
 | A `{macro:}` pedal is logged and dropped | the macro module is not loaded |
 | Remap or macro input does nothing while locked | by design: actions, commands, callbacks and macro steps do not run on a locked session |
+| Super+Alt+r / Super+Alt+m do nothing | the `macro` module is not enabled (the binds are inert until it is) |
+| `macro-record` is refused when asked over MCP | a program recording input needs `input-recording: true`; the key itself needs no consent |
+| Voice hears nothing or errors | `gowl-msg macro-voice status` (last-error); `gowl-stt` needs `pw-record` or `arecord` plus `whisper-cli` and a `ggml-base.en.bin` model |
