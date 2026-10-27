@@ -27,6 +27,10 @@ skip_stages:
   - 65-crash-capture.sh      # different sysctl / service layout
   - 80-initramfs.sh          # GNOME OS boots its own initramfs
 
+# The in-house C projects are the Fedora deps image's binaries
+# ('make DISTROLESS=1 build-deps' builds that image).
+deps_backend: fedora-bootc
+
 provides:
   - systemd
   - flatpak

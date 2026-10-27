@@ -6,6 +6,8 @@
 # database, so the package verbs are deliberately absent.
 
 
+# '--verbose' is what the shared recipes pass (rpm-ostree's flag); bootc's
+# status takes it too, so it passes through.
 rt_status() {
     bootc status "$@"
 }

@@ -87,6 +87,11 @@ log() {
 #   - otherwise                 -> keep local, report a conflict
 # Files that only exist locally are kept untouched.
 #
+# The first delivery onto a plain FreeBSD install has no old stock tree, so
+# "did the administrator change it" cannot be answered. Then the image wins
+# (otherwise its rc.conf, sudoers and the rest would never apply) and the
+# local file is kept next to it as <file>.pre-immutablue.
+#
 # param $1: new image's tree (from the exported image)
 # param $2: old stock tree (from the running image, may not exist)
 # param $3: target tree in the new boot environment (starts as a copy of local)
@@ -99,6 +104,13 @@ merge_config_tree() {
     local label="$4"
     local rel
     local conflicts=0
+    local first_delivery=0
+
+    if [[ ! -d "${old_stock}" ]]
+    then
+        first_delivery=1
+        log "${label}: no previous stock tree (first delivery); image versions win, local copies kept as *.pre-immutablue"
+    fi
 
     while IFS= read -r -d '' rel
     do
@@ -110,6 +122,10 @@ merge_config_tree() {
         elif cmp -s "${target}/${rel}" "${new_tree}/${rel}"
         then
             continue
+        elif [[ ${first_delivery} -eq 1 ]]
+        then
+            cp -a "${target}/${rel}" "${target}/${rel}.pre-immutablue"
+            cp -a "${new_tree}/${rel}" "${target}/${rel}"
         elif [[ -e "${old_stock}/${rel}" ]] && cmp -s "${target}/${rel}" "${old_stock}/${rel}"
         then
             cp -a "${new_tree}/${rel}" "${target}/${rel}"

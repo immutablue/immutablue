@@ -5,6 +5,8 @@
 # deployments, pacman for package queries, ostree for kernel arguments.
 
 
+# '--verbose' is what the shared recipes pass (rpm-ostree's flag); bootc's
+# status takes it too, so it passes through.
 rt_status() {
     bootc status "$@"
 }
@@ -48,10 +50,59 @@ rt_rebase() {
 }
 
 
-# There is no rpm-ostree here; ostree edits the kernel arguments of the
-# deployment, and the change takes effect on the next boot.
+# Kernel arguments, taking the rpm-ostree flags the shared recipes use.
+#
+# There is no rpm-ostree here. ostree's 'admin kargs edit-in-place' edits the
+# booted deployment (effective next boot) but only knows --append-if-missing;
+# removal has no in-place form, so it is refused with the image-side
+# alternative rather than silently ignored. --unchanged-exit-77 is emulated
+# against the booted command line, which is what rpm-ostree compares too.
 rt_kargs() {
-    ostree admin kargs edit-in-place "$@"
+    local arg
+    local appends=()
+    local unchanged_77=0
+    local changed=0
+
+    if [[ $# -eq 0 ]]
+    then
+        cat /proc/cmdline
+        return 0
+    fi
+
+    for arg in "$@"
+    do
+        case "${arg}" in
+            --append-if-missing=*)
+                appends+=("${arg}")
+                ;;
+            --unchanged-exit-77)
+                unchanged_77=1
+                ;;
+            --delete-if-present=*|--delete=*)
+                echo "arch-bootc: removing a kernel argument in place is not supported by ostree;" >&2
+                echo "            ship it from the image in /usr/lib/bootc/kargs.d instead" >&2
+                return 2
+                ;;
+            *)
+                echo "arch-bootc: unsupported kargs option '${arg}'" >&2
+                return 2
+                ;;
+        esac
+    done
+
+    for arg in "${appends[@]}"
+    do
+        if ! grep -qw -- "${arg#--append-if-missing=}" /proc/cmdline
+        then
+            changed=1
+        fi
+    done
+
+    if [[ ${changed} -eq 0 ]] && [[ ${unchanged_77} -eq 1 ]]
+    then
+        return 77
+    fi
+    ostree admin kargs edit-in-place "${appends[@]}"
 }
 
 

@@ -57,14 +57,13 @@ fi
 #
 # Locking here makes that failure a visible dependency conflict at build time
 # instead of a broken image. The lock is build-time only; it is removed in
-# 90-post.sh so it cannot interfere with rpm-ostree layering on the installed
+# stages/91-fedora-post.sh so it cannot interfere with rpm-ostree layering on the installed
 # system.
 # -----------------------------------
 kernel_pkg="kernel"
 if [[ "$DO_INSTALL_LTS" == "true" ]]; then kernel_pkg="kernel-longterm"; fi
 
-# versionlock refuses a package it cannot find, and the distroless path has
-# already exited above, but a variant could still legitimately lack a kernel
+# versionlock refuses a package it cannot find, and a variant could still legitimately lack a kernel
 # (a container-only image), so an absent kernel is reported rather than fatal.
 if rpm --quiet -q "${kernel_pkg}"
 then

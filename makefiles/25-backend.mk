@@ -27,7 +27,10 @@ endif
 # the others build against their Containerfile's empty 'no-deps' stage.
 BACKEND_INHOUSE_DEPS := $(shell yq '.provides // [] | contains(["inhouse_deps"])' $(BACKEND_DIR)/backend.yaml 2>/dev/null)
 CONTAINERFILE := $(BACKEND_DIR)/Containerfile
-DEPS_CONTAINERFILE := $(BACKEND_DIR)/deps.Containerfile
+# A backend may reuse another backend's deps image (gnomeos runs the binaries
+# built for Fedora): backend.yaml 'deps_backend'.
+BACKEND_DEPS_FROM := $(shell yq '.deps_backend // "$(BACKEND)"' $(BACKEND_DIR)/backend.yaml 2>/dev/null)
+DEPS_CONTAINERFILE := backends/$(or $(BACKEND_DEPS_FROM),$(BACKEND))/deps.Containerfile
 
 # ------------------------------------------------------------------------------
 # backend_check: refuse a build that cannot work before podman starts.
@@ -64,3 +67,9 @@ run-bootc-disk-image:
 		-drive file=$(BOOTC_DISK_IMAGE),format=raw,if=virtio \
 		-nic user,model=virtio-net-pci \
 		-nographic
+
+# A backend without a deps.Containerfile (freebsd-be, for now) has no deps
+# image to build; say so instead of failing inside buildah.
+$(DEPS_CONTAINERFILE):
+	@echo "ERROR: BACKEND=$(BACKEND) has no deps container ($(DEPS_CONTAINERFILE) does not exist)" >&2
+	@exit 1

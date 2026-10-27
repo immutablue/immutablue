@@ -78,7 +78,7 @@ RUN grep "= */var" /etc/pacman.conf | sed "/= *\/var/s/.*=// ; s/ //" | \
 RUN mkdir -p /usr/lib/dracut/dracut.conf.d && \
     printf 'systemdsystemconfdir=/etc/systemd/system\nsystemdsystemunitdir=/usr/lib/systemd/system\n' \
         > /usr/lib/dracut/dracut.conf.d/30-immutablue-bootc-paths.conf && \
-    printf 'reproducible=yes\nhostonly=no\ncompress=zstd\n' \
+    printf 'reproducible=yes\nhostonly=no\ncompress=zstd\nomit_dracutmodules+=" multipath "\n' \
         > /usr/lib/dracut/dracut.conf.d/30-immutablue-container-build.conf
 
 RUN --mount=type=bind,from=ctx,src=/,dst=/mnt-ctx \

@@ -112,6 +112,14 @@ function test_override_files_in_container() {
     return 1
   fi
 
+  # crispy ships with the in-house deps, which not every backend has yet
+  # (arch-bootc). Those images get the same comparison done in bash, with
+  # the same skip rules as validate_artifacts.c.
+  if ! podman run --rm --entrypoint "" "$IMAGE" sh -c 'command -v crispy' > /dev/null 2>&1; then
+    test_override_files_in_container_shell
+    return
+  fi
+
   # Run the crispy script inside a single container with overrides mounted
   # at /expected. The script compares SHA256 hashes of all files under
   # /expected against their corresponding paths on the root filesystem.
@@ -120,6 +128,49 @@ function test_override_files_in_container() {
     -v "${CRISPY_SCRIPT}:/tmp/validate_artifacts.c:ro,z" \
     "$IMAGE" \
     crispy --cache-dir /tmp -n /tmp/validate_artifacts.c /expected; then
+    echo "FAIL: Override file verification failed"
+    return 1
+  fi
+
+  echo "PASS: Override file verification completed"
+  return 0
+}
+
+# Bash form of validate_artifacts.c for images without crispy: every regular
+# file under the overrides must exist on the image with the same SHA256, except
+# the paths the C validator skips (test fixtures, the build-appended Justfile,
+# system.conf, Python bytecode). A backend's own overrides may legitimately
+# replace a shared file, so a mismatch where backends/<backend>/overrides ships
+# the same path is not a failure.
+function test_override_files_in_container_shell() {
+  local backend
+  backend="$(podman run --rm --entrypoint "" "$IMAGE" cat /usr/immutablue/backend 2>/dev/null || true)"
+
+  if ! podman run --rm --entrypoint "" \
+    -v "${ARTIFACTS_DIR}/overrides:/expected:ro,z" \
+    -v "${ARTIFACTS_DIR}/../backends:/backends:ro,z" \
+    -e BACKEND="${backend}" \
+    "$IMAGE" bash -c '
+      failed=0; checked=0; skipped=0
+      while IFS= read -r -d "" file; do
+        rel="${file#/expected}"
+        case "${rel}" in
+          */test/*|*/Justfile|*/system.conf|*__pycache__*) skipped=$((skipped + 1)); continue ;;
+        esac
+        if [[ -e "/backends/${BACKEND}/overrides${rel}" ]]; then
+          skipped=$((skipped + 1)); continue
+        fi
+        checked=$((checked + 1))
+        if [[ ! -f "${rel}" ]]; then
+          echo "FAIL: ${rel} (not found on filesystem)"; failed=$((failed + 1)); continue
+        fi
+        if [[ "$(sha256sum < "${file}")" != "$(sha256sum < "${rel}")" ]]; then
+          echo "FAIL: ${rel}"; failed=$((failed + 1))
+        fi
+      done < <(find /expected -type f -print0)
+      echo "- Files checked: ${checked}, skipped: ${skipped}, failed: ${failed}"
+      [[ ${failed} -eq 0 ]]
+    '; then
     echo "FAIL: Override file verification failed"
     return 1
   fi

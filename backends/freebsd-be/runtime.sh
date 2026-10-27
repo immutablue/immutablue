@@ -23,8 +23,15 @@ freebsd_be_current_ref() {
 }
 
 
+# The shared recipes pass rpm-ostree's '--verbose'; bectl has no such flag,
+# so it becomes 'bectl list -a' (every dataset and snapshot).
 rt_status() {
-    bectl list "$@"
+    if [[ "${1:-}" == "--verbose" ]]
+    then
+        bectl list -a
+    else
+        bectl list "$@"
+    fi
 }
 
 

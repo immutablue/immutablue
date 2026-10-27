@@ -62,7 +62,7 @@ $(IMAGE_IGNOREFILE): .containerignore
 # ------------------------------------------------------------------------------
 # Dependency Container Builds
 # ------------------------------------------------------------------------------
-build-deps: backend_check deps_build_manifest
+build-deps: backend_check deps_build_manifest $(DEPS_CONTAINERFILE)
 	buildah \
 		build \
 		--ignorefile ./.containerignore \
