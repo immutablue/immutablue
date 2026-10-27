@@ -113,7 +113,7 @@ push-cyan-deps:
 # backends/<backend>/ now that Containerfiles live there.
 build: backend_check pre_test deps_manifest $(IMAGE_IGNOREFILE)
 ifeq ($(DISTROLESS),1)
-	deps_image="$$(if [ "$(BACKEND_INHOUSE_DEPS)" = true ]; then bash scripts/resolve-deps-image.sh "$(DEPS_IMAGE)"; else echo no-deps; fi)" && sudo podman \
+	deps_image="$$(if [ "$(BACKEND_INHOUSE_DEPS)" = true ]; then bash scripts/resolve-deps-image.sh $(BACKEND_DEPS_RESOLVE_FLAGS) "$(DEPS_IMAGE)"; else echo no-deps; fi)" && sudo podman \
 		build \
 		--platform $(PLATFORM) \
 		--format oci \
@@ -140,7 +140,7 @@ ifeq ($(DISTROLESS),1)
 		.
 	sudo podman tag $(IMAGE):$(TAG) $(IMAGE):$(DATE_TAG)
 else
-	deps_image="$$(if [ "$(BACKEND_INHOUSE_DEPS)" = true ]; then bash scripts/resolve-deps-image.sh "$(DEPS_IMAGE)"; else echo no-deps; fi)" && buildah \
+	deps_image="$$(if [ "$(BACKEND_INHOUSE_DEPS)" = true ]; then bash scripts/resolve-deps-image.sh $(BACKEND_DEPS_RESOLVE_FLAGS) "$(DEPS_IMAGE)"; else echo no-deps; fi)" && buildah \
 		build \
 		--platform $(PLATFORM) \
 		--ignorefile ./$(IMAGE_IGNOREFILE) \

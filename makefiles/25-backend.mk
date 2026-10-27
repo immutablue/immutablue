@@ -26,6 +26,10 @@ endif
 # Backends that build the in-house C projects get the digest-pinned deps image;
 # the others build against their Containerfile's empty 'no-deps' stage.
 BACKEND_INHOUSE_DEPS := $(shell yq '.provides // [] | contains(["inhouse_deps"])' $(BACKEND_DIR)/backend.yaml 2>/dev/null)
+
+# Backends whose deps image may exist only locally (not yet published) let the
+# resolver fall back to local storage; fedora-bootc never does.
+BACKEND_DEPS_RESOLVE_FLAGS := $(if $(filter true,$(shell yq '.deps_local_fallback // false' $(BACKEND_DIR)/backend.yaml 2>/dev/null)),--allow-local,)
 CONTAINERFILE := $(BACKEND_DIR)/Containerfile
 # A backend may reuse another backend's deps image (gnomeos runs the binaries
 # built for Fedora): backend.yaml 'deps_backend'.

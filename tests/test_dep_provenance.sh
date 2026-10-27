@@ -62,6 +62,17 @@ actual="$(bash "$root/scripts/resolve-deps-image.sh" localhost:5000/team/image:4
 if LOOKUP_FAIL=1 bash "$root/scripts/resolve-deps-image.sh" registry/image:tag; then
 	echo 'FAIL: lookup failure accepted' >&2; exit 1
 fi
+# --allow-local (deps_local_fallback backends) falls back to a digest from
+# local storage, and only when asked; a local image is never used otherwise.
+mkdir -p "$fixture/localbin"
+printf '#!/bin/bash\nprintf "%%s\\n" "$LOCAL_DIGEST"\n' > "$fixture/localbin/podman"
+chmod +x "$fixture/localbin/podman"
+local_digest="sha256:$(printf '%064d' 2)"
+actual="$(PATH="$fixture/localbin:$PATH" LOCAL_DIGEST="$local_digest" LOOKUP_FAIL=1 bash "$root/scripts/resolve-deps-image.sh" --allow-local registry/image:tag 2>/dev/null)"
+[[ "$actual" == "registry/image@$local_digest" ]] || { echo "FAIL: --allow-local gave '$actual'" >&2; exit 1; }
+if PATH="$fixture/localbin:$PATH" LOCAL_DIGEST="$local_digest" LOOKUP_FAIL=1 bash "$root/scripts/resolve-deps-image.sh" registry/image:tag 2>/dev/null; then
+	echo 'FAIL: local image used without --allow-local' >&2; exit 1
+fi
 if DIGEST=invalid bash "$root/scripts/resolve-deps-image.sh" registry/image:tag; then
 	echo 'FAIL: invalid digest accepted' >&2; exit 1
 fi

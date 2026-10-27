@@ -20,6 +20,11 @@ libdir: lib
 # Pinned rather than built from bootc's main branch, so a build is repeatable.
 bootc_version: v1.17.1
 
+# Until quay.io/immutablue/immutablue:arch-deps is published, the image may be
+# built against a deps image that only exists locally ('make BACKEND=arch-bootc
+# build-deps' first); the resolver still pins it by digest.
+deps_local_fallback: true
+
 dracut_modules:
   - ostree
   - bootc
@@ -33,6 +38,7 @@ provides:
   - brew
   - nix
   - linux_binaries
-  # Not yet: inhouse_deps (needs an Arch deps image published to the registry)
-  #          cmacs (the cmacs image is built on Fedora)
+  - inhouse_deps     # built by backends/arch-bootc/deps.Containerfile
+  # Not yet: cmacs (the cmacs image is built on Fedora; needs an Arch build
+  #          from the cmacs repository)
   #          pip (Arch's python is externally managed, PEP 668)
