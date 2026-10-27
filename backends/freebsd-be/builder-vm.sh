@@ -102,11 +102,24 @@ vm_start() {
 }
 
 
+# Power off and wait for QEMU to exit, so its forwarded port is free for the
+# next start; a VM that does not shut down within a minute is killed.
 vm_stop() {
-    if [[ -f "${VM_DIR}/qemu.pid" ]] && kill -0 "$(cat "${VM_DIR}/qemu.pid")" 2>/dev/null
-    then
-        vm_ssh 'sudo shutdown -p now' > /dev/null 2>&1 || kill "$(cat "${VM_DIR}/qemu.pid")"
-    fi
+    local pid
+    local i
+
+    [[ -f "${VM_DIR}/qemu.pid" ]] || return 0
+    pid="$(cat "${VM_DIR}/qemu.pid")"
+    kill -0 "${pid}" 2>/dev/null || return 0
+
+    vm_ssh 'sudo shutdown -p now' > /dev/null 2>&1 || true
+    for i in $(seq 1 60)
+    do
+        kill -0 "${pid}" 2>/dev/null || return 0
+        sleep 1
+    done
+    kill "${pid}" 2>/dev/null || true
+    sleep 2
 }
 
 
@@ -212,7 +225,6 @@ main() {
             ;;
         destroy)
             vm_stop
-            sleep 3
             rm -f "${VM_DIR}/builder.qcow2" "${VM_DIR}/seed.iso" "${VM_DIR}/qemu.pid"
             ;;
         *) show_help >&2; return 2 ;;
