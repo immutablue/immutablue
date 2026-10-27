@@ -108,6 +108,9 @@ push-cyan-deps:
 # ------------------------------------------------------------------------------
 # Main Container Build
 # ------------------------------------------------------------------------------
+# The build context is always the repository root ('.'): without it podman
+# (the DISTROLESS path) defaults to the Containerfile's directory, which is
+# backends/<backend>/ now that Containerfiles live there.
 build: backend_check pre_test deps_manifest $(IMAGE_IGNOREFILE)
 ifeq ($(DISTROLESS),1)
 	deps_image="$$(if [ "$(BACKEND_INHOUSE_DEPS)" = true ]; then bash scripts/resolve-deps-image.sh "$(DEPS_IMAGE)"; else echo no-deps; fi)" && sudo podman \
@@ -133,7 +136,8 @@ ifeq ($(DISTROLESS),1)
 		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
 		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS) \
 		--build-arg=IMMUTABLUE_BUILD_OPTIONS=$(BUILD_OPTIONS) \
-		--build-arg=SKIP=$(SKIP)
+		--build-arg=SKIP=$(SKIP) \
+		.
 	sudo podman tag $(IMAGE):$(TAG) $(IMAGE):$(DATE_TAG)
 else
 	deps_image="$$(if [ "$(BACKEND_INHOUSE_DEPS)" = true ]; then bash scripts/resolve-deps-image.sh "$(DEPS_IMAGE)"; else echo no-deps; fi)" && buildah \
@@ -157,7 +161,8 @@ else
 		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
 		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS) \
 		--build-arg=IMMUTABLUE_BUILD_OPTIONS=$(BUILD_OPTIONS) \
-		--build-arg=SKIP=$(SKIP)
+		--build-arg=SKIP=$(SKIP) \
+		.
 endif
 
 # Publish latest only after the selected engine successfully builds this image.
