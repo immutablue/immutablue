@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# PROVIDE: immutablue_onboot
+# REQUIRE: LOGIN
+# KEYWORD: shutdown nojail
+#
+# Immutablue on-boot and on-shutdown scripts (freebsd-be): the rc(8)
+# counterpart of immutablue-onboot.service.
+#
+# Enable with: sysrc immutablue_onboot_enable=YES
+
+. /etc/rc.subr
+
+name="immutablue_onboot"
+rcvar="immutablue_onboot_enable"
+start_cmd="${name}_start"
+stop_cmd="${name}_stop"
+
+immutablue_onboot_start()
+{
+	/usr/bin/immutablue-script-orchestrator on_boot
+}
+
+immutablue_onboot_stop()
+{
+	/usr/bin/immutablue-script-orchestrator on_shutdown
+}
+
+load_rc_config $name
+: ${immutablue_onboot_enable:="NO"}
+run_rc_command "$1"

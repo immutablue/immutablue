@@ -1,0 +1,32 @@
+#!/bin/sh
+#
+# PROVIDE: immutablue_first_boot
+# REQUIRE: LOGIN NETWORKING
+# KEYWORD: nojail
+#
+# Immutablue first-boot setup (freebsd-be): the rc(8) counterpart of
+# immutablue-first-boot.service. Runs once; the marker file keeps it from
+# running again.
+#
+# Enable with: sysrc immutablue_first_boot_enable=YES
+
+. /etc/rc.subr
+
+name="immutablue_first_boot"
+rcvar="immutablue_first_boot_enable"
+start_cmd="${name}_start"
+stop_cmd=":"
+
+marker="/etc/immutablue/setup/did_first_boot"
+
+immutablue_first_boot_start()
+{
+	if [ -e "${marker}" ]; then
+		return 0
+	fi
+	/usr/local/bin/bash /usr/libexec/immutablue/setup/first_boot.sh && touch "${marker}"
+}
+
+load_rc_config $name
+: ${immutablue_first_boot_enable:="NO"}
+run_rc_command "$1"

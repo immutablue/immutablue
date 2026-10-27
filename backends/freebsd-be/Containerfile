@@ -1,0 +1,46 @@
+# backends/freebsd-be/Containerfile
+#
+# Immutablue on FreeBSD 15.1-RELEASE. Built on a FreeBSD host with podman +
+# ocijail (scripts/check-backend.sh refuses anywhere else) from the official
+# pkgbase OCI image; the shared build stages run through
+# backends/lib/run-stages.sh with this backend's pkg/sysrc implementation.
+# The result is not booted as a container: deliver.sh lays it into a ZFS boot
+# environment.
+#
+# EXPERIMENTAL: not yet built; see backends/freebsd-be/backend.yaml.
+ARG BASE_IMAGE=ghcr.io/freebsd/freebsd-runtime
+ARG BASE_IMAGE_TAG=15.1
+
+FROM scratch AS ctx
+COPY / /
+
+FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG}
+
+ARG FEDORA_VERSION=15.1
+ARG IMAGE_TAG=immutablue:15.1-freebsd
+ARG INSTALL_DIR=/usr/immutablue
+ARG DO_INSTALL_AKMODS=false
+ARG DO_INSTALL_ZFS=false
+ARG DO_INSTALL_LTS=false
+ARG IMMUTABLUE_BUILD=true
+ARG IMMUTABLUE_BUILD_OPTIONS=${IMMUTABLUE_BUILD_OPTIONS}
+ARG SKIP=
+ARG DEPS_IMAGE
+ARG BASE_IMAGE
+ARG IMMUTABLUE_BACKEND=freebsd-be
+
+# The stages are bash and read packages.yaml with (Go) yq; neither is in the
+# runtime image. The pkgbase repository is enabled first so the base system,
+# kernel and bootloader can be installed as packages by stage 30.
+RUN --mount=type=bind,from=ctx,src=/,dst=/mnt-ctx \
+    mkdir -p /usr/local/etc/pkg/repos && \
+    cp /mnt-ctx/backends/freebsd-be/overrides/usr/local/etc/pkg/repos/FreeBSD-base.conf /usr/local/etc/pkg/repos/ && \
+    env ASSUME_ALWAYS_YES=yes pkg bootstrap -f && \
+    pkg update -f && \
+    pkg install -y bash go-yq && \
+    { command -v yq > /dev/null || ln -s "$(command -v go-yq)" /usr/local/bin/yq; }
+
+RUN --mount=type=bind,from=ctx,src=/,dst=/mnt-ctx \
+    /usr/local/bin/bash /mnt-ctx/backends/lib/run-stages.sh /mnt-ctx
+
+LABEL org.immutablue.backend=freebsd-be

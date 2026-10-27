@@ -1,0 +1,14 @@
+NAME="Immutablue"
+VERSION="Immutablue (FreeBSD 15.1)"
+ID=immutablue
+ID_LIKE=freebsd
+VERSION_ID=15.1
+VERSION_CODENAME="Immutablue"
+PRETTY_NAME="Immutablue (FreeBSD 15.1-RELEASE)"
+ANSI_COLOR="0;38;2;60;110;180"
+HOME_URL="https://gitlab.com/immutablue/immutablue"
+DOCUMENTATION_URL="https://gitlab.com/immutablue/immutablue"
+SUPPORT_URL="https://gitlab.com/immutablue/immutablue"
+BUG_REPORT_URL="https://gitlab.com/immutablue/immutablue"
+VARIANT="Immutablue"
+VARIANT_ID=immutablue

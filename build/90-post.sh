@@ -78,7 +78,13 @@ fi
 # initramfs -- ignoring every /usr and /etc override this build makes -- for
 # about two years. 80-initramfs.sh rebuilds it during the build for that
 # reason, and must run before this point.
-find /boot -mindepth 1 -delete 2>/dev/null || true
+#
+# Only for backends delivered as bootc/ostree images: on FreeBSD (delivered as
+# a boot environment) /boot holds the kernel and loader the system boots from.
+if [[ "$(backend_get delivery)" != "boot-environment" ]]
+then
+    find /boot -mindepth 1 -delete 2>/dev/null || true
+fi
 
 # -----------------------------------
 # Record the image's identity for the installed system.
@@ -156,7 +162,7 @@ then
     dconf update
     if [[ -f /etc/dconf/db/local ]]
     then
-        echo "Compiled dconf defaults: $(stat -c%s /etc/dconf/db/local) bytes"
+        echo "Compiled dconf defaults: $(wc -c < /etc/dconf/db/local) bytes"
     else
         echo "ERROR: dconf update produced no /etc/dconf/db/local" >&2
         exit 1

@@ -1,0 +1,8 @@
+# Immutablue scheduled scripts (freebsd-be): the cron(8) counterpart of the
+# immutablue-{hourly,daily,weekly,monthly}.timer systemd units.
+SHELL=/bin/sh
+PATH=/etc:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+@hourly		root	/usr/bin/immutablue-script-orchestrator hourly
+@daily		root	/usr/bin/immutablue-script-orchestrator daily
+@weekly		root	/usr/bin/immutablue-script-orchestrator weekly
+@monthly	root	/usr/bin/immutablue-script-orchestrator monthly
