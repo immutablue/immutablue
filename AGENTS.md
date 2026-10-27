@@ -247,7 +247,7 @@ Scripts run in alphanumeric order during container build, merged by name with th
 |---------|------|----------|------|----------|--------|
 | `fedora-bootc` | Fedora Atomic (silverblue, base-atomic, asahi, ...) | dnf5 (`rpm` key) | systemd | bootc/ostree | default |
 | `gnomeos` | GNOME OS nightly | none | systemd | bootc/composefs | as before (DISTROLESS=1) |
-| `arch-bootc` | archlinux:latest + bootc v1.17.1 (no SELinux) | pacman | systemd | bootc/ostree | new; no in-house deps or cmacs until an Arch deps image is published |
+| `arch-bootc` | archlinux:latest + bootc v1.17.1 (no SELinux) | pacman | systemd | bootc/ostree | new; boots in QEMU; ships the in-house C projects (local deps image until `:arch-deps` is published); no cmacs yet |
 | `freebsd-be` | FreeBSD 15.1 pkgbase OCI | pkg | rc | ZFS boot environment (`deliver.sh`) | experimental, not built yet; FreeBSD build host only |
 
 A backend is `backend.yaml` (facts and `provides` capabilities), `backend.sh` (the build contract), `runtime.sh` (verbs for `immutablue-backend`), a `Containerfile` and `deps.Containerfile`, and optionally `backend.mk` (Make defaults), `stages/` and `overrides/`. `tests/test_backend_contract.sh` checks every backend against the contract. Variants declare what they need in `variants/<option>.yaml` (`requires:`), enforced by `make backend_check` / `scripts/check-backend.sh`.
