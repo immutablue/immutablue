@@ -6,6 +6,19 @@ VERSION="${VERSION:-${FEDORA_VERSION}}"
 
 MODULES_CONF="/etc/modules-load.d/10-immutablue.conf"
 
+# -----------------------------------
+# Backend selection.
+#
+# Every OS-specific action a stage takes (installing packages, enabling
+# services, finalizing the image) goes through the backend's functions; see
+# backends/lib/interface.sh. The library is found relative to this file so it
+# works both inside the build (INSTALL_DIR) and on a host running tests.
+# -----------------------------------
+IMMUTABLUE_COMMON_DIR="$(CDPATH='' cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=backends/lib/interface.sh
+source "${IMMUTABLUE_COMMON_DIR}/../backends/lib/interface.sh"
+backend_load
+
 LTS_VERSION=$(yq ".immutablue.lts_version.${VERSION}" < "${PACKAGES_YAML}")
 ZFS_RPM_URL=$(yq ".immutablue.zfs_rpm_url.${VERSION}" < "${PACKAGES_YAML}")
 

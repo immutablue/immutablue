@@ -32,6 +32,13 @@ then
     exit 0
 fi
 
+# The policy is sysctl.d plus masked systemd sleep targets: Linux and systemd.
+if [[ "$(backend_has systemd)" == "${FALSE}" ]]
+then
+    echo "=== Backend ${IMMUTABLUE_BACKEND} has no systemd: skipping crash-capture policy ==="
+    exit 0
+fi
+
 # -----------------------------------
 # There is no single "unattended" build option, so this is the union of the
 # three variants that ship to run without a seat in front of them.
@@ -108,7 +115,7 @@ SLEEP_TARGETS="sleep.target suspend.target hibernate.target hybrid-sleep.target"
 
 for target in ${SLEEP_TARGETS}
 do
-    systemctl mask "${target}"
+    backend_svc mask "${target}"
 done
 
 # -----------------------------------

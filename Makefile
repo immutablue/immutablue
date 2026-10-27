@@ -21,6 +21,7 @@ SHELL := /bin/bash
 include makefiles/00-variables.mk
 include makefiles/10-variants-data.mk
 include makefiles/20-variants-logic.mk
+include makefiles/25-backend.mk
 include makefiles/99-utils.mk
 include makefiles/30-build.mk
 include makefiles/40-images.mk

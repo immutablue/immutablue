@@ -4,7 +4,7 @@ if [[ -f "${INSTALL_DIR}/build/99-common.sh" ]]; then source "${INSTALL_DIR}/bui
 if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 
 # -----------------------------------
-# Distroless builds don't use dnf for package removal
+# Distroless builds remove no packages
 # -----------------------------------
 if [[ "$(is_option_in_build_options distroless)" == "${TRUE}" ]]
 then
@@ -18,8 +18,8 @@ pkgs=$(get_immutablue_packages_to_remove)
 # -----------------------------------
 # Remove only what is actually installed.
 #
-# dnf5 fails the whole transaction with "no match for argument" when handed a
-# package that is not present, which under `set -e` aborts the image build --
+# Package managers fail the whole transaction when handed a package that is
+# not present (dnf5: "no match for argument"), which under `set -e` aborts the image build --
 # on a package we wanted gone anyway. That turns an upstream rename or a
 # dropped Fedora package into a hard build failure for no benefit, so the
 # request is intersected with the installed set first.
@@ -32,9 +32,7 @@ then
     installed_pkgs=()
     for pkg in ${pkgs}
     do
-        # --whatprovides resolves plain package names and capabilities alike,
-        # matching what dnf5 itself accepts in a remove request.
-        if rpm --quiet -q --whatprovides "${pkg}"
+        if [[ "$(backend_pkg_installed "${pkg}")" == "${TRUE}" ]]
         then
             installed_pkgs+=("${pkg}")
         else
@@ -44,7 +42,7 @@ then
 
     if [[ ${#installed_pkgs[@]} -gt 0 ]]
     then
-        dnf5 -y remove "${installed_pkgs[@]}"
+        backend_pkg_remove "${installed_pkgs[@]}"
     else
         echo "None of the requested packages are installed; nothing to remove"
     fi

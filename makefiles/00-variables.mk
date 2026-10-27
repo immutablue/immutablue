@@ -20,6 +20,14 @@ MANIFEST := $(IMAGE_BASE_TAG)
 VARIANT := Silverblue
 
 # ------------------------------------------------------------------------------
+# Backend (the operating system underneath Immutablue; see backends/)
+# ------------------------------------------------------------------------------
+# fedora-bootc is what every image was built on before backends existed.
+ifndef BACKEND
+    BACKEND := fedora-bootc
+endif
+
+# ------------------------------------------------------------------------------
 # Build Configuration
 # ------------------------------------------------------------------------------
 ifndef GUI_FLAVOR

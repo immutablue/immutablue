@@ -1,0 +1,4 @@
+# nix: Determinate nix installer with a systemd nix-daemon unit.
+requires:
+  kernel: linux
+  init: systemd

@@ -28,7 +28,18 @@ ls -l "${INSTALL_DIR}"
 
 cp -a /mnt-ctx/artifacts/overrides/. /
 
+# Backend overrides land on top of the shared ones and below the per-variant
+# ones, so a backend can replace a shared file (os-release, units for another
+# init system) and a variant can still refine either.
+IMMUTABLUE_BACKEND="${IMMUTABLUE_BACKEND:-fedora-bootc}"
+if [[ -d "/mnt-ctx/backends/${IMMUTABLUE_BACKEND}/overrides" ]]
+then
+    cp -a "/mnt-ctx/backends/${IMMUTABLUE_BACKEND}/overrides/." /
+fi
+
 echo "${IMMUTABLUE_BUILD_OPTIONS}" > "${INSTALL_DIR}/build_options"
+# Which backend built this image; read by immutablue-backend at runtime.
+echo "${IMMUTABLUE_BACKEND}" > "${INSTALL_DIR}/backend"
 
 # things depend on 'yq' heavily for build, so copy it early
 cp /mnt-yq/yq /usr/bin/yq
@@ -206,13 +217,14 @@ if [[ "$(is_option_in_build_options kuberblue)" == "${TRUE}" ]] && \
 fi
 
 
-# Put in place the correct `/etc/os-release`
+# Put in place the correct `/etc/os-release`; which file that is belongs to
+# the backend (one per Fedora release on fedora-bootc).
 if [[ -f "/etc/os-release" ]]
 then 
     unlink "/etc/os-release"
 fi
 
-ln -s "/etc/.os-release-${FEDORA_VERSION}" "/etc/os-release" 
+ln -s "$(backend_os_release_path)" "/etc/os-release" 
 
 
 # The linuxbrew container is mounted at /mnt-linuxbrew

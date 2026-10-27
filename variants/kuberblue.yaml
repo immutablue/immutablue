@@ -1,0 +1,4 @@
+# kuberblue: kubelet + CRI-O; needs a Linux kernel and systemd units.
+requires:
+  kernel: linux
+  init: systemd

@@ -3,8 +3,10 @@ set -euxo pipefail
 if [[ -f "${INSTALL_DIR}/build/99-common.sh" ]]; then source "${INSTALL_DIR}/build/99-common.sh"; fi
 if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 
-# Check if systemctl is available (should be on both Fedora and GNOME OS)
-if ! command -v systemctl &> /dev/null; then
+# Service state is changed through the backend's backend_svc (systemctl on
+# systemd backends, sysrc on FreeBSD). A systemd backend whose base image has
+# no systemctl has nothing to configure.
+if [[ "$(backend_has systemd)" == "${TRUE}" ]] && ! command -v systemctl &> /dev/null; then
     echo "systemctl not found, skipping service configuration"
     exit 0
 fi
@@ -32,43 +34,43 @@ user_enable=$(get_immutablue_user_services_to_enable)
 
 for svc in $sys_unmask
 do 
-    systemctl unmask "$svc"
+    backend_svc unmask "$svc"
 done
 
 for svc in $sys_disable 
 do 
-    systemctl disable "$svc"
+    backend_svc disable "$svc"
 done
 
 for svc in $sys_enable 
 do  
-    systemctl enable "$svc"
+    backend_svc enable "$svc"
 done 
 
 for svc in $sys_mask 
 do 
-    systemctl mask "$svc"
+    backend_svc mask "$svc"
 done
 
 
 # Per user
 for svc in $user_unmask
 do 
-    systemctl --global unmask "$svc"
+    backend_svc unmask --global "$svc"
 done
 
 for svc in $user_disable 
 do 
-    systemctl --global disable "$svc"
+    backend_svc disable --global "$svc"
 done
 
 for svc in $user_enable 
 do  
-    systemctl --global enable "$svc"
+    backend_svc enable --global "$svc"
 done 
 
 for svc in $user_mask 
 do 
-    systemctl --global mask "$svc"
+    backend_svc mask --global "$svc"
 done
 

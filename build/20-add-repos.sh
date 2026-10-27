@@ -14,7 +14,7 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 validate_packages_yaml
 
 # -----------------------------------
-# Distroless builds don't use dnf/yum repos
+# Distroless builds add no repositories
 # -----------------------------------
 if [[ "$(is_option_in_build_options distroless)" == "${TRUE}" ]]
 then
@@ -23,7 +23,7 @@ then
 fi
 
 # -----------------------------------
-# Resolve repositories for THIS Fedora version.
+# Resolve repositories for THIS release.
 #
 # The previous implementation queried each repo_urls key with '[][]', which
 # flattens every version at once. For a key holding entries under 42, 43 and
@@ -83,17 +83,26 @@ repo_url_for_key() {
 }
 
 
-# Every key that can define a repository, most general first.
+# Every key that can define a repository, most general first. The base key is
+# the backend's (repo_urls for Fedora's .repo files); the suffixes follow the
+# same option/architecture rules as package lists.
+repo_base_key=".immutablue.$(backend_get repo_key)"
+if [[ "${repo_base_key}" == ".immutablue." ]]
+then
+    echo "Backend ${IMMUTABLUE_BACKEND} defines no repo_key; skipping repository setup"
+    exit 0
+fi
+
 repo_keys=(
-    ".immutablue.repo_urls"
-    ".immutablue.repo_urls_${MARCH}"
+    "${repo_base_key}"
+    "${repo_base_key}_${MARCH}"
 )
 
 while read -r option
 do
     repo_keys+=(
-        ".immutablue.repo_urls_${option}"
-        ".immutablue.repo_urls_${option}_${MARCH}"
+        "${repo_base_key}_${option}"
+        "${repo_base_key}_${option}_${MARCH}"
     )
 done < <(get_immutablue_build_options)
 
@@ -108,8 +117,10 @@ repos="$(
 )"
 
 
-# Download each repo from the most specific key that defines it, so an
-# architecture- or variant-specific URL wins over a general one.
+# Add each repo from the most specific key that defines it, so an
+# architecture- or variant-specific URL wins over a general one. How a repo is
+# added -- a .repo file with a lowered priority on Fedora -- is the backend's
+# business; see backend_repo_add.
 for repo in ${repos}
 do
     repo_url=""
@@ -129,70 +140,5 @@ do
         continue
     fi
 
-    # Unlike before, a failed download is reported rather than silently
-    # swallowed -- a missing repo means the packages it provides will be
-    # missing from the image.
-    if ! immutablue_curl -fLo "/etc/yum.repos.d/${repo}" "${repo_url}"
-    then
-        echo "ERROR: failed to download ${repo} from ${repo_url}" >&2
-        exit 1
-    fi
-    echo "Added ${repo} from ${repo_url}"
+    backend_repo_add "${repo}" "${repo_url}"
 done
-
-
-# -----------------------------------
-# Deprioritise the third-party repos added above.
-#
-# Fedora's own repos carry the dnf default priority of 99, and a lower number
-# wins. Every repo curled above therefore competes with Fedora base on equal
-# footing: whichever has the higher package version wins, regardless of which
-# is the intended source. These are single-purpose repos (tailscale,
-# podman-bootc, znapzend), so a COPR that happens to carry a newer build of
-# some shared dependency can silently replace the Fedora package for the whole
-# image, and nothing in the build would report it.
-#
-# Setting them to 200 keeps them usable for the packages they exist to provide
-# while making Fedora authoritative for everything else.
-#
-# Deliberately NOT applied to:
-#   RPM Fusion  -- installed from release RPMs via rpm_url, and the mesa /
-#                  ffmpeg freeworld swaps in 35-* and 36-* depend on pulling
-#                  replacements from it.
-#   the ZFS repo -- installed from a release RPM for the same reason.
-# Both are intentional overrides of Fedora packages, which is exactly what the
-# priority above is meant to prevent for everything else.
-# -----------------------------------
-REPO_PRIORITY=200
-
-for repo in $repos
-do
-    repo_file="/etc/yum.repos.d/${repo}"
-
-    # curl leaves a file behind even when the URL was empty (a repo that does
-    # not apply to this architecture or build option), so only touch files
-    # that actually parsed as a repo definition.
-    if [[ ! -s "${repo_file}" ]] || ! grep -q '^\[' "${repo_file}"
-    then
-        continue
-    fi
-
-    # Respect an upstream repo that ships its own priority rather than
-    # overriding a deliberate choice by whoever published it.
-    if grep -qE '^[[:space:]]*priority[[:space:]]*=' "${repo_file}"
-    then
-        echo "Leaving ${repo_file} at its shipped priority"
-        continue
-    fi
-
-    # Insert the priority into every section; a .repo file routinely defines
-    # several (a COPR ships its main repo plus debuginfo/source variants).
-    awk -v prio="${REPO_PRIORITY}" '
-        /^\[/ { print; print "priority=" prio; next }
-        { print }
-    ' "${repo_file}" > "${repo_file}.tmp"
-    mv "${repo_file}.tmp" "${repo_file}"
-    echo "Set priority=${REPO_PRIORITY} on ${repo_file}"
-done
-
-

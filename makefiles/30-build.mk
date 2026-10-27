@@ -107,7 +107,7 @@ push-cyan-deps:
 # ------------------------------------------------------------------------------
 # Main Container Build
 # ------------------------------------------------------------------------------
-build: pre_test deps_manifest $(IMAGE_IGNOREFILE)
+build: backend_check pre_test deps_manifest $(IMAGE_IGNOREFILE)
 ifeq ($(DISTROLESS),1)
 	deps_image="$$(bash scripts/resolve-deps-image.sh "$(DEPS_IMAGE)")" && sudo podman \
 		build \
@@ -118,7 +118,8 @@ ifeq ($(DISTROLESS),1)
 		--ignorefile ./$(IMAGE_IGNOREFILE) \
 		--no-cache \
 		-t $(IMAGE):$(TAG) \
-		-f ./Containerfile \
+		-f ./$(CONTAINERFILE) \
+		--build-arg=IMMUTABLUE_BACKEND=$(BACKEND) \
 		--build-arg=BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg=DEPS_IMAGE="$$deps_image" \
 		--build-arg=CYAN_DEPS_IMAGE="$(CYAN_DEPS_IMAGE)" \
@@ -141,7 +142,8 @@ else
 		--no-cache \
 		-t $(IMAGE):$(TAG) \
 		-t $(IMAGE):$(DATE_TAG) \
-		-f ./Containerfile \
+		-f ./$(CONTAINERFILE) \
+		--build-arg=IMMUTABLUE_BACKEND=$(BACKEND) \
 		--build-arg=BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg=DEPS_IMAGE="$$deps_image" \
 		--build-arg=CYAN_DEPS_IMAGE="$(CYAN_DEPS_IMAGE)" \

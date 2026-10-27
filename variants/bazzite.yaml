@@ -1,0 +1,3 @@
+# bazzite: ublue-os bazzite-deck base image.
+requires:
+  pkg_key: rpm

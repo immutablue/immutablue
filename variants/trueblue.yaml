@@ -1,0 +1,3 @@
+# trueblue: kwizart LTS kernel + OpenZFS DKMS RPMs.
+requires:
+  pkg_key: rpm

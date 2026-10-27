@@ -1,0 +1,3 @@
+# lts: kwizart kernel-longterm COPR.
+requires:
+  pkg_key: rpm

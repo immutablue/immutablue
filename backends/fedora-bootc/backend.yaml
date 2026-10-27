@@ -1,0 +1,43 @@
+# fedora-bootc: Fedora Atomic desktops (Silverblue, Kinoite, ...) delivered as
+# bootable OCI images through bootc / rpm-ostree. This is the backend every
+# Immutablue image used before backends existed, and remains the default.
+name: fedora-bootc
+description: Fedora Atomic (Silverblue, Kinoite, Sericea, ...) via bootc/ostree
+
+# Defaults only; the Makefile's variant logic still chooses the exact base
+# (silverblue, kinoite, base-atomic, asahi remix, ...) and tag.
+base_image: quay.io/fedora-ostree-desktops/silverblue
+devel_image: registry.fedoraproject.org/fedora
+
+# packages.yaml key holding this backend's native package names
+# (.immutablue.rpm, .immutablue.rpm_gui, ...), and the per-entry override field
+# used when a logical 'pkg' entry has a different name on this backend.
+pkg_key: rpm
+
+# packages.yaml key holding repository definitions ({name, url} .repo files).
+repo_key: repo_urls
+
+init: systemd
+kernel: linux
+delivery: ostree-container
+
+# Capabilities stages and the runtime test with backend_has.
+provides:
+  - systemd
+  - dracut
+  - ostree
+  - selinux
+  - flatpak
+  - distrobox
+  - brew
+  - pip
+  - nix
+  - akmods
+  - inhouse_deps     # the C projects built by the deps container (gowl, crispy, ...)
+  - cmacs            # quay.io/zachpodbielniak/cmacs:<fedora version>
+  - linux_binaries   # upstream static Linux release binaries (hugo, just, starship, ...)
+
+# dracut modules build/80-initramfs.sh adds to, and verifies in, every
+# regenerated initramfs. 50ostree is never pulled in automatically.
+dracut_modules:
+  - ostree

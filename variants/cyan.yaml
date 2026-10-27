@@ -1,0 +1,4 @@
+# cyan: NVIDIA drivers from the cyan-deps RPM stacks / RPM Fusion kmods.
+requires:
+  kernel: linux
+  pkg_key: rpm

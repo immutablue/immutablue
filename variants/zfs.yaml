@@ -1,0 +1,3 @@
+# zfs: OpenZFS release RPM + DKMS build against the image kernel.
+requires:
+  pkg_key: rpm

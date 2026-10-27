@@ -73,6 +73,9 @@ cp "$root/Makefile" .
 cp -a "$root/makefiles" .
 mkdir scripts
 cp "$root/scripts/resolve-deps-image.sh" scripts/
+# 'build' first runs backend_check, which needs the backend and variant data.
+cp "$root/scripts/check-backend.sh" scripts/
+cp -a "$root/backends" "$root/variants" .
 cat > "$fixture/bin/buildah" <<'MOCK'
 #!/bin/bash
 printf '%s\n' "$@" >> "$ENGINE_LOG"
