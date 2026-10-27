@@ -279,8 +279,14 @@ build_gst () {
 	# before the generated headers exist.
 	make DEBUG=1 LRG_BACKEND=1 src/gst-version.h deps/crispy/src/crispy-version.h
 
-	make DEBUG=1 LRG_BACKEND=1 MCP=1 WEBVIEW=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
-	make DEBUG=1 LRG_BACKEND=1 MCP=1 WEBVIEW=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
+	# gst's config.mk picks lib64 whenever /usr/lib64 exists, which on Arch is
+	# a symlink to lib; the module directory is compiled in, so LIBDIR is
+	# passed to the build as well as the install.
+	local libdir
+	libdir="$(immutablue_libdir)"
+
+	make DEBUG=1 LRG_BACKEND=1 MCP=1 WEBVIEW=1 all PREFIX=/usr LIBDIR="/usr/${libdir}" BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
+	make DEBUG=1 LRG_BACKEND=1 MCP=1 WEBVIEW=1 install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
 }
 
 # gsurf -- GObject Surf (WebKit2GTK web browser)
