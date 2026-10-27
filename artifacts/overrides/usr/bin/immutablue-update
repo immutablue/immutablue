@@ -171,9 +171,11 @@ fi
 
 run_update_hooks pre_update
 
+# The image update itself goes through the backend: bootc on bootc-based
+# backends, a new boot environment on FreeBSD.
 if [[ "$(immutablue-settings .immutablue.run_bootc_update)" == "true" ]]
 then
-    sudo bootc update || error_info "bootc update" $?
+    sudo immutablue-backend upgrade || error_info "image update ($(immutablue-backend name))" $?
 fi
 
 if [[ "$(immutablue-settings .immutablue.run_distrobox_upgrade)" == "true" ]]

@@ -18,15 +18,7 @@ deployments:
     #!/bin/bash
     set -euo pipefail
 
-    if command -v bootc &>/dev/null
-    then
-        echo "=== bootc status ==="
-        bootc status || true
-        echo ""
-    fi
-
-    echo "=== rpm-ostree deployments ==="
-    rpm-ostree status
+    immutablue-backend deployments
 
 
 # Roll back to the previous deployment
@@ -35,15 +27,15 @@ rollback:
     #!/bin/bash
     set -euo pipefail
 
-    # rpm-ostree keeps exactly one previous deployment, so there is nothing to
-    # choose between -- the useful thing is showing what the rollback lands on
-    # before doing it, since the pending/rollback distinction is easy to
-    # misread in the raw status output.
+    # The backend keeps one previous deployment (rpm-ostree, bootc) or a list
+    # of boot environments (FreeBSD); either way the useful thing is showing
+    # what the rollback lands on before doing it, since the pending/rollback
+    # distinction is easy to misread in the raw status output.
     echo "Current deployments:"
-    rpm-ostree status
+    immutablue-backend status
     echo ""
 
-    if ! rpm-ostree status | grep -q "^  ostree-\|^  quay\|^●"
+    if ! immutablue-backend healthy
     then
         echo "Could not read deployments." >&2
         exit 1
@@ -59,7 +51,7 @@ rollback:
             ;;
     esac
 
-    sudo rpm-ostree rollback
+    sudo immutablue-backend rollback
     echo ""
     echo "Rollback staged. Reboot to apply:  systemctl reboot"
 
@@ -133,15 +125,9 @@ rebase tag="":
             ;;
     esac
 
-    # bootc is preferred where present; it is what immutablue-update already
-    # uses, and it handles the signed/unsigned transport consistently with how
-    # the system was installed.
-    if command -v bootc &>/dev/null
-    then
-        sudo bootc switch "${image}:${tag}"
-    else
-        sudo rpm-ostree rebase "ostree-unverified-registry:${image}:${tag}"
-    fi
+    # How a rebase is staged is the backend's business (bootc switch, with an
+    # rpm-ostree fallback, on fedora-bootc).
+    sudo immutablue-backend rebase "${image}:${tag}"
 
     echo ""
     echo "Rebase staged. Reboot to apply:  systemctl reboot"

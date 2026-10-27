@@ -12,10 +12,10 @@ all_upgrade: all update
 
 ifeq ($(REBOOT),1)
 install_targets := install_flatpak install_distrobox post_install post_install_notes reboot
-upgrade: rpmostree_upgrade reboot
+upgrade: backend_upgrade reboot
 else
 install_targets := install_flatpak install_distrobox post_install post_install_notes
-upgrade: rpmostree_upgrade
+upgrade: backend_upgrade
 endif
 
 install_or_update: $(install_targets)
@@ -49,11 +49,16 @@ post_install_notes:
 # ------------------------------------------------------------------------------
 # System Operations
 # ------------------------------------------------------------------------------
-rpmostree_upgrade:
-	sudo rpm-ostree update
+# Image updates and rebases go through the running image's backend
+# (bootc on fedora-bootc/gnomeos/arch-bootc, boot environments on freebsd-be).
+backend_upgrade:
+	sudo immutablue-backend upgrade
+
+# Kept as an alias for existing muscle memory and scripts.
+rpmostree_upgrade: backend_upgrade
 
 rebase:
-	sudo rpm-ostree rebase ostree-unverified-registry:$(IMAGE):$(TAG)
+	sudo immutablue-backend rebase $(IMAGE):$(TAG)
 
 reboot:
 	sudo systemctl reboot

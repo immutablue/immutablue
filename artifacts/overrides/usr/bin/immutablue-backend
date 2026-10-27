@@ -1,0 +1,172 @@
+#!/bin/bash
+# immutablue-backend - Run an OS-level operation the way this image's backend does it
+#
+# Immutablue is layered onto different operating systems (backends): Fedora
+# Atomic through bootc/rpm-ostree, GNOME OS, Arch through bootc, FreeBSD
+# through ZFS boot environments. Updating, rolling back, rebasing, kernel
+# arguments and package queries are done differently on each. Scripts and
+# justfiles call this command instead of rpm-ostree, bootc or bectl, so the
+# same recipe works on every backend.
+#
+# The backend is recorded at build time in /usr/immutablue/backend; the verbs
+# are implemented by /usr/immutablue/backends/<backend>/runtime.sh.
+#
+# Usage:
+#   immutablue-backend <verb> [args...]
+#
+# Verbs:
+#   name                  Print the backend name
+#   status [args]         Deployment status (args passed through)
+#   deployments           Every view of the deployments the backend has
+#   healthy               Exit 0 when the deployment state can be read
+#   pending               Print the number of staged (pending) deployments
+#   upgrade               Stage the newest image for the next boot (needs root)
+#   rollback              Stage the previous deployment (needs root)
+#   rebase <image:tag>    Stage another image (needs root)
+#   kargs [args]          Show or change kernel arguments (needs root to change)
+#   cleanup               Remove cached / unused deployment data (needs root)
+#   list-pkgs             List installed package names, one per line
+#   pkg-owner <path>      Print the package that owns a file
+#   image-ref             Best-effort image reference from the deployment state
+#
+# Options:
+#   -h, --help     Show this help message
+#   --license      Show license information
+#
+# Examples:
+#   immutablue-backend name
+#   immutablue-backend status --verbose
+#   sudo immutablue-backend upgrade
+#   sudo immutablue-backend rebase quay.io/immutablue/immutablue:44-cyan
+#   sudo immutablue-backend kargs --append-if-missing=quiet
+#   immutablue-backend pkg-owner /usr/bin/bash
+#
+# Environment:
+#   IMMUTABLUE_BACKEND       Override the recorded backend (testing)
+#   IMMUTABLUE_BACKENDS_DIR  Override /usr/immutablue/backends (testing)
+#
+# Exit codes:
+#   0 - Success
+#   1 - The operation failed
+#   2 - Usage error, or the verb is not supported by this backend
+
+set -uo pipefail
+
+VERB_LIST="name status deployments healthy pending upgrade rollback rebase kargs cleanup list-pkgs pkg-owner image-ref"
+
+
+show_help() {
+    sed -n '2,/^# Exit codes/p' "$0" | sed -e '/^# Exit codes/d' -e 's/^# \{0,1\}//'
+    cat <<'EOF'
+Exit codes:
+  0 - Success
+  1 - The operation failed
+  2 - Usage error, or the verb is not supported by this backend
+EOF
+}
+
+
+show_license() {
+    cat <<'EOF'
+immutablue-backend - part of Immutablue
+Copyright (C) Zach Podbielniak
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License along
+with this program. If not, see <https://www.gnu.org/licenses/>.
+EOF
+}
+
+
+# Which backend built this image.
+#
+# Images built before backends existed have no /usr/immutablue/backend file;
+# all of them were fedora-bootc, which is therefore the right default.
+#
+# returns: the backend name on stdout
+detect_backend() {
+    local file="/usr/immutablue/backend"
+
+    if [[ -n "${IMMUTABLUE_BACKEND:-}" ]]
+    then
+        echo "${IMMUTABLUE_BACKEND}"
+    elif [[ -s "${file}" ]]
+    then
+        head -n 1 "${file}"
+    else
+        echo "fedora-bootc"
+    fi
+}
+
+
+main() {
+    local verb="${1:-}"
+    local backend
+    local backends_dir="${IMMUTABLUE_BACKENDS_DIR:-/usr/immutablue/backends}"
+    local runtime
+    local fn
+
+    case "${verb}" in
+        -h|--help)
+            show_help
+            return 0
+            ;;
+        --license)
+            show_license
+            return 0
+            ;;
+        '')
+            show_help >&2
+            return 2
+            ;;
+        *)
+            ;;
+    esac
+    shift
+
+    if [[ " ${VERB_LIST} " != *" ${verb} "* ]]
+    then
+        echo "immutablue-backend: unknown verb '${verb}'" >&2
+        echo "verbs: ${VERB_LIST}" >&2
+        return 2
+    fi
+
+    backend="$(detect_backend)"
+    if [[ "${verb}" == "name" ]]
+    then
+        echo "${backend}"
+        return 0
+    fi
+
+    runtime="${backends_dir}/${backend}/runtime.sh"
+    if [[ ! -f "${runtime}" ]]
+    then
+        echo "immutablue-backend: no runtime for backend '${backend}' (${runtime})" >&2
+        return 1
+    fi
+
+    # shellcheck source=/dev/null
+    source "${runtime}"
+
+    # Verbs map to rt_<verb with dashes as underscores>; a backend that cannot
+    # do something simply does not define the function.
+    fn="rt_${verb//-/_}"
+    if ! declare -F "${fn}" > /dev/null
+    then
+        echo "immutablue-backend: '${verb}' is not supported on ${backend}" >&2
+        return 2
+    fi
+
+    "${fn}" "$@"
+}
+
+
+main "$@"

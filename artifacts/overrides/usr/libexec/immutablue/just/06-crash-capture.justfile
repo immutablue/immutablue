@@ -235,7 +235,7 @@ crash_capture_verbose_console:
     # --unchanged-exit-77 returns 77 when the kargs already match, which is a
     # success case here, so the exit status is captured before `set -e` sees it.
     exit_status=0
-    sudo rpm-ostree kargs \
+    sudo immutablue-backend kargs \
         --delete-if-present=quiet \
         --delete-if-present=rhgb \
         --unchanged-exit-77 || exit_status=$?
@@ -245,7 +245,7 @@ crash_capture_verbose_console:
         echo "console was already verbose; nothing to do"
     elif [[ ${exit_status} -ne 0 ]]
     then
-        echo "rpm-ostree kargs failed with status ${exit_status}" >&2
+        echo "kernel argument update failed with status ${exit_status}" >&2
         exit "${exit_status}"
     else
         echo "quiet/rhgb removed. Run 'systemctl reboot' to apply."
@@ -259,7 +259,7 @@ crash_capture_quiet_console:
     set -euo pipefail
 
     exit_status=0
-    sudo rpm-ostree kargs \
+    sudo immutablue-backend kargs \
         --append-if-missing=quiet \
         --append-if-missing=rhgb \
         --unchanged-exit-77 || exit_status=$?
@@ -269,7 +269,7 @@ crash_capture_quiet_console:
         echo "console was already quiet; nothing to do"
     elif [[ ${exit_status} -ne 0 ]]
     then
-        echo "rpm-ostree kargs failed with status ${exit_status}" >&2
+        echo "kernel argument update failed with status ${exit_status}" >&2
         exit "${exit_status}"
     else
         echo "quiet/rhgb restored. Run 'systemctl reboot' to apply."
