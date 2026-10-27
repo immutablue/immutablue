@@ -55,7 +55,7 @@ When something here does not match what you see, or you are asked about a
 feature this skill does not cover, check how far the image and the skill have
 drifted before answering:
 
-<!-- skill-baseline:start — reviewed 2026-10-18; update with the skill, see AGENTS.md -->
+<!-- skill-baseline:start — reviewed 2026-10-27; update with the skill, see AGENTS.md -->
 ```bash
 # CHANGED = the image and this skill were written against different commits.
 while read -r name base; do
@@ -65,7 +65,7 @@ while read -r name base; do
     else state="CHANGED"; fi
     printf '%-20s %-13s skill=%.12s image=%.12s\n' "${name}" "${state}" "${base}" "${image}"
 done <<'EOF'
-immutablue           e7b055a1189c5440a59d58d68ae8fdbc4f2d5c3c
+immutablue           68e14c5b47e5a5ff4f240a2c588c4e822670df61
 ai-glib              7c772d6fc01d667059a3c216f5b34b4680fd6599
 bacon                cf8bfadef33b379bf2954258048a9ad7dd359ebc
 crispy               53b8fc7c5444fb3b94bdb689c5b160483d3a95c4
@@ -81,7 +81,7 @@ EOF
 ```
 <!-- skill-baseline:end -->
 
-Every line above was reviewed on 2026-10-18: each component's changes since the previous baseline were read from source and written into the guides (bacon, crispy, gst, gsurf, the three mcp libraries, podomation and yaml-glib had no changes). Of note since the last review: gowl's macro recorder and voice macros, region OCR and colour pick, pointer confinement, input broadcasting, the floating desktop, live Keybindings menu and the extended bar widget set; ai-glib's projects, `ai-call` voice sessions and `ai-gui`; cmacs's VR display backend and MCP additions; and the image's non-Fedora RPM routes and deps-container packages.
+The immutablue line was reviewed on 2026-10-27: the backend split (`backends/`, `BACKEND=`, logical `pkg` lists, `build_deps`, `immutablue-backend`, the arch-bootc and experimental freebsd-be backends) is in [the build guide](references/building.md), with backend notes at the top of [updates](references/updates.md) and [packages](references/packages.md); the libspnav/libvorbis-devel package additions needed no guide change. The `deps/` lines were not re-reviewed and keep their 2026-10-18 baseline, even where a pin has since moved. Every line was last fully reviewed on 2026-10-18: each component's changes since the previous baseline were read from source and written into the guides (bacon, crispy, gst, gsurf, the three mcp libraries, podomation and yaml-glib had no changes). Of note since the last review: gowl's macro recorder and voice macros, region OCR and colour pick, pointer confinement, input broadcasting, the floating desktop, live Keybindings menu and the extended bar widget set; ai-glib's projects, `ai-call` voice sessions and `ai-gui`; cmacs's VR display backend and MCP additions; and the image's non-Fedora RPM routes and deps-container packages.
 
 For manifests with `dependency_image`, `.deps` comes from the digest-pinned dependency container, while `.immutablue` identifies the main image checkout. Older manifests were generated from that checkout's submodules and can misidentify binaries from a separately built dependency container. Do not treat a missing entry as proof that a component is absent, or replace an artifact's recorded commit with a newer local submodule pin. See [the build guide](references/building.md) for migration and scope.
 

@@ -2,6 +2,13 @@
 
 Read this before updating the OS, undoing an update, or moving between variants.
 
+The image update, rollback and rebase go through `immutablue-backend`, which
+does them the way this machine's backend does (`immutablue-backend name`):
+bootc/rpm-ostree on `fedora-bootc`, bootc on `gnomeos` and `arch-bootc`, ZFS
+boot environments (`bectl`) on `freebsd-be`. The `rpm-ostree` commands below
+are the fedora-bootc forms; `immutablue-backend status`, `deployments`,
+`upgrade`, `rollback` and `rebase <image:tag>` work on every backend.
+
 ## Updating
 
 ```bash
@@ -26,7 +33,7 @@ Machine-specific work can be attached to an update without editing
 ```bash
 rpm-ostree status          # what is booted, what is staged, what is the rollback
 bootc status
-immutablue deployments     # both of the above, together
+immutablue deployments     # both of the above, together (immutablue-backend deployments)
 ```
 
 ## The three recovery layers

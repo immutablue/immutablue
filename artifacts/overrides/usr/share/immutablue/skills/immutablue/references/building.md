@@ -32,6 +32,33 @@ make PLATFORM=linux/arm64 build
 `NUCLEUS=1` (headless), `KINOITE=1`/`SERICEA=1` (other desktops), `ASAHI=1`
 (Apple Silicon), `NIX=1`, `ZFS=1`, `LTS=1` are the rest.
 
+### Backends: the OS underneath
+
+Immutablue is the configuration and packages on top; the operating system
+underneath is a **backend** under `backends/<name>/`, chosen with `BACKEND=`.
+This machine's is in `/usr/immutablue/backend` (or `immutablue-backend name`).
+
+| Backend | Base | Packages | Init | Delivered as | Status |
+|---------|------|----------|------|--------------|--------|
+| `fedora-bootc` | Fedora Atomic | dnf5 | systemd | bootc/ostree | default |
+| `gnomeos` | GNOME OS nightly | none | systemd | bootc/composefs | `DISTROLESS=1` is the same build |
+| `arch-bootc` | Arch Linux + bootc v1.17.1 | pacman | systemd | bootc/ostree | no gowl/crispy/cmacs yet (needs an Arch deps image) |
+| `freebsd-be` | FreeBSD 15.1 pkgbase | pkg | rc | ZFS boot environment | experimental; builds only on a FreeBSD host |
+
+```bash
+make BACKEND=arch-bootc NUCLEUS=1 build   # -> :arch-nucleus
+make BACKEND=arch-bootc backend_check     # can this backend do these variants?
+```
+
+`make backend_check` (run by `build`) refuses impossible combinations before
+podman starts: each `variants/<option>.yaml` lists what it `requires` of the
+backend (cyan, asahi, trueblue, LTS, ZFS and the Fedora desktop bases need
+`pkg_key: rpm`; kuberblue needs Linux, systemd and rpm). A backend is
+`backend.yaml` (facts and `provides` capabilities), `backend.sh` (the build
+contract in `backends/lib/interface.sh`), `runtime.sh`, a `Containerfile`, a
+`deps.Containerfile`, and optionally `backend.mk`, `stages/` and `overrides/`;
+`tests/test_backend_contract.sh` checks each one.
+
 ### Cyan (NVIDIA) on Fedora 44+
 
 The image consumes a separate **cyan-deps** container holding two prebuilt
@@ -53,8 +80,9 @@ make VERSION=44 CYAN=1 TRUEBLUE=1 build
 `deps-container/cyan/` builds each branch in its own stage (`build-stack.sh`), turns
 the RPM payload into a sysext tree (`export-stack.sh`) and records
 `manifest.json`, `supported-gpus.json` (filtered by `supported-gpus.jq`) and
-`requirements.txt`. In the image, `30-install-packages.sh` calls
-`75-nvidia.sh install` (copies stacks to `/usr/lib/immutablue/nvidia/`, installs
+`requirements.txt`. In the image, the fedora-bootc stage
+`backends/fedora-bootc/stages/29-kernel-zfs-nvidia.sh` calls
+`75-nvidia.sh install` (same directory) (copies stacks to `/usr/lib/immutablue/nvidia/`, installs
 their non-NVIDIA requirements, writes the nouveau/nova/nvidia blacklist and
 dracut omit, enables `immutablue-nvidia.service`); `75-nvidia.sh` then finalizes
 each stack into a SELinux-labelled squashfs `immutablue-nvidia.raw`, and
@@ -71,8 +99,9 @@ is in [`hardware.md`](hardware.md).
 Fedora 42/43 cyan keeps the old path: one akmod-built `kmod-nvidia` from cyan-deps
 installed as RPMs.
 
-Which optional pieces of a component get built is decided by the build packages in
-`deps-container/00-build.sh`, and a missing one is dropped quietly rather than
+Which optional pieces of a component get built is decided by the build packages
+in `packages.yaml` under `build_deps` (resolved per backend by
+`deps-container/00-build.sh`), and a missing one is dropped quietly rather than
 failing. ai-glib needs `gtk4-devel` and `libadwaita-devel` or its `ai-gui` client
 and the `org.copyleft.AiGlib.Gui.desktop` launcher are not built, and (0.6.0+, voice)
 `gstreamer1-devel` and `gstreamer1-plugins-base-devel`, since a missing
@@ -84,7 +113,7 @@ Run `git submodule update --init --recursive` after cloning or pulling. The
 components under `deps/` are submodules, and a stale checkout silently builds the
 wrong source.
 
-`deps/` is compiled into the **deps container** (`deps-container/Containerfile`, `make build-deps`) and excluded from the main image's build context. A submodule bump reaches the image only after that dependency container is rebuilt and published. `make build` runs prechecks but does not automatically run the post-build suite; run `make test` separately.
+`deps/` is compiled into the **deps container** (`backends/<backend>/deps.Containerfile`, `make build-deps`; `make BACKEND=arch-bootc build-deps` for Arch) and excluded from the main image's build context. A submodule bump reaches the image only after that dependency container is rebuilt and published. `make build` runs prechecks but does not automatically run the post-build suite; run `make test` separately.
 
 ### Artifact provenance
 
@@ -111,16 +140,35 @@ The dependency list includes components a final variant may omit. It does not co
 
 ## Adding a package
 
-Edit `packages.yaml` and rebuild. Pick the section by who should get it:
+Edit `packages.yaml` and rebuild. Packages are listed by **logical name** under
+`pkg*` and resolved per backend: a plain entry is used as-is everywhere, a map
+overrides the name only where it differs, `null` means "not on that backend",
+and a list installs several packages:
+
+```yaml
+pkg:
+  all:
+  - tmux
+  - {name: fuse-sshfs, pacman: sshfs, freebsd: fusefs-sshfs}
+  - {name: perf, freebsd: null}
+```
+
+Check that an override name exists in that distribution's repository;
+`tests/test_pkg_resolve.sh` rejects unknown fields (a typo would silently fall
+back to `name`). Pick the section by who should get it:
 
 | Section | Who gets it |
 |---------|-------------|
-| `rpm.all` | every variant |
-| `rpm_gui` | every graphical variant |
-| `rpm_silverblue`, `rpm_kinoite`, `rpm_sericea`, … | one desktop base |
-| `rpm_nucleus`, `rpm_kuberblue`, `rpm_trueblue`, … | one specialised variant |
-| `rpm_x86_64`, `rpm_aarch64`, `rpm_<variant>_<arch>` | one architecture |
-| `rpm_rm*` | removed from the base image |
+| `pkg.all` | every variant, every backend |
+| `pkg_gui` | every graphical variant |
+| `pkg_silverblue` (the GNOME desktop on any backend), … | one desktop |
+| `pkg_kuberblue`, … | one specialised variant |
+| `pkg_x86_64`, `pkg_aarch64`, `pkg_<variant>_<arch>` | one architecture |
+| `rpm*` / `pacman*` / `freebsd*` | one backend only (its `pkg_key`), with the same suffixes; Fedora-only variants (`rpm_trueblue`, `rpm_kuberblue.<ver>`, workshop) live here |
+| `pkg_rm*`, `rpm_rm*`, … | removed from the base image |
+
+Service lists take the same shape, keyed by init system:
+`{name: sshd.service, rc: sshd}`.
 
 Packages that are not in Fedora's repositories have two more routes, keyed the
 same way (`rpm_url_<variant>`, `rpm_post_url_<variant>`, `repo_urls_<variant>`):
@@ -173,23 +221,33 @@ logic — the justfile is the interface, not the place for a hundred lines of ba
 
 ## Build scripts
 
-`build/*.sh` runs in alphanumeric order inside the container, each fed to `bash`
-on stdin (so no arguments):
+`build/*.sh` are the platform-neutral stages. `backends/lib/run-stages.sh`
+merges them by file name with the selected backend's `backends/<backend>/stages/*.sh`
+(`build/` first on a tie), drops any listed under `skip_stages` in its
+`backend.yaml`, runs each fed to `bash` on stdin (so no arguments), then calls
+the backend's `backend_finalize` (fedora-bootc: `ostree container commit`).
+Stages never call dnf5, rpm, pacman, pkg, systemctl or sysrc themselves: they
+call `backend_pkg_install`, `backend_svc` and the rest, and test
+`backend_has <capability>` rather than a backend's name.
 
 | Script | Stage |
 |--------|-------|
 | `00-pre.sh` | before anything |
 | `10-copy.sh` | overrides and prebuilt deps into the image |
 | `20-add-repos.sh` | third-party repos (set to priority 200, below Fedora's 99) |
+| `29-kernel-zfs-nvidia.sh` *(fedora-bootc)* | udev rules, akmods, LTS kernel, kernel versionlock, ZFS DKMS, `rpm_url`, cyan NVIDIA |
 | `30-install-packages.sh` | package installation, and binaries fetched from releases |
-| `35-mesa-freeworld.sh`, `36-ffmpeg-freeworld.sh` | swap in RPM Fusion's full codecs |
+| `31-post-urls.sh` *(fedora-bootc)* | `rpm_post_url` |
+| `35-mesa-freeworld.sh`, `36-ffmpeg-freeworld.sh` *(fedora-bootc)* | swap in RPM Fusion's full codecs |
 | `40-uninstall-packages.sh` | removals |
 | `50-remove-files.sh` | file removals |
 | `60-services.sh` | enable/disable/mask units |
 | `65-crash-capture.sh` | unattended-tier kernel crash policy — [`crash-capture.md`](crash-capture.md) |
-| `75-nvidia.sh` | cyan 44+: finalize the NVIDIA sysext images (its `install` phase is called from `30-`) |
+| `61-arch-system.sh` *(arch-bootc)* | networking, resolved, timesyncd, GDM: what Fedora presets and Arch does not |
+| `75-nvidia.sh` *(fedora-bootc)* | cyan 44+: finalize the NVIDIA sysext images (its `install` phase is called from `29-`) |
 | `80-initramfs.sh` | regenerate and verify the initramfs; `SKIP=initramfs` skips it |
 | `90-post.sh` | variant justfile imports, image-info.json, dconf update, cleanup |
+| `91-fedora-post.sh` *(fedora-bootc)* | release the kernel versionlock, kuberblue RPM Fusion key links |
 | `99-common.sh` | shared helpers — **sourced**, not run |
 
 Always source `99-common.sh`, and use `set -euxo pipefail`. That last point has
@@ -236,7 +294,10 @@ make test_regressions              # host-safe checks, no image or root needed
 bash tests/run_tests.sh --suite regressions
 ./tests/test_shellcheck.sh          # strict, per .shellcheckrc
 ./tests/test_justfile_syntax.sh     # every shipped justfile parses
-./tests/test_package_presence.sh    # packages.yaml matches the built image
+./tests/test_package_presence.sh    # packages.yaml matches the built image (per backend)
+./tests/test_pkg_resolve.sh         # logical package resolution per backend
+./tests/test_backend_contract.sh    # every backend implements the interface
+./tests/test_backend_dispatch.sh    # immutablue-backend verbs against stub tools
 ./tests/test_artifacts.sh           # every override file reached the image intact
 ./tests/test_container.sh
 ```

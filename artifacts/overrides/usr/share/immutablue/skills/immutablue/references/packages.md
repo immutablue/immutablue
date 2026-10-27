@@ -2,6 +2,13 @@
 
 Read this before installing anything on a machine running Immutablue.
 
+This guide is written for the `fedora-bootc` backend (`immutablue-backend name`).
+On `arch-bootc` the host package manager is pacman inside the same image model
+(layering is `bootc usroverlay` + `pacman`, transient); on `freebsd-be` it is
+`pkg`, and changes made in the running boot environment are replaced by the next
+update — add the package to `packages.yaml` (see [`building.md`](building.md))
+instead. Flatpak, distrobox and brew are Linux-only.
+
 There is no `dnf` on the host in the sense that matters, and `rpm-ostree install`
 is the *last* option rather than the first. Work down this list and stop at the
 first one that fits.
