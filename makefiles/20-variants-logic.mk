@@ -69,8 +69,13 @@ else
 endif
 
 # DISTROLESS - GNOME OS base (no Fedora version tags)
+# DISTROLESS=1 and BACKEND=gnomeos are the same build; either selects both.
+ifeq ($(BACKEND),gnomeos)
+    DISTROLESS := 1
+endif
 ifeq ($(strip $(filter-out 0 00,$(DISTROLESS))),)
 else
+    BACKEND := gnomeos
     GUI_FLAVOR := distroless
     BASE_IMAGE := quay.io/gnome_infrastructure/gnome-build-meta
     BASE_IMAGE_TAG := gnomeos-nightly

@@ -22,16 +22,6 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 # modifies is already settled.
 # -----------------------------------
 
-# -----------------------------------
-# Distroless builds use a GNOME OS base with a different service and sysctl
-# layout; 60-services.sh bails out for the same reason.
-# -----------------------------------
-if [[ "$(is_option_in_build_options distroless)" == "${TRUE}" ]]
-then
-    echo "=== Distroless build: skipping crash-capture policy ==="
-    exit 0
-fi
-
 # The policy is sysctl.d plus masked systemd sleep targets: Linux and systemd.
 if [[ "$(backend_has systemd)" == "${FALSE}" ]]
 then

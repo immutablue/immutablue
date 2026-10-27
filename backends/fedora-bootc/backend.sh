@@ -161,10 +161,5 @@ backend_os_release_path() {
 # Last step of the build: turn the container filesystem into an ostree commit
 # that bootc can deploy.
 backend_finalize() {
-    # Distroless (GNOME OS) builds are not ostree commits.
-    if [[ "${IS_DISTROLESS:-false}" == "true" ]]
-    then
-        return 0
-    fi
     ostree container commit
 }

@@ -13,13 +13,6 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 # Fedora/RPM-specific, so it moved into the fedora-bootc backend unchanged and
 # runs immediately before stage 30.
 
-# Distroless (GNOME OS) builds still pass through this backend until they get
-# their own; none of this applies to them.
-if [[ "$(is_option_in_build_options distroless)" == "${TRUE}" ]]
-then
-    exit 0
-fi
-
 pkg_urls=$(get_immutablue_package_urls)
 
 # Install the uBlue udev rules for hardware support

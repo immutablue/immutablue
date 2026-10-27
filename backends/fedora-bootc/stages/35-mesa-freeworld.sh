@@ -11,12 +11,6 @@ set -euxo pipefail
 if [[ -f "${INSTALL_DIR}/build/99-common.sh" ]]; then source "${INSTALL_DIR}/build/99-common.sh"; fi
 if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 
-# Distroless builds use GNOME OS base and have no dnf5
-if [[ "$(is_option_in_build_options distroless)" == "${TRUE}" ]]; then
-    echo "=== Distroless build: skipping mesa freeworld swap ==="
-    exit 0
-fi
-
 # Only swap drivers that are actually present (aarch64 / minimal images may
 # not ship them).
 to_swap=()

@@ -14,15 +14,6 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 validate_packages_yaml
 
 # -----------------------------------
-# Distroless builds add no repositories
-# -----------------------------------
-if [[ "$(is_option_in_build_options distroless)" == "${TRUE}" ]]
-then
-    echo "=== Distroless build: skipping yum/dnf repository setup ==="
-    exit 0
-fi
-
-# -----------------------------------
 # Resolve repositories for THIS release.
 #
 # The previous implementation queried each repo_urls key with '[][]', which

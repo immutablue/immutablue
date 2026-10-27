@@ -31,13 +31,6 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 # and 60-services.sh as well, which even the LTS path ran too early to see.
 # -----------------------------------
 
-# Distroless uses a different base entirely and ships no kernel.
-if [[ "$(is_option_in_build_options distroless)" == "${TRUE}" ]]
-then
-    echo "=== Distroless build: skipping initramfs regeneration ==="
-    exit 0
-fi
-
 if [[ "$(is_skipped initramfs)" == "${TRUE}" ]]
 then
     echo "=== SKIP=initramfs: leaving the base image initramfs in place ==="

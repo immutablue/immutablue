@@ -1,0 +1,3 @@
+# distroless: the GNOME OS build; only the gnomeos backend provides it.
+requires:
+  name: gnomeos

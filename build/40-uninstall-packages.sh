@@ -3,15 +3,6 @@ set -euxo pipefail
 if [[ -f "${INSTALL_DIR}/build/99-common.sh" ]]; then source "${INSTALL_DIR}/build/99-common.sh"; fi
 if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 
-# -----------------------------------
-# Distroless builds remove no packages
-# -----------------------------------
-if [[ "$(is_option_in_build_options distroless)" == "${TRUE}" ]]
-then
-    echo "=== Distroless build: skipping dnf package removal ==="
-    exit 0
-fi
-
 pkgs=$(get_immutablue_packages_to_remove)
 
 

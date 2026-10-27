@@ -1,6 +1,9 @@
 #!/bin/bash
 # -----------------------------------
-# Distroless Package Installation
+# 30-install-packages.sh (gnomeos)
+#
+# Replaces build/30-install-packages.sh for the gnomeos backend (backend.yaml
+# skip_stages). Formerly build/distroless/install-packages.sh.
 # -----------------------------------
 # This script handles package installation for distroless builds
 # which use GNOME OS as the base image instead of Fedora Silverblue.
@@ -23,44 +26,38 @@ echo "=== Installing packages for distroless build ==="
 # Install tools that have static/standalone releases
 # -----------------------------------
 
+# The release URLs and pins are the shared ones from build/99-common.sh, so a
+# version bump there reaches this backend too (this file used to carry its own,
+# older hugo pin), and downloads go through immutablue_curl's retry.
+
 # Hugo (static binary release)
 echo "Installing Hugo..."
-HUGO_RELEASE_URL_x86_64="https://github.com/gohugoio/hugo/releases/download/v0.148.1/hugo_extended_withdeploy_0.148.1_linux-amd64.tar.gz"
-HUGO_RELEASE_URL_aarch64="https://github.com/gohugoio/hugo/releases/download/v0.148.1/hugo_extended_withdeploy_0.148.1_linux-arm64.tar.gz"
-MARCH="$(uname -m)"
-
-if [[ "${MARCH}" == "aarch64" ]]; then
-    HUGO_RELEASE_URL="${HUGO_RELEASE_URL_aarch64}"
-else
-    HUGO_RELEASE_URL="${HUGO_RELEASE_URL_x86_64}"
-fi
-
-curl -Lo /tmp/hugo.tar.gz "${HUGO_RELEASE_URL}"
+immutablue_curl -fLo /tmp/hugo.tar.gz "${HUGO_RELEASE_URL}"
 tar -xzf /tmp/hugo.tar.gz -C /usr/bin/ hugo
 rm /tmp/hugo.tar.gz
 hugo version || true
 
 # fzf-git (shell script)
 echo "Installing fzf-git..."
-FZF_GIT_URL="https://raw.githubusercontent.com/junegunn/fzf-git.sh/refs/heads/main/fzf-git.sh"
-curl -Lo /usr/bin/fzf-git "${FZF_GIT_URL}"
+immutablue_curl -fLo /usr/bin/fzf-git "${FZF_GIT_URL}"
 chmod a+x /usr/bin/fzf-git
 
 # Starship (static binary)
 echo "Installing Starship..."
-STARSHIP_URL="https://starship.rs/install.sh"
-curl -Lo "/tmp/install_starship.sh" "${STARSHIP_URL}"
+immutablue_curl -fLo "/tmp/install_starship.sh" "${STARSHIP_URL}"
 sh "/tmp/install_starship.sh" -y -b "/usr/bin/" || true
 rm -f "/tmp/install_starship.sh"
 
-# Just command runner (static binary)
+# Just command runner (static binary). Downloaded to a file rather than piped
+# into tar: a retried transfer must not be appended to a stream tar has
+# already started reading.
 echo "Installing just..."
-JUST_RELEASE_URL="https://github.com/casey/just/releases/download/1.42.3/just-1.42.3-$(uname -m)-unknown-linux-musl.tar.gz"
 mkdir -p /tmp/just
-curl -L "${JUST_RELEASE_URL}" | tar xz -C /tmp/just
+immutablue_curl -fLo /tmp/just.tar.gz "${JUST_RELEASE_URL}"
+tar xzf /tmp/just.tar.gz -C /tmp/just
 mv /tmp/just/just /usr/bin/just
 chmod +x /usr/bin/just
-rm -rf /tmp/just
+rm -rf /tmp/just /tmp/just.tar.gz
 
 # -----------------------------------
 # Copy immutablue custom tools (if available)

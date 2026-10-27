@@ -153,7 +153,7 @@ endif
 	@echo "Building bootable disk image for $(IMAGE):$(TAG)..."
 	@mkdir -p $(DISTROLESS_DIR)
 	@rm -f "$(DISTROLESS_IMG)"
-	IMAGE_SIZE=$(DISTROLESS_IMG_SIZE) ./build/distroless/build-disk-image.sh \
+	IMAGE_SIZE=$(DISTROLESS_IMG_SIZE) ./backends/gnomeos/build-disk-image.sh \
 		"$(DISTROLESS_IMG)" \
 		"$(IMAGE):$(TAG)" \
 		"$(DISTROLESS_FILESYSTEM)"
@@ -208,4 +208,4 @@ ifndef VM
 	@echo "Usage: make VM=<vm_name> fix-virsh"
 	@exit 1
 endif
-	@./build/distroless/fix-virsh.sh "$(VM)"
+	@./backends/gnomeos/fix-virsh.sh "$(VM)"

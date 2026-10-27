@@ -1,0 +1,35 @@
+# gnomeos: GNOME OS nightly (gnome-build-meta) as the base, with the tools a
+# Fedora image would get from dnf copied out of the GNOME OS devel image or
+# downloaded as static binaries. Formerly the DISTROLESS=1 build path.
+#
+# GNOME OS has no package manager in the image, so the package, repository,
+# service and initramfs stages do not apply; its own 30-install-packages.sh
+# stage replaces the neutral one.
+name: gnomeos
+description: GNOME OS nightly (distroless), no package manager
+
+base_image: quay.io/gnome_infrastructure/gnome-build-meta
+devel_image: quay.io/gnome_infrastructure/gnome-build-meta:gnomeos-devel-nightly
+
+pkg_key: ""
+repo_key: ""
+
+init: systemd
+kernel: linux
+delivery: bootc-composefs
+
+# build/ stages this backend replaces or that cannot apply to it.
+skip_stages:
+  - 20-add-repos.sh          # no package manager, no repositories
+  - 30-install-packages.sh   # replaced by stages/30-install-packages.sh
+  - 40-uninstall-packages.sh
+  - 60-services.sh           # GNOME OS ships a different service set
+  - 65-crash-capture.sh      # different sysctl / service layout
+  - 80-initramfs.sh          # GNOME OS boots its own initramfs
+
+provides:
+  - systemd
+  - flatpak
+  - inhouse_deps
+  - cmacs
+  - linux_binaries

@@ -11,17 +11,6 @@ if [[ "$(backend_has systemd)" == "${TRUE}" ]] && ! command -v systemctl &> /dev
     exit 0
 fi
 
-# -----------------------------------
-# Distroless builds: skip service configuration
-# GNOME OS doesn't have the same services as Fedora (tailscale, etc.)
-# -----------------------------------
-if [[ "$(is_option_in_build_options distroless)" == "${TRUE}" ]]
-then
-    echo "=== Distroless build: skipping service configuration ==="
-    echo "GNOME OS base has different services than Fedora"
-    exit 0
-fi
-
 sys_unmask=$(get_immutablue_system_services_to_unmask)
 sys_mask=$(get_immutablue_system_services_to_mask)
 sys_disable=$(get_immutablue_system_services_to_disable)

@@ -7,40 +7,20 @@
 # 40-uninstall-packages.sh script.
 #
 # The script performs the following tasks:
-# 1. Install udev rules
-# 2. Install akmods (if enabled)
-# 3. Install NVIDIA drivers (if cyan variant)
-# 4. Install packages from packages.yaml
-# 5. Install the LTS kernel (if enabled)
-# 6. Install ZFS (if enabled or LTS kernel)
-# 7. Install pip packages
-# 8. Install additional tools (hugo, fzf-git, starship)
-# 9. Special handling for the build-a-blue-workshop variant
+# 1. Install packages from packages.yaml through the backend
+# 2. Install pip packages
+# 3. Install additional tools (hugo, fzf-git, starship, just, voxtype)
+# 4. Variant extras: trueblue zerofs, kuberblue tooling, workshop n8n, nix
+#
+# Kernel, ZFS and NVIDIA work happens in the backend's own stages that run
+# around this one (fedora-bootc: stages/29-kernel-zfs-nvidia.sh). A backend
+# can also replace this stage entirely (gnomeos: skip_stages).
 
 set -euxo pipefail
 
 # Source the common functions and variables
 if [[ -f "${INSTALL_DIR}/build/99-common.sh" ]]; then source "${INSTALL_DIR}/build/99-common.sh"; fi
 if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
-
-# -----------------------------------
-# Distroless builds use GNOME OS base which doesn't have dnf5
-# Skip all package installation for distroless and run the
-# distroless-specific package script instead
-# -----------------------------------
-if [[ "$(is_option_in_build_options distroless)" == "${TRUE}" ]]
-then
-    echo "=== Distroless build detected: skipping dnf5 package installation ==="
-    echo "GNOME OS base does not use rpm-ostree/dnf5 for package management"
-
-    # Run distroless-specific installation if it exists
-    if [[ -f "${INSTALL_DIR}/build/distroless/install-packages.sh" ]]; then
-        echo "Running distroless package installation..."
-        bash "${INSTALL_DIR}/build/distroless/install-packages.sh"
-    fi
-
-    exit 0
-fi
 
 # Get the lists of packages to install from packages.yaml
 # These functions are defined in 99-common.sh

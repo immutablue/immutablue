@@ -31,6 +31,37 @@ then
 fi
 
 
+# yq is not part of every base image; 10-copy.sh installs it, but the stage
+# list is needed before that, so read it from the build's yq mount when present.
+YQ="yq"
+if [[ -x /mnt-yq/yq ]]
+then
+    YQ="/mnt-yq/yq"
+fi
+
+# build/ stages the backend replaces or cannot run (backend.yaml skip_stages).
+mapfile -t skip_stages < <("${YQ}" '.skip_stages // [] | .[]' < "${CTX}/backends/${IMMUTABLUE_BACKEND}/backend.yaml")
+
+
+# Is a build/ stage in the backend's skip list?
+#
+# param $1: stage file name
+# returns: 0 when skipped
+is_skipped_stage() {
+    local name="$1"
+    local skip
+
+    for skip in "${skip_stages[@]}"
+    do
+        if [[ "${skip}" == "${name}" ]]
+        then
+            return 0
+        fi
+    done
+    return 1
+}
+
+
 # Emit "<basename><TAB><rank><TAB><path>" for every stage, so a plain sort
 # orders by name and puts build/ (rank 0) ahead of the backend (rank 1) on a
 # tie. 99-common.sh is a library, not a stage, and is excluded.
@@ -40,6 +71,11 @@ list_stages() {
     for script in "${CTX}"/build/*.sh
     do
         [[ "$(basename "${script}")" == "99-common.sh" ]] && continue
+        if is_skipped_stage "$(basename "${script}")"
+        then
+            echo "Skipping build/$(basename "${script}") for backend ${IMMUTABLUE_BACKEND}" >&2
+            continue
+        fi
         printf '%s\t0\t%s\n' "$(basename "${script}")" "${script}"
     done
 

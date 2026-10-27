@@ -8,13 +8,6 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 # trueblue's 45Drives cockpit plugins. Formerly part of
 # build/30-install-packages.sh.
 
-# Distroless (GNOME OS) builds still pass through this backend until they get
-# their own; none of this applies to them.
-if [[ "$(is_option_in_build_options distroless)" == "${TRUE}" ]]
-then
-    exit 0
-fi
-
 pkg_post_urls=$(get_immutablue_package_post_urls)
 
 # Install RPMs from URLs post pkgs
