@@ -114,9 +114,21 @@ export INSTALL_DIR="${ROOT_DIR}"
 export VERSION="${IMAGE_VERSION}"
 export IMMUTABLUE_BUILD_OPTIONS="${BUILD_OPTIONS}"
 export FEDORA_VERSION="${IMAGE_VERSION}"
+# Images record the backend that built them; older ones are all fedora-bootc.
+IMAGE_BACKEND="$(image_info_field backend)"
+if [[ -z "${IMAGE_BACKEND}" ]] || [[ "${IMAGE_BACKEND}" == "null" ]]; then
+    IMAGE_BACKEND="fedora-bootc"
+fi
+export IMMUTABLUE_BACKEND="${IMAGE_BACKEND}"
+echo "Image backend:  ${IMAGE_BACKEND}"
 
 # shellcheck source=/dev/null
 source "${ROOT_DIR}/build/99-common.sh"
+
+if [[ -z "$(backend_get pkg_key)" ]]; then
+    echo "SKIP: backend ${IMAGE_BACKEND} has no package manager; nothing to check"
+    exit 0
+fi
 
 mapfile -t EXPECTED_PACKAGES < <(get_immutablue_packages | sort -u | grep -v '^$')
 
@@ -144,11 +156,36 @@ echo "Checking ${#EXPECTED_PACKAGES[@]} requested packages"
 #
 # Querying one package per podman run would be simpler but far too slow for a
 # list this size, so the whole set is checked inside one container.
-MISSING_OUTPUT="$(podman run --rm --entrypoint "" "${IMAGE}" \
+#
+# Other backends answer the same question with their own package manager:
+# pacman -T resolves provides like a dependency would (and -Qg a group, which
+# is how 'gnome' is requested on Arch); FreeBSD's pkg info -e takes a name.
+MISSING_OUTPUT="$(podman run --rm --entrypoint "" -e BACKEND="${IMAGE_BACKEND}" "${IMAGE}" \
     bash -c '
         missing=()
         for pkg in "$@"
         do
+            case "${BACKEND}" in
+                arch-bootc)
+                    if pacman -T "${pkg}" > /dev/null 2>&1 || pacman -Qqg "${pkg}" > /dev/null 2>&1
+                    then
+                        continue
+                    fi
+                    missing+=("${pkg}")
+                    continue
+                    ;;
+                freebsd-be)
+                    if pkg info -e "${pkg}"
+                    then
+                        continue
+                    fi
+                    missing+=("${pkg}")
+                    continue
+                    ;;
+                *)
+                    ;;
+            esac
+
             if rpm --quiet -q --whatprovides "${pkg}"
             then
                 continue

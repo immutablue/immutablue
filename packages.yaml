@@ -510,6 +510,78 @@ immutablue:
     - {name: podman-machine, pacman: null, freebsd: null}
   
  
+
+  # arch-bootc native packages (pacman names), installed alongside the
+  # resolved 'pkg' lists. A Fedora Atomic base image already carries most of
+  # this; archlinux:latest is a bare container, so the bootable system itself
+  # (kernel, firmware, dracut, ostree/composefs) and what Immutablue's own
+  # tools assume is present (podman, flatpak, plymouth, sudo, jq, zstd) are
+  # listed here.
+  pacman:
+    all:
+    - base
+    - linux
+    - linux-firmware
+    - linux-headers
+    - dracut
+    - ostree
+    - composefs
+    - btrfs-progs
+    - e2fsprogs
+    - xfsprogs
+    - dosfstools
+    - skopeo
+    - podman
+    - fuse-overlayfs
+    - bubblewrap
+    - dbus
+    - glib2
+    - shadow
+    - openssh
+    - sudo
+    - which
+    - jq
+    - curl
+    - zstd
+    - fontconfig
+    - flatpak
+    # Immutablue ships a plymouth theme and 80-initramfs.sh verifies it
+    # reached the initramfs.
+    - plymouth
+  pacman_silverblue:
+    all:
+    # 'silverblue' is the GNOME desktop option on every backend; gnome is a
+    # pacman group.
+    - gnome
+    - gdm
+    - xdg-desktop-portal-gnome
+
+  # freebsd-be native packages (FreeBSD 15.1 pkg names). The base system,
+  # kernel and bootloader are pkgbase packages from the FreeBSD-base
+  # repository; the rest replaces what Linux backends get as upstream release
+  # binaries (hugo, just, starship) or from the base image (podman, sudo).
+  freebsd:
+    all:
+    - FreeBSD-set-base
+    - FreeBSD-kernel-generic
+    - FreeBSD-bootloader
+    - bash
+    - go-yq
+    - jq
+    - curl
+    - rsync
+    - sudo
+    - podman-suite
+    - ocijail
+    - gohugo
+    - just
+    - starship
+    - fontconfig
+  freebsd_silverblue:
+    all:
+    - gnome
+    - gdm
+
   # Urls to RPMs to download (they are curled)
   rpm_url:
     42:
@@ -624,30 +696,33 @@ immutablue:
   # - yafti
 
   # Services
+  # Entries may map a systemd unit to its rc(8) script name for freebsd-be
+  # ({name: <unit>, rc: <script>}); rc: null means "not on rc backends" --
+  # the timers there are /etc/cron.d/immutablue instead.
   services_enable_sys:
     all:
-    - immutablue-first-boot.service
-    - immutablue-onboot.service
-    - immutablue-hourly.timer
-    - immutablue-daily.timer
-    - immutablue-weekly.timer
-    - immutablue-monthly.timer
-    - linuxbrew-setup.service
-    - linuxbrew-update.timer
-    - linuxbrew-upgrade.timer
+    - {name: immutablue-first-boot.service, rc: immutablue_first_boot}
+    - {name: immutablue-onboot.service, rc: immutablue_onboot}
+    - {name: immutablue-hourly.timer, rc: null}
+    - {name: immutablue-daily.timer, rc: null}
+    - {name: immutablue-weekly.timer, rc: null}
+    - {name: immutablue-monthly.timer, rc: null}
+    - {name: linuxbrew-setup.service, rc: null}
+    - {name: linuxbrew-update.timer, rc: null}
+    - {name: linuxbrew-upgrade.timer, rc: null}
     # See /usr/libexec/immutablue/system/on_boot/00-on_boot
     # Quadlets are not recognized in the build stage
     # - immutablue-docs.container
-    - sshd.service
-    - tailscaled.service
+    - {name: sshd.service, rc: sshd}
+    - {name: tailscaled.service, rc: tailscaled}
     # Enabled explicitly for the same reason sshd and tailscaled are:
     # a preset is applied at package-install time and that is not
     # reliable inside an image build, so a daemon that Fedora would
     # normally start comes up dead.  Nothing answering on
     # net.hadess.PowerProfiles is a bar widget whose panel does nothing.
-    - tuned-ppd.service
-    - lima-guest-ready.service
-    - cloud-init-local.service
+    - {name: tuned-ppd.service, rc: null}
+    - {name: lima-guest-ready.service, rc: null}
+    - {name: cloud-init-local.service, rc: cloudinit}
     # - docker.service
 
   services_enable_sys_gui:

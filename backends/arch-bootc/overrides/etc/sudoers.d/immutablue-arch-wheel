@@ -1,0 +1,7 @@
+# Introduced via the immutablue project (arch-bootc backend).
+# - https://gitlab.com/immutablue/immutablue
+#
+# Fedora's stock sudoers already lets wheel run anything; Arch ships that line
+# commented out. Every Immutablue workflow ('sudo immutablue-backend upgrade',
+# the first-boot setup) assumes the Fedora behaviour.
+%wheel ALL=(ALL:ALL) ALL

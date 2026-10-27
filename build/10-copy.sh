@@ -41,8 +41,12 @@ echo "${IMMUTABLUE_BUILD_OPTIONS}" > "${INSTALL_DIR}/build_options"
 # Which backend built this image; read by immutablue-backend at runtime.
 echo "${IMMUTABLUE_BACKEND}" > "${INSTALL_DIR}/backend"
 
-# things depend on 'yq' heavily for build, so copy it early
-cp /mnt-yq/yq /usr/bin/yq
+# things depend on 'yq' heavily for build, so copy it early (a backend whose
+# Containerfile has no yq mount installs it as a package instead)
+if [[ -x /mnt-yq/yq ]]
+then
+    cp /mnt-yq/yq /usr/bin/yq
+fi
 
 # -----------------------------------
 # Distroless: Copy development tools from devel stage
@@ -63,8 +67,9 @@ if echo "${IMMUTABLUE_BUILD_OPTIONS}" | grep -q "distroless"; then
     IS_DISTROLESS_BUILD="${TRUE}"
 fi
 
-# Nautilus extension (skip for distroless - may not have nautilus)
-if [[ "${IS_DISTROLESS_BUILD}" == "${FALSE}" ]] || [[ -d "/usr/lib64/nautilus" ]]; then
+# Nautilus extension (skip for distroless - may not have nautilus; and for
+# backends whose Containerfile does not mount the Fedora-built extension)
+if [[ -d "/mnt-nautilusopenwithcode" ]] && { [[ "${IS_DISTROLESS_BUILD}" == "${FALSE}" ]] || [[ -d "/usr/lib64/nautilus" ]]; }; then
     mkdir -p /usr/lib64/nautilus/extensions-4
     cp /mnt-nautilusopenwithcode/libnautilus-open-with-code.so /usr/lib64/nautilus/extensions-4/libnautilus-open-with-code.so 2>/dev/null || true
 fi
@@ -279,7 +284,16 @@ echo "Linuxbrew files copied successfully"
 # the same digest-pinned artifact that supplied /mnt-build-deps, never from
 # submodule pins in the image checkout. Preserve the current image's commit.
 mkdir -p "${INSTALL_DIR}/deps"
-bash /mnt-ctx/scripts/merge-dep-info.sh \
-    /mnt-ctx/.image-source.json \
-    /mnt-build-deps/dep_info.json "${DEPS_IMAGE}" \
-    > "${INSTALL_DIR}/deps/dep_info.json"
+if [[ -f /mnt-build-deps/dep_info.json ]]
+then
+    bash /mnt-ctx/scripts/merge-dep-info.sh \
+        /mnt-ctx/.image-source.json \
+        /mnt-build-deps/dep_info.json "${DEPS_IMAGE}" \
+        > "${INSTALL_DIR}/deps/dep_info.json"
+else
+    # A backend built without a deps image (backend.yaml lacks inhouse_deps)
+    # ships no in-house C projects, so there is no dependency provenance to
+    # merge -- only the image's own.
+    echo "No dependency manifest for backend ${IMMUTABLUE_BACKEND}; recording image provenance only"
+    cp /mnt-ctx/.image-source.json "${INSTALL_DIR}/deps/dep_info.json"
+fi

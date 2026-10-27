@@ -41,65 +41,72 @@ fi
 
 
 # Install Python packages via pip
-# This is skipped for nucleus (headless) and build-a-blue-workshop variants
-if [[ "$pip_pkgs" != "" ]] && [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && [[ "$(is_option_in_build_options build_a_blue_workshop)" == "${FALSE}" ]]
+# This is skipped for nucleus (headless) and build-a-blue-workshop variants,
+# and on backends whose system python refuses pip (PEP 668; no 'pip' capability)
+if [[ "$pip_pkgs" != "" ]] && [[ "$(backend_has pip)" == "${TRUE}" ]] && [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && [[ "$(is_option_in_build_options build_a_blue_workshop)" == "${FALSE}" ]]
 then 
     # Install pip packages to the system-wide Python installation
     pip3 install --prefix=/usr "$(for pkg in $pip_pkgs; do printf '%s ' "$pkg"; done)"
 fi
 
 
-# Install a modern build of Hugo for the documentation site
-# Fedora repositories have an older version, so we download a newer release directly
-immutablue_curl -fLo /tmp/hugo.tar.gz "${HUGO_RELEASE_URL}"
-tar -xzf /tmp/hugo.tar.gz -C /usr/bin/ hugo
-rm /tmp/hugo.tar.gz
-# Verify the Hugo installation
-hugo version
+# Upstream Linux release binaries (hugo, starship, just, voxtype). Backends
+# without the linux_binaries capability (FreeBSD) install the same tools as
+# packages through packages.yaml instead.
+if [[ "$(backend_has linux_binaries)" == "${TRUE}" ]]
+then
+    # Install a modern build of Hugo for the documentation site
+    # Fedora repositories have an older version, so we download a newer release directly
+    immutablue_curl -fLo /tmp/hugo.tar.gz "${HUGO_RELEASE_URL}"
+    tar -xzf /tmp/hugo.tar.gz -C /usr/bin/ hugo
+    rm /tmp/hugo.tar.gz
+    # Verify the Hugo installation
+    hugo version
+
+    # Install Starship prompt for a better terminal experience
+    # https://starship.rs/
+    immutablue_curl -fLo "/tmp/install_starship.sh" "${STARSHIP_URL}"
+    sh "/tmp/install_starship.sh" -y -b "/usr/bin/"
+    rm "/tmp/install_starship.sh"
+
+    # Install just command runner
+    # We install this manually as it somehow breaks the iso installer 
+    # if its installed as a system level package
+    # Downloaded to a file rather than piped into tar: immutablue_curl retries by
+    # re-running curl, and a retry part-way through a pipe would hand tar a second
+    # overlapping stream on top of what it already read.
+    mkdir -p /tmp/just
+    immutablue_curl -fLo /tmp/just.tar.gz "${JUST_RELEASE_URL}"
+    tar xzf /tmp/just.tar.gz -C /tmp/just
+    mv /tmp/just/just /usr/bin/just
+    chmod +x /usr/bin/just
+    rm -rf /tmp/just /tmp/just.tar.gz
+
+    # Install voxtype (push-to-talk voice-to-text).
+    #
+    # GUI variants only: it types into a focused window, which a headless image has
+    # no use for. Nucleus and the workshop image are skipped for the same reason
+    # the pip block above skips them.
+    #
+    # The download is checksum-verified rather than taken on trust. Unlike the
+    # other binaries fetched here, this one holds the microphone open and injects
+    # synthetic keystrokes, so a silently substituted build is worth more to an
+    # attacker than a substituted `just` would be.
+    if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && [[ "$(is_option_in_build_options build_a_blue_workshop)" == "${FALSE}" ]]
+    then
+        immutablue_curl -fLo /tmp/voxtype "${VOXTYPE_RELEASE_URL}"
+        echo "${VOXTYPE_SHA256}  /tmp/voxtype" | sha256sum -c -
+        install -D -m 0755 /tmp/voxtype /usr/bin/voxtype
+        rm -f /tmp/voxtype
+        voxtype --version
+    fi
+fi
 
 # Install fzf-git for improved git command-line experience
 # This provides fuzzy finding for git commands
 # https://github.com/junegunn/fzf-git.sh
 immutablue_curl -fLo /usr/bin/fzf-git "${FZF_GIT_URL}"
 chmod a+x /usr/bin/fzf-git
-
-# Install Starship prompt for a better terminal experience
-# https://starship.rs/
-immutablue_curl -fLo "/tmp/install_starship.sh" "${STARSHIP_URL}"
-sh "/tmp/install_starship.sh" -y -b "/usr/bin/"
-rm "/tmp/install_starship.sh"
-
-# Install just command runner
-# We install this manually as it somehow breaks the iso installer 
-# if its installed as a system level package
-# Downloaded to a file rather than piped into tar: immutablue_curl retries by
-# re-running curl, and a retry part-way through a pipe would hand tar a second
-# overlapping stream on top of what it already read.
-mkdir -p /tmp/just
-immutablue_curl -fLo /tmp/just.tar.gz "${JUST_RELEASE_URL}"
-tar xzf /tmp/just.tar.gz -C /tmp/just
-mv /tmp/just/just /usr/bin/just
-chmod +x /usr/bin/just
-rm -rf /tmp/just /tmp/just.tar.gz
-
-# Install voxtype (push-to-talk voice-to-text).
-#
-# GUI variants only: it types into a focused window, which a headless image has
-# no use for. Nucleus and the workshop image are skipped for the same reason
-# the pip block above skips them.
-#
-# The download is checksum-verified rather than taken on trust. Unlike the
-# other binaries fetched here, this one holds the microphone open and injects
-# synthetic keystrokes, so a silently substituted build is worth more to an
-# attacker than a substituted `just` would be.
-if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && [[ "$(is_option_in_build_options build_a_blue_workshop)" == "${FALSE}" ]]
-then
-    immutablue_curl -fLo /tmp/voxtype "${VOXTYPE_RELEASE_URL}"
-    echo "${VOXTYPE_SHA256}  /tmp/voxtype" | sha256sum -c -
-    install -D -m 0755 /tmp/voxtype /usr/bin/voxtype
-    rm -f /tmp/voxtype
-    voxtype --version
-fi
 
 # Special packages for trueblue builds
 if [[ "$(is_option_in_build_options trueblue)" == "${TRUE}" ]]

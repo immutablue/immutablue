@@ -110,7 +110,7 @@ push-cyan-deps:
 # ------------------------------------------------------------------------------
 build: backend_check pre_test deps_manifest $(IMAGE_IGNOREFILE)
 ifeq ($(DISTROLESS),1)
-	deps_image="$$(bash scripts/resolve-deps-image.sh "$(DEPS_IMAGE)")" && sudo podman \
+	deps_image="$$(if [ "$(BACKEND_INHOUSE_DEPS)" = true ]; then bash scripts/resolve-deps-image.sh "$(DEPS_IMAGE)"; else echo no-deps; fi)" && sudo podman \
 		build \
 		--platform $(PLATFORM) \
 		--format oci \
@@ -136,7 +136,7 @@ ifeq ($(DISTROLESS),1)
 		--build-arg=SKIP=$(SKIP)
 	sudo podman tag $(IMAGE):$(TAG) $(IMAGE):$(DATE_TAG)
 else
-	deps_image="$$(bash scripts/resolve-deps-image.sh "$(DEPS_IMAGE)")" && buildah \
+	deps_image="$$(if [ "$(BACKEND_INHOUSE_DEPS)" = true ]; then bash scripts/resolve-deps-image.sh "$(DEPS_IMAGE)"; else echo no-deps; fi)" && buildah \
 		build \
 		--platform $(PLATFORM) \
 		--ignorefile ./$(IMAGE_IGNOREFILE) \

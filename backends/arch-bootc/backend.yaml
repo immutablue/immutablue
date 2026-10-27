@@ -1,0 +1,38 @@
+# arch-bootc: Arch Linux delivered as a bootable OCI image through bootc and
+# ostree/composefs, modelled on bootcrew/mono's arch image. Arch is rolling, so
+# images are tagged 'arch' rather than by release.
+name: arch-bootc
+description: Arch Linux (rolling) via bootc/ostree
+
+base_image: docker.io/archlinux/archlinux
+devel_image: docker.io/archlinux/archlinux
+
+pkg_key: pacman
+repo_key: ""
+
+init: systemd
+kernel: linux
+delivery: ostree-container
+
+# Arch installs libraries to /usr/lib; /usr/lib64 is a symlink to it.
+libdir: lib
+
+# Pinned rather than built from bootc's main branch, so a build is repeatable.
+bootc_version: v1.17.1
+
+dracut_modules:
+  - ostree
+  - bootc
+
+provides:
+  - systemd
+  - dracut
+  - ostree
+  - flatpak
+  - distrobox
+  - brew
+  - nix
+  - linux_binaries
+  # Not yet: inhouse_deps (needs an Arch deps image published to the registry)
+  #          cmacs (the cmacs image is built on Fedora)
+  #          pip (Arch's python is externally managed, PEP 668)

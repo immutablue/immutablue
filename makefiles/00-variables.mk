@@ -27,6 +27,10 @@ ifndef BACKEND
     BACKEND := fedora-bootc
 endif
 
+# A backend may set its own defaults (VERSION, base image) before the variant
+# logic runs, e.g. arch-bootc's rolling 'arch' version.
+-include backends/$(BACKEND)/backend.mk
+
 # ------------------------------------------------------------------------------
 # Build Configuration
 # ------------------------------------------------------------------------------

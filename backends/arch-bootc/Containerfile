@@ -1,0 +1,94 @@
+# backends/arch-bootc/Containerfile
+#
+# Immutablue on Arch Linux as a bootc image, modelled on bootcrew/mono's arch
+# image: bootc is built from a pinned release, pacman's state is moved under
+# /usr so it ships with the image, and the shared build stages run through
+# backends/lib/run-stages.sh, ending with this backend's backend_finalize
+# (the bootc root filesystem layout).
+ARG BASE_IMAGE=docker.io/archlinux/archlinux
+ARG BASE_IMAGE_TAG=latest
+ARG BOOTC_VERSION=v1.17.1
+# The in-house C projects (gowl, crispy, ...) need an Arch build of the deps
+# image; until one is published the empty 'no-deps' stage stands in for it.
+ARG DEPS_IMAGE=no-deps
+
+FROM scratch AS ctx
+COPY / /
+
+FROM docker.io/mikefarah/yq AS yq
+FROM quay.io/immutablue/linuxbrew:latest AS linuxbrew
+
+
+# -----------------------------------
+# bootc, built from a pinned release tag.
+# -----------------------------------
+FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG} AS bootc-builder
+ARG BOOTC_VERSION
+
+RUN pacman -Syu --noconfirm make git rust go-md2man ostree glibc pkgconf
+
+# Arch has no libselinux (it is AUR-only), so bootc is built without its
+# default 'selinux' feature, using the feature set bootc's own Makefile
+# documents for that case. 'install' plus the ostree hooks is install-all
+# minus the integration-test binary.
+WORKDIR /home/build
+RUN git clone --depth 1 --branch "${BOOTC_VERSION}" https://github.com/bootc-dev/bootc.git . && \
+    make bin install install-ostree-hooks DESTDIR=/output \
+        CARGO_OPTIONS='--no-default-features --features "install-to-disk pre-6.15"'
+
+
+# -----------------------------------
+# Stand-in for the deps image: an empty /build.
+# -----------------------------------
+FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG} AS no-deps
+RUN mkdir -p /build
+
+FROM ${DEPS_IMAGE} AS build-deps
+
+
+# -----------------------------------
+# Main image stage
+# -----------------------------------
+FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG}
+
+ARG FEDORA_VERSION=arch
+ARG IMAGE_TAG=immutablue:arch
+ARG INSTALL_DIR=/usr/immutablue
+ARG DO_INSTALL_AKMODS=false
+ARG DO_INSTALL_ZFS=false
+ARG DO_INSTALL_LTS=false
+ARG IMMUTABLUE_BUILD=true
+ARG IMMUTABLUE_BUILD_OPTIONS=${IMMUTABLUE_BUILD_OPTIONS}
+ARG SKIP=
+ARG DEPS_IMAGE
+ARG BASE_IMAGE
+ARG IMMUTABLUE_BACKEND=arch-bootc
+
+COPY --from=bootc-builder /output /
+
+# Move everything pacman keeps under /var to /usr/lib/sysimage, so the package
+# database ships with the image (bootc only seeds /var on first install) and
+# pacman behaves the same on a 'bootc usroverlay'd system.
+RUN grep "= */var" /etc/pacman.conf | sed "/= *\/var/s/.*=// ; s/ //" | \
+        xargs -n1 sh -c 'mkdir -p "/usr/lib/sysimage/$(dirname $(echo $1 | sed "s@/var/@@"))" && mv -v "$1" "/usr/lib/sysimage/$(echo "$1" | sed "s@/var/@@")"' '' && \
+    sed -i -e "/= *\/var/ s/^#//" -e "s@= */var@= /usr/lib/sysimage@g" -e "/DownloadUser/d" /etc/pacman.conf && \
+    pacman -Syu --noconfirm
+
+# Arch's dracut runs the bootc module's systemd paths through these.
+RUN mkdir -p /usr/lib/dracut/dracut.conf.d && \
+    printf 'systemdsystemconfdir=/etc/systemd/system\nsystemdsystemunitdir=/usr/lib/systemd/system\n' \
+        > /usr/lib/dracut/dracut.conf.d/30-immutablue-bootc-paths.conf && \
+    printf 'reproducible=yes\nhostonly=no\ncompress=zstd\n' \
+        > /usr/lib/dracut/dracut.conf.d/30-immutablue-container-build.conf
+
+RUN --mount=type=bind,from=ctx,src=/,dst=/mnt-ctx \
+    --mount=type=bind,from=yq,src=/usr/bin,dst=/mnt-yq \
+    --mount=type=bind,from=build-deps,src=/build,dst=/mnt-build-deps \
+    --mount=type=bind,from=linuxbrew,src=/,dst=/mnt-linuxbrew \
+    --mount=type=tmpfs,dst=/tmp \
+    set -eux && \
+    bash /mnt-ctx/backends/lib/run-stages.sh /mnt-ctx
+
+LABEL containers.bootc=1
+
+RUN bootc container lint

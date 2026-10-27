@@ -1,4 +1,6 @@
-# kuberblue: kubelet + CRI-O; needs a Linux kernel and systemd units.
+# kuberblue: kubelet + CRI-O from Fedora's versioned kubernetes RPMs
+# (rpm_kuberblue.<version>), with systemd units.
 requires:
   kernel: linux
   init: systemd
+  pkg_key: rpm

@@ -67,6 +67,46 @@ function test_container_contents() {
   return 0
 }
 
+# Backend-neutral content check for images that are not fedora-bootc.
+#
+# validate_container.c is a crispy script with a Fedora rpm list and needs
+# crispy itself, which only ships where the in-house deps are built. Other
+# backends get the checks that hold everywhere: Immutablue's tree, its
+# commands, and its systemd units; packages are covered by
+# test_package_presence.sh through each backend's own package manager.
+function test_container_contents_generic() {
+  echo "Testing container contents (backend ${IMAGE_BACKEND})"
+
+  if ! podman run --rm --entrypoint "" "$IMAGE" bash -c '
+      set -u
+      rc=0
+      for path in /usr/immutablue/packages.yaml /usr/immutablue/backend \
+                  /usr/bin/immutablue /usr/bin/immutablue-backend /usr/bin/immutablue-settings \
+                  /usr/libexec/immutablue/immutablue-header.sh /usr/share/immutablue/image-info.json
+      do
+          [[ -e "${path}" ]] || { echo "missing: ${path}"; rc=1; }
+      done
+      if command -v systemctl > /dev/null
+      then
+          for unit in immutablue-first-boot.service immutablue-onboot.service immutablue-daily.timer
+          do
+              systemctl is-enabled "${unit}" > /dev/null 2>&1 || { echo "not enabled: ${unit}"; rc=1; }
+          done
+      fi
+      [[ "$(immutablue-backend name)" == "$(cat /usr/immutablue/backend)" ]] || { echo "immutablue-backend disagrees with /usr/immutablue/backend"; rc=1; }
+      exit ${rc}
+  '; then
+    echo "FAIL: Container content validation failed"
+    return 1
+  fi
+
+  echo "PASS: Container content validation succeeded"
+  return 0
+}
+
+IMAGE_BACKEND="$(podman run --rm --entrypoint "" "$IMAGE" cat /usr/immutablue/backend 2>/dev/null || true)"
+IMAGE_BACKEND="${IMAGE_BACKEND:-fedora-bootc}"
+
 # Run tests
 echo "=== Running Tests ==="
 FAILED=0
@@ -77,7 +117,11 @@ if ! test_bootc_lint; then
 fi
 
 # All other checks consolidated into one container run
-if ! test_container_contents; then
+if [[ "${IMAGE_BACKEND}" == "fedora-bootc" ]]; then
+  if ! test_container_contents; then
+    ((FAILED++))
+  fi
+elif ! test_container_contents_generic; then
   ((FAILED++))
 fi
 
