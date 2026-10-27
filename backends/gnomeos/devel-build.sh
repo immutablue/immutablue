@@ -140,6 +140,8 @@ fi
 
 echo "=== Devel stage complete ==="
 echo "Rootfs contents:"
-find /rootfs -type f | head -50
+# head closes the pipe early; under pipefail find's SIGPIPE (141) would
+# fail the stage, so the listing is allowed to be cut short.
+find /rootfs -type f | head -50 || true
 echo "..."
 du -sh /rootfs
