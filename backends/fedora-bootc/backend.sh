@@ -163,3 +163,11 @@ backend_os_release_path() {
 backend_finalize() {
     ostree container commit
 }
+
+
+# Prepare the deps container's package manager before build_deps install.
+# (Optional hook; used by deps-container/00-build.sh only.)
+backend_deps_prepare() {
+    echo -e 'max_parallel_downloads=10\n' >> /etc/dnf/dnf.conf
+    dnf5 update -y
+}

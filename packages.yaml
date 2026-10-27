@@ -46,108 +46,240 @@ immutablue:
       url: https://copr.fedorainfracloud.org/coprs/spike/znapzend/repo/fedora-44/spike-znapzend-fedora-44.repo
 
 
-  # RPM Packages to be installed
-  rpm:
+  # Packages the deps container (deps-container/00-build.sh) installs to build
+  # the in-house C projects, as logical entries resolved per backend exactly
+  # like 'pkg' (most Fedora -devel packages are the plain library on Arch and
+  # FreeBSD, which ship headers in the main package). Each backend builds its
+  # own deps image from backends/<backend>/deps.Containerfile.
+  build_deps:
     all:
-    - adb
-    - bashmount
+    - git
+    - {name: golang, pacman: go, freebsd: go}
+    - gcc
+    - {name: glibc-static, pacman: glibc, freebsd: null}
+
+    # build tools (yaml-glib/crispy/g/st/gowl)
+    - {name: make, freebsd: gmake}
+    - {name: pkgconf-pkg-config, pacman: pkgconf, freebsd: pkgconf}
+
+    # glib/gobject (all four C projects)
+    - {name: glib2-devel, freebsd: glib}
+
+    # ai-glib: GObject introspection bindings (built with GIR=1)
+    - {name: gobject-introspection-devel, pacman: gobject-introspection, freebsd: gobject-introspection}
+
+    # ai-glib: the ai-gui desktop client. Without these, HAVE_GTK is
+    # 0, the binary is dropped, and make install has nothing to put
+    # org.copyleft.AiGlib.Gui.desktop next to. libadwaita is the
+    # runtime the binary needs once it is copied into the image.
+    - {name: gtk4-devel, pacman: gtk4, freebsd: gtk4}
+    - {name: libadwaita-devel, pacman: libadwaita, freebsd: libadwaita}
+    - libadwaita
+
+    # ai-glib: voice sessions (0.6.0+). gstreamer-1.0 and gstreamer-app-1.0
+    # are in ai-glib's PKG_DEPS; if either .pc is missing the whole
+    # `pkg-config --cflags` call fails and every glib include path is lost.
+    # Also needed by podomation/bacon, which build ai-glib statically.
+    - {name: gstreamer1-devel, pacman: gstreamer, freebsd: gstreamer1}
+    - {name: gstreamer1-plugins-base-devel, pacman: gst-plugins-base, freebsd: gstreamer1-plugins}
+
+    # yaml-glib + gst: YAML + JSON
+    - {name: libyaml-devel, pacman: libyaml, freebsd: libyaml}
+    - {name: json-glib-devel, pacman: json-glib, freebsd: json-glib}
+
+    # gst: X11 rendering
+    - {name: libX11-devel, pacman: libx11, freebsd: libX11}
+    - {name: libXft-devel, pacman: libxft, freebsd: libXft}
+    - {name: fontconfig-devel, pacman: fontconfig, freebsd: fontconfig}
+
+    # gst: wayland backend
+    - {name: wayland-devel, pacman: wayland, freebsd: wayland}
+    - {name: libxkbcommon-devel, pacman: libxkbcommon, freebsd: libxkbcommon}
+    - {name: cairo-devel, pacman: cairo, freebsd: cairo}
+    - {name: libdecor-devel, pacman: libdecor, freebsd: libdecor}
+
+    # gst: libregnum (LRG) backend (built with LRG_BACKEND=1).
+    # graylib + raylib are vendored and compiled from source; raylib's GLFW
+    # desktop backend needs the Mesa GL headers and the X11 extension dev
+    # libs, and raylib audio (miniaudio) pulls in ALSA. libX11-devel is
+    # already listed above for the X11 backend.
+    - {name: mesa-libGL-devel, pacman: [mesa, libglvnd], freebsd: [mesa-libs, libglvnd]}
+    - {name: libXrandr-devel, pacman: libxrandr, freebsd: libXrandr}
+    - {name: libXinerama-devel, pacman: libxinerama, freebsd: libXinerama}
+    - {name: libXcursor-devel, pacman: libxcursor, freebsd: libXcursor}
+    - {name: libXi-devel, pacman: libxi, freebsd: libXi}
+    - {name: alsa-lib-devel, pacman: alsa-lib, freebsd: alsa-lib}
+
+    # gsurf: WebKit2GTK 4.1 / GTK3 browser backend (javascriptcoregtk-4.1.pc
+    # ships in webkit2gtk4.1-devel; libpng is used by the MCP screenshot tool;
+    # libsoup3/libdex/readline are already pulled in above for mcp-glib).
+    - {name: gtk3-devel, pacman: gtk3, freebsd: gtk3}
+    - {name: webkit2gtk4.1-devel, pacman: webkit2gtk-4.1, freebsd: webkit2-gtk_41}
+    - {name: libpng-devel, pacman: libpng, freebsd: png}
+
+    # gowl: wayland compositor
+    # wlroots-devel is whatever the Fedora release ships as its default:
+    # 0.19 on F42/F43, 0.20 on F44+. gowl builds against either -- its
+    # config.mk picks the newest wlroots-*.pc present -- and 0.20 is what
+    # unlocks per-window screencast capture.
+    - {name: wlroots-devel, pacman: wlroots0.20, freebsd: wlroots020}
+    - {name: wayland-protocols-devel, pacman: wayland-protocols, freebsd: wayland-protocols}
+    - {name: libinput-devel, pacman: libinput, freebsd: libinput}
+    - {name: libxcb-devel, pacman: libxcb, freebsd: libxcb}
+    - {name: xcb-util-wm-devel, pacman: xcb-util-wm, freebsd: xcb-util-wm}
+    - {name: libdrm-devel, pacman: libdrm, freebsd: libdrm}
+    - {name: pixman-devel, pacman: pixman, freebsd: pixman}
+    - {name: pango-devel, pacman: pango, freebsd: pango}
+    - {name: gdk-pixbuf2-devel, pacman: gdk-pixbuf2, freebsd: gdk-pixbuf2}
+    - {name: pam-devel, pacman: pam, freebsd: null}
+
+    # gowl: InputCapture/RemoteDesktop portal backend
+    # (xdg-desktop-portal-gowl). gowl's build gates the portal target on
+    # pkg-config libeis-1.0; without libeis-devel the EIS server binary and
+    # its .portal / portals.conf / D-Bus .service are silently skipped, so
+    # deskflow's software-KVM input capture fails with "CreateSession failed".
+    - {name: libeis-devel, pacman: libei, freebsd: libei}
+
+    # mcp-glib: MCP protocol library
+    - {name: libsoup3-devel, pacman: libsoup3, freebsd: libsoup3}
+    - {name: libdex-devel, pacman: libdex, freebsd: libdex}
+    - {name: readline-devel, pacman: readline, freebsd: readline}
+
+    # podomation: core lib (gudev-1.0), udev module (libudev), email (IMAP/SMTP),
+    #             db modules (SQLite, PostgreSQL), ssh module, VM module,
+    #             discord module (TLS for gateway WebSocket)
+    - {name: libgudev-devel, pacman: libgudev, freebsd: libgudev}
+    - {name: systemd-devel, pacman: systemd-libs, freebsd: null}
+    - {name: libetpan-devel, pacman: libetpan, freebsd: libetpan}
+    - {name: sqlite-devel, pacman: sqlite, freebsd: sqlite3}
+    - {name: libpq-devel, pacman: postgresql-libs, freebsd: postgresql17-client}
+    - {name: libssh2-devel, pacman: libssh2, freebsd: libssh2}
+    - {name: libvirt-devel, pacman: libvirt, freebsd: libvirt}
+    - {name: gnutls-devel, pacman: gnutls, freebsd: gnutls}
+
+    # nerd-fonts: extraction
+    - {name: xz, freebsd: null}
+
+  # Packages to be installed, by logical name, on every backend.
+  #
+  # An entry is either a plain name, used as-is on every backend:
+  #     - tmux
+  # or a map that overrides the name where a backend calls it something else.
+  # 'name' is the default (and the Fedora name); each backend reads the field
+  # named by its backend.yaml 'pkg_key' (rpm, pacman, freebsd). A field set to
+  # null means "not available / not wanted on this backend"; a list installs
+  # several packages for one logical entry:
+  #     - {name: fuse-sshfs, pacman: sshfs, freebsd: fusefs-sshfs}
+  #     - {name: bemenu-run, pacman: [bemenu, bemenu-wayland]}
+  #     - {name: perf, freebsd: null}
+  #
+  # Lists compose exactly like the native ones: pkg_<option>, pkg_<arch>,
+  # .<version>, ... (see get_yaml_array in build/99-common.sh).
+  #
+  # Packages that only make sense on one backend stay under that backend's
+  # native key instead: rpm* (fedora-bootc), pacman* (arch-bootc),
+  # freebsd* (freebsd-be).
+  pkg:
+    all:
+    - {name: adb, pacman: android-tools, freebsd: android-tools}
+    - {name: bashmount, pacman: null, freebsd: null}
     - bear
-    - bemenu-run
-    - binutils-devel
+    - {name: bemenu-run, pacman: [bemenu, bemenu-wayland], freebsd: bemenu}
+    - {name: binutils-devel, pacman: binutils, freebsd: binutils}
     # bluetoothctl, for the gowl bar's `bluetooth' widget: adapter
     # power, paired devices, and connect/disconnect from the panel.
     # The widget hides itself where there is no adapter, so a desktop
     # without one carries no dead icon.
-    - bluez
-    - bpftrace
+    - {name: bluez, freebsd: null}
+    - {name: bpftrace, freebsd: null}
     - buildah
-    - buildstream
-    - cloud-init
+    - {name: buildstream, pacman: null, freebsd: null}
+    - {name: cloud-init, freebsd: py312-cloud-init}
     - chafa
     - cmake
-    - cmark-devel
+    - {name: cmark-devel, pacman: cmark, freebsd: cmark}
     - ddrescue
-    - dialog
-    - distrobox
+    - {name: dialog, freebsd: null}
+    - {name: distrobox, freebsd: null}
     - e2fsprogs
-    - eigen3-devel
-    - elfutils-devel
-    - elfutils-debuginfod-client-devel
+    - {name: eigen3-devel, pacman: eigen, freebsd: eigen}
+    - {name: elfutils-devel, pacman: libelf, freebsd: elfutils}
+    - {name: elfutils-debuginfod-client-devel, pacman: debuginfod, freebsd: null}
     - fastfetch
-    - flatpak-builder
-    - fuse-sshfs
+    - {name: flatpak-builder, freebsd: null}
+    - {name: fuse-sshfs, pacman: sshfs, freebsd: fusefs-sshfs}
     - fzf
     - gcc
-    - gcc-c++
+    - {name: gcc-c++, pacman: gcc, freebsd: gcc}
     - gdb
     # The gowl display panel's `Night light' button toggles gammastep.
     # Not probed with bar_have_command, so a missing one is a button
     # that spawns nothing and reports nothing.
     - gammastep
     - git
-    - gjs-devel
-    - glib2-devel
-    - gmime30-devel
-    - gobject-introspection-devel
+    - {name: gjs-devel, pacman: gjs, freebsd: gjs}
+    - {name: glib2-devel, freebsd: glib}
+    - {name: gmime30-devel, pacman: gmime3, freebsd: gmime30}
+    - {name: gobject-introspection-devel, pacman: gobject-introspection, freebsd: gobject-introspection}
     - heaptrack
     - htop
     - innoextract
-    - jansson-devel
-    - json-glib-devel
-    - libadwaita-devel
-    - libasan
-    - libcurl-devel
+    - {name: jansson-devel, pacman: jansson, freebsd: jansson}
+    - {name: json-glib-devel, pacman: json-glib, freebsd: json-glib}
+    - {name: libadwaita-devel, pacman: libadwaita, freebsd: libadwaita}
+    - {name: libasan, freebsd: null}
+    - {name: libcurl-devel, pacman: curl, freebsd: curl}
     - libdex
-    - libdex-devel
-    - libeis-devel
-    - libetpan-devel
-    - libjose-devel
+    - {name: libdex-devel, pacman: libdex, freebsd: libdex}
+    - {name: libeis-devel, pacman: libei, freebsd: libei}
+    - {name: libetpan-devel, pacman: libetpan, freebsd: libetpan}
+    - {name: libjose-devel, pacman: jose, freebsd: jose}
     - libspnav
-    - libspnav-devel
-    - libpq-devel
-    - librsvg2-devel
+    - {name: libspnav-devel, pacman: libspnav, freebsd: libspnav}
+    - {name: libpq-devel, pacman: postgresql-libs, freebsd: postgresql17-client}
+    - {name: librsvg2-devel, pacman: librsvg, freebsd: librsvg2-rust}
     - libsoup3
-    - libsoup3-devel
-    - libssh2-devel
-    - libubsan
+    - {name: libsoup3-devel, pacman: libsoup3, freebsd: libsoup3}
+    - {name: libssh2-devel, pacman: libssh2, freebsd: libssh2}
+    - {name: libubsan, freebsd: null}
     - libva-utils
     - libvirt
     - libvirt-dbus
-    - libvirt-devel
-    - libvorbis-devel
-    - libxml2-devel
-    - libyaml-devel
-    - libzip-devel
-    - lm_sensors
-    - luajit-devel
-    - make
+    - {name: libvirt-devel, pacman: libvirt, freebsd: libvirt}
+    - {name: libvorbis-devel, pacman: libvorbis, freebsd: libvorbis}
+    - {name: libxml2-devel, pacman: libxml2, freebsd: libxml2}
+    - {name: libyaml-devel, pacman: libyaml, freebsd: libyaml}
+    - {name: libzip-devel, pacman: libzip, freebsd: libzip}
+    - {name: lm_sensors, freebsd: null}
+    - {name: luajit-devel, pacman: luajit, freebsd: luajit}
+    - {name: make, freebsd: gmake}
     - mediainfo
     - mbuffer
-    - mutter-devkit
+    - {name: mutter-devkit, freebsd: null}
     - neovim
-    - NetworkManager-tui
-    - opencascade-devel
-    - perf
-    - pipewire-devel
-    - pkgconf-pkg-config
-    - podman-compose
-    - powertop
+    - {name: NetworkManager-tui, pacman: networkmanager, freebsd: null}
+    - {name: opencascade-devel, pacman: opencascade, freebsd: opencascade}
+    - {name: perf, freebsd: null}
+    - {name: pipewire-devel, pacman: pipewire, freebsd: pipewire}
+    - {name: pkgconf-pkg-config, pacman: pkgconf, freebsd: pkgconf}
+    - {name: podman-compose, freebsd: py312-podman-compose}
+    - {name: powertop, freebsd: null}
     - pv
-    - python3-devel
-    - python3-gobject
-    - python3-pip
-    - python3-yaml
-    - qemu
-    - qemu-user-binfmt
-    - ramalama
-    - readline-devel
-    - ShellCheck
+    - {name: python3-devel, pacman: python, freebsd: python312}
+    - {name: python3-gobject, pacman: python-gobject, freebsd: py312-pygobject}
+    - {name: python3-pip, pacman: python-pip, freebsd: py312-pip}
+    - {name: python3-yaml, pacman: python-yaml, freebsd: py312-pyyaml}
+    - {name: qemu, pacman: qemu-full}
+    - {name: qemu-user-binfmt, freebsd: null}
+    - {name: ramalama, freebsd: null}
+    - {name: readline-devel, pacman: readline, freebsd: readline}
+    - {name: ShellCheck, pacman: shellcheck, freebsd: hs-ShellCheck}
     - slurp
     - socat
     - stow
-    - strace
+    - {name: strace, freebsd: null}
     - syncthing
-    - syncthing-tools
+    - {name: syncthing-tools, pacman: null, freebsd: null}
     - tailscale
     - tmux
     # Backs the gowl bar's `power' widget, which reads and sets the
@@ -158,12 +290,12 @@ immutablue:
     # one can be installed.  tuned-ppd serves the same D-Bus interface
     # but does NOT ship powerprofilesctl, which is why the widget asks
     # over D-Bus and only prefers the binary when it happens to exist.
-    - tuned-ppd
+    - {name: tuned-ppd, freebsd: null}
     - unrar
-    - usbip
-    - vips
-    - virt-bootstrap
-    - webkit2gtk4.1-devel
+    - {name: usbip, freebsd: null}
+    - {name: vips, pacman: libvips}
+    - {name: virt-bootstrap, pacman: null, freebsd: null}
+    - {name: webkit2gtk4.1-devel, pacman: webkit2gtk-4.1, freebsd: webkit2-gtk_41}
     # The gowl display panel's `Outputs' button opens wdisplays.
     - wdisplays
     # The gowl bar's `recorder' widget.  Paired with slurp above: slurp
@@ -177,17 +309,17 @@ immutablue:
     # F42/F43, 0.20 on F44+ (which also unlocks per-window screencast
     # capture). The deps builder resolves the same package, so the runtime
     # library here always matches what gowl was linked against.
-    - wlroots
-    - wlroots-devel
+    - {name: wlroots, pacman: wlroots0.20, freebsd: wlroots020}
+    - {name: wlroots-devel, pacman: wlroots0.20, freebsd: wlroots020}
     - wofi
     - xdg-desktop-portal-wlr
 
   # Everything that is non-nucleus by default
-  rpm_gui:
+  pkg_gui:
     all:
-    - firewall-applet
-    - firewall-config
-    - ibus-speech-to-text
+    - {name: firewall-applet, pacman: firewalld, freebsd: null}
+    - {name: firewall-config, pacman: firewalld, freebsd: null}
+    - {name: ibus-speech-to-text, pacman: null, freebsd: null}
     # Media/volume/brightness control helpers.
     #
     # These are the CLI backends the gowl session's bar widget and keybind
@@ -198,7 +330,7 @@ immutablue:
     # GUI-only: a nucleus (headless) build has no session to control.
     - playerctl       # MPRIS play/pause/next for the media widget
     - pamixer         # PulseAudio/PipeWire volume for the volume widget
-    - brightnessctl   # backlight control for the brightness widget
+    - {name: brightnessctl, freebsd: null}   # backlight control for the brightness widget
     # Polkit authentication agent for sessions that do not provide one.
     #
     # GNOME Shell registers its own agent; a bare wlroots session (gowl,
@@ -206,32 +338,32 @@ immutablue:
     # mate-polkit is the GTK3 agent Fedora still ships -- polkit-gnome, which
     # would otherwise be the obvious choice, was retired and is not in F44.
     - mate-polkit
-    - python3-pip  # since we don't use this in nucleus builds, then we can just put this in gui
+    - {name: python3-pip, pacman: python-pip, freebsd: py312-pip}  # since we don't use this in nucleus builds, then we can just put this in gui
     - solaar
-    - cairo-devel
-    - fontconfig-devel
-    - libdecor-devel
-    - libdrm-devel
-    - libinput-devel
-    - libX11-devel
-    - libXft-devel
-    - libxcb-devel
-    - libxkbcommon-devel
+    - {name: cairo-devel, pacman: cairo, freebsd: cairo}
+    - {name: fontconfig-devel, pacman: fontconfig, freebsd: fontconfig}
+    - {name: libdecor-devel, pacman: libdecor, freebsd: libdecor}
+    - {name: libdrm-devel, pacman: libdrm, freebsd: libdrm}
+    - {name: libinput-devel, pacman: libinput, freebsd: libinput}
+    - {name: libX11-devel, pacman: libx11, freebsd: libX11}
+    - {name: libXft-devel, pacman: libxft, freebsd: libXft}
+    - {name: libxcb-devel, pacman: libxcb, freebsd: libxcb}
+    - {name: libxkbcommon-devel, pacman: libxkbcommon, freebsd: libxkbcommon}
     # gst libregnum (LRG) backend: OpenGL + X11 extension + ALSA libs that
     # raylib/GLFW links (graylib/raylib are statically built into gst).
-    - mesa-libGL-devel
-    - libXcursor-devel
-    - libXi-devel
-    - libXinerama-devel
-    - libXrandr-devel
-    - alsa-lib-devel
-    - pango-devel
-    - pixman-devel
-    - poppler-devel
-    - poppler-glib-devel
+    - {name: mesa-libGL-devel, pacman: [mesa, libglvnd], freebsd: [mesa-libs, libglvnd]}
+    - {name: libXcursor-devel, pacman: libxcursor, freebsd: libXcursor}
+    - {name: libXi-devel, pacman: libxi, freebsd: libXi}
+    - {name: libXinerama-devel, pacman: libxinerama, freebsd: libXinerama}
+    - {name: libXrandr-devel, pacman: libxrandr, freebsd: libXrandr}
+    - {name: alsa-lib-devel, pacman: alsa-lib, freebsd: alsa-lib}
+    - {name: pango-devel, pacman: pango, freebsd: pango}
+    - {name: pixman-devel, pacman: pixman, freebsd: pixman}
+    - {name: poppler-devel, pacman: poppler, freebsd: poppler}
+    - {name: poppler-glib-devel, pacman: poppler-glib, freebsd: poppler-glib}
     - virt-manager
-    - wayland-devel
-    - wayland-protocols-devel
+    - {name: wayland-devel, pacman: wayland, freebsd: wayland}
+    - {name: wayland-protocols-devel, pacman: wayland-protocols, freebsd: wayland-protocols}
     - waypipe
     - wl-clipboard
     # Typing backends for voxtype dictation. Both are needed because this image
@@ -241,23 +373,23 @@ immutablue:
     # ydotool, which injects through /dev/uinput below the compositor. Shipping
     # only one of them leaves one of the two sessions unable to type.
     - wtype
-    - xcb-util-wm-devel
+    - {name: xcb-util-wm-devel, pacman: xcb-util-wm, freebsd: xcb-util-wm}
     # gowl runs a rootless XWayland server so X11 apps (e.g. raylib/GLFW
     # `gst --lrg=2d') get a DISPLAY inside the session.  libxcb-devel +
     # xcb-util-wm-devel above are the matching XWayland build deps; this is
     # the runtime server the compositor spawns.
-    - xorg-x11-server-Xwayland
-    - xrdp
+    - {name: xorg-x11-server-Xwayland, pacman: xorg-xwayland, freebsd: xwayland}
+    - {name: xrdp, pacman: null}
     - ydotool
-    - dbus-devel
-    - gnutls-devel
-    - gtk3-devel
-    - gtk4-devel
-    - libgccjit  # runtime dep for cmacs native compilation
-    - libgccjit-devel
+    - {name: dbus-devel, pacman: dbus, freebsd: dbus}
+    - {name: gnutls-devel, pacman: gnutls, freebsd: gnutls}
+    - {name: gtk3-devel, pacman: gtk3, freebsd: gtk3}
+    - {name: gtk4-devel, pacman: gtk4, freebsd: gtk4}
+    - {name: libgccjit, freebsd: null}  # runtime dep for cmacs native compilation
+    - {name: libgccjit-devel, pacman: libgccjit, freebsd: null}
     - libotf  # runtime dep for cmacs OpenType font handling
-    - libtree-sitter-devel
-    - pam-devel
+    - {name: libtree-sitter-devel, pacman: tree-sitter, freebsd: tree-sitter}
+    - {name: pam-devel, pacman: pam, freebsd: null}
     # GStreamer codec stack for cmacs-video.  plugins-bad provides
     # rtspsrc (RTSP + RTSPS); plugins-ugly-free + the ffmpeg-free →
     # ffmpeg swap in 36-ffmpeg-freeworld.sh together give us a working
@@ -266,37 +398,37 @@ immutablue:
     # these are pulled in transitively via GNOME but pinning them
     # explicitly keeps the camera-viewer path stable across upstream
     # meta-package churn.
-    - gstreamer1
-    - gstreamer1-devel                     # gst/gst.h + gstreamer-1.0.pc (build dep for cmacs-video)
-    - gstreamer1-plugins-base
-    - gstreamer1-plugins-base-devel        # gst/app/gstappsink.h + gst/video/video.h + their .pc files
-    - gstreamer1-plugins-good
-    - gstreamer1-plugins-bad-free
-    - gstreamer1-plugins-bad-free-extras
-    - gstreamer1-plugins-ugly-free
-    - gstreamer1-plugin-libav
+    - {name: gstreamer1, pacman: gstreamer}
+    - {name: gstreamer1-devel, pacman: gstreamer, freebsd: gstreamer1}                     # gst/gst.h + gstreamer-1.0.pc (build dep for cmacs-video)
+    - {name: gstreamer1-plugins-base, pacman: gst-plugins-base, freebsd: gstreamer1-plugins}
+    - {name: gstreamer1-plugins-base-devel, pacman: gst-plugins-base, freebsd: gstreamer1-plugins}        # gst/app/gstappsink.h + gst/video/video.h + their .pc files
+    - {name: gstreamer1-plugins-good, pacman: gst-plugins-good}
+    - {name: gstreamer1-plugins-bad-free, pacman: gst-plugins-bad, freebsd: gstreamer1-plugins-bad}
+    - {name: gstreamer1-plugins-bad-free-extras, pacman: gst-plugins-bad, freebsd: gstreamer1-plugins-bad}
+    - {name: gstreamer1-plugins-ugly-free, pacman: gst-plugins-ugly, freebsd: gstreamer1-plugins-ugly}
+    - {name: gstreamer1-plugin-libav, pacman: gst-libav, freebsd: gstreamer1-libav}
 
 
 
-  rpm_silverblue:
+  pkg_silverblue:
     all:
-    - gnome-shell-extension-caffeine
-  rpm_silverblue_aarch64:
+    - {name: gnome-shell-extension-caffeine, freebsd: null}
+  pkg_silverblue_aarch64:
     all: []
 
-  rpm_nucleus:
+  pkg_nucleus:
     all: []
-  rpm_kinoite:
+  pkg_kinoite:
     all: []
-  rpm_sericea:
+  pkg_sericea:
     all: []
-  rpm_onyx:
+  pkg_onyx:
     all: []
-  rpm_vauxite:
+  pkg_vauxite:
     all: []
-  rpm_lazurite:
+  pkg_lazurite:
     all: []
-  rpm_cosmic:
+  pkg_cosmic:
     all: []
   rpm_bazzite:
     all: []
@@ -339,17 +471,19 @@ immutablue:
     # - cockpit-benchmark
     # - cockpit-tailscale
 
-  rpm_kuberblue:
+  # Shared across backends; the Kubernetes packages below are Fedora-versioned.
+  pkg_kuberblue:
     all:
     - age           # SOPS age key generation
-    - cockpit
+    - {name: cockpit, freebsd: null}
     - fzf
-    - glances
+    - {name: glances, freebsd: py312-glances}
     - helm
     - htop
     - neovim
     - tailscale     # Host-level mesh networking (optional, toggle in cni.yaml)
     - tmux
+  rpm_kuberblue:
     42:
     - cri-tools1.32
     - kubernetes1.32
@@ -370,10 +504,10 @@ immutablue:
     - kubernetes1.36-systemd
 
 
-  rpm_x86_64:
+  pkg_x86_64:
     all:
-    - podman-bootc
-    - podman-machine
+    - {name: podman-bootc, pacman: null, freebsd: null}
+    - {name: podman-machine, pacman: null, freebsd: null}
   
  
   # Urls to RPMs to download (they are curled)

@@ -5,8 +5,8 @@
 # Builds all third-party tools and custom C projects that ship in the
 # final image.
 #
-# This script is called from deps-container/Containerfile and runs inside a
-# Fedora container. All output goes to /build/ which is later consumed
+# This script is called from backends/<backend>/deps.Containerfile and runs
+# inside that backend's build container. All output goes to /build/ which is later consumed
 # by build/10-copy.sh via the /mnt-build-deps mount.
 #
 # Source trees for custom C projects (yaml-glib, crispy, gst, gsurf, gowl,
@@ -16,7 +16,8 @@
 # To add a new dependency:
 #   1. Write a build_<name> function below
 #   2. Add the name to the BUILDS array
-#   3. If it has source in a submodule, add COPY to deps-container/Containerfile
+#   3. If it has source in a submodule, add COPY to every
+#      backends/<backend>/deps.Containerfile
 #   4. Add corresponding cp section in build/10-copy.sh
 
 set -euxo pipefail
@@ -26,117 +27,12 @@ BUILD_DIR="/build"
 # ============================================================================
 # PACKAGES
 # ============================================================================
-# DNF packages required for building dependencies.
-# golang is included for future use (cpak) even though current deps don't need it.
-PACKAGES=(
-	git
-	golang
-	gcc
-	glibc-static
-
-	# build tools (yaml-glib/crispy/g/st/gowl)
-	make
-	pkgconf-pkg-config
-
-	# glib/gobject (all four C projects)
-	glib2-devel
-
-	# ai-glib: GObject introspection bindings (built with GIR=1)
-	gobject-introspection-devel
-
-	# ai-glib: the ai-gui desktop client. Without these, HAVE_GTK is
-	# 0, the binary is dropped, and make install has nothing to put
-	# org.copyleft.AiGlib.Gui.desktop next to. libadwaita is the
-	# runtime the binary needs once it is copied into the image.
-	gtk4-devel
-	libadwaita-devel
-	libadwaita
-
-	# ai-glib: voice sessions (0.6.0+). gstreamer-1.0 and gstreamer-app-1.0
-	# are in ai-glib's PKG_DEPS; if either .pc is missing the whole
-	# `pkg-config --cflags` call fails and every glib include path is lost.
-	# Also needed by podomation/bacon, which build ai-glib statically.
-	gstreamer1-devel
-	gstreamer1-plugins-base-devel
-
-	# yaml-glib + gst: YAML + JSON
-	libyaml-devel
-	json-glib-devel
-
-	# gst: X11 rendering
-	libX11-devel
-	libXft-devel
-	fontconfig-devel
-
-	# gst: wayland backend
-	wayland-devel
-	libxkbcommon-devel
-	cairo-devel
-	libdecor-devel
-
-	# gst: libregnum (LRG) backend (built with LRG_BACKEND=1).
-	# graylib + raylib are vendored and compiled from source; raylib's GLFW
-	# desktop backend needs the Mesa GL headers and the X11 extension dev
-	# libs, and raylib audio (miniaudio) pulls in ALSA. libX11-devel is
-	# already listed above for the X11 backend.
-	mesa-libGL-devel
-	libXrandr-devel
-	libXinerama-devel
-	libXcursor-devel
-	libXi-devel
-	alsa-lib-devel
-
-	# gsurf: WebKit2GTK 4.1 / GTK3 browser backend (javascriptcoregtk-4.1.pc
-	# ships in webkit2gtk4.1-devel; libpng is used by the MCP screenshot tool;
-	# libsoup3/libdex/readline are already pulled in above for mcp-glib).
-	gtk3-devel
-	webkit2gtk4.1-devel
-	libpng-devel
-
-	# gowl: wayland compositor
-	# wlroots-devel is whatever the Fedora release ships as its default:
-	# 0.19 on F42/F43, 0.20 on F44+. gowl builds against either -- its
-	# config.mk picks the newest wlroots-*.pc present -- and 0.20 is what
-	# unlocks per-window screencast capture.
-	wlroots-devel
-	wayland-protocols-devel
-	libinput-devel
-	libxcb-devel
-	xcb-util-wm-devel
-	libdrm-devel
-	pixman-devel
-	pango-devel
-	gdk-pixbuf2-devel
-	pam-devel
-
-	# gowl: InputCapture/RemoteDesktop portal backend
-	# (xdg-desktop-portal-gowl). gowl's build gates the portal target on
-	# pkg-config libeis-1.0; without libeis-devel the EIS server binary and
-	# its .portal / portals.conf / D-Bus .service are silently skipped, so
-	# deskflow's software-KVM input capture fails with "CreateSession failed".
-	libeis-devel
-
-	# mcp-glib: MCP protocol library
-	libsoup3-devel
-	libdex-devel
-	readline-devel
-
-	# podomation: core lib (gudev-1.0), udev module (libudev), email (IMAP/SMTP),
-	#             db modules (SQLite, PostgreSQL), ssh module, VM module,
-	#             discord module (TLS for gateway WebSocket)
-	libgudev-devel
-	systemd-devel
-	libetpan-devel
-	sqlite-devel
-	libpq-devel
-	libssh2-devel
-	libvirt-devel
-	gnutls-devel
-
-	# nerd-fonts: extraction
-	xz
-
-)
+# The packages required to build the dependencies live in packages.yaml under
+# 'build_deps', as logical entries resolved for the backend this container is
+# built for (IMMUTABLUE_BACKEND). The Containerfile copies packages.yaml,
+# build/99-common.sh and backends/ to IMMUTABLUE_SRC so the same library the
+# image build uses resolves them here.
+IMMUTABLUE_SRC="${IMMUTABLUE_SRC:-/tmp/immutablue}"
 
 
 # ============================================================================
@@ -322,10 +218,8 @@ build_yaml_glib () {
 	cd "${src_dir}"
 
 	# Fedora uses lib64 for 64-bit libs; yaml-glib defaults to lib
-	local libdir="lib"
-	if [[ -d /usr/lib64 ]]; then
-		libdir="lib64"
-	fi
+	local libdir
+	libdir="$(immutablue_libdir)"
 
 	make DEBUG=1 all PREFIX=/usr
 	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}"
@@ -484,10 +378,8 @@ build_mcp_glib () {
 	cd "${src_dir}"
 
 	# Fedora uses lib64 for 64-bit libs; mcp-glib defaults to lib
-	local libdir="lib"
-	if [[ -d /usr/lib64 ]]; then
-		libdir="lib64"
-	fi
+	local libdir
+	libdir="$(immutablue_libdir)"
 
 	make DEBUG=1 all PREFIX=/usr LIBDIR="/usr/${libdir}"
 	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}"
@@ -531,7 +423,7 @@ build_mcp_gdb_glib () {
 #           org.copyleft.AiGlib.Gui.desktop
 # Source: /build/ai-glib (COPY'd from submodule)
 #
-# gtk4-devel and libadwaita-devel are in PACKAGES so `make all` builds
+# gtk4-devel and libadwaita-devel are in packages.yaml build_deps so `make all` builds
 # ai-gui. `make install` then copies data/org.copyleft.AiGlib.Gui.desktop
 # into ${stage_dir}/usr/share/applications/ because the built binary
 # exists. build/10-copy.sh copies that whole usr/ tree into the image,
@@ -550,10 +442,8 @@ build_ai_glib () {
 	cd "${src_dir}"
 
 	# Fedora uses lib64 for 64-bit libs; ai-glib defaults to lib
-	local libdir="lib"
-	if [[ -d /usr/lib64 ]]; then
-		libdir="lib64"
-	fi
+	local libdir
+	libdir="$(immutablue_libdir)"
 
 	# GIR=1 builds and installs AiGlib-1.0.{gir,typelib} into standard GI
 	# search paths so the final image's introspection consumers (cmacs,
@@ -657,16 +547,52 @@ build_mcp_kuberblue_glib () {
 # INFRASTRUCTURE
 # ============================================================================
 
-configure_dnf () {
-	echo "=== Configuring dnf ==="
-	echo -e 'max_parallel_downloads=10\n' >> /etc/dnf/dnf.conf
+# Load the shared library and the selected backend (backend_pkg_install,
+# backend_deps_prepare, backend_get). INSTALL_DIR points it at the copied
+# packages.yaml; the runtime header that normally defines TRUE/FALSE is not in
+# this container, so they are defined first.
+load_immutablue_library () {
+	TRUE=1
+	FALSE=0
+	export INSTALL_DIR="${IMMUTABLUE_SRC}"
+	export VERSION="${VERSION:-${FEDORA_VERSION:-}}"
+	# shellcheck source=build/99-common.sh
+	source "${IMMUTABLUE_SRC}/build/99-common.sh"
+}
+
+# The libdir the C projects install into: backend.yaml 'libdir' (lib64 on
+# Fedora, lib on Arch). Falls back to probing /usr/lib64, which is what this
+# script always did -- but that probe is wrong on Arch, where /usr/lib64 is a
+# symlink to lib and installing into it would create a real lib64 directory
+# that then cannot be copied over the image's symlink.
+immutablue_libdir () {
+	local libdir
+
+	libdir="$(backend_get libdir)"
+	if [[ -n "${libdir}" ]]; then
+		echo "${libdir}"
+	elif [[ -d /usr/lib64 ]]; then
+		echo "lib64"
+	else
+		echo "lib"
+	fi
 }
 
 install_build_deps () {
-	echo "=== Installing build dependencies ==="
+	local deps=()
 
-	dnf5 update -y
-	dnf5 install -y "${PACKAGES[@]}"
+	echo "=== Installing build dependencies for ${IMMUTABLUE_BACKEND} ==="
+
+	if declare -F backend_deps_prepare > /dev/null; then
+		backend_deps_prepare
+	fi
+
+	mapfile -t deps < <(get_yaml_array '.immutablue.build_deps' "$(backend_get pkg_key)" | dedupe_lines)
+	if [[ ${#deps[@]} -eq 0 ]]; then
+		echo "ERROR: packages.yaml build_deps resolved to nothing for ${IMMUTABLUE_BACKEND}" >&2
+		exit 1
+	fi
+	backend_pkg_install "${deps[@]}"
 }
 
 
@@ -675,7 +601,7 @@ install_build_deps () {
 # ============================================================================
 
 main () {
-	configure_dnf
+	load_immutablue_library
 	install_build_deps
 	mkdir -p "${BUILD_DIR}"
 

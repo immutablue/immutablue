@@ -249,11 +249,20 @@ validate_packages_yaml() {
 # 0 in that case and simply prints nothing, so the shape is checked explicitly
 # via the node's tag rather than inferred from yq's status.
 #
+# With a second argument the sequence is read as logical package entries (see
+# the 'pkg' key in packages.yaml) and each is resolved to the name the given
+# backend field uses: a plain string is used as-is; a map yields its '<field>'
+# value when that key is present (null -> nothing, a list -> each element)
+# and its 'name' otherwise.
+#
 # param $1: the path to a sequence node, e.g. '.immutablue.rpm.all'
+# param $2: optional backend name field to resolve logical entries with,
+#           e.g. 'rpm', 'pacman', 'freebsd', 'systemd'
 # returns: 0 on success (including an absent key), non-zero on a bad shape or
 #          a yq failure
 yq_query() {
     local path="$1"
+    local field="${2:-}"
     local node_tag
 
     # Determine what is actually at this path. '| tag' reports '!!null' for an
@@ -284,12 +293,25 @@ yq_query() {
     # The tag check above already proved this is a sequence, so the expansion
     # cannot fail on shape; a failure here would be an unreadable file, which
     # the caller's 'set -e' should surface.
-    yq "${path}[]" < "${PACKAGES_YAML}"
+    if [[ -z "${field}" ]]
+    then
+        yq "${path}[]" < "${PACKAGES_YAML}"
+        return
+    fi
+
+    # Logical entries, resolved in order. 'has' rather than '//' because a
+    # field explicitly set to null must drop the entry, not fall back to
+    # 'name'; flatten expands a list of names, and the final select drops the
+    # nulls.
+    yq "${path} | map(if tag == \"!!str\" then . elif has(\"${field}\") then .${field} else .name end) | flatten | .[] | select(tag == \"!!str\")" < "${PACKAGES_YAML}"
 }
 
 
 # looks up entries in packages.yaml
 # takes into account the version, architecture and build options
+#
+# param $1: the base key, e.g. '.immutablue.rpm' or '.immutablue.pkg'
+# param $2: optional backend field for resolving logical entries (yq_query)
 #
 # Every lookup is guarded with '|| return': without it the function would
 # report the status of only its LAST probe, so a malformed key early in the
@@ -297,17 +319,18 @@ yq_query() {
 # success status -- the exact failure mode this guarding exists to prevent.
 get_yaml_array() {
     local key="$1"
+    local field="${2:-}"
     # Base all
-    yq_query "${key}.all" || return
+    yq_query "${key}.all" "${field}" || return
     # Version specific
     if [[ -n "${VERSION}" ]]; then
-        yq_query "${key}.${VERSION}" || return
+        yq_query "${key}.${VERSION}" "${field}" || return
     fi
     # Architecture all
-    yq_query "${key}.all_${MARCH}" || return
+    yq_query "${key}.all_${MARCH}" "${field}" || return
     # Version + architecture
     if [[ -n "${VERSION}" ]]; then
-        yq_query "${key}.${VERSION}_${MARCH}" || return
+        yq_query "${key}.${VERSION}_${MARCH}" "${field}" || return
     fi
     # Architecture as a key suffix, e.g. '.immutablue.rpm_x86_64.all'
     #
@@ -317,38 +340,66 @@ get_yaml_array() {
     # '.all_<arch>' form above was, which nothing in packages.yaml actually
     # uses, so every '<key>_<arch>' block was dead configuration: the two
     # packages under rpm_x86_64 had never been installed in any image.
-    yq_query "${key}_${MARCH}.all" || return
+    yq_query "${key}_${MARCH}.all" "${field}" || return
     if [[ -n "${VERSION}" ]]; then
-        yq_query "${key}_${MARCH}.${VERSION}" || return
+        yq_query "${key}_${MARCH}.${VERSION}" "${field}" || return
     fi
     # Build options
     while read -r option
     do
         # Option all
-        yq_query "${key}_${option}.all" || return
+        yq_query "${key}_${option}.all" "${field}" || return
         # Option version
         if [[ -n "${VERSION}" ]]; then
-            yq_query "${key}_${option}.${VERSION}" || return
+            yq_query "${key}_${option}.${VERSION}" "${field}" || return
         fi
         # Option architecture all
-        yq_query "${key}_${option}.all_${MARCH}" || return
+        yq_query "${key}_${option}.all_${MARCH}" "${field}" || return
         # Option version architecture
         if [[ -n "${VERSION}" ]]; then
-            yq_query "${key}_${option}.${VERSION}_${MARCH}" || return
+            yq_query "${key}_${option}.${VERSION}_${MARCH}" "${field}" || return
         fi
         # Option with the architecture as a key suffix, e.g.
         # '.immutablue.rpm_silverblue_aarch64.all' -- dead for the same reason
         # as the block above.
-        yq_query "${key}_${option}_${MARCH}.all" || return
+        yq_query "${key}_${option}_${MARCH}.all" "${field}" || return
         if [[ -n "${VERSION}" ]]; then
-            yq_query "${key}_${option}_${MARCH}.${VERSION}" || return
+            yq_query "${key}_${option}_${MARCH}.${VERSION}" "${field}" || return
         fi
     done < <(get_immutablue_build_options)
 }
 
 
+# Emit each line of stdin once, keeping first-seen order.
+dedupe_lines() {
+    awk 'NF && !seen[$0]++'
+}
+
+
+# Packages for the selected backend: its native list (.immutablue.<pkg_key>,
+# e.g. rpm) plus the shared logical list (.immutablue.pkg) resolved to the
+# backend's names, without duplicates.
+#
+# param $1: list suffix, '' for packages to install or '_rm' for removals
+get_backend_package_list() {
+    local suffix="${1:-}"
+    local pkg_key
+
+    pkg_key="$(backend_get pkg_key)"
+    if [[ -z "${pkg_key}" ]]
+    then
+        return 0
+    fi
+
+    {
+        get_yaml_array ".immutablue.${pkg_key}${suffix}"
+        get_yaml_array ".immutablue.pkg${suffix}" "${pkg_key}"
+    } | dedupe_lines
+}
+
+
 get_immutablue_packages() {
-    get_yaml_array '.immutablue.rpm'
+    get_backend_package_list ''
 }
 
 
@@ -358,7 +409,7 @@ get_immutablue_pip_packages() {
 
 
 get_immutablue_packages_to_remove() {
-    get_yaml_array '.immutablue.rpm_rm'
+    get_backend_package_list '_rm'
 }
 
 
@@ -377,43 +428,46 @@ get_immutablue_files_to_remove() {
 }
 
 
+# Service lists accept the same logical entries as 'pkg': a plain unit name, or
+# {name: sshd.service, rc: sshd} where the field is the backend's init system
+# (backend.yaml 'init': systemd, rc).
 get_immutablue_system_services_to_unmask() {
-    get_yaml_array '.immutablue.services_unmask_sys'
+    get_yaml_array '.immutablue.services_unmask_sys' "$(backend_get init)"
 }
 
 
 get_immutablue_system_services_to_disable() {
-    get_yaml_array '.immutablue.services_disable_sys'
+    get_yaml_array '.immutablue.services_disable_sys' "$(backend_get init)"
 }
 
 
 get_immutablue_system_services_to_enable() {
-    get_yaml_array '.immutablue.services_enable_sys'
+    get_yaml_array '.immutablue.services_enable_sys' "$(backend_get init)"
 }
 
 
 get_immutablue_system_services_to_mask() {
-    get_yaml_array '.immutablue.services_mask_sys'
+    get_yaml_array '.immutablue.services_mask_sys' "$(backend_get init)"
 }
 
 
 get_immutablue_user_services_to_unmask() {
-    get_yaml_array '.immutablue.services_unmask_user'
+    get_yaml_array '.immutablue.services_unmask_user' "$(backend_get init)"
 }
 
 
 get_immutablue_user_services_to_disable() {
-    get_yaml_array '.immutablue.services_disable_user'
+    get_yaml_array '.immutablue.services_disable_user' "$(backend_get init)"
 }
 
 
 get_immutablue_user_services_to_enable() {
-    get_yaml_array '.immutablue.services_enable_user'
+    get_yaml_array '.immutablue.services_enable_user' "$(backend_get init)"
 }
 
 
 get_immutablue_user_services_to_mask() {
-    get_yaml_array '.immutablue.services_mask_user'
+    get_yaml_array '.immutablue.services_mask_user' "$(backend_get init)"
 }
 
 get_nix_install_packages() {

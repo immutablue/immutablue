@@ -41,3 +41,6 @@ provides:
 # regenerated initramfs. 50ostree is never pulled in automatically.
 dracut_modules:
   - ostree
+
+# Where the deps container installs the in-house C projects' libraries.
+libdir: lib64
