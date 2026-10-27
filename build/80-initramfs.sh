@@ -91,8 +91,18 @@ do
     # gone the moment dracut overwrites the file.
     mods_before="$(mktemp)"
     mods_after="$(mktemp)"
-    lsinitrd "${initramfs}" 2>/dev/null \
-        | sed -n '/^dracut modules:/,/^===/p' | grep -v '^===' | tail -n +2 | sort > "${mods_before}"
+    #
+    # A base image that ships no initramfs at all (archlinux:latest is a plain
+    # container) has nothing to compare against; the before-set is then empty
+    # and the explicit dracut_modules check below is what guards the result.
+    if [[ -f "${initramfs}" ]]
+    then
+        { lsinitrd "${initramfs}" 2>/dev/null || true; } \
+            | sed -n '/^dracut modules:/,/^===/p' | { grep -v '^===' || true; } | tail -n +2 | sort > "${mods_before}"
+    else
+        echo "No inherited initramfs for ${kver}; nothing to compare against"
+        : > "${mods_before}"
+    fi
 
     # --add ostree (from dracut_modules) is REQUIRED and must not be dropped. The 50ostree dracut
     # module returns 255 from its check(), which means "only if explicitly

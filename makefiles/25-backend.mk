@@ -42,3 +42,25 @@ backend_check:
 .PHONY: backend
 backend:
 	@echo "$(BACKEND)"
+
+# ------------------------------------------------------------------------------
+# bootc-disk-image: a UEFI-bootable raw disk from the built image, for bootc
+# backends bootc-image-builder does not support (arch-bootc). Uses
+# 'bootc install to-disk' from the image itself; needs sudo.
+#
+#   make BACKEND=arch-bootc NUCLEUS=1 bootc-disk-image
+#   make BACKEND=arch-bootc NUCLEUS=1 run-bootc-disk-image
+# ------------------------------------------------------------------------------
+BOOTC_DISK_IMAGE := ./images/disk/$(TAG).img
+OVMF_CODE ?= /usr/share/edk2/ovmf/OVMF_CODE.fd
+
+.PHONY: bootc-disk-image run-bootc-disk-image
+bootc-disk-image:
+	bash backends/lib/bootc-disk-image.sh "$(IMAGE):$(TAG)" "$(BOOTC_DISK_IMAGE)"
+
+run-bootc-disk-image:
+	qemu-system-x86_64 -machine q35 -enable-kvm -cpu host -m 4096 -smp 2 \
+		-drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) \
+		-drive file=$(BOOTC_DISK_IMAGE),format=raw,if=virtio \
+		-nic user,model=virtio-net-pci \
+		-nographic
