@@ -7,12 +7,10 @@
 # The result is not booted as a container: deliver.sh lays it into a ZFS boot
 # environment.
 #
-# EXPERIMENTAL: not yet built; see backends/freebsd-be/backend.yaml.
+# See backends/freebsd-be/backend.yaml for status; build host setup is in
+# backends/freebsd-be/builder-vm.sh.
 ARG BASE_IMAGE=ghcr.io/freebsd/freebsd-runtime
 ARG BASE_IMAGE_TAG=15.1
-
-FROM scratch AS ctx
-COPY / /
 
 FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG}
 
@@ -29,18 +27,24 @@ ARG DEPS_IMAGE
 ARG BASE_IMAGE
 ARG IMMUTABLUE_BACKEND=freebsd-be
 
-# The stages are bash and read packages.yaml with (Go) yq; neither is in the
-# runtime image. The pkgbase repository is enabled first so the base system,
-# kernel and bootloader can be installed as packages by stage 30.
-RUN --mount=type=bind,from=ctx,src=/,dst=/mnt-ctx \
-    mkdir -p /usr/local/etc/pkg/repos && \
+# buildah on FreeBSD has no RUN --mount=type=bind, so the build context is
+# COPY'd to /mnt-ctx (the path the stages expect) and deleted at the end; the
+# Makefile builds this backend with --squash (backend.mk BACKEND_BUILD_FLAGS),
+# so the copy leaves no layer behind.
+COPY . /mnt-ctx
+
+# The runtime image is only sh, rc and pkg: the stages need bash, (Go) yq and
+# the base userland (cut, basename, find, ...). The pkgbase repository is
+# enabled first and the whole base set installed here; stage 30 then adds the
+# kernel, bootloader and the packages.yaml lists.
+RUN mkdir -p /usr/local/etc/pkg/repos && \
     cp /mnt-ctx/backends/freebsd-be/overrides/usr/local/etc/pkg/repos/FreeBSD-base.conf /usr/local/etc/pkg/repos/ && \
     env ASSUME_ALWAYS_YES=yes pkg bootstrap -f && \
     pkg update -f && \
-    pkg install -y bash go-yq && \
+    pkg install -y FreeBSD-set-base bash go-yq && \
     { command -v yq > /dev/null || ln -s "$(command -v go-yq)" /usr/local/bin/yq; }
 
-RUN --mount=type=bind,from=ctx,src=/,dst=/mnt-ctx \
-    /usr/local/bin/bash /mnt-ctx/backends/lib/run-stages.sh /mnt-ctx
+RUN /usr/local/bin/bash /mnt-ctx/backends/lib/run-stages.sh /mnt-ctx && \
+    rm -rf /mnt-ctx
 
 LABEL org.immutablue.backend=freebsd-be

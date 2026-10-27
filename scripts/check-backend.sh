@@ -56,6 +56,14 @@ then
     exit 1
 fi
 
+# Every script in the repository is '#!/bin/bash'. A FreeBSD build host keeps
+# bash at /usr/local/bin/bash, so it needs the conventional link.
+if [[ "${host_os}" == "FreeBSD" ]] && [[ ! -x /bin/bash ]]
+then
+    echo "ERROR: the FreeBSD build host needs /bin/bash: ln -s /usr/local/bin/bash /bin/bash" >&2
+    exit 1
+fi
+
 # -----------------------------------
 # 3. Every build option is supported by the backend
 # -----------------------------------

@@ -112,7 +112,12 @@ echo "=== Running Tests ==="
 FAILED=0
 
 # bootc lint still runs separately (needs its own container invocation)
-if ! test_bootc_lint; then
+# Only bootc images can be linted by bootc; a freebsd-be image is delivered as
+# a ZFS boot environment instead.
+LINT_BACKEND="$(podman run --rm --entrypoint "" "$IMAGE" sh -c 'cat /usr/immutablue/backend' 2>/dev/null || true)"
+if [[ "${LINT_BACKEND}" == "freebsd-be" ]]; then
+  echo "SKIP: bootc container lint (freebsd-be images are boot environments, not bootc images)"
+elif ! test_bootc_lint; then
   ((FAILED++))
 fi
 

@@ -39,11 +39,11 @@ LEGACY_DEP_INFO := artifacts/overrides/usr/immutablue/deps
 .PHONY: deps_manifest
 deps_manifest:
 	@rm -rf $(LEGACY_DEP_INFO)
-	@./scripts/gen-dep-info.sh --image $(DEP_INFO)
+	@bash scripts/gen-dep-info.sh --image $(DEP_INFO)
 
 .PHONY: deps_build_manifest
 deps_build_manifest:
-	@./scripts/gen-dep-info.sh deps-container/dep_info.json
+	@bash scripts/gen-dep-info.sh deps-container/dep_info.json
 
 $(IMAGE_IGNOREFILE): .containerignore
 	@cat $< > $@
@@ -122,7 +122,7 @@ ifeq ($(DISTROLESS),1)
 		--ignorefile ./$(IMAGE_IGNOREFILE) \
 		--no-cache \
 		-t $(IMAGE):$(TAG) \
-		-f ./$(CONTAINERFILE) \
+		-f ./$(CONTAINERFILE) $(BACKEND_BUILD_FLAGS) \
 		--build-arg=IMMUTABLUE_BACKEND=$(BACKEND) \
 		--build-arg=BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg=DEPS_IMAGE="$$deps_image" \
@@ -147,7 +147,7 @@ else
 		--no-cache \
 		-t $(IMAGE):$(TAG) \
 		-t $(IMAGE):$(DATE_TAG) \
-		-f ./$(CONTAINERFILE) \
+		-f ./$(CONTAINERFILE) $(BACKEND_BUILD_FLAGS) \
 		--build-arg=IMMUTABLUE_BACKEND=$(BACKEND) \
 		--build-arg=BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg=DEPS_IMAGE="$$deps_image" \

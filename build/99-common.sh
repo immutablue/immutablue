@@ -303,7 +303,10 @@ yq_query() {
     # field explicitly set to null must drop the entry, not fall back to
     # 'name'; flatten expands a list of names, and the final select drops the
     # nulls.
-    yq "${path} | map(if tag == \"!!str\" then . elif has(\"${field}\") then .${field} else .name end) | flatten | .[] | select(tag == \"!!str\")" < "${PACKAGES_YAML}"
+    # Written without if/then/else, which older yq releases (FreeBSD's
+    # textproc/go-yq 4.53) cannot parse; each entry yields one array, so the
+    # order of the list is kept.
+    yq "${path} | map([(select(tag == \"!!str\")), (select(tag == \"!!map\" and has(\"${field}\")) | .${field}), (select(tag == \"!!map\" and (has(\"${field}\") | not)) | .name)]) | flatten | .[] | select(tag == \"!!str\")" < "${PACKAGES_YAML}"
 }
 
 

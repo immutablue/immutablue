@@ -224,7 +224,9 @@ fi
 
 # Put in place the correct `/etc/os-release`; which file that is belongs to
 # the backend (one per Fedora release on fedora-bootc).
-if [[ -f "/etc/os-release" ]]
+# -L as well as -e: FreeBSD's /etc/os-release is a symlink into /var/run,
+# which dangles inside a container and fails a plain -f test.
+if [[ -e "/etc/os-release" ]] || [[ -L "/etc/os-release" ]]
 then 
     unlink "/etc/os-release"
 fi

@@ -3,10 +3,11 @@
 # lays its root filesystem into a fresh boot environment, carries /etc
 # changes across, and activates it for the next boot (see deliver.sh).
 #
-# EXPERIMENTAL. The stages are written and lint-checked, but an image has not
-# been built yet: that needs a FreeBSD host (podman-suite + ocijail).
+# Early: the nucleus image builds, passes make test, is delivered and boots
+# on a FreeBSD 15.1 ZFS system. It must be built on FreeBSD (podman-suite +
+# ocijail); backends/freebsd-be/builder-vm.sh provides one as a VM.
 name: freebsd-be
-description: FreeBSD 15.1-RELEASE via ZFS boot environments (experimental)
+description: FreeBSD 15.1-RELEASE via ZFS boot environments
 
 base_image: ghcr.io/freebsd/freebsd-runtime
 devel_image: ghcr.io/freebsd/freebsd-toolchain
@@ -24,7 +25,7 @@ libdir: lib
 
 # scripts/check-backend.sh refuses to start the build anywhere else.
 build_host_os: FreeBSD
-build_host_note: "Build on FreeBSD 15.1 with sysutils/podman-suite and sysutils/ocijail installed (see the freebsd-be backend docs)."
+build_host_note: "Build on FreeBSD 15.1 with sysutils/podman-suite and sysutils/ocijail, or run backends/freebsd-be/builder-vm.sh create, then builder-vm.sh make BACKEND=freebsd-be build."
 
 # build/ stages that cannot apply: no systemd crash-capture policy, no dracut
 # initramfs (FreeBSD's loader boots the kernel directly).

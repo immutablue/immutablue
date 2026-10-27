@@ -82,7 +82,7 @@ rt_rollback() {
     local previous
 
     current="$(bectl list -H | awk '$2 ~ /N/ { print $1 }')"
-    previous="$(bectl list -H -s creation | awk -v cur="${current}" '$1 == cur { print prev; exit } { prev = $1 }')"
+    previous="$(bectl list -H -c creation | awk -v cur="${current}" '$1 == cur { print prev; exit } { prev = $1 }')"
     if [[ -z "${previous}" ]]
     then
         echo "no boot environment older than ${current} to roll back to" >&2

@@ -51,7 +51,7 @@ select_tests () {
 }
 
 main () {
-	local test_dir root suite=all list=false image='' test status failed=0 passed=0
+	local test_dir root suite=all list=false image='' test status failed=0 passed=0 skipped=0
 	local selected=() args=()
 	test_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null && pwd)"
 	root="$(dirname "$test_dir")"
@@ -65,6 +65,15 @@ main () {
 			*) [[ -z "$image" ]] || return 2; image="$1"; shift ;;
 		esac
 	done
+	# The tests drive the GNU Makefile with plain 'make'. On a FreeBSD build
+	# host (freebsd-be) 'make' is BSD make and GNU make is 'gmake', so a shim
+	# directory putting gmake first as 'make' is prepended for the children.
+	if ! make --version 2>/dev/null | grep -q 'GNU Make' && command -v gmake > /dev/null; then
+		local shim
+		shim="$(mktemp -d)"
+		ln -s "$(command -v gmake)" "$shim/make"
+		export PATH="$shim:$PATH"
+	fi
 	if [[ "${SKIP_TEST:-0}" == 1 && "$list" == false ]]; then
 		select_tests "$suite"
 		echo 'Skipping tests (SKIP_TEST=1)'
@@ -94,6 +103,17 @@ main () {
 				args=() ;;
 		esac
 		printf '\n>> %s\n' "$test"
+		# These run Linux-only runtime code (GNU coreutils: stat -c, mv -T)
+		# that ships only on Linux images; on a FreeBSD build host they test
+		# the host, not the product, so they are reported and skipped.
+		if [[ "$(uname -s)" != Linux ]]; then
+			case "$test" in
+				test_nvidia_selector.sh|kuberblue/test_config_fetch_permissions.sh)
+					printf 'SKIP: %s (Linux-only runtime code; run on a Linux host)\n' "$test"
+					skipped=$((skipped + 1))
+					continue ;;
+			esac
+		fi
 		status=0
 		bash "$test_dir/$test" "${args[@]}" || status=$?
 		if [[ "$status" == 0 ]]; then
@@ -103,7 +123,11 @@ main () {
 			failed=$((failed + 1))
 		fi
 	done
-	printf '\nTest results: %s passed, %s failed\n' "$passed" "$failed"
+	if [[ "$skipped" -gt 0 ]]; then
+		printf '\nTest results: %s passed, %s failed, %s skipped\n' "$passed" "$failed" "$skipped"
+	else
+		printf '\nTest results: %s passed, %s failed\n' "$passed" "$failed"
+	fi
 	[[ "$failed" == 0 ]]
 }
 main "$@"

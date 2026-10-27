@@ -13,7 +13,9 @@
 # ==============================================================================
 
 MAKEFLAGS += --no-builtin-rules
-SHELL := /bin/bash
+# bash wherever the host keeps it: /bin/bash on Linux, /usr/local/bin/bash on
+# FreeBSD (the freebsd-be build host).
+SHELL := $(or $(shell command -v bash 2>/dev/null),/bin/bash)
 
 # ==============================================================================
 # Include Modules (order matters)

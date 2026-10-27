@@ -139,5 +139,18 @@ backend_finalize() {
         cp -a /usr/local/etc "${stock}/usr-local-etc"
     fi
 
+    # buildah on FreeBSD (1.43) drops setuid/setgid bits when it commits a
+    # layer, so the image as stored has a non-setuid su, passwd and sudo, and
+    # loses schg flags. They are still correct here, inside the build's RUN:
+    # record them, and deliver.sh puts them back in the boot environment.
+    # Format: <octal mode> TAB <chflags names or -> TAB <path>
+    find / -xdev \( -path /mnt-ctx -o -path /dev -o -path /proc -o -path /tmp \) -prune -o \
+        \( -type f -o -type d \) \( -perm -4000 -o -perm -2000 -o -flags +schg \) -print 2>/dev/null \
+        | while IFS= read -r path
+        do
+            stat -f '%Mp%Lp%t%Sf%t%N' "${path}"
+        done > "${stock}/modes"
+    echo "Recorded $(wc -l < "${stock}/modes") setuid/setgid/schg paths in ${stock}/modes"
+
     pkg clean -ay
 }

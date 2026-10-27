@@ -10,6 +10,8 @@
 #
 # Enable with: sysrc immutablue_first_boot_enable=YES
 
+# rc.subr is FreeBSD's rc(8) library; not something shellcheck can follow.
+# shellcheck source=/dev/null
 . /etc/rc.subr
 
 name="immutablue_first_boot"

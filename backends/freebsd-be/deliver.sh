@@ -18,8 +18,8 @@
 #      file is kept and listed as a conflict.
 #   5. Activates the new boot environment for the next boot.
 #
-# EXPERIMENTAL: written against bectl(8), podman(8) on FreeBSD 15.1 and the
-# freebsd-be image layout; not yet run on hardware.
+# Verified on a FreeBSD 15.1-RELEASE ZFS system (the builder VM): first
+# delivery, boot, and rollback. Not yet run on hardware.
 #
 # Usage:
 #   deliver.sh [--dry-run] <image:tag>
@@ -47,18 +47,40 @@ BE_PREFIX="immutablue"
 
 # Paths in the boot environment that belong to the machine, not the image.
 # rsync filter form, relative to the BE root.
+#
+# /var is machine state except /var/db/pkg: on FreeBSD's ZFS layout it lives
+# in the boot environment and is the package database for the image's files,
+# so it must come from the image (FILTER_FIRST lets it through before /var is
+# excluded). /boot/loader.conf carries the machine's zfs_load and console
+# settings and stays local too.
+FILTER_FIRST=(
+    "--include=/var/"
+    "--include=/var/db/"
+    "--include=/var/db/pkg/***"
+    "--exclude=/var/db/*"
+)
 PRESERVE=(
-    "/var/"
+    "/var/*"
     "/home/"
     "/usr/home/"
     "/root/"
     "/tmp/"
     "/etc/"
     "/usr/local/etc/"
+    "/boot/loader.conf"
     "/boot/loader.conf.local"
     "/boot/entropy"
     "/boot/zfs/"
     "/etc/zfs/"
+)
+
+# Configuration files that identify this machine and its users. They are never
+# replaced, not even on a first delivery: taking the image's passwd or fstab
+# would lock the administrator out or leave the pool unmounted.
+KEEP_LOCAL=(
+    "passwd" "master.passwd" "group" "pwd.db" "spwd.db" "login.conf.db"
+    "fstab" "hostid" "resolv.conf" "localtime" "rc.conf.local"
+    "wpa_supplicant.conf" "ssh/ssh_host_*"
 )
 
 
@@ -90,7 +112,8 @@ log() {
 # The first delivery onto a plain FreeBSD install has no old stock tree, so
 # "did the administrator change it" cannot be answered. Then the image wins
 # (otherwise its rc.conf, sudoers and the rest would never apply) and the
-# local file is kept next to it as <file>.pre-immutablue.
+# local file is kept next to it as <file>.pre-immutablue. Machine identity
+# (KEEP_LOCAL) and rc.conf (merged key by key) are excepted.
 #
 # param $1: new image's tree (from the exported image)
 # param $2: old stock tree (from the running image, may not exist)
@@ -115,6 +138,15 @@ merge_config_tree() {
     while IFS= read -r -d '' rel
     do
         rel="${rel#./}"
+        if [[ "${label}" == "/etc" ]] && is_keep_local "${rel}"
+        then
+            continue
+        fi
+        if [[ "${label}" == "/etc" ]] && [[ "${rel}" == "rc.conf" ]]
+        then
+            merge_rc_conf "${new_tree}/rc.conf" "${target}/rc.conf"
+            continue
+        fi
         if [[ ! -e "${target}/${rel}" ]] && [[ ! -L "${target}/${rel}" ]]
         then
             mkdir -p "$(dirname "${target}/${rel}")"
@@ -139,12 +171,127 @@ merge_config_tree() {
 }
 
 
+# Is an /etc-relative path one of the KEEP_LOCAL machine files?
+#
+# param $1: path relative to /etc
+# returns: 0 when it must stay local
+is_keep_local() {
+    local rel="$1"
+    local pattern
+
+    for pattern in "${KEEP_LOCAL[@]}"
+    do
+        # shellcheck disable=SC2053 # pattern match is the point
+        if [[ "${rel}" == ${pattern} ]]
+        then
+            return 0
+        fi
+    done
+    return 1
+}
+
+
+# Merge the image's rc.conf into the machine's, key by key.
+#
+# rc.conf mixes what the image decides (which services run) with what only
+# this machine knows (hostname, network, ZFS). Every variable the image sets
+# is applied with sysrc; everything else in the machine's file is kept.
+#
+# param $1: the image's rc.conf
+# param $2: the boot environment's rc.conf
+merge_rc_conf() {
+    local image_rc="$1"
+    local target_rc="$2"
+    local line
+    local applied=0
+
+    touch "${target_rc}"
+    while IFS= read -r line
+    do
+        [[ "${line}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || continue
+        sysrc -f "${target_rc}" "${line}" > /dev/null
+        applied=$((applied + 1))
+    done < <(sysrc -f "${image_rc}" -a -e 2>/dev/null)
+    log "/etc/rc.conf: applied ${applied} setting(s) from the image, kept the machine's others"
+}
+
+
+# Global, not local to main: the EXIT trap that cleans them up runs after main
+# has returned.
+work=""
+cid=""
+be=""
+staged=0
+
+# rsync options for laying a FreeBSD tree down: -H hard links, --file-flags to
+# carry chflags (schg on libc, init, su, ...), --force-change to replace files
+# that carry them. Without the last two every system-immutable file fails.
+RSYNC_OPTS=(-aH --file-flags --force-change)
+
+
+# EXIT trap. A boot environment that was created but not activated is
+# unmounted and destroyed; nothing is ever deleted through its mountpoint.
+# The exported image tree carries schg flags, so they are cleared first.
+cleanup() {
+    if [[ -n "${be}" ]] && [[ ${staged} -eq 0 ]]
+    then
+        log "cleaning up unfinished boot environment ${be}"
+        bectl umount -f "${be}" > /dev/null 2>&1 || true
+        bectl destroy -F "${be}" > /dev/null 2>&1 || true
+    fi
+    if [[ -n "${cid}" ]]
+    then
+        podman rm -f "${cid}" > /dev/null 2>&1 || true
+    fi
+    if [[ -n "${work}" ]] && [[ -d "${work}" ]] && ! mount | grep -q " on ${work}/"
+    then
+        chflags -R noschg "${work}" 2>/dev/null || true
+        rm -rf "${work}"
+    fi
+}
+
+# Reapply file modes and flags the image recorded at build time.
+#
+# Images built with buildah on FreeBSD lose setuid/setgid bits and schg flags
+# when their layers are committed, so the tree that arrives here has a su,
+# passwd and sudo nobody can use. backend_finalize wrote the correct mode and
+# flags of every such file to stock/modes; they are restored in the new boot
+# environment.
+#
+# param $1: the recorded modes file (from the image)
+# param $2: the boot environment's mountpoint
+restore_modes() {
+    local modes_file="$1"
+    local root="$2"
+    local mode
+    local flags
+    local path
+    local restored=0
+
+    if [[ ! -f "${modes_file}" ]]
+    then
+        log "no ${STOCK_REL}/modes in the image; setuid bits are not restored"
+        return 0
+    fi
+
+    while IFS=$'\t' read -r mode flags path
+    do
+        [[ -n "${path}" ]] && [[ -e "${root}${path}" ]] || continue
+        chflags noschg "${root}${path}" 2>/dev/null || true
+        chmod "${mode}" "${root}${path}"
+        if [[ "${flags}" != "-" ]]
+        then
+            chflags "${flags}" "${root}${path}"
+        fi
+        restored=$((restored + 1))
+    done < "${modes_file}"
+    log "restored mode and flags on ${restored} setuid/setgid/schg path(s)"
+}
+
+
 main() {
     local dry_run=0
     local ref=""
-    local work
-    local cid
-    local be
     local mnt
     local filter=()
     local path
@@ -177,10 +324,17 @@ main() {
     # 1. Pull and export the image's root filesystem
     # -----------------------------------
     work="$(mktemp -d "${WORK_BASE}/immutablue-deliver.XXXXXX")"
-    trap 'rm -rf "${work}"; [[ -n "${cid:-}" ]] && podman rm -f "${cid}" > /dev/null 2>&1; true' EXIT
+    trap cleanup EXIT
 
-    log "pulling ${ref}"
-    podman pull "${ref}"
+    # A locally built image (the build host, or one loaded by hand) is used as
+    # is; otherwise it is pulled.
+    if podman image exists "${ref}"
+    then
+        log "using local image ${ref}"
+    else
+        log "pulling ${ref}"
+        podman pull "${ref}"
+    fi
     cid="$(podman create "${ref}" /bin/true)"
     mkdir -p "${work}/rootfs"
     podman export "${cid}" | tar -xpf - -C "${work}/rootfs"
@@ -192,6 +346,7 @@ main() {
         return 1
     fi
 
+    filter=("${FILTER_FIRST[@]}")
     for path in "${PRESERVE[@]}"
     do
         filter+=("--exclude=${path}")
@@ -200,7 +355,7 @@ main() {
     if [[ ${dry_run} -eq 1 ]]
     then
         log "dry run: changes relative to the running system"
-        rsync -aHn --delete --itemize-changes "${filter[@]}" "${work}/rootfs/" / | head -n 200
+        rsync "${RSYNC_OPTS[@]}" -n --delete --itemize-changes "${filter[@]}" "${work}/rootfs/" / | head -n 200 || true
         return 0
     fi
 
@@ -218,7 +373,9 @@ main() {
     # 3. Lay the image over the clone, keeping machine state
     # -----------------------------------
     log "installing image tree"
-    rsync -aH --delete "${filter[@]}" "${work}/rootfs/" "${mnt}/"
+    rsync "${RSYNC_OPTS[@]}" --delete "${filter[@]}" "${work}/rootfs/" "${mnt}/"
+
+    restore_modes "${work}/rootfs/${STOCK_REL}/modes" "${mnt}"
 
     # -----------------------------------
     # 4. Three-way merge of the configuration trees
@@ -235,6 +392,7 @@ main() {
     # -----------------------------------
     bectl umount "${be}"
     bectl activate "${be}"
+    staged=1
     log "staged ${ref} as ${be}; reboot to use it (previous environments stay in the loader menu)"
 }
 

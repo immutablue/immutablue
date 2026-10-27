@@ -58,7 +58,8 @@ export PATH="$fixture/bin:$PATH" DIGEST="$digest" LOOKUPS="$fixture/lookups"
 actual="$(bash "$root/scripts/resolve-deps-image.sh" localhost:5000/team/image:44-deps)"
 [[ "$actual" == "localhost:5000/team/image@$digest" ]]
 [[ "$(bash "$root/scripts/resolve-deps-image.sh" "$actual")" == "$actual" ]]
-[[ "$(wc -l < "$LOOKUPS")" == 1 ]]
+# Arithmetic, not a string match: BSD wc pads its count with spaces.
+[[ $(( $(wc -l < "$LOOKUPS") )) -eq 1 ]]
 if LOOKUP_FAIL=1 bash "$root/scripts/resolve-deps-image.sh" registry/image:tag; then
 	echo 'FAIL: lookup failure accepted' >&2; exit 1
 fi
