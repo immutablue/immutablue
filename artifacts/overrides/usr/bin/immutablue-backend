@@ -26,6 +26,7 @@
 #   kargs [args]          Show or change kernel arguments (needs root to change)
 #   cleanup               Remove cached / unused deployment data (needs root)
 #   list-pkgs             List installed package names, one per line
+#   has-pkg <name>...     Exit 0 when every name is installed; print the missing ones
 #   pkg-owner <path>      Print the package that owns a file
 #   image-ref             Best-effort image reference from the deployment state
 #
@@ -52,7 +53,7 @@
 
 set -uo pipefail
 
-VERB_LIST="name status deployments healthy pending upgrade rollback rebase kargs cleanup list-pkgs pkg-owner image-ref"
+VERB_LIST="name status deployments healthy pending upgrade rollback rebase kargs cleanup list-pkgs has-pkg pkg-owner image-ref"
 
 
 show_help() {

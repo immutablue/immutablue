@@ -1,0 +1,79 @@
+#!/bin/sh
+#
+# PROVIDE: immutablue_readonly_usr
+# REQUIRE: FILESYSTEMS
+# BEFORE: DAEMON
+# KEYWORD: nojail shutdown
+#
+# Make /usr read-only (freebsd-be), as ostree makes it on the Linux backends:
+# the image owns /usr and an update replaces it in a new boot environment, so
+# nothing should change it in place.
+#
+# On ZFS /usr lives in the boot environment's root dataset and cannot be
+# mounted read-only on its own, so a read-only nullfs mount of /usr is laid
+# over itself. Then:
+#   - /usr/local/etc stays writable (it is configuration, merged by
+#     deliver.sh like /etc) through a writable nullfs view taken first;
+#   - datasets mounted under /usr (/usr/src, /usr/ports, /usr/obj on a
+#     default install) are remounted on top, since nullfs does not carry
+#     submounts.
+#
+# 'service immutablue_readonly_usr stop' makes /usr writable again until the
+# next boot (the equivalent of 'bootc usroverlay' for debugging).
+
+# rc.subr is FreeBSD's rc(8) library; not something shellcheck can follow.
+# shellcheck source=/dev/null
+. /etc/rc.subr
+
+name="immutablue_readonly_usr"
+rcvar="immutablue_readonly_usr_enable"
+start_cmd="${name}_start"
+stop_cmd="${name}_stop"
+
+etc_view="/var/run/immutablue/usr-local-etc"
+
+is_readonly()
+{
+	mount -p -t nullfs | awk '$2 == "/usr" { found = 1 } END { exit !found }'
+}
+
+immutablue_readonly_usr_start()
+{
+	is_readonly && return 0
+
+	datasets=$(mount -p -t zfs | awk '$2 ~ "^/usr/" { print $1 }')
+	for ds in ${datasets}; do
+		zfs unmount "${ds}"
+	done
+
+	mkdir -p "${etc_view}"
+	mount -t nullfs /usr/local/etc "${etc_view}"
+	mount -t nullfs -o ro /usr /usr
+	mount -t nullfs "${etc_view}" /usr/local/etc
+
+	for ds in ${datasets}; do
+		zfs mount "${ds}"
+	done
+	echo "/usr is read-only"
+}
+
+immutablue_readonly_usr_stop()
+{
+	is_readonly || return 0
+
+	datasets=$(mount -p -t zfs | awk '$2 ~ "^/usr/" { print $1 }')
+	for ds in ${datasets}; do
+		zfs unmount "${ds}"
+	done
+	umount -f /usr/local/etc
+	umount -f /usr
+	umount -f "${etc_view}"
+	for ds in ${datasets}; do
+		zfs mount "${ds}"
+	done
+	echo "/usr is writable until the next boot"
+}
+
+load_rc_config $name
+: ${immutablue_readonly_usr_enable:="NO"}
+run_rc_command "$1"

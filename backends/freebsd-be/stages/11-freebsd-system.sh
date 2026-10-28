@@ -22,7 +22,11 @@ done
 
 sysrc zfs_enable=YES
 
+# /usr read-only at runtime, as ostree makes it on the Linux backends
+# (rc.d/immutablue_readonly_usr; /usr/local/etc stays writable).
+sysrc immutablue_readonly_usr_enable=YES
+
 # The rc.d scripts and cron table shipped in overrides/ must be executable /
 # root-owned for rc(8) and cron(8) to accept them.
-chmod 0555 /usr/local/etc/rc.d/immutablue_first_boot /usr/local/etc/rc.d/immutablue_onboot /usr/local/etc/rc.d/immutablue_procfs
+chmod 0555 /usr/local/etc/rc.d/immutablue_first_boot /usr/local/etc/rc.d/immutablue_onboot /usr/local/etc/rc.d/immutablue_procfs /usr/local/etc/rc.d/immutablue_readonly_usr
 chmod 0644 /etc/cron.d/immutablue

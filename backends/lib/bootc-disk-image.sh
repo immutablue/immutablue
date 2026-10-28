@@ -24,6 +24,9 @@
 #   BOOTC_DISK_FILESYSTEM  root filesystem (default ext4)
 #   BOOTC_DISK_KARGS       extra kernel arguments, space separated
 #                          (default: console=ttyS0 console=tty0)
+#   BOOTC_DISK_SSH_KEY     a public key file installed for root (bootc
+#                          --root-ssh-authorized-keys), for testing the
+#                          installed system over SSH
 #
 # Examples:
 #   bootc-disk-image.sh quay.io/immutablue/immutablue:arch-nucleus images/disk/arch-nucleus.img
@@ -70,7 +73,11 @@ out_name="$(basename "${output}")"
 # The install runs in root's container storage (it needs --privileged and the
 # host's /dev); an image built rootless is copied across first.
 # -----------------------------------
-if ! sudo podman image exists "${image}"
+# Compared by image ID: a rebuilt image keeps its name, and installing the
+# stale copy root already has would test the wrong build.
+user_id="$(podman image inspect --format '{{.Id}}' "${image}" 2>/dev/null || true)"
+root_id="$(sudo podman image inspect --format '{{.Id}}' "${image}" 2>/dev/null || true)"
+if [[ -n "${user_id}" ]] && [[ "${user_id}" != "${root_id}" ]]
 then
     echo "Copying ${image} into root's container storage"
     podman save --format oci-archive "${image}" | sudo podman load
@@ -86,6 +93,14 @@ do
     karg_flags+=(--karg "${karg}")
 done
 
+key_flags=()
+key_mount=()
+if [[ -n "${BOOTC_DISK_SSH_KEY:-}" ]]
+then
+    key_mount=(-v "$(realpath "${BOOTC_DISK_SSH_KEY}"):/run/root-ssh-key.pub:ro,z")
+    key_flags=(--root-ssh-authorized-keys /run/root-ssh-key.pub)
+fi
+
 # SELinux hosts need the label exemption and selinuxfs for bootc to relabel;
 # both are harmless elsewhere.
 selinux_opts=()
@@ -99,6 +114,7 @@ sudo podman run --rm --privileged --pid=host \
     -v /dev:/dev \
     "${selinux_opts[@]}" \
     -v "${out_dir}:/data" \
+    "${key_mount[@]}" \
     "${image}" \
     bootc install to-disk \
         --composefs-backend \
@@ -106,7 +122,8 @@ sudo podman run --rm --privileged --pid=host \
         --filesystem "${filesystem}" \
         --wipe \
         --bootloader systemd \
-        "${karg_flags[@]}"
+        "${karg_flags[@]}" \
+        "${key_flags[@]}"
 
 # The file was written by root inside the container; hand it back.
 sudo chown "$(id -u):$(id -g)" "${out_dir}/${out_name}"

@@ -116,6 +116,23 @@ rt_list_pkgs() {
 }
 
 
+# 'pacman -T' resolves provides like a dependency would; a pacman group
+# (packages.yaml asks for 'gnome') counts when its members are installed.
+rt_has_pkg() {
+    local pkg
+    local missing=0
+
+    for pkg in "$@"
+    do
+        pacman -T "${pkg}" > /dev/null 2>&1 && continue
+        pacman -Qqg "${pkg}" > /dev/null 2>&1 && continue
+        echo "${pkg}"
+        missing=1
+    done
+    return "${missing}"
+}
+
+
 rt_pkg_owner() {
     pacman -Qo "$@"
 }

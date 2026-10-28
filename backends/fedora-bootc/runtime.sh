@@ -79,6 +79,28 @@ rt_list_pkgs() {
 }
 
 
+# Resolve each name the way dnf5 did at install time: package names and
+# virtual provides through rpm --whatprovides, and a bare binary name
+# (packages.yaml lists 'bemenu-run') through the file it provides.
+rt_has_pkg() {
+    local pkg
+    local dir
+    local missing=0
+
+    for pkg in "$@"
+    do
+        rpm --quiet -q --whatprovides "${pkg}" && continue
+        for dir in /usr/bin /usr/sbin
+        do
+            rpm --quiet -qf "${dir}/${pkg}" 2>/dev/null && continue 2
+        done
+        echo "${pkg}"
+        missing=1
+    done
+    return "${missing}"
+}
+
+
 rt_pkg_owner() {
     rpm -qf "$@"
 }

@@ -112,6 +112,20 @@ rt_list_pkgs() {
 }
 
 
+rt_has_pkg() {
+    local name
+    local missing=0
+
+    for name in "$@"
+    do
+        pkg info -e "${name}" && continue
+        echo "${name}"
+        missing=1
+    done
+    return "${missing}"
+}
+
+
 rt_pkg_owner() {
     pkg which -q "$@"
 }

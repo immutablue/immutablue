@@ -49,6 +49,9 @@ dispatch fedora-bootc kargs --append=quiet;    expect_trace 'fedora kargs' 'rpm-
 dispatch fedora-bootc cleanup;                 expect_trace 'fedora cleanup' 'rpm-ostree cleanup -bm'
 dispatch fedora-bootc pkg-owner /usr/bin/sh;   expect_trace 'fedora pkg-owner' 'rpm -qf /usr/bin/sh'
 dispatch fedora-bootc status --verbose;        expect_trace 'fedora status' 'rpm-ostree status --verbose'
+dispatch fedora-bootc has-pkg tmux;            expect_trace 'fedora has-pkg' 'rpm --quiet -q --whatprovides tmux'
+dispatch arch-bootc has-pkg tmux;              expect_trace 'arch has-pkg' 'pacman -T tmux'
+dispatch freebsd-be has-pkg tmux;              expect_trace 'freebsd has-pkg' 'pkg info -e tmux'
 
 # gnomeos has bootc but no package database.
 dispatch gnomeos rollback;                     expect_trace 'gnomeos rollback' 'bootc rollback'

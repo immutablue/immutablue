@@ -141,74 +141,14 @@ fi
 
 echo "Checking ${#EXPECTED_PACKAGES[@]} requested packages"
 
-# Query the whole set in a single container invocation.
-#
-# Resolution has to mirror how dnf5 interpreted these same strings at install
-# time, which is looser than a package-name lookup:
-#
-#   1. rpm -q --whatprovides covers real package names and virtual provides.
-#   2. dnf additionally resolves a bare *binary* name through file provides --
-#      packages.yaml lists 'bemenu-run', which is not a package at all but
-#      /usr/bin/bemenu-run, shipped by the 'bemenu' package. rpm only matches a
-#      file provide when given the full path, so the bindirs are probed
-#      explicitly. Without this the test reports a false missing package for
-#      every binary-name entry.
-#
-# Querying one package per podman run would be simpler but far too slow for a
-# list this size, so the whole set is checked inside one container.
-#
-# Other backends answer the same question with their own package manager:
-# pacman -T resolves provides like a dependency would (and -Qg a group, which
-# is how 'gnome' is requested on Arch); FreeBSD's pkg info -e takes a name.
-MISSING_OUTPUT="$(podman run --rm --entrypoint "" -e BACKEND="${IMAGE_BACKEND}" "${IMAGE}" \
-    bash -c '
-        missing=()
-        for pkg in "$@"
-        do
-            case "${BACKEND}" in
-                arch-bootc)
-                    if pacman -T "${pkg}" > /dev/null 2>&1 || pacman -Qqg "${pkg}" > /dev/null 2>&1
-                    then
-                        continue
-                    fi
-                    missing+=("${pkg}")
-                    continue
-                    ;;
-                freebsd-be)
-                    if pkg info -e "${pkg}"
-                    then
-                        continue
-                    fi
-                    missing+=("${pkg}")
-                    continue
-                    ;;
-                *)
-                    ;;
-            esac
-
-            if rpm --quiet -q --whatprovides "${pkg}"
-            then
-                continue
-            fi
-
-            # Fall back to the file-provide form dnf accepts for binaries.
-            found=""
-            for dir in /usr/bin /usr/sbin
-            do
-                if rpm --quiet -qf "${dir}/${pkg}" 2>/dev/null
-                then
-                    found="yes"
-                    break
-                fi
-            done
-
-            if [[ -z "${found}" ]]
-            then
-                missing+=("${pkg}")
-            fi
-        done
-        printf "%s\n" "${missing[@]+"${missing[@]}"}"
-    ' _ "${EXPECTED_PACKAGES[@]}" 2>/dev/null | grep -v '^$' || true)"
+# Query the whole set in a single container invocation, through the image's
+# own 'immutablue-backend has-pkg', so each backend answers with its package
+# manager the way it resolved the names at install time: rpm --whatprovides
+# plus the file-provide form dnf accepts for a bare binary name (bemenu-run)
+# on fedora-bootc, pacman -T and groups (gnome) on arch-bootc, pkg info -e on
+# freebsd-be. It prints the names it cannot find.
+MISSING_OUTPUT="$(podman run --rm --entrypoint "" "${IMAGE}" \
+    immutablue-backend has-pkg "${EXPECTED_PACKAGES[@]}" 2>/dev/null | grep -v '^$' || true)"
 
 echo ""
 echo "=== Package Presence Test Summary ==="
