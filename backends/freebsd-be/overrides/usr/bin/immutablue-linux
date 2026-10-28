@@ -61,10 +61,17 @@
 set -euo pipefail
 
 COMPAT="/compat/linux"
+# Preloaded into the userland so a forked Linux process can close an epoll
+# descriptor the Linuxulator did not inherit (see epoll-fork.c).
+EPOLL_SHIM_SRC="/usr/share/immutablue/linux-compat/epoll-fork.c"
+EPOLL_SHIM_LIB="/usr/local/lib/immutablue-epoll-fork.so"
 MARKER="${COMPAT}/.immutablue-linux"
 BREW_PREFIX="/home/linuxbrew/.linuxbrew"
 BREW_REPO="https://github.com/Homebrew/brew"
 BOX_LABEL="io.immutablue.linuxbox"
+# Same rule as the host's /usr/local/etc/sudoers.d/immutablue-wheel-nopasswd,
+# for the userland and boxes: wheel members use sudo without a password.
+SUDOERS_RULE="%wheel  ALL=(ALL)       NOPASSWD: ALL"
 # Inside the userland: brew first, then the distribution's own paths.
 LINUX_PATH="${BREW_PREFIX}/bin:${BREW_PREFIX}/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -182,6 +189,33 @@ use_bsdtar() {
 }
 
 
+# Build and preload epoll-fork.so: the Linuxulator does not carry an epoll
+# descriptor across fork(2), and Ruby (Homebrew) aborts in every forked
+# child when closing it fails. Built with the userland's own gcc (setup
+# installs it); rebuilt when the shipped source changes, and skipped quietly
+# when there is no compiler yet.
+ensure_epoll_shim() {
+    local src="${COMPAT}/usr/local/src/immutablue-epoll-fork.c"
+    local preload="${COMPAT}/etc/ld.so.preload"
+
+    [[ -f "${EPOLL_SHIM_SRC}" ]] || return 0
+    if [[ ! -f "${COMPAT}${EPOLL_SHIM_LIB}" ]] || ! cmp -s "${EPOLL_SHIM_SRC}" "${src}"
+    then
+        [[ -x "${COMPAT}/usr/bin/gcc" ]] || return 0
+        mkdir -p "${COMPAT}/usr/local/src" "${COMPAT}/usr/local/lib"
+        cp "${EPOLL_SHIM_SRC}" "${src}"
+        if ! chroot_root gcc -std=gnu89 -O2 -Wall -Wextra -shared -fPIC \
+            -o "${EPOLL_SHIM_LIB}" /usr/local/src/immutablue-epoll-fork.c -ldl
+        then
+            rm -f "${src}"
+            log "could not build ${EPOLL_SHIM_LIB}; forked Ruby processes will abort noisily"
+            return 0
+        fi
+    fi
+    grep -qx "${EPOLL_SHIM_LIB}" "${preload}" 2>/dev/null || echo "${EPOLL_SHIM_LIB}" >> "${preload}"
+}
+
+
 # Share the host's /home and /tmp, resolver and kernel filesystems in.
 cmd_mount() {
     local dir
@@ -198,6 +232,8 @@ cmd_mount() {
         fi
     done
     use_bsdtar
+    ensure_sudoers
+    ensure_epoll_shim
     if [[ -f /etc/resolv.conf ]]
     then
         rm -f "${COMPAT}/etc/resolv.conf"
@@ -227,6 +263,88 @@ sync_user() {
     then
         printf '%s:x:%s:%s::/home/%s:/bin/bash\n' "${user}" "${uid}" "${gid}" "${user}" >> "${COMPAT}/etc/passwd"
     fi
+    # pam_unix's account check (sudo runs it) fails without a shadow entry.
+    # The password is locked: the host owns authentication, and wheel's
+    # sudo needs none.
+    if [[ -f "${COMPAT}/etc/shadow" ]] && ! grep -q "^${user}:" "${COMPAT}/etc/shadow"
+    then
+        printf '%s:!*:::::::\n' "${user}" >> "${COMPAT}/etc/shadow"
+    fi
+    if is_wheel "${user}"
+    then
+        add_to_group "${COMPAT}/etc/group" wheel "${user}"
+    fi
+}
+
+
+# The supplementary group IDs the user has inside the userland: the primary
+# group, plus the userland's own wheel (gid 10 on Fedora, another on Arch)
+# for host wheel members. Not the host's list: chroot(8) would otherwise
+# carry FreeBSD's gids in, and FreeBSD's wheel is gid 0 -- "root" to Linux.
+#
+# param $1: user name
+userland_groups() {
+    local gids
+    local wheel_gid
+
+    gids="$(id -g "$1")"
+    if is_wheel "$1"
+    then
+        wheel_gid="$(awk -F: '$1 == "wheel" { print $3 }' "${COMPAT}/etc/group")"
+        if [[ -n "${wheel_gid}" ]]
+        then
+            gids="${gids},${wheel_gid}"
+        fi
+    fi
+    echo "${gids}"
+}
+
+
+# Is the user in the host's wheel group (sudo without a password)?
+#
+# param $1: user name
+is_wheel() {
+    id -Gn "$1" | tr ' ' '\n' | grep -qx wheel
+}
+
+
+# Add a user to a group's member list in a group(5) file, in place.
+#
+# param $1: group file
+# param $2: group name
+# param $3: user name
+add_to_group() {
+    local file="$1"
+    local group="$2"
+    local user="$3"
+    local tmp
+
+    grep -q "^${group}:" "${file}" || return 0
+    tmp="$(mktemp)"
+    awk -F: -v OFS=: -v g="${group}" -v u="${user}" '
+        $1 == g {
+            n = split($4, m, ",")
+            for (i = 1; i <= n; i++) if (m[i] == u) { print; next }
+            $4 = ($4 == "") ? u : $4 "," u
+        }
+        { print }' "${file}" > "${tmp}"
+    cat "${tmp}" > "${file}"
+    rm -f "${tmp}"
+}
+
+
+# The NOPASSWD rule for wheel inside the userland (sudo itself is installed
+# by setup; older userlands get it with: immutablue-linux chroot dnf install sudo).
+ensure_sudoers() {
+    local dropin="${COMPAT}/etc/sudoers.d/immutablue-wheel-nopasswd"
+
+    mkdir -p "${COMPAT}/etc/sudoers.d"
+    if [[ ! -f "${dropin}" ]]
+    then
+        printf '# Written by immutablue-linux: as on the host, wheel needs no password.\n%s\n' "${SUDOERS_RULE}" > "${dropin}"
+    fi
+    chown 0:0 "${dropin}"
+    chmod 0440 "${dropin}"
 }
 
 
@@ -297,7 +415,7 @@ cmd_setup() {
     cmd_mount
 
     # -----------------------------------
-    # Distribution specifics and what brew needs
+    # Distribution specifics, sudo, and what brew needs
     # -----------------------------------
     if [[ -f "${COMPAT}/etc/pacman.conf" ]]
     then
@@ -307,15 +425,16 @@ cmd_setup() {
         grep -q '^DisableSandbox' "${COMPAT}/etc/pacman.conf" || \
             sed -i '' -e '/^\[options\]/a\
 DisableSandbox' "${COMPAT}/etc/pacman.conf"
-        chroot_root pacman -Sy --noconfirm --needed git curl file procps-ng which gcc make libarchive > /dev/null
+        chroot_root pacman -Sy --noconfirm --needed git curl file procps-ng which gcc make libarchive sudo > /dev/null
     elif [[ -x "${COMPAT}/usr/bin/dnf" ]]
     then
-        chroot_root dnf -y -q install git curl file procps-ng which gcc make bsdtar > /dev/null
+        chroot_root dnf -y -q install git curl file procps-ng which gcc make bsdtar sudo > /dev/null
     else
         log "no dnf or pacman in ${image}; brew's requirements were not installed"
     fi
 
     use_bsdtar
+    ensure_epoll_shim
 
     printf 'distro=%s image=%s created=%s\n' "${distro}" "${image}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${MARKER}"
     log "set up: ${COMPAT} (${dataset}) from ${image}"
@@ -348,6 +467,7 @@ cmd_status() {
 # Run a command in the userland as the calling user, in the current
 # directory when the userland can see it (/home, /tmp). LANG is C.UTF-8,
 # which glibc always has; the host's locale may not exist in the userland.
+
 cmd_run() {
     local user
     local group
@@ -361,7 +481,7 @@ cmd_run() {
     sync_user "${user}"
     # The inner script's $1/$@ are meant for that bash, not this one.
     # shellcheck disable=SC2016
-    exec chroot -u "${user}" -g "${group}" "${COMPAT}" /usr/bin/env -i \
+    exec chroot -u "${user}" -g "${group}" -G "$(userland_groups "${user}")" "${COMPAT}" /usr/bin/env -i \
         HOME="/home/${user}" USER="${user}" LOGNAME="${user}" SHELL=/bin/bash \
         TERM="${TERM:-xterm}" LANG=C.UTF-8 PATH="${LINUX_PATH}" \
         HOMEBREW_NO_ANALYTICS="${HOMEBREW_NO_ANALYTICS:-1}" \
@@ -431,17 +551,34 @@ box_create() {
     group="$(id -gn "${user}")"
     as_root box create "${name}" "${image}"
 
+    # Host networking, as distrobox uses: podman's default bridge network
+    # needs pf NAT, which a desktop has no reason to run.
     podman create --os=linux --name "${name}" --hostname "${name}" \
-        --label "${BOX_LABEL}=1" -v /home:/home -v /tmp:/tmp \
+        --network=host --label "${BOX_LABEL}=1" -v /home:/home -v /tmp:/tmp \
         "${image}" sleep infinity > /dev/null
     podman start "${name}" > /dev/null
     podman exec "${name}" sh -c "
         grep -q '^${group}:' /etc/group || echo '${group}:x:${gid}:' >> /etc/group
         grep -q '^${user}:' /etc/passwd || echo '${user}:x:${uid}:${gid}::/home/${user}:/bin/bash' >> /etc/passwd
+        [ ! -f /etc/shadow ] || grep -q '^${user}:' /etc/shadow || echo '${user}:!*:::::::' >> /etc/shadow
         if [ -f /etc/pacman.conf ]; then
             sed -i 's/^#\\{0,1\\}DisableSandbox.*/DisableSandbox/' /etc/pacman.conf
             grep -q '^DisableSandbox' /etc/pacman.conf || sed -i '/^\\[options\\]/a DisableSandbox' /etc/pacman.conf
-        fi"
+            command -v sudo > /dev/null || pacman -Sy --noconfirm --needed sudo > /dev/null 2>&1
+        elif command -v dnf > /dev/null; then
+            command -v sudo > /dev/null || dnf -y -q install sudo > /dev/null 2>&1
+        fi
+        mkdir -p /etc/sudoers.d
+        printf '%s\\n' '${SUDOERS_RULE}' > /etc/sudoers.d/immutablue-wheel-nopasswd
+        chmod 0440 /etc/sudoers.d/immutablue-wheel-nopasswd"
+    if is_wheel "${user}"
+    then
+        podman exec "${name}" sh -c "
+            if grep -q '^wheel:' /etc/group; then
+                grep '^wheel:' /etc/group | cut -d: -f4 | tr , '\\n' | grep -qx '${user}' ||
+                    sed -i '/^wheel:/ { s/:\$/:${user}/; t; s/\$/,${user}/ }' /etc/group
+            fi"
+    fi
     log "box ${name} created from ${image}; enter it with: immutablue-linux box enter ${name}"
 }
 
@@ -453,7 +590,9 @@ box_enter() {
     user="$(target_user)"
     as_root box enter "${name}"
     [[ "$(podman inspect -f '{{.State.Running}}' "${name}" 2>/dev/null)" == "true" ]] || podman start "${name}" > /dev/null
-    exec podman exec -it -u "$(id -u "${user}"):$(id -g "${user}")" \
+    # By name, so podman takes the supplementary groups (wheel, for sudo)
+    # from the box's own /etc/group; a uid:gid pair gets none.
+    exec podman exec -it -u "${user}" \
         -e HOME="/home/${user}" -e USER="${user}" -e TERM="${TERM:-xterm}" \
         -w "${PWD}" "${name}" /bin/bash -l
 }
