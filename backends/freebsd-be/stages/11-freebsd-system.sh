@@ -26,6 +26,12 @@ sysrc zfs_enable=YES
 # (rc.d/immutablue_readonly_usr; /usr/local/etc stays writable).
 sysrc immutablue_readonly_usr_enable=YES
 
+# procfs on /proc on every image, not only GNOME ones (which require it):
+# tools written for Linux expect a /proc, and FreeBSD's own (ps -e, the
+# /proc/<pid>/{cmdline,status,map,file} files, /proc/curproc) covers much
+# of what they read. rc.d/immutablue_procfs mounts it when fstab does not.
+sysrc immutablue_procfs_enable=YES
+
 # Linux binary compatibility: the Linuxulator at boot (rc.d/linux, which also
 # mounts Linux's /proc, /sys and /dev under /compat/linux), and
 # rc.d/immutablue_linux_compat, which shares /home and /tmp into the Linux

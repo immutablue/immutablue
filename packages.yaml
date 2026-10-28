@@ -125,6 +125,9 @@ immutablue:
     - {name: wlroots-devel, pacman: wlroots0.20, freebsd: wlroots020}
     - {name: wayland-protocols-devel, pacman: wayland-protocols, freebsd: wayland-protocols}
     - {name: libinput-devel, pacman: libinput, freebsd: libinput}
+    # gowl, libinput, wlroots: <linux/input-event-codes.h>, which Linux ships
+    # in kernel-headers and FreeBSD in evdev-proto
+    - {name: evdev-proto, rpm: null, pacman: null}
     - {name: libxcb-devel, pacman: libxcb, freebsd: libxcb}
     - {name: xcb-util-wm-devel, pacman: xcb-util-wm, freebsd: xcb-util-wm}
     - {name: libdrm-devel, pacman: libdrm, freebsd: libdrm}

@@ -7,8 +7,9 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 #
 # GNOME variants: the display manager and the system bus it needs, which a
 # Fedora or Arch base enables through systemd presets and FreeBSD leaves off,
-# procfs on /proc (rc.d/immutablue_procfs), which GNOME requires, and the
-# scfb framebuffer driver where no DRM device exists (rc.d/immutablue_xorg).
+# and the scfb framebuffer driver where no DRM device exists
+# (rc.d/immutablue_xorg). procfs on /proc, which GNOME also requires, is
+# mounted on every image (stage 11).
 # gdm runs the first-login setup as the gnome-initial-setup user, which
 # Linux creates through sysusers.d and the FreeBSD port does not create at
 # all: without it gdm logs "couldn't look up username gnome-initial-setup"
@@ -22,7 +23,7 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 # Runs after 60-services.sh, once 30-install-packages.sh has installed gdm.
 if [[ -x /usr/local/etc/rc.d/gdm ]]
 then
-    sysrc dbus_enable=YES gdm_enable=YES immutablue_procfs_enable=YES immutablue_xorg_enable=YES
+    sysrc dbus_enable=YES gdm_enable=YES immutablue_xorg_enable=YES
 fi
 
 if [[ -x /usr/local/libexec/gnome-initial-setup ]] && ! pw usershow gnome-initial-setup > /dev/null 2>&1
