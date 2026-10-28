@@ -85,6 +85,33 @@ if [[ -f "${INSTALL_DIR}/build/99-common.sh" ]]; then source "${INSTALL_DIR}/bui
 if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 
 
+# Copy a staged usr/ tree into /usr.
+#
+# A plain 'cp -a src/. /usr/' fails when the tree has a real lib64 directory
+# and the image's /usr/lib64 is a symlink (Arch: lib64 -> lib); cp refuses to
+# replace the symlink with a directory. lib64's contents then go through the
+# symlink instead, and everything else is copied as usual. On Fedora, where
+# /usr/lib64 is a real directory, this is exactly the plain copy.
+#
+# param $1: the source usr directory, e.g. /mnt-cmacs/usr
+install_usr_tree() {
+    local src="$1"
+    local entry
+
+    if [[ -L /usr/lib64 ]] && [[ -d "${src}/lib64" ]] && [[ ! -L "${src}/lib64" ]]
+    then
+        cp -a "${src}/lib64/." /usr/lib64/
+        for entry in "${src}"/*
+        do
+            [[ "$(basename "${entry}")" == "lib64" ]] && continue
+            cp -a "${entry}" /usr/
+        done
+    else
+        cp -a "${src}/." /usr/
+    fi
+}
+
+
 # -----------------------------------
 # Custom C projects (yaml-glib, crispy, gst, gowl, mcp-glib, mcp-gdb-glib)
 # Staged with DESTDIR in deps container, layout mirrors target filesystem.
@@ -94,34 +121,34 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 # yaml-glib: GObject YAML library (always install, foundational library)
 if [[ -d "/mnt-build-deps/yaml-glib/usr" ]]; then
     echo "=== Installing yaml-glib from build deps ==="
-    cp -a /mnt-build-deps/yaml-glib/usr/. /usr/
+    install_usr_tree /mnt-build-deps/yaml-glib/usr
 fi
 
 # crispy: C script compiler/runner (always install, CLI-only, depends on glib2)
 if [[ -d "/mnt-build-deps/crispy/usr" ]]; then
     echo "=== Installing crispy from build deps ==="
-    cp -a /mnt-build-deps/crispy/usr/. /usr/
+    install_usr_tree /mnt-build-deps/crispy/usr
 fi
 
 # gst: terminal emulator (skip for nucleus -- no display server)
 if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
    [[ -d "/mnt-build-deps/gst/usr" ]]; then
     echo "=== Installing gst from build deps ==="
-    cp -a /mnt-build-deps/gst/usr/. /usr/
+    install_usr_tree /mnt-build-deps/gst/usr
 fi
 
 # gsurf: WebKit web browser (skip for nucleus -- no display server)
 if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
    [[ -d "/mnt-build-deps/gsurf/usr" ]]; then
     echo "=== Installing gsurf from build deps ==="
-    cp -a /mnt-build-deps/gsurf/usr/. /usr/
+    install_usr_tree /mnt-build-deps/gsurf/usr
 fi
 
 # gowl: wayland compositor (skip for nucleus -- no display server)
 if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
    [[ -d "/mnt-build-deps/gowl/usr" ]]; then
     echo "=== Installing gowl from build deps ==="
-    cp -a /mnt-build-deps/gowl/usr/. /usr/
+    install_usr_tree /mnt-build-deps/gowl/usr
     # gowl installs config to /etc/gowl/
     if [[ -d "/mnt-build-deps/gowl/etc" ]]; then
         cp -a /mnt-build-deps/gowl/etc/. /etc/
@@ -131,19 +158,19 @@ fi
 # mcp-glib: GObject MCP protocol library (always install, foundational library)
 if [[ -d "/mnt-build-deps/mcp-glib/usr" ]]; then
     echo "=== Installing mcp-glib from build deps ==="
-    cp -a /mnt-build-deps/mcp-glib/usr/. /usr/
+    install_usr_tree /mnt-build-deps/mcp-glib/usr
 fi
 
 # mcp-gdb-glib: GDB MCP server (always install, depends on mcp-glib)
 if [[ -d "/mnt-build-deps/mcp-gdb-glib/usr" ]]; then
     echo "=== Installing mcp-gdb-glib from build deps ==="
-    cp -a /mnt-build-deps/mcp-gdb-glib/usr/. /usr/
+    install_usr_tree /mnt-build-deps/mcp-gdb-glib/usr
 fi
 
 # ai-glib: GObject AI provider library (always install)
 if [[ -d "/mnt-build-deps/ai-glib/usr" ]]; then
     echo "=== Installing ai-glib from build deps ==="
-    cp -a /mnt-build-deps/ai-glib/usr/. /usr/
+    install_usr_tree /mnt-build-deps/ai-glib/usr
 fi
 
 # cmacs: GNU Emacs with GLib/GObject/Wayland integration (skip for nucleus -- no GUI)
@@ -151,7 +178,7 @@ fi
 if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
    [[ -d "/mnt-cmacs/usr" ]]; then
     echo "=== Installing cmacs from cmacs container ==="
-    cp -a /mnt-cmacs/usr/. /usr/
+    install_usr_tree /mnt-cmacs/usr
     # Copy ldconfig snippets (e.g. /etc/ld.so.conf.d/cmacs.conf)
     if [[ -d "/mnt-cmacs/etc" ]]; then
         cp -a /mnt-cmacs/etc/. /etc/
@@ -165,7 +192,7 @@ fi
 # would otherwise overwrite the canonical build-deps version.
 if [[ -d "/mnt-build-deps/podomation/usr" ]]; then
     echo "=== Installing podomation from build deps ==="
-    cp -a /mnt-build-deps/podomation/usr/. /usr/
+    install_usr_tree /mnt-build-deps/podomation/usr
 fi
 
 # bacon: GLib/GObject login shell (always install)
@@ -173,13 +200,13 @@ fi
 # its own bacon build under /usr/lib64/bacon.
 if [[ -d "/mnt-build-deps/bacon/usr" ]]; then
     echo "=== Installing bacon from build deps ==="
-    cp -a /mnt-build-deps/bacon/usr/. /usr/
+    install_usr_tree /mnt-build-deps/bacon/usr
 fi
 
 # nerd-fonts: FiraCode, FiraMono, Hack (always install)
 if [[ -d "/mnt-build-deps/nerd_fonts/usr" ]]; then
     echo "=== Installing nerd-fonts from build deps ==="
-    cp -a /mnt-build-deps/nerd_fonts/usr/. /usr/
+    install_usr_tree /mnt-build-deps/nerd_fonts/usr
 fi
 
 # mcp-kuberblue-glib: MCP server for kuberblue cluster management
@@ -187,7 +214,7 @@ fi
 if [[ "$(is_option_in_build_options kuberblue)" == "${TRUE}" ]] && \
    [[ -d "/mnt-build-deps/mcp-kuberblue-glib/usr" ]]; then
     echo "=== Installing mcp-kuberblue-glib from build deps ==="
-    cp -a /mnt-build-deps/mcp-kuberblue-glib/usr/. /usr/
+    install_usr_tree /mnt-build-deps/mcp-kuberblue-glib/usr
 fi
 
 # Update shared library cache for new .so files

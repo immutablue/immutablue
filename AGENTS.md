@@ -158,13 +158,13 @@ system, this ordering is usually why:
 | 1 | `artifacts/overrides/` | `cp -a /mnt-ctx/artifacts/overrides/. /` (line ~85) |
 | 1b | `backends/<backend>/overrides/` | same copy step, right after the shared overrides |
 | 2 | in-house C projects (yaml-glib, crispy, gst, **gowl**, mcp-glib, …) | `cp -a /mnt-build-deps/<p>/usr/. /usr/` (line ~172) |
-| 3 | **cmacs** | `cp -a /mnt-cmacs/usr/. /usr/` (line ~202) — **last, so it wins** |
+| 3 | **cmacs** | `install_usr_tree /mnt-cmacs/usr` (a `cp -a` that routes `lib64` through the symlink on Arch) — **last, so it wins** |
 
 Consequences worth knowing:
 
 - **The cmacs container is authoritative for anything it ships.** It is built
   out-of-tree by cmacs's own `./build-container` and pulled as
-  `quay.io/zachpodbielniak/cmacs:${FEDORA_VERSION}`. It ships not only
+  `quay.io/zachpodbielniak/cmacs:${FEDORA_VERSION}` (`:arch` for arch-bootc). It ships not only
   `/usr/share/wayland-sessions/cmacs.desktop` but also
   `/usr/share/xdg-desktop-portal/gowl-portals.conf` and `portals/` — so those
   are fixed by rebuilding and pushing the cmacs image, **not** by an
@@ -247,7 +247,7 @@ Scripts run in alphanumeric order during container build, merged by name with th
 |---------|------|----------|------|----------|--------|
 | `fedora-bootc` | Fedora Atomic (silverblue, base-atomic, asahi, ...) | dnf5 (`rpm` key) | systemd | bootc/ostree | default |
 | `gnomeos` | GNOME OS nightly | none | systemd | bootc/composefs | as before (DISTROLESS=1) |
-| `arch-bootc` | archlinux:latest + bootc v1.17.1 (no SELinux) | pacman | systemd | bootc/ostree | new; boots in QEMU; ships the in-house C projects (local deps image until `:arch-deps` is published); no cmacs yet |
+| `arch-bootc` | archlinux:latest + bootc v1.17.1 (no SELinux) | pacman | systemd | bootc/ostree | new; boots in QEMU; ships the in-house C projects (local deps image until `:arch-deps` is published) and cmacs (`cmacs:arch`) |
 | `freebsd-be` | FreeBSD 15.1 pkgbase OCI | pkg | rc | ZFS boot environment (`deliver.sh`) | early; builds, passes `make test`, delivers and boots on a FreeBSD 15.1 VM (`backends/freebsd-be/builder-vm.sh`); FreeBSD build host only |
 
 A backend is `backend.yaml` (facts and `provides` capabilities), `backend.sh` (the build contract), `runtime.sh` (verbs for `immutablue-backend`), a `Containerfile` and `deps.Containerfile`, and optionally `backend.mk` (Make defaults), `stages/` and `overrides/`. `tests/test_backend_contract.sh` checks every backend against the contract. Variants declare what they need in `variants/<option>.yaml` (`requires:`), enforced by `make backend_check` / `scripts/check-backend.sh`.

@@ -548,6 +548,10 @@ immutablue:
     # Immutablue ships a plymouth theme and 80-initramfs.sh verifies it
     # reached the initramfs.
     - plymouth
+  pacman_gui:
+    all:
+    # cmacs (quay.io/zachpodbielniak/cmacs:arch) links libmariadb.so.3
+    - mariadb-libs
   pacman_silverblue:
     all:
     # 'silverblue' is the GNOME desktop option on every backend; gnome is a

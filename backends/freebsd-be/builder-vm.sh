@@ -38,6 +38,8 @@
 #   FREEBSD_VM_PORT    host port forwarded to the VM's sshd (default: 2222)
 #   FREEBSD_VM_MEM     memory in MiB (default: 16384)
 #   FREEBSD_VM_CPUS    vCPUs (default: 8)
+#   FREEBSD_VM_DISK    disk size (default: 120G; a GNOME build plus its
+#                      squash and a delivered boot environment need ~70G)
 #
 # Host requirements (Fedora package names): qemu-kvm, xorriso,
 # openssh-clients, rsync, xz, curl.
@@ -57,6 +59,7 @@ VM_DIR="${FREEBSD_VM_DIR:-${ROOT_DIR}/images/freebsd-vm}"
 PORT="${FREEBSD_VM_PORT:-2222}"
 MEM="${FREEBSD_VM_MEM:-16384}"
 CPUS="${FREEBSD_VM_CPUS:-8}"
+DISK="${FREEBSD_VM_DISK:-120G}"
 IMAGE_REF="${FREEBSD_IMAGE_REF:-quay.io/immutablue/immutablue:15.1-freebsd-nucleus}"
 
 
@@ -139,7 +142,7 @@ vm_create() {
     )
 
     xz -dkc "${VM_DIR}/${IMAGE_NAME}.xz" > "${VM_DIR}/builder.qcow2"
-    qemu-img resize -q "${VM_DIR}/builder.qcow2" 80G
+    qemu-img resize -q "${VM_DIR}/builder.qcow2" "${DISK}"
 
     if [[ ! -f "${VM_DIR}/vmkey" ]]
     then

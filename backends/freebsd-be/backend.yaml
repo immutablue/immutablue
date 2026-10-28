@@ -38,3 +38,6 @@ provides:
   - jails
   - bhyve
   - dtrace
+
+# dconf's sysconfdir on FreeBSD (build/90-post.sh compiles the defaults there).
+dconf_dir: /usr/local/etc/dconf

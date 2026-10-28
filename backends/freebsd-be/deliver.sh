@@ -205,13 +205,21 @@ merge_rc_conf() {
     local line
     local applied=0
 
+    local name
+    local value
+
+    # 'sysrc -a' prints "name: value" with the value unquoted; feeding the
+    # shell-quoted 'sysrc -a -e' form back to sysrc would nest quotes on every
+    # delivery until rc(8) rejects the variable (sshd_enable stops working).
     touch "${target_rc}"
     while IFS= read -r line
     do
-        [[ "${line}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || continue
-        sysrc -f "${target_rc}" "${line}" > /dev/null
+        name="${line%%: *}"
+        value="${line#*: }"
+        [[ "${name}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+        sysrc -f "${target_rc}" "${name}=${value}" > /dev/null
         applied=$((applied + 1))
-    done < <(sysrc -f "${image_rc}" -a -e 2>/dev/null)
+    done < <(sysrc -f "${image_rc}" -a 2>/dev/null)
     log "/etc/rc.conf: applied ${applied} setting(s) from the image, kept the machine's others"
 }
 
@@ -286,6 +294,54 @@ restore_modes() {
         restored=$((restored + 1))
     done < "${modes_file}"
     log "restored mode and flags on ${restored} setuid/setgid/schg path(s)"
+}
+
+
+# Add the image's system accounts that this machine lacks.
+#
+# passwd, master.passwd and group stay local (they hold this machine's users),
+# but packages create accounts of their own -- gdm, messagebus, polkitd -- and
+# an image that gains such a package needs them. Every user and group the
+# image defines that the machine does not is appended; existing entries are
+# never changed. The password databases are then rebuilt.
+#
+# param $1: the image's etc directory
+# param $2: the boot environment's etc directory
+merge_accounts() {
+    local image_etc="$1"
+    local target_etc="$2"
+    local line
+    local name
+    local added_users=0
+    local added_groups=0
+
+    while IFS= read -r line
+    do
+        [[ -z "${line}" ]] || [[ "${line}" == \#* ]] && continue
+        name="${line%%:*}"
+        if ! grep -q "^${name}:" "${target_etc}/group"
+        then
+            echo "${line}" >> "${target_etc}/group"
+            added_groups=$((added_groups + 1))
+        fi
+    done < "${image_etc}/group"
+
+    while IFS= read -r line
+    do
+        [[ -z "${line}" ]] || [[ "${line}" == \#* ]] && continue
+        name="${line%%:*}"
+        if ! grep -q "^${name}:" "${target_etc}/master.passwd"
+        then
+            echo "${line}" >> "${target_etc}/master.passwd"
+            added_users=$((added_users + 1))
+        fi
+    done < "${image_etc}/master.passwd"
+
+    if [[ ${added_users} -gt 0 ]]
+    then
+        pwd_mkdb -d "${target_etc}" -p "${target_etc}/master.passwd"
+    fi
+    log "accounts: added ${added_users} user(s) and ${added_groups} group(s) the image defines"
 }
 
 
@@ -381,6 +437,7 @@ main() {
     # 4. Three-way merge of the configuration trees
     # -----------------------------------
     merge_config_tree "${work}/rootfs/etc" "/${STOCK_REL}/etc" "${mnt}/etc" /etc
+    merge_accounts "${work}/rootfs/etc" "${mnt}/etc"
     if [[ -d "${work}/rootfs/usr/local/etc" ]]
     then
         mkdir -p "${mnt}/usr/local/etc"

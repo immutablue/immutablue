@@ -39,6 +39,5 @@ provides:
   - nix
   - linux_binaries
   - inhouse_deps     # built by backends/arch-bootc/deps.Containerfile
-  # Not yet: cmacs (the cmacs image is built on Fedora; needs an Arch build
-  #          from the cmacs repository)
+  - cmacs            # quay.io/zachpodbielniak/cmacs:arch (cmacs ./build-container arch)
   #          pip (Arch's python is externally managed, PEP 668)

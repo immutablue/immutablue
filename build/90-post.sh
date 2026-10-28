@@ -157,14 +157,30 @@ cat "${IMAGE_INFO_FILE}"
 # These are defaults rather than enforced settings: user-db is consulted first,
 # so anything the user changes in the GUI continues to win.
 # -----------------------------------
-if [[ -d /etc/dconf/db/local.d ]] && command -v dconf >/dev/null 2>&1
+# dconf's system databases live under its sysconfdir: /etc/dconf on Linux,
+# /usr/local/etc/dconf on FreeBSD (backend.yaml 'dconf_dir'). The shared
+# keyfiles ship in /etc/dconf/db/local.d and are copied there when it differs,
+# with a profile that reads the 'local' database if the platform has none.
+dconf_dir="$(backend_get dconf_dir)"
+dconf_dir="${dconf_dir:-/etc/dconf}"
+if [[ "${dconf_dir}" != "/etc/dconf" ]] && [[ -d /etc/dconf/db/local.d ]]
+then
+    mkdir -p "${dconf_dir}/db/local.d" "${dconf_dir}/profile"
+    cp -a /etc/dconf/db/local.d/. "${dconf_dir}/db/local.d/"
+    if [[ ! -f "${dconf_dir}/profile/user" ]]
+    then
+        printf 'user-db:user\nsystem-db:local\n' > "${dconf_dir}/profile/user"
+    fi
+fi
+
+if [[ -d "${dconf_dir}/db/local.d" ]] && command -v dconf >/dev/null 2>&1
 then
     dconf update
-    if [[ -f /etc/dconf/db/local ]]
+    if [[ -f "${dconf_dir}/db/local" ]]
     then
-        echo "Compiled dconf defaults: $(wc -c < /etc/dconf/db/local) bytes"
+        echo "Compiled dconf defaults: $(wc -c < "${dconf_dir}/db/local") bytes"
     else
-        echo "ERROR: dconf update produced no /etc/dconf/db/local" >&2
+        echo "ERROR: dconf update produced no ${dconf_dir}/db/local" >&2
         exit 1
     fi
 fi
