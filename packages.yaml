@@ -585,6 +585,9 @@ immutablue:
     all:
     - gnome
     - gdm
+    # FreeBSD's gnome package does not pull an X server in; GDM needs one
+    # (the Handbook installs xorg alongside gnome).
+    - xorg
 
   # Urls to RPMs to download (they are curled)
   rpm_url:

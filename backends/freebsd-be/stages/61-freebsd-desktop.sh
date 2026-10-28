@@ -6,9 +6,10 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 # 61-freebsd-desktop.sh (freebsd-be)
 #
 # GNOME variants: the display manager and the system bus it needs, which a
-# Fedora or Arch base enables through systemd presets and FreeBSD leaves off.
+# Fedora or Arch base enables through systemd presets and FreeBSD leaves off,
+# and procfs on /proc (rc.d/immutablue_procfs), which GNOME requires.
 # Runs after 60-services.sh, once 30-install-packages.sh has installed gdm.
 if [[ -x /usr/local/etc/rc.d/gdm ]]
 then
-    sysrc dbus_enable=YES gdm_enable=YES
+    sysrc dbus_enable=YES gdm_enable=YES immutablue_procfs_enable=YES
 fi

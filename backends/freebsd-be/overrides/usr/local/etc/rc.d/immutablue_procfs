@@ -1,0 +1,33 @@
+#!/bin/sh
+#
+# PROVIDE: immutablue_procfs
+# REQUIRE: FILESYSTEMS
+# BEFORE: dbus gdm
+# KEYWORD: nojail
+#
+# Mount procfs on /proc for GNOME (freebsd-be). The FreeBSD Handbook has
+# GNOME users add it to /etc/fstab, but fstab belongs to the machine and is
+# never replaced by an Immutablue update, so the image mounts it itself when
+# the machine has not.
+#
+# Enabled for GNOME variants by stages/61-freebsd-desktop.sh.
+
+# rc.subr is FreeBSD's rc(8) library; not something shellcheck can follow.
+# shellcheck source=/dev/null
+. /etc/rc.subr
+
+name="immutablue_procfs"
+rcvar="immutablue_procfs_enable"
+start_cmd="${name}_start"
+stop_cmd=":"
+
+immutablue_procfs_start()
+{
+	if ! mount -t procfs | grep -q ' /proc '; then
+		mount -t procfs proc /proc
+	fi
+}
+
+load_rc_config $name
+: ${immutablue_procfs_enable:="NO"}
+run_rc_command "$1"

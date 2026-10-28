@@ -47,7 +47,7 @@ YAML
 # Load the real library against the fixture, without a host header.
 resolve () {
 	local field="$1" key="$2" options="$3"
-	env -i PATH="$PATH" INSTALL_DIR="$fixture" VERSION=44 FEDORA_VERSION=44 \
+	env -i PATH="$PATH" HOME="$fixture" INSTALL_DIR="$fixture" VERSION=44 FEDORA_VERSION=44 \
 		IMMUTABLUE_BUILD_OPTIONS="$options" IMMUTABLUE_BACKEND=fedora-bootc \
 		bash -c '
 			TRUE=1; FALSE=0
@@ -88,7 +88,7 @@ expect 'native lists are unaffected' "rpm-only shared-plain" \
 # The backend list is native plus logical, deduplicated in first-seen order.
 backend_list () {
 	local fn="$1"
-	env -i PATH="$PATH" INSTALL_DIR="$fixture" VERSION=44 FEDORA_VERSION=44 \
+	env -i PATH="$PATH" HOME="$fixture" INSTALL_DIR="$fixture" VERSION=44 FEDORA_VERSION=44 \
 		IMMUTABLUE_BUILD_OPTIONS=nucleus IMMUTABLUE_BACKEND=fedora-bootc \
 		bash -c 'TRUE=1; FALSE=0; source "$1/build/99-common.sh"; PACKAGES_YAML="$INSTALL_DIR/packages.yaml"; "$2"' \
 		_ "$root" "$fn" | paste -sd ' ' -
