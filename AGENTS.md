@@ -66,6 +66,7 @@ make CYAN=1 LTS=1 build       # NVIDIA + LTS kernel
 
 ```bash
 make BACKEND=arch-bootc NUCLEUS=1 build  # Arch Linux backend -> :arch-nucleus
+make ARCHLINUX=1 build        # same as BACKEND=arch-bootc (FREEBSD=1 -> freebsd-be)
 make BACKEND=gnomeos build    # GNOME OS backend (same as DISTROLESS=1)
 make backend_check            # Is this BACKEND + variant combination possible?
 make VERSION=42 build         # Build for Fedora 42
@@ -95,6 +96,13 @@ make push_iso                 # Upload ISO to S3
 ```
 
 The default `make iso` uses `bootc-image-builder` (same tooling as qcow2), producing an install-to-disk ISO. Use `CLASSIC_ISO=1` for the legacy `build-container-installer` approach which supports flatpak bundling and more Anaconda customization.
+
+`arch-bootc` and `freebsd-be` are not supported by bootc-image-builder, so
+`make iso` runs their own `backends/<backend>/make-iso.sh` instead
+(`make ARCHLINUX=1 iso`, `make FREEBSD=1 iso` — the latter builds in the
+FreeBSD builder VM from Linux). Both boot a live system whose text installer
+lays the image onto a disk; GNOME's first-login setup creates the user.
+`ISO_AUTOINSTALL=<disk>` bakes in an unattended install for tests.
 
 **Important**: Run `make iso-config` before `make iso` to configure user accounts. Without it, no users are created in the ISO.
 

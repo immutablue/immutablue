@@ -23,6 +23,16 @@ VARIANT := Silverblue
 # Backend (the operating system underneath Immutablue; see backends/)
 # ------------------------------------------------------------------------------
 # fedora-bootc is what every image was built on before backends existed.
+#
+# ARCHLINUX=1 and FREEBSD=1 are shorthands for BACKEND=arch-bootc and
+# BACKEND=freebsd-be. (Not ARCH: that name means a CPU architecture to
+# plenty of toolchains.) Only 1/true/yes count.
+ifneq ($(filter 1 true yes,$(ARCHLINUX)),)
+    BACKEND := arch-bootc
+endif
+ifneq ($(filter 1 true yes,$(FREEBSD)),)
+    BACKEND := freebsd-be
+endif
 ifndef BACKEND
     BACKEND := fedora-bootc
 endif

@@ -29,6 +29,8 @@
 #   sync        Copy this checkout into the VM (~/immutablue)
 #   make ARGS   sync, then 'sudo gmake ARGS' in the VM
 #   deliver     Deliver the built image into a boot environment in the VM
+#   iso OUT     Build an installer ISO of FREEBSD_IMAGE_REF in the VM with
+#               make-iso.sh and copy it back to OUT
 #   destroy     Stop the VM and remove its disk (the download is kept)
 #
 # Options:
@@ -58,6 +60,8 @@
 #   FREEBSD_VM_DOMAIN  libvirt domain name (default: immutablue-freebsd-builder)
 #   FREEBSD_INSTALL_DOMAIN  domain 'install' creates (default: immutablue-freebsd)
 #   FREEBSD_INSTALL_DISK    its disk size (default: 60G)
+#   FREEBSD_INSTALL_SSH_KEY a public key installed for root on that machine
+#   FREEBSD_ISO_AUTOINSTALL  disk the ISO installs to unattended (tests only)
 #   LIBVIRT_DEFAULT_URI  libvirt connection (default: qemu:///system)
 #
 # Host requirements (Fedora package names): qemu-kvm, xorriso,
@@ -264,7 +268,7 @@ EOF
     # fdescfs, and pf NAT for container networking.
     vm_ssh 'sudo sh -s' <<'EOF'
 set -e
-env ASSUME_ALWAYS_YES=yes pkg install -y podman-suite ocijail gmake bash git go-yq jq rsync curl skopeo hs-ShellCheck just parallel
+env ASSUME_ALWAYS_YES=yes pkg install -y podman-suite ocijail gmake bash git go-yq jq rsync curl skopeo hs-ShellCheck just parallel xorriso
 ln -sf /usr/local/bin/bash /bin/bash
 zfs list zroot/containers > /dev/null 2>&1 || zfs create -o mountpoint=/var/db/containers zroot/containers
 grep -q fdescfs /etc/fstab || echo "fdesc /dev/fd fdescfs rw 0 0" >> /etc/fstab
@@ -347,7 +351,14 @@ vm_install() {
     fi
     echo "Installing ${IMAGE_REF} onto the builder's ${dev}"
 
-    if ! vm_ssh "cd immutablue && sudo bash backends/freebsd-be/install-disk.sh --yes --hostname $(printf '%q' "${INSTALL_DOMAIN}") $(printf '%q' "${IMAGE_REF}") ${dev}"
+    local key_opt=""
+    if [[ -n "${FREEBSD_INSTALL_SSH_KEY:-}" ]]
+    then
+        vm_ssh 'cat > /tmp/immutablue-install-key.pub' < "${FREEBSD_INSTALL_SSH_KEY}"
+        key_opt="--ssh-key /tmp/immutablue-install-key.pub"
+    fi
+
+    if ! vm_ssh "cd immutablue && sudo bash backends/freebsd-be/install-disk.sh --yes ${key_opt} --hostname $(printf '%q' "${INSTALL_DOMAIN}") $(printf '%q' "${IMAGE_REF}") ${dev}"
     then
         vsh detach-disk "${DOMAIN}" vdz --live > /dev/null 2>&1 || true
         return 1
@@ -370,9 +381,35 @@ vm_sync() {
     rsync -a --delete \
         --exclude /images/ --exclude /deps/ \
         --exclude /.git/modules/deps/ --exclude /.git/modules/artifacts/ \
-        --exclude /docs/public/ \
+        --exclude /docs/public/ --exclude /iso/ --exclude /.image-source.json \
         -e "ssh -i ${VM_DIR}/vmkey -p ${port} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o BatchMode=yes" \
         "${ROOT_DIR}/" "builder@${host}:immutablue/"
+}
+
+
+# Build an installer ISO of IMAGE_REF in the VM and copy it to the host.
+#
+# param $1: output path on the host
+vm_iso() {
+    local out="$1"
+    local remote="/var/tmp/immutablue-installer.iso"
+    local auto=""
+    local host
+    local port
+
+    vm_sync
+    if [[ -n "${FREEBSD_ISO_AUTOINSTALL:-}" ]]
+    then
+        auto="--autoinstall $(printf '%q' "${FREEBSD_ISO_AUTOINSTALL}")"
+    fi
+    vm_ssh "cd immutablue && sudo bash backends/freebsd-be/make-iso.sh ${auto} $(printf '%q' "${IMAGE_REF}") ${remote}"
+    read -r host port < <(vm_target)
+    mkdir -p "$(dirname "${out}")"
+    scp -i "${VM_DIR}/vmkey" -P "${port}" \
+        -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        -o LogLevel=ERROR -o BatchMode=yes "builder@${host}:${remote}" "${out}"
+    vm_ssh "sudo rm -f ${remote}"
+    echo "ISO: ${out}"
 }
 
 
@@ -417,6 +454,14 @@ main() {
         deliver)
             vm_sync
             vm_ssh "cd immutablue && sudo bash backends/freebsd-be/deliver.sh $(printf '%q' "${IMAGE_REF}")"
+            ;;
+        iso)
+            if [[ $# -ne 2 ]]
+            then
+                echo "usage: builder-vm.sh iso <output.iso>" >&2
+                return 2
+            fi
+            vm_iso "$2"
             ;;
         destroy)
             vm_stop

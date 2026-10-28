@@ -20,19 +20,24 @@
 # The image's root filesystem is laid into the boot environment, its recorded
 # setuid/setgid/schg modes are restored (buildah drops them, see
 # backend_finalize), and the machine-specific files are written: loader.conf
-# (ZFS, serial + video console), rc.conf (hostname, DHCP on every interface),
+# (ZFS, video console), rc.conf (hostname, DHCP on every interface),
 # and the pool cache. No user is created: GNOME images ask for the first user
 # through gnome-initial-setup at first login; --ssh-key installs a root key for
 # headless access.
 #
 # Usage:
 #   install-disk.sh [options] <image:tag> <disk>
+#   install-disk.sh [options] --source-root <dir> <disk>
 #
 # Options:
 #   --pool NAME       zpool name (default: zimmutablue; must not exist on the host)
 #   --hostname NAME   hostname (default: immutablue)
 #   --ssh-key FILE    install FILE as root's authorized_keys
 #   --yes             do not ask before destroying the disk's contents
+#   --source-root DIR install from a directory tree instead of a podman image:
+#                     the installer ISO's live root, which is the image
+#                     (make-iso.sh keeps the image's /var at
+#                     /.immutablue-image/var, since the live /var is a RAM disk)
 #   -h, --help        Show this help message
 #   --license         Show license information
 #
@@ -53,6 +58,7 @@ STOCK_REL="usr/share/immutablue/stock"
 POOL="zimmutablue"
 HOSTNAME_NEW="immutablue"
 SSH_KEY=""
+SOURCE_ROOT=""
 ASSUME_YES=0
 ALTROOT=""
 CID=""
@@ -129,18 +135,24 @@ main() {
             --hostname) HOSTNAME_NEW="$2"; shift ;;
             --ssh-key) SSH_KEY="$2"; shift ;;
             --yes) ASSUME_YES=1 ;;
+            --source-root) SOURCE_ROOT="$2"; shift ;;
             -*) log "unknown option $1"; return 2 ;;
             *) args+=("$1") ;;
         esac
         shift
     done
-    if [[ ${#args[@]} -ne 2 ]]
+    if [[ -n "${SOURCE_ROOT}" ]] && [[ ${#args[@]} -eq 1 ]]
     then
+        image="${SOURCE_ROOT}"
+        disk="${args[0]#/dev/}"
+    elif [[ -z "${SOURCE_ROOT}" ]] && [[ ${#args[@]} -eq 2 ]]
+    then
+        image="${args[0]}"
+        disk="${args[1]#/dev/}"
+    else
         show_help >&2
         return 2
     fi
-    image="${args[0]}"
-    disk="${args[1]#/dev/}"
 
     # -----------------------------------
     # Refuse anything that is not an idle, whole, non-root disk
@@ -170,7 +182,14 @@ main() {
         log "a pool named ${POOL} is already imported here; choose another --pool"
         return 2
     fi
-    if ! podman image exists "${image}"
+    if [[ -n "${SOURCE_ROOT}" ]]
+    then
+        if [[ ! -f "${SOURCE_ROOT}/usr/immutablue/backend" ]]
+        then
+            log "${SOURCE_ROOT} is not an Immutablue freebsd-be tree"
+            return 2
+        fi
+    elif ! podman image exists "${image}"
     then
         log "${image} is not in local podman storage"
         return 2
@@ -218,8 +237,24 @@ main() {
     # The image's root filesystem
     # -----------------------------------
     log "installing ${image} into ${POOL}/ROOT/${be}"
-    CID="$(podman create "${image}" /bin/true)"
-    podman export "${CID}" | tar -xpf - -C "${ALTROOT}"
+    if [[ -n "${SOURCE_ROOT}" ]]
+    then
+        # The live root is the image plus what make-iso.sh added for the
+        # live session; those additions and the RAM-backed or virtual
+        # trees stay behind, and the image's own /var comes from where
+        # make-iso.sh kept it.
+        tar -cf - -C "${SOURCE_ROOT}" \
+            --exclude ./dev --exclude ./proc --exclude ./tmp --exclude ./var \
+            --exclude ./mnt --exclude ./media --exclude ./.immutablue-image \
+            --exclude ./etc/rc.conf.local --exclude ./boot/loader.conf.local \
+            --exclude ./etc/rc.local --exclude ./etc/fstab --exclude ./efiboot.img . \
+            | tar -xpf - -C "${ALTROOT}"
+        mkdir -p "${ALTROOT}/dev" "${ALTROOT}/tmp" "${ALTROOT}/var" "${ALTROOT}/mnt" "${ALTROOT}/media"
+        tar -cf - -C "${SOURCE_ROOT}/.immutablue-image/var" . | tar -xpf - -C "${ALTROOT}/var"
+    else
+        CID="$(podman create "${image}" /bin/true)"
+        podman export "${CID}" | tar -xpf - -C "${ALTROOT}"
+    fi
     restore_modes "${ALTROOT}"
     chmod 1777 "${ALTROOT}/tmp" "${ALTROOT}/var/tmp"
 
@@ -242,7 +277,10 @@ main() {
 # Written by Immutablue's install-disk.sh
 zfs_load="YES"
 cryptodev_load="YES"
-boot_multicons="YES"
+# Screen first, serial second: with "vidconsole" alone the UEFI loader
+# still adds a serial port it finds in the firmware's ConOut (libvirt
+# domains have one) and makes it the primary console, where rc(8) output --
+# the installer -- goes.
 console="vidconsole,comconsole"
 autoboot_delay="3"
 EOF
@@ -260,6 +298,8 @@ EOF
         cp "${SSH_KEY}" "${ALTROOT}/root/.ssh/authorized_keys"
         chmod 0700 "${ALTROOT}/root/.ssh"
         chmod 0600 "${ALTROOT}/root/.ssh/authorized_keys"
+        # FreeBSD's sshd refuses root by default; allow it with a key only.
+        printf '\n# install-disk.sh --ssh-key\nPermitRootLogin prohibit-password\n' >> "${ALTROOT}/etc/ssh/sshd_config"
     fi
 
     sync

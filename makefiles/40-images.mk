@@ -21,8 +21,17 @@ endif
 # ------------------------------------------------------------------------------
 # ISO Generation
 # ------------------------------------------------------------------------------
+# A backend that bootc-image-builder cannot handle (arch-bootc, freebsd-be)
+# ships its own backends/<b>/make-iso.sh <image> <output.iso>; ISO_AUTOINSTALL
+# bakes an unattended install to that disk into the ISO (tests only).
 iso: _check_not_distroless
-ifeq ($(CLASSIC_ISO),1)
+ifneq ($(wildcard backends/$(BACKEND)/make-iso.sh),)
+	@mkdir -p $(ISO_DIR)
+	bash backends/$(BACKEND)/make-iso.sh $(if $(ISO_AUTOINSTALL),--autoinstall $(ISO_AUTOINSTALL)) \
+		$(IMAGE):$(TAG) $(ISO_DIR)/immutablue-$(TAG).iso
+	cd $(ISO_DIR) && sha256sum immutablue-$(TAG).iso > immutablue-$(TAG).iso.CHECKSUM
+	@echo "ISO built: $(ISO_DIR)/immutablue-$(TAG).iso"
+else ifeq ($(CLASSIC_ISO),1)
 	@echo "Building classic ISO using build-container-installer..."
 	$(MAKE) _iso_classic
 else

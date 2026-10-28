@@ -77,5 +77,16 @@ if bash "$root/scripts/check-backend.sh" arch-bootc gui,silverblue,cyan > /dev/n
 fi
 bash "$root/scripts/check-backend.sh" fedora-bootc gui,silverblue,zfs,cyan > /dev/null || fail 'check-backend.sh rejected a normal fedora-bootc build'
 
+# ARCHLINUX=1 / FREEBSD=1 select their backends; ARCH (a CPU architecture to
+# many toolchains) is not an alias.
+backend_of () {
+	env -i PATH="$PATH" HOME="${HOME:-/tmp}" make --no-print-directory -s -C "$root" "$@" backend
+}
+[[ "$(backend_of ARCHLINUX=1)" == arch-bootc ]] || fail 'ARCHLINUX=1 does not select arch-bootc'
+[[ "$(backend_of ARCH=1)" == fedora-bootc ]] || fail 'ARCH=1 changed the backend'
+[[ "$(backend_of FREEBSD=1)" == freebsd-be ]] || fail 'FREEBSD=1 does not select freebsd-be'
+[[ "$(backend_of ARCH=x86_64)" == fedora-bootc ]] || fail 'ARCH=x86_64 changed the backend'
+[[ "$(backend_of)" == fedora-bootc ]] || fail 'the default backend is not fedora-bootc'
+
 [[ $failed -eq 0 ]] || exit 1
 echo "PASS: $backends backends implement the contract and are self-consistent"

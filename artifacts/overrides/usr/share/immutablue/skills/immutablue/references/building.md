@@ -270,7 +270,7 @@ every one of these refuses on `DISTROLESS=1`:
 
 | Target | Produces |
 |--------|----------|
-| `make iso` / `make iso-config` | an installer ISO; `anaconda-iso` for the Anaconda flavour |
+| `make iso` / `make iso-config` | an installer ISO; `anaconda-iso` for the Anaconda flavour. On `arch-bootc` / `freebsd-be` it runs `backends/<b>/make-iso.sh` instead: a live ISO whose tty installer lays the image onto a disk (`bootc install to-disk` from an OCI layout on the ISO / `install-disk.sh --source-root /`); `ISO_AUTOINSTALL=<disk>` makes it unattended |
 | `make qcow2` / `make qcow2-config` | a VM disk; `qcow2-config` prompts for user, password, wheel, SSH key |
 | `make raw` / `make vhd` / `make vmdk` | disk images for bare metal, Hyper-V, VMware |
 | `make ami` / `make gce` | cloud images, with `push_ami` / `push_gce` to upload |
