@@ -1,0 +1,472 @@
+#!/bin/bash
+# immutablue-linux - Linux binary compatibility on Immutablue FreeBSD
+#
+# FreeBSD runs Linux binaries through the Linuxulator (linux64.ko, loaded at
+# boot: linux_enable). This tool gives it a Linux userland to resolve them
+# against, and puts the Linux tools Immutablue relies on elsewhere on top:
+#
+#   /compat/linux     a Fedora (default) or Arch userland, unpacked from that
+#                     distribution's container image onto its own ZFS dataset
+#                     (<pool>/compat/linux), so it survives updates, which
+#                     replace the boot environment
+#   brew              Homebrew, run inside that userland as you; what it
+#                     installs in /home/linuxbrew runs from the FreeBSD shell
+#   box               podman Linux containers with /home shared, a stand-in
+#                     for distrobox
+#
+# Flatpak cannot work here: its sandbox (bubblewrap) needs Linux namespaces,
+# which the Linuxulator does not implement.
+#
+# Usage:
+#   immutablue-linux <command> [args]
+#
+# Commands:
+#   setup [--distro fedora|arch] [--image REF] [--force]
+#                     Create the userland (root; --force replaces it)
+#   status            Show what is set up
+#   mount             Share /home and /tmp into the userland (run at boot by
+#                     rc.d/immutablue_linux_compat)
+#   shell             A login shell in the userland, as you
+#   run CMD [ARGS]    Run a command in the userland, as you
+#   brew-setup        Install Homebrew into /home/linuxbrew/.linuxbrew
+#   box create NAME [IMAGE]   A podman Linux container (default: the userland's image)
+#   box enter NAME    A shell in it, as you, in the current directory
+#   box list          List boxes
+#   box rm NAME       Remove a box
+#
+# Options:
+#   -h, --help        Show this help message
+#   --license         Show license information
+#
+# Settings (immutablue-settings):
+#   .immutablue.linux_compat.auto_setup  set the userland up at boot (true)
+#   .immutablue.linux_compat.distro      fedora | arch (fedora)
+#   .immutablue.linux_compat.image       a specific image instead
+#
+# Examples:
+#   sudo immutablue-linux setup --distro arch
+#   immutablue-linux run uname -a
+#   immutablue-linux brew-setup && brew install jq
+#   immutablue-linux box create dev docker.io/library/fedora:latest
+#   immutablue-linux box enter dev
+#
+# Exit codes:
+#   0 - Success
+#   1 - A step failed
+#   2 - Usage error
+
+set -euo pipefail
+
+COMPAT="/compat/linux"
+MARKER="${COMPAT}/.immutablue-linux"
+BREW_PREFIX="/home/linuxbrew/.linuxbrew"
+BREW_REPO="https://github.com/Homebrew/brew"
+BOX_LABEL="io.immutablue.linuxbox"
+# Inside the userland: brew first, then the distribution's own paths.
+LINUX_PATH="${BREW_PREFIX}/bin:${BREW_PREFIX}/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+
+show_help() {
+    sed -n '2,/^# Exit codes/p' "$0" | sed -e '/^# Exit codes/d' -e 's/^# \{0,1\}//'
+}
+
+
+log() {
+    echo "immutablue-linux: $*" >&2
+}
+
+
+die() {
+    log "$*"
+    exit 1
+}
+
+
+# Re-run this command as root (sudo; wheel needs no password on Immutablue).
+#
+# param $@: the original arguments
+as_root() {
+    if [[ "$(id -u)" -ne 0 ]]
+    then
+        exec sudo --preserve-env=TERM "$0" "$@"
+    fi
+}
+
+
+# The user a command runs as: whoever called sudo, else the caller.
+target_user() {
+    if [[ "$(id -u)" -eq 0 ]] && [[ -n "${SUDO_USER:-}" ]]
+    then
+        echo "${SUDO_USER}"
+    else
+        id -un
+    fi
+}
+
+
+setting() {
+    local value
+
+    value="$(immutablue-settings "$1" 2>/dev/null || true)"
+    if [[ -z "${value}" ]] || [[ "${value}" == "null" ]]
+    then
+        value="$2"
+    fi
+    echo "${value}"
+}
+
+
+image_for_distro() {
+    case "$1" in
+        fedora) echo "docker.io/library/fedora:latest" ;;
+        arch) echo "docker.io/library/archlinux:latest" ;;
+        *) die "unknown distro '$1' (fedora or arch)" ;;
+    esac
+}
+
+
+is_setup() {
+    [[ -f "${MARKER}" ]]
+}
+
+
+# The dataset /compat/linux lives on: <pool of the running root>/compat/linux.
+compat_dataset() {
+    local root_ds
+
+    root_ds="$(zfs list -H -o name / 2>/dev/null)" || die "/ is not on ZFS"
+    echo "${root_ds%%/*}/compat/linux"
+}
+
+
+# Mount points below /compat/linux, deepest first.
+compat_mounts() {
+    mount -p | awk -v c="${COMPAT}/" 'index($2, c) == 1 { print $2 }' | sort -r
+}
+
+
+unmount_all() {
+    local mp
+
+    while read -r mp
+    do
+        [[ -n "${mp}" ]] || continue
+        umount -f "${mp}" || die "cannot unmount ${mp}"
+    done < <(compat_mounts)
+    [[ -z "$(compat_mounts)" ]] || die "mounts remain below ${COMPAT}; not touching it"
+}
+
+
+# GNU tar 1.35 opens files with openat2(2), which the Linuxulator does not
+# implement (ENOSYS), and does not fall back: every extraction fails --
+# Homebrew's portable Ruby and bottles included. libarchive's bsdtar does not
+# use it, so /usr/bin/tar is made bsdtar (GNU tar stays as gnutar). Homebrew
+# resets PATH to /usr/bin:/bin:..., so a shim earlier in PATH is not enough.
+# Checked on every mount: a package update can put GNU tar back.
+use_bsdtar() {
+    local tar="${COMPAT}/usr/bin/tar"
+
+    [[ -x "${COMPAT}/usr/bin/bsdtar" ]] || return 0
+    if [[ -L "${tar}" ]] && [[ "$(readlink "${tar}")" == "bsdtar" ]]
+    then
+        return 0
+    fi
+    if [[ -f "${tar}" ]] && [[ ! -L "${tar}" ]]
+    then
+        mv -f "${tar}" "${COMPAT}/usr/bin/gnutar"
+    fi
+    ln -sf bsdtar "${tar}"
+}
+
+
+# Share the host's /home and /tmp, resolver and kernel filesystems in.
+cmd_mount() {
+    local dir
+
+    as_root mount
+    is_setup || return 0
+    service linux onestatus > /dev/null 2>&1 || service linux onestart > /dev/null
+    for dir in home tmp
+    do
+        mkdir -p "${COMPAT}/${dir}"
+        if ! mount -p | awk -v m="${COMPAT}/${dir}" '$2 == m { found = 1 } END { exit !found }'
+        then
+            mount -t nullfs "/${dir}" "${COMPAT}/${dir}"
+        fi
+    done
+    use_bsdtar
+    if [[ -f /etc/resolv.conf ]]
+    then
+        rm -f "${COMPAT}/etc/resolv.conf"
+        cp /etc/resolv.conf "${COMPAT}/etc/resolv.conf"
+    fi
+}
+
+
+# Make sure the user exists in the userland's passwd and group files, so
+# whoami, git and brew can name them.
+#
+# param $1: user name
+sync_user() {
+    local user="$1"
+    local uid
+    local gid
+    local group
+
+    uid="$(id -u "${user}")"
+    gid="$(id -g "${user}")"
+    group="$(id -gn "${user}")"
+    if ! grep -q "^${group}:" "${COMPAT}/etc/group"
+    then
+        printf '%s:x:%s:\n' "${group}" "${gid}" >> "${COMPAT}/etc/group"
+    fi
+    if ! grep -q "^${user}:" "${COMPAT}/etc/passwd"
+    then
+        printf '%s:x:%s:%s::/home/%s:/bin/bash\n' "${user}" "${uid}" "${gid}" "${user}" >> "${COMPAT}/etc/passwd"
+    fi
+}
+
+
+# Run a command in the userland as root, with its own PATH (setup only).
+chroot_root() {
+    chroot "${COMPAT}" /usr/bin/env -i HOME=/root TERM="${TERM:-xterm}" LANG=C.UTF-8 \
+        PATH="${LINUX_PATH}" "$@"
+}
+
+
+cmd_setup() {
+    local distro=""
+    local image=""
+    local force=0
+    local dataset
+    local cid
+
+    as_root setup "$@"
+    while [[ $# -gt 0 ]]
+    do
+        case "$1" in
+            --distro) distro="$2"; shift ;;
+            --image) image="$2"; shift ;;
+            --force) force=1 ;;
+            *) die "setup: unknown option $1" ;;
+        esac
+        shift
+    done
+    distro="${distro:-$(setting .immutablue.linux_compat.distro fedora)}"
+    if [[ -z "${image}" ]]
+    then
+        image="$(setting .immutablue.linux_compat.image "")"
+        image="${image:-$(image_for_distro "${distro}")}"
+    fi
+
+    if is_setup && [[ ${force} -eq 0 ]]
+    then
+        log "already set up ($(cat "${MARKER}")); use --force to replace it"
+        return 0
+    fi
+
+    # -----------------------------------
+    # A fresh dataset: replacing destroys the old one (after every mount
+    # below it is gone, so the shared /home is never touched)
+    # -----------------------------------
+    dataset="$(compat_dataset)"
+    service linux onestatus > /dev/null 2>&1 || service linux onestart > /dev/null
+    unmount_all
+    if zfs list -H "${dataset}" > /dev/null 2>&1
+    then
+        zfs destroy -r "${dataset}"
+    fi
+    zfs list -H "${dataset%/*}" > /dev/null 2>&1 || zfs create -o mountpoint=/compat "${dataset%/*}"
+    zfs create -o mountpoint="${COMPAT}" "${dataset}"
+
+    # -----------------------------------
+    # The userland, from the distribution's container image
+    # -----------------------------------
+    log "unpacking ${image} into ${COMPAT}"
+    podman pull --os=linux "${image}" > /dev/null
+    cid="$(podman create --os=linux "${image}" /bin/true)"
+    podman export "${cid}" | tar -xpf - -C "${COMPAT}"
+    podman rm "${cid}" > /dev/null
+
+    # Linux's kernel filesystems (rc.d/linux) and the host's /home and /tmp.
+    service linux onestart > /dev/null 2>&1 || true
+    touch "${MARKER}"
+    cmd_mount
+
+    # -----------------------------------
+    # Distribution specifics and what brew needs
+    # -----------------------------------
+    if [[ -f "${COMPAT}/etc/pacman.conf" ]]
+    then
+        # pacman 7 sandboxes downloads with Landlock/seccomp, which the
+        # Linuxulator lacks.
+        sed -i '' -e 's/^#\{0,1\}DisableSandbox.*/DisableSandbox/' "${COMPAT}/etc/pacman.conf"
+        grep -q '^DisableSandbox' "${COMPAT}/etc/pacman.conf" || \
+            sed -i '' -e '/^\[options\]/a\
+DisableSandbox' "${COMPAT}/etc/pacman.conf"
+        chroot_root pacman -Sy --noconfirm --needed git curl file procps-ng which gcc make libarchive > /dev/null
+    elif [[ -x "${COMPAT}/usr/bin/dnf" ]]
+    then
+        chroot_root dnf -y -q install git curl file procps-ng which gcc make bsdtar > /dev/null
+    else
+        log "no dnf or pacman in ${image}; brew's requirements were not installed"
+    fi
+
+    use_bsdtar
+
+    printf 'distro=%s image=%s created=%s\n' "${distro}" "${image}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${MARKER}"
+    log "set up: ${COMPAT} (${dataset}) from ${image}"
+}
+
+
+cmd_status() {
+    if ! is_setup
+    then
+        echo "userland: not set up (sudo immutablue-linux setup)"
+    else
+        echo "userland: ${COMPAT} -- $(cat "${MARKER}")"
+        grep -h '^PRETTY_NAME=' "${COMPAT}/etc/os-release" "${COMPAT}/usr/lib/os-release" 2>/dev/null | head -1
+    fi
+    if kldstat -q -m linux64elf 2>/dev/null
+    then
+        echo "linuxulator: loaded (emul_path $(sysctl -n compat.linux.emul_path))"
+    else
+        echo "linuxulator: not loaded (service linux start)"
+    fi
+    if [[ -x "${BREW_PREFIX}/bin/brew" ]]
+    then
+        echo "brew: ${BREW_PREFIX}"
+    else
+        echo "brew: not installed (immutablue-linux brew-setup)"
+    fi
+}
+
+
+# Run a command in the userland as the calling user, in the current
+# directory when the userland can see it (/home, /tmp). LANG is C.UTF-8,
+# which glibc always has; the host's locale may not exist in the userland.
+cmd_run() {
+    local user
+    local group
+
+    [[ $# -gt 0 ]] || die "run: no command"
+    is_setup || die "the Linux userland is not set up: sudo immutablue-linux setup"
+    user="$(target_user)"
+    as_root run "$@"
+    group="$(id -gn "${user}")"
+    cmd_mount
+    sync_user "${user}"
+    # The inner script's $1/$@ are meant for that bash, not this one.
+    # shellcheck disable=SC2016
+    exec chroot -u "${user}" -g "${group}" "${COMPAT}" /usr/bin/env -i \
+        HOME="/home/${user}" USER="${user}" LOGNAME="${user}" SHELL=/bin/bash \
+        TERM="${TERM:-xterm}" LANG=C.UTF-8 PATH="${LINUX_PATH}" \
+        HOMEBREW_NO_ANALYTICS="${HOMEBREW_NO_ANALYTICS:-1}" \
+        /bin/bash -c 'cd "$1" 2>/dev/null || cd; shift; exec "$@"' _ "${PWD}" "$@"
+}
+
+
+cmd_brew_setup() {
+    local user
+
+    is_setup || die "the Linux userland is not set up: sudo immutablue-linux setup"
+    if [[ -x "${BREW_PREFIX}/bin/brew" ]]
+    then
+        log "brew is already installed in ${BREW_PREFIX}"
+        return 0
+    fi
+    user="$(target_user)"
+    [[ "${user}" != "root" ]] || die "brew-setup: run as the user who will own Homebrew, not root"
+    sudo install -d -o "${user}" -g "$(id -gn "${user}")" /home/linuxbrew "${BREW_PREFIX}"
+    "$0" run git clone -q --depth 1 "${BREW_REPO}" "${BREW_PREFIX}/Homebrew"
+    "$0" run mkdir -p "${BREW_PREFIX}/bin"
+    "$0" run ln -sf ../Homebrew/bin/brew "${BREW_PREFIX}/bin/brew"
+    log "brew installed in ${BREW_PREFIX}; 'brew' runs it in the Linux userland"
+}
+
+
+# ---------------------------------------------------------------------------
+# box: podman Linux containers (root podman: FreeBSD has no rootless mode)
+# ---------------------------------------------------------------------------
+box_create() {
+    local name="$1"
+    local image="${2:-}"
+    local user
+    local uid
+    local gid
+    local group
+
+    if [[ -z "${image}" ]]
+    then
+        image="$(setting .immutablue.linux_compat.image "")"
+        image="${image:-$(image_for_distro "$(setting .immutablue.linux_compat.distro fedora)")}"
+    fi
+    user="$(target_user)"
+    uid="$(id -u "${user}")"
+    gid="$(id -g "${user}")"
+    group="$(id -gn "${user}")"
+    as_root box create "${name}" "${image}"
+
+    podman create --os=linux --name "${name}" --hostname "${name}" \
+        --label "${BOX_LABEL}=1" -v /home:/home -v /tmp:/tmp \
+        "${image}" sleep infinity > /dev/null
+    podman start "${name}" > /dev/null
+    podman exec "${name}" sh -c "
+        grep -q '^${group}:' /etc/group || echo '${group}:x:${gid}:' >> /etc/group
+        grep -q '^${user}:' /etc/passwd || echo '${user}:x:${uid}:${gid}::/home/${user}:/bin/bash' >> /etc/passwd
+        if [ -f /etc/pacman.conf ]; then
+            sed -i 's/^#\\{0,1\\}DisableSandbox.*/DisableSandbox/' /etc/pacman.conf
+            grep -q '^DisableSandbox' /etc/pacman.conf || sed -i '/^\\[options\\]/a DisableSandbox' /etc/pacman.conf
+        fi"
+    log "box ${name} created from ${image}; enter it with: immutablue-linux box enter ${name}"
+}
+
+
+box_enter() {
+    local name="$1"
+    local user
+
+    user="$(target_user)"
+    as_root box enter "${name}"
+    [[ "$(podman inspect -f '{{.State.Running}}' "${name}" 2>/dev/null)" == "true" ]] || podman start "${name}" > /dev/null
+    exec podman exec -it -u "$(id -u "${user}"):$(id -g "${user}")" \
+        -e HOME="/home/${user}" -e USER="${user}" -e TERM="${TERM:-xterm}" \
+        -w "${PWD}" "${name}" /bin/bash -l
+}
+
+
+cmd_box() {
+    local sub="${1:-}"
+
+    shift || true
+    case "${sub}" in
+        create) [[ $# -ge 1 ]] || die "box create NAME [IMAGE]"; box_create "$@" ;;
+        enter) [[ $# -eq 1 ]] || die "box enter NAME"; box_enter "$1" ;;
+        list) as_root box list; podman ps -a --filter "label=${BOX_LABEL}" --format '{{.Names}}\t{{.Image}}\t{{.Status}}' ;;
+        rm) [[ $# -eq 1 ]] || die "box rm NAME"; as_root box rm "$1"; podman rm -f "$1" > /dev/null ;;
+        *) die "box: create, enter, list or rm" ;;
+    esac
+}
+
+
+main() {
+    local cmd="${1:-}"
+
+    [[ "$(uname -s)" == "FreeBSD" ]] || die "Linux compatibility is a FreeBSD feature; this is $(uname -s)"
+    shift || true
+    case "${cmd}" in
+        -h|--help) show_help ;;
+        --license) echo 'immutablue-linux - part of Immutablue. AGPL-3.0-or-later.' ;;
+        setup) cmd_setup "$@" ;;
+        status) cmd_status ;;
+        mount) cmd_mount ;;
+        shell) cmd_run /bin/bash -l ;;
+        run) cmd_run "$@" ;;
+        brew-setup) cmd_brew_setup ;;
+        box) cmd_box "$@" ;;
+        *) show_help >&2; exit 2 ;;
+    esac
+}
+
+
+main "$@"

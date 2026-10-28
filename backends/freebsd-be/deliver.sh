@@ -52,7 +52,8 @@ BE_PREFIX="immutablue"
 # in the boot environment and is the package database for the image's files,
 # so it must come from the image (FILTER_FIRST lets it through before /var is
 # excluded). /boot/loader.conf carries the machine's zfs_load and console
-# settings and stays local too.
+# settings and stays local too. /compat holds the Linux userland
+# (immutablue-linux), a dataset shared by every boot environment.
 FILTER_FIRST=(
     "--include=/var/"
     "--include=/var/db/"
@@ -72,6 +73,7 @@ PRESERVE=(
     "/boot/entropy"
     "/boot/zfs/"
     "/etc/zfs/"
+    "/compat/"
 )
 
 # Configuration files that identify this machine and its users. They are never

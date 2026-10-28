@@ -7,7 +7,12 @@ On `arch-bootc` the host package manager is pacman inside the same image model
 (layering is `bootc usroverlay` + `pacman`, transient); on `freebsd-be` it is
 `pkg`, and changes made in the running boot environment are replaced by the next
 update — add the package to `packages.yaml` (see [`building.md`](building.md))
-instead. Flatpak, distrobox and brew are Linux-only.
+instead. On `freebsd-be`, Linux software comes through the Linuxulator:
+`brew` runs Homebrew in a Fedora/Arch userland at `/compat/linux` (formulae run
+from the FreeBSD shell), `immutablue-linux box create|enter` gives podman Linux
+containers with `/home` shared in place of distrobox, and `immutablue-linux
+status` shows whether the userland exists (`sudo immutablue-linux setup` creates
+it). Flatpak is impossible there: bubblewrap needs Linux namespaces.
 
 There is no `dnf` on the host in the sense that matters, and `rpm-ostree install`
 is the *last* option rather than the first. Work down this list and stop at the

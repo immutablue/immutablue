@@ -272,6 +272,7 @@ A backend is `backend.yaml` (facts and `provides` capabilities), `backend.sh` (t
 | `immutablue-libvirt-manager` | `/usr/bin/` | VM management |
 | `immutablue-header.sh` | `/usr/libexec/immutablue/` | Bash utility library |
 | `immutablue-backend` | `/usr/bin/` | OS operations (upgrade, rollback, rebase, kargs, package queries) for the image's backend; runtime code calls this, never rpm-ostree/bootc directly |
+| `immutablue-linux` | `/usr/bin/` (freebsd-be only) | Linux compatibility: a Fedora/Arch userland in `/compat/linux` for the Linuxulator, `brew` inside it, podman Linux `box`es; no Flatpak (needs namespaces) |
 
 ### Justfiles
 

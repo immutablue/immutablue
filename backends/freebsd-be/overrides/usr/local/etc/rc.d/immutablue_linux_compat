@@ -1,0 +1,40 @@
+#!/bin/sh
+#
+# PROVIDE: immutablue_linux_compat
+# REQUIRE: LOGIN linux NETWORKING
+# KEYWORD: nojail
+#
+# Linux binary compatibility (freebsd-be): shares /home and /tmp into the
+# Linux userland at /compat/linux, or -- when there is none yet and
+# .immutablue.linux_compat.auto_setup is true -- creates it in the background
+# (log: /var/log/immutablue-linux-setup.log). See immutablue-linux(1).
+#
+# Enable with: sysrc immutablue_linux_compat_enable=YES
+
+# rc.subr is FreeBSD's rc(8) library; not something shellcheck can follow.
+# shellcheck source=/dev/null
+. /etc/rc.subr
+
+# rc(8) runs scripts with PATH=/sbin:/bin:/usr/sbin:/usr/bin, but podman and
+# yq (which immutablue-settings needs) live in /usr/local on FreeBSD.
+PATH="/etc:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
+export PATH
+
+name="immutablue_linux_compat"
+rcvar="immutablue_linux_compat_enable"
+start_cmd="${name}_start"
+stop_cmd=":"
+
+immutablue_linux_compat_start()
+{
+	if [ -f /compat/linux/.immutablue-linux ]; then
+		/usr/bin/immutablue-linux mount
+	elif [ "$(immutablue-settings .immutablue.linux_compat.auto_setup 2>/dev/null)" != "false" ]; then
+		echo "Setting up the Linux userland in the background (/var/log/immutablue-linux-setup.log)"
+		daemon -f -o /var/log/immutablue-linux-setup.log /usr/bin/immutablue-linux setup
+	fi
+}
+
+load_rc_config $name
+: "${immutablue_linux_compat_enable:="NO"}"
+run_rc_command "$1"

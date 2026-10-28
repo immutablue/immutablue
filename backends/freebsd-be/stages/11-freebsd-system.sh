@@ -26,10 +26,19 @@ sysrc zfs_enable=YES
 # (rc.d/immutablue_readonly_usr; /usr/local/etc stays writable).
 sysrc immutablue_readonly_usr_enable=YES
 
+# Linux binary compatibility: the Linuxulator at boot (rc.d/linux, which also
+# mounts Linux's /proc, /sys and /dev under /compat/linux), and
+# rc.d/immutablue_linux_compat, which shares /home and /tmp into the Linux
+# userland -- or creates it on first boot (immutablue-linux setup; settings
+# .immutablue.linux_compat.*). The userland is a ZFS dataset of its own,
+# kept across updates by deliver.sh.
+sysrc linux_enable=YES immutablue_linux_compat_enable=YES
+
 # The rc.d scripts and cron table shipped in overrides/ must be executable /
 # root-owned for rc(8) and cron(8) to accept them.
-chmod 0555 /usr/local/etc/rc.d/immutablue_first_boot /usr/local/etc/rc.d/immutablue_onboot /usr/local/etc/rc.d/immutablue_procfs /usr/local/etc/rc.d/immutablue_readonly_usr /usr/local/etc/rc.d/immutablue_xorg
-chmod 0644 /etc/cron.d/immutablue
+chmod 0555 /usr/local/etc/rc.d/immutablue_first_boot /usr/local/etc/rc.d/immutablue_onboot /usr/local/etc/rc.d/immutablue_procfs /usr/local/etc/rc.d/immutablue_readonly_usr /usr/local/etc/rc.d/immutablue_xorg /usr/local/etc/rc.d/immutablue_linux_compat
+chmod 0755 /usr/bin/immutablue-linux /usr/local/bin/brew
+chmod 0644 /etc/cron.d/immutablue /etc/profile.d/30-immutablue-linux.sh
 
 # sudo on FreeBSD reads /usr/local/etc/sudoers.d only; the backend overrides
 # carry the FreeBSD versions of the shared /etc/sudoers.d drop-ins, which are

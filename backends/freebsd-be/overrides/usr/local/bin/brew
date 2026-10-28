@@ -1,0 +1,23 @@
+#!/bin/bash
+# brew - Homebrew on Immutablue FreeBSD
+#
+# Homebrew supports macOS and Linux, not FreeBSD, so it runs inside the Linux
+# userland at /compat/linux (immutablue-linux), as you. What it installs in
+# /home/linuxbrew/.linuxbrew is Linux software that the FreeBSD shell runs
+# directly through the Linuxulator (/etc/profile.d/30-immutablue-linux.sh
+# puts its bin directory at the end of PATH).
+#
+# Usage:
+#   brew <brew arguments>
+#
+# Examples:
+#   immutablue-linux brew-setup
+#   brew install jq
+set -euo pipefail
+
+if [[ ! -x /home/linuxbrew/.linuxbrew/bin/brew ]]
+then
+    echo "brew: Homebrew is not installed; run: immutablue-linux brew-setup" >&2
+    exit 1
+fi
+exec /usr/bin/immutablue-linux run /home/linuxbrew/.linuxbrew/bin/brew "$@"

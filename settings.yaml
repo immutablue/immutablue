@@ -85,6 +85,23 @@ immutablue:
     ulimit_nofile: 524288
 
 
+  # Linux binary compatibility (freebsd-be only; ignored elsewhere): the
+  # Linuxulator plus a Linux userland in /compat/linux, which brew and
+  # 'immutablue-linux box' use. See immutablue-linux --help.
+  linux_compat:
+    # Create the userland on first boot (in the background; log:
+    # /var/log/immutablue-linux-setup.log). false: run
+    # 'sudo immutablue-linux setup' yourself.
+    auto_setup: true
+
+    # fedora or arch -- which distribution's container image the userland
+    # (and new boxes) start from
+    distro: fedora
+
+    # A specific image instead of the distro's default, e.g.
+    # registry.fedoraproject.org/fedora:44
+    image: ""
+
 services:
   syncthing:
     # Tailscale mode:
