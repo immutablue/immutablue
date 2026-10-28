@@ -12,7 +12,8 @@ instead. On `freebsd-be`, Linux software comes through the Linuxulator:
 from the FreeBSD shell), `immutablue-linux box create|enter` gives podman Linux
 containers with `/home` shared in place of distrobox, and `immutablue-linux
 status` shows whether the userland exists (`sudo immutablue-linux setup` creates
-it). Flatpak is impossible there: bubblewrap needs Linux namespaces.
+it); `immutablue-linux chroot dnf install X` (or `pacman -S`) adds Linux packages
+to the userland itself. Flatpak is impossible there: bubblewrap needs Linux namespaces.
 
 There is no `dnf` on the host in the sense that matters, and `rpm-ostree install`
 is the *last* option rather than the first. Work down this list and stop at the

@@ -28,6 +28,8 @@
 #                     rc.d/immutablue_linux_compat)
 #   shell             A login shell in the userland, as you
 #   run CMD [ARGS]    Run a command in the userland, as you
+#   chroot [CMD]      A root shell in the userland (or run CMD as root there),
+#                     for its package manager: immutablue-linux chroot dnf install X
 #   brew-setup        Install Homebrew into /home/linuxbrew/.linuxbrew
 #   box create NAME [IMAGE]   A podman Linux container (default: the userland's image)
 #   box enter NAME    A shell in it, as you, in the current directory
@@ -46,6 +48,7 @@
 # Examples:
 #   sudo immutablue-linux setup --distro arch
 #   immutablue-linux run uname -a
+#   immutablue-linux chroot dnf -y install htop
 #   immutablue-linux brew-setup && brew install jq
 #   immutablue-linux box create dev docker.io/library/fedora:latest
 #   immutablue-linux box enter dev
@@ -227,7 +230,7 @@ sync_user() {
 }
 
 
-# Run a command in the userland as root, with its own PATH (setup only).
+# Run a command in the userland as root, with its own PATH.
 chroot_root() {
     chroot "${COMPAT}" /usr/bin/env -i HOME=/root TERM="${TERM:-xterm}" LANG=C.UTF-8 \
         PATH="${LINUX_PATH}" "$@"
@@ -366,6 +369,27 @@ cmd_run() {
 }
 
 
+# Root in the userland: its package manager (dnf, pacman) and anything else
+# that changes the userland itself. Mounts, resolv.conf and the bsdtar swap
+# are in place first, as for run; the environment is clean. Without a
+# command, a root login shell.
+cmd_chroot() {
+    is_setup || die "the Linux userland is not set up: sudo immutablue-linux setup"
+    as_root chroot "$@"
+    cmd_mount
+    if [[ $# -eq 0 ]]
+    then
+        set -- /bin/bash -l
+    fi
+    local rc=0
+
+    chroot_root "$@" || rc=$?
+    # A package update may have put GNU tar back.
+    use_bsdtar
+    return "${rc}"
+}
+
+
 cmd_brew_setup() {
     local user
 
@@ -461,6 +485,7 @@ main() {
         status) cmd_status ;;
         mount) cmd_mount ;;
         shell) cmd_run /bin/bash -l ;;
+        chroot) cmd_chroot "$@" ;;
         run) cmd_run "$@" ;;
         brew-setup) cmd_brew_setup ;;
         box) cmd_box "$@" ;;
