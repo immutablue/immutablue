@@ -196,7 +196,7 @@ immutablue:
     - {name: buildstream, pacman: null, freebsd: null}
     - {name: cloud-init, freebsd: py312-cloud-init}
     - chafa
-    - cmake
+    - {name: cmake, freebsd: cmake-core}
     - {name: cmark-devel, pacman: cmark, freebsd: cmark}
     - ddrescue
     - {name: dialog, freebsd: null}
@@ -412,6 +412,10 @@ immutablue:
 
   pkg_silverblue:
     all:
+    # GDM runs it when no user exists yet, so a fresh install asks for the
+    # first user in the GNOME first-login flow. Fedora's Silverblue base
+    # already ships it; Arch's gnome group and FreeBSD's gnome do not.
+    - gnome-initial-setup
     - {name: gnome-shell-extension-caffeine, freebsd: null}
   pkg_silverblue_aarch64:
     all: []

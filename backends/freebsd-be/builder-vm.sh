@@ -20,6 +20,9 @@
 # Commands:
 #   create      Download, seed and boot a fresh VM, then prepare it as a build host
 #   import      (--libvirt) Turn an existing QEMU-mode VM's disk into the domain
+#   install     (--libvirt) Install FREEBSD_IMAGE_REF onto a fresh disk with
+#               install-disk.sh and define it as its own domain
+#               (FREEBSD_INSTALL_DOMAIN, default immutablue-freebsd)
 #   start       Boot an existing VM
 #   stop        Power the VM off
 #   ssh [cmd]   Run a command in the VM (interactive shell without one)
@@ -42,6 +45,8 @@
 #   backends/freebsd-be/builder-vm.sh --libvirt create
 #   backends/freebsd-be/builder-vm.sh --libvirt import
 #   backends/freebsd-be/builder-vm.sh --libvirt make BACKEND=freebsd-be build
+#   FREEBSD_IMAGE_REF=quay.io/immutablue/immutablue:15.1-freebsd \
+#       backends/freebsd-be/builder-vm.sh --libvirt install
 #
 # Environment:
 #   FREEBSD_VM_DIR     where the VM lives (default: images/freebsd-vm)
@@ -51,6 +56,8 @@
 #   FREEBSD_VM_DISK    disk size (default: 120G; a GNOME build plus its
 #                      squash and a delivered boot environment need ~70G)
 #   FREEBSD_VM_DOMAIN  libvirt domain name (default: immutablue-freebsd-builder)
+#   FREEBSD_INSTALL_DOMAIN  domain 'install' creates (default: immutablue-freebsd)
+#   FREEBSD_INSTALL_DISK    its disk size (default: 60G)
 #   LIBVIRT_DEFAULT_URI  libvirt connection (default: qemu:///system)
 #
 # Host requirements (Fedora package names): qemu-kvm, xorriso,
@@ -77,6 +84,8 @@ IMAGE_REF="${FREEBSD_IMAGE_REF:-quay.io/immutablue/immutablue:15.1-freebsd-nucle
 LIBVIRT="${FREEBSD_VM_LIBVIRT:-0}"
 DOMAIN="${FREEBSD_VM_DOMAIN:-immutablue-freebsd-builder}"
 URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
+INSTALL_DOMAIN="${FREEBSD_INSTALL_DOMAIN:-immutablue-freebsd}"
+INSTALL_DISK="${FREEBSD_INSTALL_DISK:-60G}"
 
 
 show_help() {
@@ -295,6 +304,62 @@ vm_import() {
 }
 
 
+# Install an image onto a new disk and make that disk its own domain.
+#
+# A fresh pool volume is hot-plugged into the builder, which runs
+# install-disk.sh on it (the builder has the image in its podman storage),
+# then unplugged and booted as INSTALL_DOMAIN: a standalone Immutablue
+# FreeBSD machine, UEFI with Secure Boot off.
+vm_install() {
+    local vol="${INSTALL_DOMAIN}.qcow2"
+    local path
+    local before
+    local after
+    local dev
+    local i
+
+    vm_sync
+
+    if vsh dominfo "${INSTALL_DOMAIN}" > /dev/null 2>&1
+    then
+        vsh destroy "${INSTALL_DOMAIN}" > /dev/null 2>&1 || true
+        vsh undefine "${INSTALL_DOMAIN}" --nvram > /dev/null 2>&1 || vsh undefine "${INSTALL_DOMAIN}" > /dev/null
+    fi
+    vsh vol-delete --pool default "${vol}" > /dev/null 2>&1 || true
+    vsh vol-create-as default "${vol}" "${INSTALL_DISK}" --format qcow2 > /dev/null
+    path="$(vsh vol-path --pool default "${vol}")"
+
+    # Which device the new disk becomes inside the builder: whatever appears.
+    before="$(vm_ssh 'sysctl -n kern.disks')"
+    vsh attach-disk "${DOMAIN}" "${path}" vdz --driver qemu --subdriver qcow2 --targetbus virtio --live
+    for i in $(seq 1 30)
+    do
+        after="$(vm_ssh 'sysctl -n kern.disks')"
+        dev="$(comm -13 <(tr ' ' '\n' <<< "${before}" | sort) <(tr ' ' '\n' <<< "${after}" | sort) | head -n 1)"
+        [[ -n "${dev}" ]] && break
+        sleep 1
+    done
+    if [[ -z "${dev}" ]]
+    then
+        echo "ERROR: the new disk did not appear in the builder" >&2
+        vsh detach-disk "${DOMAIN}" vdz --live > /dev/null 2>&1 || true
+        return 1
+    fi
+    echo "Installing ${IMAGE_REF} onto the builder's ${dev}"
+
+    if ! vm_ssh "cd immutablue && sudo bash backends/freebsd-be/install-disk.sh --yes --hostname $(printf '%q' "${INSTALL_DOMAIN}") $(printf '%q' "${IMAGE_REF}") ${dev}"
+    then
+        vsh detach-disk "${DOMAIN}" vdz --live > /dev/null 2>&1 || true
+        return 1
+    fi
+    vsh detach-disk "${DOMAIN}" vdz --live > /dev/null
+
+    bash "${ROOT_DIR}/backends/lib/libvirt-import.sh" --volume --uefi \
+        --osinfo "$(yq '.osinfo' "${ROOT_DIR}/backends/freebsd-be/backend.yaml")" \
+        --memory 8192 --vcpus 4 "${INSTALL_DOMAIN}" "${vol}"
+}
+
+
 # Copy the checkout in. deps/ and the submodule histories stay behind:
 # freebsd-be builds no in-house dependencies.
 vm_sync() {
@@ -330,6 +395,14 @@ main() {
                 return 2
             fi
             vm_import
+            ;;
+        install)
+            if [[ "${LIBVIRT}" -ne 1 ]]
+            then
+                echo "install needs --libvirt (the new disk becomes a libvirt domain)" >&2
+                return 2
+            fi
+            vm_install
             ;;
         start) vm_start ;;
         stop) vm_stop ;;

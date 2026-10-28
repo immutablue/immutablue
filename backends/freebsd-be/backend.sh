@@ -27,12 +27,29 @@ EOF
 }
 
 
+# A GNOME install fetches ~850 packages, and one dropped connection to the
+# mirror fails the whole transaction. Retry with backoff; packages already in
+# the cache are not downloaded again.
 backend_pkg_install() {
+    local attempt
+    local delay=5
+
     if [[ $# -eq 0 ]]
     then
         return 0
     fi
-    pkg install -y "$@"
+    for attempt in 1 2 3 4
+    do
+        if pkg install -y "$@"
+        then
+            return 0
+        fi
+        [[ ${attempt} -lt 4 ]] || break
+        echo "WARNING: pkg install failed (attempt ${attempt}/4); retrying in ${delay}s" >&2
+        sleep "${delay}"
+        delay=$((delay * 2))
+    done
+    return 1
 }
 
 

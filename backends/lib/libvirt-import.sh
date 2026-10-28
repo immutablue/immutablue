@@ -19,6 +19,7 @@
 #   --seed FILE       Attach FILE (e.g. a cloud-init seed ISO) as a read-only disk
 #   --memory MIB      Memory (default 8192)
 #   --vcpus N         vCPUs (default 4)
+#   --volume          <disk-file> names an existing volume in the pool (no upload)
 #   --replace         Remove an existing domain and volumes of the same name first
 #   --no-start        Define the domain without starting it
 #   -h, --help        Show this help message
@@ -96,6 +97,7 @@ main() {
     local vcpus=4
     local replace=0
     local start=1
+    local existing_volume=0
     local name
     local disk
     local ext
@@ -112,6 +114,7 @@ main() {
             --memory) memory="$2"; shift ;;
             --vcpus) vcpus="$2"; shift ;;
             --replace) replace=1 ;;
+            --volume) existing_volume=1 ;;
             --no-start) start=0 ;;
             -*) echo "unknown option $1" >&2; return 2 ;;
             *) args+=("$1") ;;
@@ -139,13 +142,21 @@ main() {
         fi
     fi
 
-    ext="${disk##*.}"
-    upload_volume "${name}.${ext}" "${disk}" "${replace}"
+    local vol
+    if [[ ${existing_volume} -eq 1 ]]
+    then
+        vol="${disk}"
+        vsh vol-info --pool "${POOL}" "${vol}" > /dev/null
+    else
+        ext="${disk##*.}"
+        vol="${name}.${ext}"
+        upload_volume "${vol}" "${disk}" "${replace}"
+    fi
 
     local install=(virt-install --connect "${URI}" --name "${name}"
         --memory "${memory}" --vcpus "${vcpus}" --cpu host-passthrough
         --import --osinfo "${osinfo}"
-        --disk "vol=${POOL}/${name}.${ext},bus=virtio"
+        --disk "vol=${POOL}/${vol},bus=virtio"
         --network "network=default,model=virtio"
         --graphics spice --video virtio --tpm none
         --noautoconsole)
