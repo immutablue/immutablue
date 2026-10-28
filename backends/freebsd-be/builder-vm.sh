@@ -449,7 +449,10 @@ main() {
             shift
             vm_sync
             # Arguments are passed through; quote each for the remote shell.
-            vm_ssh "cd immutablue && sudo gmake $(printf '%q ' "$@")"
+            # Every image build leaves the one it replaced untagged (~11 GB
+            # for GNOME); they are pruned afterwards so the VM's disk does not
+            # fill up over a few builds.
+            vm_ssh "cd immutablue && sudo gmake $(printf '%q ' "$@"); rc=\$?; sudo podman image prune -f > /dev/null 2>&1; exit \$rc"
             ;;
         deliver)
             vm_sync

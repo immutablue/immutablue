@@ -551,8 +551,9 @@ box_create() {
     group="$(id -gn "${user}")"
     as_root box create "${name}" "${image}"
 
-    # Host networking, as distrobox uses: podman's default bridge network
-    # needs pf NAT, which a desktop has no reason to run.
+    # Host networking, as distrobox uses: the box shares the host's
+    # addresses, and does not depend on pf NAT (rc.d/immutablue_podman_pf)
+    # being in place.
     podman create --os=linux --name "${name}" --hostname "${name}" \
         --network=host --label "${BOX_LABEL}=1" -v /home:/home -v /tmp:/tmp \
         "${image}" sleep infinity > /dev/null

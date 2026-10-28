@@ -34,9 +34,15 @@ sysrc immutablue_readonly_usr_enable=YES
 # kept across updates by deliver.sh.
 sysrc linux_enable=YES immutablue_linux_compat_enable=YES
 
+# podman's default bridge network needs pf NAT: rc.d/immutablue_podman_pf
+# writes /etc/pf.conf (one NAT rule per interface, from podman's sample) on
+# each boot before pf starts -- unless the machine has a pf.conf of its own --
+# and mounts fdescfs on /dev/fd, which podman also needs.
+sysrc pf_enable=YES immutablue_podman_pf_enable=YES
+
 # The rc.d scripts and cron table shipped in overrides/ must be executable /
 # root-owned for rc(8) and cron(8) to accept them.
-chmod 0555 /usr/local/etc/rc.d/immutablue_first_boot /usr/local/etc/rc.d/immutablue_onboot /usr/local/etc/rc.d/immutablue_procfs /usr/local/etc/rc.d/immutablue_readonly_usr /usr/local/etc/rc.d/immutablue_xorg /usr/local/etc/rc.d/immutablue_linux_compat
+chmod 0555 /usr/local/etc/rc.d/immutablue_first_boot /usr/local/etc/rc.d/immutablue_onboot /usr/local/etc/rc.d/immutablue_procfs /usr/local/etc/rc.d/immutablue_readonly_usr /usr/local/etc/rc.d/immutablue_xorg /usr/local/etc/rc.d/immutablue_linux_compat /usr/local/etc/rc.d/immutablue_podman_pf
 chmod 0755 /usr/bin/immutablue-linux /usr/local/bin/brew
 chmod 0644 /etc/cron.d/immutablue /etc/profile.d/30-immutablue-linux.sh
 
