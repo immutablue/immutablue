@@ -13,6 +13,12 @@
 # shellcheck source=/dev/null
 . /etc/rc.subr
 
+# rc(8) runs scripts with PATH=/sbin:/bin:/usr/sbin:/usr/bin, but every
+# package -- yq (which immutablue-settings needs), bash, podman -- lives in
+# /usr/local on FreeBSD. (cron.d/immutablue sets the same PATH.)
+PATH="/etc:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
+export PATH
+
 name="immutablue_onboot"
 rcvar="immutablue_onboot_enable"
 start_cmd="${name}_start"
