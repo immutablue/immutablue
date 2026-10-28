@@ -28,5 +28,13 @@ sysrc immutablue_readonly_usr_enable=YES
 
 # The rc.d scripts and cron table shipped in overrides/ must be executable /
 # root-owned for rc(8) and cron(8) to accept them.
-chmod 0555 /usr/local/etc/rc.d/immutablue_first_boot /usr/local/etc/rc.d/immutablue_onboot /usr/local/etc/rc.d/immutablue_procfs /usr/local/etc/rc.d/immutablue_readonly_usr
+chmod 0555 /usr/local/etc/rc.d/immutablue_first_boot /usr/local/etc/rc.d/immutablue_onboot /usr/local/etc/rc.d/immutablue_procfs /usr/local/etc/rc.d/immutablue_readonly_usr /usr/local/etc/rc.d/immutablue_xorg
 chmod 0644 /etc/cron.d/immutablue
+
+# sudo on FreeBSD reads /usr/local/etc/sudoers.d only; the backend overrides
+# carry the FreeBSD versions of the shared /etc/sudoers.d drop-ins, which are
+# removed so nothing suggests they are in effect. sudo ignores drop-ins that
+# are group- or world-writable, so the modes are set explicitly.
+rm -rf /etc/sudoers.d
+chown root:wheel /usr/local/etc/sudoers.d /usr/local/etc/sudoers.d/immutablue-*
+chmod 0440 /usr/local/etc/sudoers.d/immutablue-*

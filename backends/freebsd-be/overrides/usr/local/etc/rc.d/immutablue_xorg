@@ -1,0 +1,48 @@
+#!/bin/sh
+#
+# PROVIDE: immutablue_xorg
+# REQUIRE: FILESYSTEMS kld
+# BEFORE: gdm
+# KEYWORD: nojail
+#
+# Pick the X driver for machines without a DRM driver (freebsd-be GNOME).
+#
+# Booted by UEFI with no /dev/dri/card0 -- a VM's virtio GPU, or a GPU whose
+# drm-kmod driver is not loaded -- Xorg's autoconfiguration matches
+# modesetting, scfb and vesa at once and gives up ("Cannot run in framebuffer
+# mode"), so GDM never shows. Then scfb, the UEFI framebuffer driver, is
+# selected explicitly; on every other boot the snippet is removed so a real
+# DRM driver (or VESA under BIOS) is used as usual.
+#
+# Enabled for GNOME variants by stages/61-freebsd-desktop.sh.
+
+# rc.subr is FreeBSD's rc(8) library; not something shellcheck can follow.
+# shellcheck source=/dev/null
+. /etc/rc.subr
+
+name="immutablue_xorg"
+rcvar="immutablue_xorg_enable"
+start_cmd="${name}_start"
+stop_cmd=":"
+
+snippet="/usr/local/etc/X11/xorg.conf.d/10-immutablue-scfb.conf"
+
+immutablue_xorg_start()
+{
+	if [ "$(sysctl -n machdep.bootmethod 2>/dev/null)" = "UEFI" ] && [ ! -e /dev/dri/card0 ]; then
+		mkdir -p "$(dirname "${snippet}")"
+		cat > "${snippet}" <<'CONF'
+# Written at boot by rc.d/immutablue_xorg: UEFI framebuffer, no DRM device.
+Section "Device"
+    Identifier "Card0"
+    Driver     "scfb"
+EndSection
+CONF
+	else
+		rm -f "${snippet}"
+	fi
+}
+
+load_rc_config $name
+: ${immutablue_xorg_enable:="NO"}
+run_rc_command "$1"

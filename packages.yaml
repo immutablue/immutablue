@@ -709,7 +709,10 @@ immutablue:
   # Services
   # Entries may map a systemd unit to its rc(8) script name for freebsd-be
   # ({name: <unit>, rc: <script>}); rc: null means "not on rc backends" --
-  # the timers there are /etc/cron.d/immutablue instead.
+  # the timers there are /etc/cron.d/immutablue instead. cloud-init stays off
+  # on FreeBSD: without a datasource it holds the boot for minutes and creates
+  # a 'freebsd' user, which stops GNOME's first-login setup (FreeBSD cloud
+  # images use the native nuageinit).
   services_enable_sys:
     all:
     - {name: immutablue-first-boot.service, rc: immutablue_first_boot}
@@ -733,7 +736,7 @@ immutablue:
     # net.hadess.PowerProfiles is a bar widget whose panel does nothing.
     - {name: tuned-ppd.service, rc: null}
     - {name: lima-guest-ready.service, rc: null}
-    - {name: cloud-init-local.service, rc: cloudinit}
+    - {name: cloud-init-local.service, rc: null}
     # - docker.service
 
   services_enable_sys_gui:

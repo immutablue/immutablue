@@ -2,6 +2,10 @@
 # This profile script is part of immutablue
 # - https://gitlab.com/immutablue/immutablue
 
+# Bash only: profile.d is also read by POSIX sh logins (FreeBSD's /bin/sh,
+# dash), which cannot parse the rest of this file.
+[ -n "${BASH_VERSION:-}" ] || return 0
+
 # Set ulimits
 if [[ "$(whoami)" != "root" ]]
 then
