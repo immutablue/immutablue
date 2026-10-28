@@ -41,3 +41,6 @@ provides:
   - inhouse_deps     # built by backends/arch-bootc/deps.Containerfile
   - cmacs            # quay.io/zachpodbielniak/cmacs:arch (cmacs ./build-container arch)
   #          pip (Arch's python is externally managed, PEP 668)
+
+# libosinfo id for libvirt domains (make bootc-disk-libvirt).
+osinfo: archlinux

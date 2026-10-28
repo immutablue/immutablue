@@ -9,11 +9,17 @@
 # of this checkout. The VM is also a real ZFS FreeBSD system, so deliver.sh
 # and the immutablue-backend verbs can be exercised on it.
 #
+# By default the VM is a plain QEMU process (SSH on a forwarded localhost
+# port). With --libvirt it is a libvirt domain on qemu:///system instead --
+# visible and usable in virt-manager, with a SPICE console -- on the 'default'
+# NAT network, and SSH goes to its DHCP address.
+#
 # Usage:
-#   builder-vm.sh <command> [gmake args...]
+#   builder-vm.sh [--libvirt] <command> [gmake args...]
 #
 # Commands:
 #   create      Download, seed and boot a fresh VM, then prepare it as a build host
+#   import      (--libvirt) Turn an existing QEMU-mode VM's disk into the domain
 #   start       Boot an existing VM
 #   stop        Power the VM off
 #   ssh [cmd]   Run a command in the VM (interactive shell without one)
@@ -23,6 +29,7 @@
 #   destroy     Stop the VM and remove its disk (the download is kept)
 #
 # Options:
+#   --libvirt      Run the VM as a libvirt domain (also: FREEBSD_VM_LIBVIRT=1)
 #   -h, --help     Show this help message
 #   --license      Show license information
 #
@@ -32,6 +39,9 @@
 #   backends/freebsd-be/builder-vm.sh make BACKEND=freebsd-be NUCLEUS=1 test
 #   backends/freebsd-be/builder-vm.sh deliver
 #   backends/freebsd-be/builder-vm.sh ssh 'bectl list'
+#   backends/freebsd-be/builder-vm.sh --libvirt create
+#   backends/freebsd-be/builder-vm.sh --libvirt import
+#   backends/freebsd-be/builder-vm.sh --libvirt make BACKEND=freebsd-be build
 #
 # Environment:
 #   FREEBSD_VM_DIR     where the VM lives (default: images/freebsd-vm)
@@ -40,9 +50,12 @@
 #   FREEBSD_VM_CPUS    vCPUs (default: 8)
 #   FREEBSD_VM_DISK    disk size (default: 120G; a GNOME build plus its
 #                      squash and a delivered boot environment need ~70G)
+#   FREEBSD_VM_DOMAIN  libvirt domain name (default: immutablue-freebsd-builder)
+#   LIBVIRT_DEFAULT_URI  libvirt connection (default: qemu:///system)
 #
 # Host requirements (Fedora package names): qemu-kvm, xorriso,
-# openssh-clients, rsync, xz, curl.
+# openssh-clients, rsync, xz, curl; for --libvirt also libvirt-daemon-kvm,
+# virt-install and jq, and membership of the 'libvirt' group.
 #
 # Exit codes:
 #   0 - Success
@@ -61,6 +74,9 @@ MEM="${FREEBSD_VM_MEM:-16384}"
 CPUS="${FREEBSD_VM_CPUS:-8}"
 DISK="${FREEBSD_VM_DISK:-120G}"
 IMAGE_REF="${FREEBSD_IMAGE_REF:-quay.io/immutablue/immutablue:15.1-freebsd-nucleus}"
+LIBVIRT="${FREEBSD_VM_LIBVIRT:-0}"
+DOMAIN="${FREEBSD_VM_DOMAIN:-immutablue-freebsd-builder}"
+URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
 
 
 show_help() {
@@ -68,14 +84,69 @@ show_help() {
 }
 
 
+vsh() {
+    virsh -q -c "${URI}" "$@"
+}
+
+
+# Where sshd is reachable: the forwarded localhost port for a QEMU VM, the
+# DHCP lease on libvirt's 'default' network for a domain.
+#
+# returns: "<host> <port>" on stdout (host empty while no lease exists)
+vm_target() {
+    local ip
+
+    if [[ "${LIBVIRT}" -eq 1 ]]
+    then
+        ip="$(vsh domifaddr "${DOMAIN}" --source lease 2>/dev/null | awk '$3 == "ipv4" { sub(/\/.*/, "", $4); print $4; exit }')"
+        echo "${ip} 22"
+    else
+        echo "127.0.0.1 ${PORT}"
+    fi
+}
+
+
 vm_ssh() {
-    ssh -i "${VM_DIR}/vmkey" -p "${PORT}" \
+    local host
+    local port
+
+    read -r host port < <(vm_target)
+    [[ -n "${host}" ]] || return 255
+    ssh -i "${VM_DIR}/vmkey" -p "${port}" \
         -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-        -o LogLevel=ERROR -o BatchMode=yes builder@127.0.0.1 "$@"
+        -o LogLevel=ERROR -o BatchMode=yes "builder@${host}" "$@"
+}
+
+
+# Wait for sshd and, on first boot, for cloud-init to grant sudo.
+vm_wait() {
+    local i
+
+    for i in $(seq 1 120)
+    do
+        if vm_ssh 'sudo -n true' 2>/dev/null
+        then
+            echo "VM up ($(vm_target))"
+            return 0
+        fi
+        sleep 5
+    done
+    echo "ERROR: VM did not come up" >&2
+    return 1
 }
 
 
 vm_start() {
+    if [[ "${LIBVIRT}" -eq 1 ]]
+    then
+        if [[ "$(vsh domstate "${DOMAIN}")" != "running" ]]
+        then
+            vsh start "${DOMAIN}"
+        fi
+        vm_wait
+        return
+    fi
+
     if [[ -f "${VM_DIR}/qemu.pid" ]] && kill -0 "$(cat "${VM_DIR}/qemu.pid")" 2>/dev/null
     then
         echo "VM already running"
@@ -88,20 +159,7 @@ vm_start() {
         -nic "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:${PORT}-:22" \
         -display none -serial "file:${VM_DIR}/serial.log" \
         -daemonize -pidfile "${VM_DIR}/qemu.pid"
-
-    # Wait for sshd and, on first boot, for cloud-init to grant sudo.
-    local i
-    for i in $(seq 1 120)
-    do
-        if vm_ssh 'sudo -n true' 2>/dev/null
-        then
-            echo "VM up (ssh port ${PORT})"
-            return 0
-        fi
-        sleep 5
-    done
-    echo "ERROR: VM did not come up; see ${VM_DIR}/serial.log" >&2
-    return 1
+    vm_wait
 }
 
 
@@ -110,6 +168,20 @@ vm_start() {
 vm_stop() {
     local pid
     local i
+
+    if [[ "${LIBVIRT}" -eq 1 ]]
+    then
+        vsh dominfo "${DOMAIN}" > /dev/null 2>&1 || return 0
+        [[ "$(vsh domstate "${DOMAIN}")" == "running" ]] || return 0
+        vsh shutdown "${DOMAIN}" > /dev/null
+        for i in $(seq 1 60)
+        do
+            [[ "$(vsh domstate "${DOMAIN}")" == "shut off" ]] && return 0
+            sleep 1
+        done
+        vsh destroy "${DOMAIN}" > /dev/null
+        return 0
+    fi
 
     [[ -f "${VM_DIR}/qemu.pid" ]] || return 0
     pid="$(cat "${VM_DIR}/qemu.pid")"
@@ -171,7 +243,12 @@ EOF
     rm -f "${VM_DIR}/seed.iso"
     xorriso -as mkisofs -quiet -o "${VM_DIR}/seed.iso" -V cidata -J -r "${VM_DIR}/seed" 2>/dev/null
 
-    vm_start
+    if [[ "${LIBVIRT}" -eq 1 ]]
+    then
+        vm_import
+    else
+        vm_start
+    fi
 
     # Build host requirements: podman + ocijail, GNU make, the repository's
     # tools, /bin/bash for its scripts, a ZFS dataset for container storage,
@@ -193,25 +270,67 @@ EOF
 }
 
 
+# Make the VM's disk (and cloud-init seed) a libvirt domain and boot it.
+#
+# The system libvirt cannot read files in a home directory, so
+# backends/lib/libvirt-import.sh uploads them into the 'default' pool. The
+# local copies are left in place; from here on the pool volume is the disk.
+vm_import() {
+    local qemu_mode_running=0
+
+    if [[ -f "${VM_DIR}/qemu.pid" ]] && kill -0 "$(cat "${VM_DIR}/qemu.pid")" 2>/dev/null
+    then
+        qemu_mode_running=1
+    fi
+    if [[ ${qemu_mode_running} -eq 1 ]]
+    then
+        echo "Stopping the QEMU-mode VM so its disk is consistent"
+        LIBVIRT=0 vm_stop
+    fi
+
+    bash "${ROOT_DIR}/backends/lib/libvirt-import.sh" --replace \
+        --osinfo "$(yq '.osinfo' "${ROOT_DIR}/backends/freebsd-be/backend.yaml")" --memory "${MEM}" --vcpus "${CPUS}" \
+        --seed "${VM_DIR}/seed.iso" "${DOMAIN}" "${VM_DIR}/builder.qcow2"
+    vm_wait
+}
+
+
 # Copy the checkout in. deps/ and the submodule histories stay behind:
 # freebsd-be builds no in-house dependencies.
 vm_sync() {
+    local host
+    local port
+
+    read -r host port < <(vm_target)
     rsync -a --delete \
         --exclude /images/ --exclude /deps/ \
         --exclude /.git/modules/deps/ --exclude /.git/modules/artifacts/ \
         --exclude /docs/public/ \
-        -e "ssh -i ${VM_DIR}/vmkey -p ${PORT} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o BatchMode=yes" \
-        "${ROOT_DIR}/" builder@127.0.0.1:immutablue/
+        -e "ssh -i ${VM_DIR}/vmkey -p ${port} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o BatchMode=yes" \
+        "${ROOT_DIR}/" "builder@${host}:immutablue/"
 }
 
 
 main() {
+    if [[ "${1:-}" == "--libvirt" ]]
+    then
+        LIBVIRT=1
+        shift
+    fi
     local cmd="${1:-}"
 
     case "${cmd}" in
         -h|--help) show_help; return 0 ;;
         --license) echo 'builder-vm.sh - part of Immutablue. AGPL-3.0-or-later.'; return 0 ;;
         create) vm_create ;;
+        import)
+            if [[ "${LIBVIRT}" -ne 1 ]]
+            then
+                echo "import makes the libvirt domain: use --libvirt import" >&2
+                return 2
+            fi
+            vm_import
+            ;;
         start) vm_start ;;
         stop) vm_stop ;;
         ssh) shift; vm_ssh "$@" ;;
@@ -228,6 +347,12 @@ main() {
             ;;
         destroy)
             vm_stop
+            if [[ "${LIBVIRT}" -eq 1 ]]
+            then
+                vsh undefine "${DOMAIN}" --nvram > /dev/null 2>&1 || vsh undefine "${DOMAIN}" > /dev/null 2>&1 || true
+                vsh vol-delete --pool default "${DOMAIN}.qcow2" > /dev/null 2>&1 || true
+                vsh vol-delete --pool default "${DOMAIN}-seed.iso" > /dev/null 2>&1 || true
+            fi
             rm -f "${VM_DIR}/builder.qcow2" "${VM_DIR}/seed.iso" "${VM_DIR}/qemu.pid"
             ;;
         *) show_help >&2; return 2 ;;

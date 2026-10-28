@@ -77,3 +77,15 @@ run-bootc-disk-image:
 $(DEPS_CONTAINERFILE):
 	@echo "ERROR: BACKEND=$(BACKEND) has no deps container ($(DEPS_CONTAINERFILE) does not exist)" >&2
 	@exit 1
+
+# bootc-disk-libvirt: import the bootc-disk-image result into libvirt
+# (qemu:///system) as domain immutablue-<tag>, UEFI, SPICE console -- it shows
+# up and boots in virt-manager. backend.yaml 'osinfo' names the guest OS.
+#
+#   make BACKEND=arch-bootc bootc-disk-image bootc-disk-libvirt
+BACKEND_OSINFO := $(shell yq '.osinfo // "detect=on,require=off"' $(BACKEND_DIR)/backend.yaml 2>/dev/null)
+
+.PHONY: bootc-disk-libvirt
+bootc-disk-libvirt:
+	bash backends/lib/libvirt-import.sh --replace --uefi --osinfo "$(BACKEND_OSINFO)" \
+		"immutablue-$(TAG)" "$(BOOTC_DISK_IMAGE)"

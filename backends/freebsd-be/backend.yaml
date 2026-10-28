@@ -41,3 +41,7 @@ provides:
 
 # dconf's sysconfdir on FreeBSD (build/90-post.sh compiles the defaults there).
 dconf_dir: /usr/local/etc/dconf
+
+# libosinfo id for libvirt domains (builder-vm.sh --libvirt). libosinfo has
+# no 15.1 entry yet; 15.0 describes the same hardware needs.
+osinfo: freebsd15.0
