@@ -217,10 +217,18 @@ EOF
     install -m 0555 "$(dirname "$0")/iso/installer.sh" "${root}/usr/libexec/immutablue/freebsd-installer"
     cat > "${root}/etc/rc.local" <<'EOF'
 #!/bin/sh
-# Immutablue installer ISO: run the installer on the console during boot,
-# as FreeBSD's own install media run bsdinstall.
+# Immutablue installer ISO: run the installer during boot, as FreeBSD's own
+# install media run bsdinstall -- on the screen. console="vidconsole,
+# comconsole" (loader.conf.local) makes the kernel pick the serial port as
+# its primary console whenever the machine has one (every libvirt domain
+# does), and rc.local's /dev/console would put the installer there while the
+# screen showed a frozen boot log. ttyv0 is the first virtual terminal on
+# the screen; a machine without one (headless) keeps the console.
 export TERM=xterm
-/usr/local/bin/bash /usr/libexec/immutablue/freebsd-installer
+if [ -c /dev/ttyv0 ]; then
+    exec /usr/local/bin/bash /usr/libexec/immutablue/freebsd-installer < /dev/ttyv0 > /dev/ttyv0 2>&1
+fi
+exec /usr/local/bin/bash /usr/libexec/immutablue/freebsd-installer
 EOF
     chmod 0555 "${root}/etc/rc.local"
 
