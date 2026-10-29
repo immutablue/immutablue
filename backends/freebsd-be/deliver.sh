@@ -22,10 +22,13 @@
 # delivery, boot, and rollback. Not yet run on hardware.
 #
 # Usage:
-#   deliver.sh [--dry-run] <image:tag>
+#   deliver.sh [--dry-run] [--local] <image:tag>
 #
 # Options:
 #   -n, --dry-run  Pull and export, then print what would change; touch no BE
+#   -l, --local    Use the image already in local storage (a build host's
+#                  fresh build); without it the image is always pulled, and
+#                  a local copy is used only when the pull fails (offline)
 #   -h, --help     Show this help message
 #   --license      Show license information
 #
@@ -386,6 +389,7 @@ merge_accounts() {
 
 main() {
     local dry_run=0
+    local local_only=0
     local ref=""
     local mnt
     local filter=()
@@ -398,6 +402,7 @@ main() {
             -h|--help) show_help; return 0 ;;
             --license) show_license; return 0 ;;
             -n|--dry-run) dry_run=1 ;;
+            -l|--local) local_only=1 ;;
             -*) log "unknown option $1"; return 2 ;;
             *) ref="$1" ;;
         esac
@@ -422,14 +427,25 @@ main() {
     work="$(mktemp -d "${WORK_BASE}/immutablue-deliver.XXXXXX")"
     trap cleanup EXIT
 
-    # A locally built image (the build host, or one loaded by hand) is used as
-    # is; otherwise it is pulled.
-    if podman image exists "${ref}"
+    # An update means the registry's current image: a copy left in local
+    # storage by an earlier delivery has the same tag and is stale. It is
+    # pulled every time (unchanged layers are not downloaded again), and the
+    # local copy is used only for --local (a build host delivering its own
+    # build) or when the pull fails, e.g. offline.
+    if [[ ${local_only} -eq 1 ]] && podman image exists "${ref}"
     then
         log "using local image ${ref}"
     else
         log "pulling ${ref}"
-        podman pull "${ref}"
+        if ! podman pull "${ref}"
+        then
+            if podman image exists "${ref}"
+            then
+                log "pull failed; using the local copy of ${ref}, which may be out of date"
+            else
+                return 1
+            fi
+        fi
     fi
     cid="$(podman create "${ref}" /bin/true)"
     mkdir -p "${work}/rootfs"

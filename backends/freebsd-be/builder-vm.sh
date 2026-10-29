@@ -660,7 +660,7 @@ main() {
             ;;
         deliver)
             vm_sync
-            vm_ssh "cd immutablue && sudo bash backends/freebsd-be/deliver.sh $(printf '%q' "${IMAGE_REF}")"
+            vm_ssh "cd immutablue && sudo bash backends/freebsd-be/deliver.sh --local $(printf '%q' "${IMAGE_REF}")"
             ;;
         iso)
             if [[ $# -ne 2 ]]
