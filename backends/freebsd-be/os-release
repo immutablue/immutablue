@@ -1,14 +1,7 @@
-NAME="Immutablue"
-VERSION="Immutablue (FreeBSD 15.1)"
+# Base for the image's os-release on freebsd-be. scripts/os-release.sh adds
+# NAME, VERSION, PRETTY_NAME, VARIANT(_ID), the URLs and the rest from the
+# build options; this file carries only what identifies the OS underneath.
 ID=immutablue
 ID_LIKE=freebsd
 VERSION_ID=15.1
-VERSION_CODENAME="Immutablue"
-PRETTY_NAME="Immutablue (FreeBSD 15.1-RELEASE)"
-ANSI_COLOR="0;38;2;60;110;180"
-HOME_URL="https://gitlab.com/immutablue/immutablue"
-DOCUMENTATION_URL="https://gitlab.com/immutablue/immutablue"
-SUPPORT_URL="https://gitlab.com/immutablue/immutablue"
-BUG_REPORT_URL="https://gitlab.com/immutablue/immutablue"
-VARIANT="Immutablue"
-VARIANT_ID=immutablue
+DEFAULT_HOSTNAME="immutablue"

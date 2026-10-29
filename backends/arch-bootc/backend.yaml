@@ -44,3 +44,10 @@ provides:
 
 # libosinfo id for libvirt domains (make bootc-disk-libvirt).
 osinfo: archlinux
+
+# os-release: scripts/os-release.sh from ./os-release (ID=immutablue,
+# ID_LIKE=arch) plus the variant; 'silverblue' here is plain GNOME.
+os_release_base: os-release
+os_release_version: "Arch"
+os_release_aliases:
+  silverblue: gnome

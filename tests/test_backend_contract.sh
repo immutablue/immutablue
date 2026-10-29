@@ -43,14 +43,16 @@ for dir in "$root"/backends/*/; do
 		bash -c 'source "$1" && declare -F "$2" > /dev/null' _ "$dir/backend.sh" "$fn" || fail "$name: backend.sh lacks $fn"
 	done
 
-	# The os-release file the backend links /etc/os-release to must ship
-	# somewhere: in its overrides, the shared overrides, or the base image's
-	# own /usr/lib (gnomeos).
+	# scripts/os-release.sh writes the file /etc/os-release links to from
+	# backend.yaml's os_release_base: the base image's /usr/lib/os-release
+	# (absolute) or a file in the backend directory, which must exist.
 	release="$(TRUE=1 FALSE=0 FEDORA_VERSION=44 bash -c 'source "$1" && backend_os_release_path' _ "$dir/backend.sh")"
-	case "$release" in
-		/usr/lib/os-release) ;;
-		*) [[ -e "$dir/overrides$release" || -e "$root/artifacts/overrides$release" ]] || fail "$name: $release is not shipped" ;;
-	esac
+	[[ -n "$release" ]] || fail "$name: backend_os_release_path prints nothing"
+	release_base="$(yq '.os_release_base // ""' "$yaml")"
+	[[ -n "$release_base" ]] || fail "$name: backend.yaml has no os_release_base"
+	if [[ "$release_base" != /* ]]; then
+		[[ -f "$dir/$release_base" ]] || fail "$name: os_release_base $release_base does not exist"
+	fi
 
 	# Stages named in skip_stages must exist, so a rename cannot silently
 	# re-enable a stage for this backend.
@@ -76,6 +78,9 @@ if bash "$root/scripts/check-backend.sh" arch-bootc gui,silverblue,cyan > /dev/n
 	fail 'check-backend.sh accepted cyan on arch-bootc'
 fi
 bash "$root/scripts/check-backend.sh" fedora-bootc gui,silverblue,zfs,cyan > /dev/null || fail 'check-backend.sh rejected a normal fedora-bootc build'
+# A 'requires' list (trueblue/zfs/lts: [rpm, pacman]) accepts each listed value.
+bash "$root/scripts/check-backend.sh" fedora-bootc gui,silverblue,trueblue,lts,zfs > /dev/null || fail 'check-backend.sh rejected trueblue on fedora-bootc'
+bash "$root/scripts/check-backend.sh" arch-bootc gui,silverblue,trueblue,lts,zfs > /dev/null || fail 'check-backend.sh rejected trueblue on arch-bootc'
 
 # ARCHLINUX=1 / FREEBSD=1 select their backends; ARCH (a CPU architecture to
 # many toolchains) is not an alias.

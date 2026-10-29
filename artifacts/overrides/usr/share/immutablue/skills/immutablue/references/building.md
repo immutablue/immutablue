@@ -53,8 +53,11 @@ make FREEBSD=1 NUCLEUS=1 build            # same as BACKEND=freebsd-be; ARCHLINU
 
 `make backend_check` (run by `build`) refuses impossible combinations before
 podman starts: each `variants/<option>.yaml` lists what it `requires` of the
-backend (cyan, asahi, trueblue, LTS, ZFS and the Fedora desktop bases need
-`pkg_key: rpm`; kuberblue needs Linux, systemd and rpm). A backend is
+backend (cyan, asahi and the Fedora desktop bases need `pkg_key: rpm`;
+trueblue, LTS, ZFS and kuberblue also build on arch-bootc, `pkg_key: [rpm,
+pacman]`). Arch kuberblue installs upstream's static Kubernetes and CRI-O at
+the minor Fedora's current release pins (`rpm_kuberblue.<CURRENT>`, passed as
+`FEDORA_CURRENT`; `stages/33-kuberblue-k8s.sh`). A backend is
 `backend.yaml` (facts and `provides` capabilities), `backend.sh` (the build
 contract in `backends/lib/interface.sh`), `runtime.sh`, a `Containerfile`, a
 `deps.Containerfile`, and optionally `backend.mk`, `stages/` and `overrides/`;
@@ -210,7 +213,7 @@ back to `name`). Pick the section by who should get it:
 | `pkg_silverblue` (the GNOME desktop on any backend), … | one desktop |
 | `pkg_kuberblue`, … | one specialised variant |
 | `pkg_x86_64`, `pkg_aarch64`, `pkg_<variant>_<arch>` | one architecture |
-| `rpm*` / `pacman*` / `freebsd*` | one backend only (its `pkg_key`), with the same suffixes; Fedora-only variants (`rpm_trueblue`, `rpm_kuberblue.<ver>`, workshop) live here |
+| `rpm*` / `pacman*` / `freebsd*` | one backend only (its `pkg_key`), with the same suffixes; Fedora-only variants (`rpm_kuberblue.<ver>`, workshop, trueblue's `znapzend`) live here |
 | `pkg_rm*`, `rpm_rm*`, … | removed from the base image |
 
 Service lists take the same shape, keyed by init system:
@@ -249,6 +252,12 @@ artifacts/overrides/usr/libexec/immutablue/…   -> /usr/libexec/immutablue/…
 Variant-specific trees exist alongside it: `overrides_cyan/`, `overrides_asahi/`,
 `overrides_kuberblue/`, `overrides_trueblue/`, `overrides_nix/`.
 
+`/etc/os-release` is not an override: `scripts/os-release.sh` writes it during
+`10-copy.sh` from the base OS's os-release (`backend.yaml` `os_release_base`)
+and the build options -- `Kuberblue 44 (Nucleus)`, `Immutablue 44 (Silverblue,
+Trueblue)`, `Immutablue Arch (GNOME)` -- so the release is never hard-coded and
+an os-release file dropped into `artifacts/overrides*/etc/` is replaced.
+
 This is how scripts, systemd units, justfiles, dconf keyfiles and skills get into
 the image. A file placed here is read-only at runtime — which is the point.
 
@@ -282,6 +291,7 @@ call `backend_pkg_install`, `backend_svc` and the rest, and test
 | `10-copy.sh` | overrides and prebuilt deps into the image |
 | `20-add-repos.sh` | third-party repos (set to priority 200, below Fedora's 99) |
 | `29-kernel-zfs-nvidia.sh` *(fedora-bootc)* | udev rules, akmods, LTS kernel, kernel versionlock, ZFS DKMS, `rpm_url`, cyan NVIDIA |
+| `32-kernel-zfs.sh` *(arch-bootc)* | `LTS`: `linux` → `linux-lts`; `ZFS`/`LTS`: ArchZFS repo (vendored key, `SigLevel = Required TrustAll`), prebuilt `zfs-<kernel>` else `zfs-dkms`, ZFS units enabled — a kernel ArchZFS/OpenZFS doesn't support yet fails the build here |
 | `30-install-packages.sh` | package installation, and binaries fetched from releases |
 | `31-post-urls.sh` *(fedora-bootc)* | `rpm_post_url` |
 | `35-mesa-freeworld.sh`, `36-ffmpeg-freeworld.sh` *(fedora-bootc)* | swap in RPM Fusion's full codecs |
@@ -294,7 +304,7 @@ call `backend_pkg_install`, `backend_svc` and the rest, and test
 | `75-nvidia.sh` *(fedora-bootc)* | cyan 44+: finalize the NVIDIA sysext images (its `install` phase is called from `29-`) |
 | `80-initramfs.sh` | regenerate and verify the initramfs; `SKIP=initramfs` skips it |
 | `90-post.sh` | variant justfile imports, image-info.json, dconf update, cleanup |
-| `91-fedora-post.sh` *(fedora-bootc)* | release the kernel versionlock, kuberblue RPM Fusion key links |
+| `91-fedora-post.sh` *(fedora-bootc)* | release the kernel versionlock |
 | `99-common.sh` | shared helpers — **sourced**, not run |
 
 Always source `99-common.sh`, and use `set -euxo pipefail`. That last point has

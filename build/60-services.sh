@@ -26,8 +26,17 @@ do
     backend_svc unmask "$svc"
 done
 
+# Disabling a unit the image does not have is nothing to do: a variant's list
+# is shared across backends (kuberblue disables firewalld, which Fedora ships
+# and Arch does not). A unit file that exists and fails still fails the build.
 for svc in $sys_disable 
 do 
+    if [[ "$(backend_has systemd)" == "${TRUE}" ]] && \
+       [[ ! -e "/usr/lib/systemd/system/${svc}" ]] && [[ ! -e "/etc/systemd/system/${svc}" ]]
+    then
+        echo "Skipping disable of ${svc}: not installed"
+        continue
+    fi
     backend_svc disable "$svc"
 done
 

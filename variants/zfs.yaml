@@ -1,3 +1,4 @@
-# zfs: OpenZFS release RPM + DKMS build against the image kernel.
+# zfs: OpenZFS for the image kernel. fedora-bootc: OpenZFS release RPM + DKMS;
+# arch-bootc: ArchZFS, prebuilt zfs-<kernel> or zfs-dkms (stages/32-kernel-zfs.sh).
 requires:
-  pkg_key: rpm
+  pkg_key: [rpm, pacman]

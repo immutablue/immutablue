@@ -461,23 +461,29 @@ immutablue:
     - nodejs-npm
     - ShellCheck
 
-  rpm_trueblue:
+  # trueblue (ZFS + LTS) runs on fedora-bootc and arch-bootc (ArchZFS, see
+  # backends/arch-bootc/stages/32-kernel-zfs.sh). Arch's cockpit package
+  # already contains the networkmanager and system pages.
+  pkg_trueblue:
     all:
     - cockpit
     - cockpit-files
     - cockpit-machines
     # - cockpit-navigator
-    - cockpit-networkmanager
-    - cockpit-ostree
+    - {name: cockpit-networkmanager, pacman: null}   # part of cockpit on Arch
+    - {name: cockpit-ostree, pacman: null}           # rpm-ostree UI; Fedora-only
     - cockpit-podman
     - cockpit-storaged
-    - cockpit-system
+    - {name: cockpit-system, pacman: null}           # part of cockpit on Arch
     - rsync
     - rclone
     - smartmontools
     - samba
-    - samba-client
-    - znapzend      # from spike/znapzend copr (repo_urls_trueblue); required by cockpit-zfs-manager
+    - {name: samba-client, pacman: smbclient}
+
+  rpm_trueblue:
+    all:
+    - znapzend      # from spike/znapzend copr (repo_urls_trueblue); required by cockpit-zfs-manager; AUR-only on Arch
     # cockpit-zfs-manager / cockpit-file-sharing are not in Fedora; see rpm_post_url_trueblue
     # - cockpit-benchmark
     # - cockpit-tailscale
@@ -525,15 +531,15 @@ immutablue:
   # arch-bootc native packages (pacman names), installed alongside the
   # resolved 'pkg' lists. A Fedora Atomic base image already carries most of
   # this; archlinux:latest is a bare container, so the bootable system itself
-  # (kernel, firmware, dracut, ostree/composefs) and what Immutablue's own
-  # tools assume is present (podman, flatpak, plymouth, sudo, jq, zstd) are
-  # listed here.
+  # (firmware, dracut, ostree/composefs) and what Immutablue's own tools
+  # assume is present (podman, flatpak, plymouth, sudo, jq, zstd) are listed
+  # here. The kernel is not: backends/arch-bootc/stages/32-kernel-zfs.sh
+  # installs linux or, for LTS/TRUEBLUE, linux-lts (with headers), as
+  # fedora-bootc's stage 29 does for kernel-longterm.
   pacman:
     all:
     - base
-    - linux
     - linux-firmware
-    - linux-headers
     - dracut
     - ostree
     - composefs
@@ -570,6 +576,21 @@ immutablue:
     - gnome
     - gdm
     - xdg-desktop-portal-gnome
+  pacman_kuberblue:
+    all:
+    # Kubernetes and CRI-O themselves are upstream release binaries at
+    # Fedora's kuberblue version (backends/arch-bootc/stages/33-kuberblue-k8s.sh);
+    # these are what kubeadm's preflight and the node need around them, which
+    # Fedora's kubernetes RPMs pull in as dependencies.
+    - conntrack-tools
+    - ethtool
+    - socat
+    - iptables
+    - iproute2
+    # kuberblue masks systemd-resolved and configures DNS through
+    # NetworkManager (overrides_kuberblue/etc/NetworkManager), which the Arch
+    # nucleus image does not otherwise carry.
+    - networkmanager
 
   # freebsd-be native packages (FreeBSD 15.1 pkg names). The base system,
   # kernel and bootloader are pkgbase packages from the FreeBSD-base

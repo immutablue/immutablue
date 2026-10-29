@@ -73,3 +73,10 @@ dconf_dir: /usr/local/etc/dconf
 # libosinfo id for libvirt domains (builder-vm.sh --libvirt). libosinfo has
 # no 15.1 entry yet; 15.0 describes the same hardware needs.
 osinfo: freebsd15.0
+
+# os-release: scripts/os-release.sh from ./os-release (ID=immutablue,
+# ID_LIKE=freebsd, VERSION_ID) plus the variant.
+os_release_base: os-release
+os_release_version: "FreeBSD {VERSION_ID}"
+os_release_aliases:
+  silverblue: gnome

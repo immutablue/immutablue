@@ -23,13 +23,20 @@ else
     backend_svc enable systemd-networkd.service
 fi
 
-backend_svc enable systemd-resolved.service
 backend_svc enable systemd-timesyncd.service
 
-# resolv.conf is bind-mounted by the container runtime during the build, so it
-# is pointed at systemd-resolved's stub by tmpfiles on first boot instead.
-printf 'L! /etc/resolv.conf - - - - /run/systemd/resolve/stub-resolv.conf\n' \
-    > /usr/lib/tmpfiles.d/resolv-conf.conf
+# DNS through systemd-resolved, unless 60-services.sh masked it: kuberblue
+# does (services_mask_sys_kuberblue; its stub conflicts with the cluster's
+# resolver), and leaves /etc/resolv.conf to NetworkManager (dns=default).
+if [[ "$(systemctl is-enabled systemd-resolved.service 2>/dev/null || true)" != "masked" ]]
+then
+    backend_svc enable systemd-resolved.service
+
+    # resolv.conf is bind-mounted by the container runtime during the build,
+    # so it is pointed at systemd-resolved's stub by tmpfiles on first boot.
+    printf 'L! /etc/resolv.conf - - - - /run/systemd/resolve/stub-resolv.conf\n' \
+        > /usr/lib/tmpfiles.d/resolv-conf.conf
+fi
 
 # The machine is configured by Immutablue's own first-boot setup.
 backend_svc mask systemd-firstboot.service

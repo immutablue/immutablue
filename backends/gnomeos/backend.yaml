@@ -37,3 +37,9 @@ provides:
   - inhouse_deps
   - cmacs
   - linux_binaries
+
+# os-release: scripts/os-release.sh rebrands GNOME OS's own file in place.
+os_release_base: /usr/lib/os-release
+os_release_version: "GNOME OS"
+os_release_aliases:
+  silverblue: gnome

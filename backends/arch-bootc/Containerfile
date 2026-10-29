@@ -55,6 +55,9 @@ FROM ${DEPS_IMAGE} AS build-deps
 FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG}
 
 ARG FEDORA_VERSION=arch
+# The current Fedora release (CURRENT in makefiles/00-variables.mk):
+# kuberblue takes its Kubernetes minor from rpm_kuberblue.<FEDORA_CURRENT>.
+ARG FEDORA_CURRENT=
 ARG IMAGE_TAG=immutablue:arch
 ARG INSTALL_DIR=/usr/immutablue
 ARG DO_INSTALL_AKMODS=false

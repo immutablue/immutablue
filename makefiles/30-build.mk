@@ -86,6 +86,7 @@ build-deps: backend_check deps_build_manifest $(DEPS_CONTAINERFILE)
 		--build-arg=IMMUTABLUE_BACKEND=$(BACKEND) \
 		--build-arg=BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg=FEDORA_VERSION=$(VERSION) \
+		--build-arg=FEDORA_CURRENT=$(CURRENT) \
 		--build-arg=IMAGE_TAG=$(IMAGE_BASE_TAG):$(TAG) \
 		--build-arg=DO_INSTALL_LTS=$(DO_INSTALL_LTS) \
 		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
@@ -109,6 +110,7 @@ build-cyan-deps:
 		-t $(CYAN_DEPS_CONTAINER_DATE) \
 		-f ./deps-container/cyan/Containerfile \
 		--build-arg=FEDORA_VERSION=$(VERSION) \
+		--build-arg=FEDORA_CURRENT=$(CURRENT) \
 		--build-arg=KERNEL_VERSION="$$kernel_version" \
 		--build-arg=KERNEL_PACKAGE="$(CYAN_KERNEL_PACKAGE)" \
 		--build-arg=LTS_VERSION="$(CYAN_LTS_VERSION)" \
@@ -145,6 +147,7 @@ ifeq ($(DISTROLESS),1)
 		--build-arg=BASE_IMAGE_DEVEL=$(BASE_IMAGE_DEVEL) \
 		--build-arg=IS_DISTROLESS=$(IS_DISTROLESS) \
 		--build-arg=FEDORA_VERSION=$(VERSION) \
+		--build-arg=FEDORA_CURRENT=$(CURRENT) \
 		--build-arg=IMAGE_TAG=$(IMAGE_BASE_TAG):$(TAG) \
 		--build-arg=DO_INSTALL_LTS=$(DO_INSTALL_LTS) \
 		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \
@@ -170,6 +173,7 @@ else
 		--build-arg=BASE_IMAGE_DEVEL=$(BASE_IMAGE_DEVEL) \
 		--build-arg=IS_DISTROLESS=$(IS_DISTROLESS) \
 		--build-arg=FEDORA_VERSION=$(VERSION) \
+		--build-arg=FEDORA_CURRENT=$(CURRENT) \
 		--build-arg=IMAGE_TAG=$(IMAGE_BASE_TAG):$(TAG) \
 		--build-arg=DO_INSTALL_LTS=$(DO_INSTALL_LTS) \
 		--build-arg=DO_INSTALL_ZFS=$(DO_INSTALL_ZFS) \

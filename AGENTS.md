@@ -66,6 +66,7 @@ make CYAN=1 LTS=1 build       # NVIDIA + LTS kernel
 
 ```bash
 make BACKEND=arch-bootc NUCLEUS=1 build  # Arch Linux backend -> :arch-nucleus
+make BACKEND=arch-bootc TRUEBLUE=1 build # linux-lts + ZFS from ArchZFS -> :arch-trueblue
 make ARCHLINUX=1 build        # same as BACKEND=arch-bootc (FREEBSD=1 -> freebsd-be)
 make BACKEND=gnomeos build    # GNOME OS backend (same as DISTROLESS=1)
 make backend_check            # Is this BACKEND + variant combination possible?
@@ -175,6 +176,7 @@ system, this ordering is usually why:
 |-------|--------|---------------|
 | 1 | `artifacts/overrides/` | `cp -a /mnt-ctx/artifacts/overrides/. /` (line ~85) |
 | 1b | `backends/<backend>/overrides/` | same copy step, right after the shared overrides |
+| — | `/etc/os-release` | generated, not copied: `scripts/os-release.sh` from the base OS's os-release (`backend.yaml` `os_release_base`) and the build options; an override file for it is replaced |
 | 2 | in-house C projects (yaml-glib, crispy, gst, **gowl**, mcp-glib, …) | `cp -a /mnt-build-deps/<p>/usr/. /usr/` (line ~172) |
 | 3 | **cmacs** | `install_usr_tree /mnt-cmacs/usr` (a `cp -a` that routes `lib64` through the symlink on Arch) — **last, so it wins** |
 
@@ -270,7 +272,7 @@ Scripts run in alphanumeric order during container build, merged by name with th
 |---------|------|----------|------|----------|--------|
 | `fedora-bootc` | Fedora Atomic (silverblue, base-atomic, asahi, ...) | dnf5 (`rpm` key) | systemd | bootc/ostree | default |
 | `gnomeos` | GNOME OS nightly | none | systemd | bootc/composefs | as before (DISTROLESS=1) |
-| `arch-bootc` | archlinux:latest + bootc v1.17.1 (no SELinux) | pacman | systemd | bootc/ostree | new; boots in QEMU; ships the in-house C projects (local deps image until `:arch-deps` is published) and cmacs (`cmacs:arch`) |
+| `arch-bootc` | archlinux:latest + bootc v1.17.1 (no SELinux) | pacman | systemd | bootc/ostree | new; boots in QEMU; ships the in-house C projects (local deps image until `:arch-deps` is published) and cmacs (`cmacs:arch`); `LTS`/`ZFS`/`TRUEBLUE` via `stages/32-kernel-zfs.sh` (linux-lts, ArchZFS repo with its vendored key in `keys/archzfs.asc`); `KUBERBLUE` via `stages/33-kuberblue-k8s.sh` (upstream static Kubernetes/CRI-O at the minor of `rpm_kuberblue.<CURRENT>`) |
 | `freebsd-be` | FreeBSD 15.1 pkgbase OCI | pkg | rc | ZFS boot environment (`deliver.sh`) | early; builds, passes `make test`, delivers and boots on a FreeBSD 15.1 VM (`backends/freebsd-be/builder-vm.sh`); FreeBSD build host only; in-house C projects from its own deps image (`/usr/local`, gmake + gcc via `backend.yaml` `deps_build`) and `cmacs:freebsd-15.1`, both local until published |
 
 A backend is `backend.yaml` (facts and `provides` capabilities), `backend.sh` (the build contract), `runtime.sh` (verbs for `immutablue-backend`), a `Containerfile` and `deps.Containerfile`, and optionally `backend.mk` (Make defaults), `stages/` and `overrides/`. `tests/test_backend_contract.sh` checks every backend against the contract. Variants declare what they need in `variants/<option>.yaml` (`requires:`), enforced by `make backend_check` / `scripts/check-backend.sh`.
@@ -311,6 +313,7 @@ Located in `/usr/libexec/immutablue/just/`:
 ./tests/test_justfile_syntax.sh   # Parse all shipped justfiles
 ./tests/test_package_presence.sh  # Assert packages.yaml matches the image (per backend)
 ./tests/test_pkg_resolve.sh       # Logical package resolution per backend
+./tests/test_os_release.sh        # Generated os-release per backend and variant
 ./tests/test_backend_dispatch.sh  # immutablue-backend verbs against stub tools
 ./tests/test_backend_contract.sh  # Every backend implements the interface
 ./tests/test_container.sh         # Container validation

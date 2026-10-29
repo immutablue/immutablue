@@ -78,8 +78,9 @@ do
     do
         [[ -n "${field}" ]] || continue
         have="$(yq ".${field} // \"\"" < "${backend_yaml}")"
-        # 'requires.<field>' may be a scalar or a list of acceptable values.
-        if ! yq -e ".requires.${field} | (. == \"${have}\") or (tag == \"!!seq\" and contains([\"${have}\"]))" < "${variant_yaml}" >/dev/null 2>&1
+        # 'requires.<field>' may be a scalar or a list of acceptable values;
+        # '[.] | flatten' turns either into a list to search.
+        if ! yq -e ".requires.${field} | [.] | flatten | any_c(. == \"${have}\")" < "${variant_yaml}" >/dev/null 2>&1
         then
             want="$(yq -o=json -I=0 ".requires.${field}" < "${variant_yaml}")"
             echo "ERROR: build option '${option}' requires ${field}=${want}; BACKEND=${backend} has ${field}=${have:-<unset>}" >&2

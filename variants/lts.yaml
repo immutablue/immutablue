@@ -1,3 +1,4 @@
-# lts: kwizart kernel-longterm COPR.
+# lts: LTS kernel. fedora-bootc: kwizart kernel-longterm COPR; arch-bootc:
+# linux-lts (stages/32-kernel-zfs.sh).
 requires:
-  pkg_key: rpm
+  pkg_key: [rpm, pacman]

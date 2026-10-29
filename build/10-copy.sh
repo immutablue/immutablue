@@ -262,16 +262,22 @@ if [[ "$(is_option_in_build_options kuberblue)" == "${TRUE}" ]] && \
 fi
 
 
-# Put in place the correct `/etc/os-release`; which file that is belongs to
-# the backend (one per Fedora release on fedora-bootc).
+# Put in place the correct `/etc/os-release`. scripts/os-release.sh writes it
+# to the backend's path (/etc/.os-release-<version> on fedora-bootc) from the
+# base OS's os-release and the build options -- Immutablue or Kuberblue, the
+# release, the variant -- and /etc/os-release links to it.
 # -L as well as -e: FreeBSD's /etc/os-release is a symlink into /var/run,
 # which dangles inside a container and fails a plain -f test.
+os_release_path="$(backend_os_release_path)"
+bash "${INSTALL_DIR}/scripts/os-release.sh" "$(backend_dir)" \
+    "${IMMUTABLUE_BUILD_OPTIONS}" "${os_release_path}"
+
 if [[ -e "/etc/os-release" ]] || [[ -L "/etc/os-release" ]]
-then 
+then
     unlink "/etc/os-release"
 fi
 
-ln -s "$(backend_os_release_path)" "/etc/os-release" 
+ln -s "${os_release_path}" "/etc/os-release"
 
 
 # The linuxbrew container is mounted at /mnt-linuxbrew

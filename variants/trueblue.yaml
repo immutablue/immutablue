@@ -1,3 +1,4 @@
-# trueblue: kwizart LTS kernel + OpenZFS DKMS RPMs.
+# trueblue: LTS kernel + OpenZFS. fedora-bootc: kwizart LTS kernel and the
+# OpenZFS DKMS RPMs; arch-bootc: linux-lts and ArchZFS (stages/32-kernel-zfs.sh).
 requires:
-  pkg_key: rpm
+  pkg_key: [rpm, pacman]
