@@ -437,7 +437,7 @@ CLEAN
 
 
 # Run 'sudo gmake ARGS' in the VM against a fresh sync of this checkout,
-# after vm_cleanup.
+# after vm_cleanup (except for push targets).
 #
 # Every image build leaves the one it replaced untagged (~11 GB for GNOME);
 # they are pruned afterwards too. The deps manifest is the one vm_sync
@@ -445,7 +445,22 @@ CLEAN
 #
 # param $@: gmake arguments
 vm_make() {
-    vm_cleanup
+    local arg
+    local pushing=0
+
+    # Pushes need no space, and the dated tags the cleanup removes are
+    # among what push and push-deps send.
+    for arg in "$@"
+    do
+        case "${arg}" in
+            push|push-deps) pushing=1 ;;
+            *) ;;
+        esac
+    done
+    if [[ ${pushing} -eq 0 ]]
+    then
+        vm_cleanup
+    fi
     vm_sync
     # Arguments are passed through; quote each for the remote shell.
     vm_ssh "cd immutablue && sudo gmake DEPS_MANIFEST_PREBUILT=1 $(printf '%q ' "$@"); rc=\$?; sudo podman image prune -f > /dev/null 2>&1; exit \$rc"
