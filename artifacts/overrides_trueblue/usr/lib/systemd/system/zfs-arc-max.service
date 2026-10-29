@@ -7,7 +7,7 @@ Before=zfs-mount.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/usr/lib/libexec/immutablue/zfs/trueblue-zfs-arc-max
+ExecStart=/usr/libexec/immutablue/zfs/trueblue-zfs-arc-max
 StandardInput=null 
 StandardOutput=journal
 StandardError=journal
