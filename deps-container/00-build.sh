@@ -687,6 +687,13 @@ main () {
 		"build_${name}"
 	done
 
+	# Backend-specific extras after the shared projects (FreeBSD: OS
+	# packages rebuilt from ports with Immutablue's patches).
+	if declare -F backend_deps_build_extra > /dev/null; then
+		echo "=== Building: ${IMMUTABLUE_BACKEND} extras ==="
+		backend_deps_build_extra "${BUILD_DIR}"
+	fi
+
 	echo "=== All dependencies built successfully ==="
 }
 

@@ -1,0 +1,64 @@
+#!/bin/sh
+#
+# PROVIDE: immutablue_containers
+# REQUIRE: FILESYSTEMS
+# BEFORE: immutablue_podman_pf immutablue_linux_compat
+# KEYWORD: nojail
+#
+# Keep podman's storage outside the boot environment (freebsd-be). podman's
+# zfs storage driver creates every image layer as a child dataset of the
+# dataset that holds /var/db/containers/storage. When that is the boot
+# environment itself (/var/db is part of it), an update's new boot
+# environment is a clone without those children, and the next 'podman'
+# fails with "cannot open '<pool>/ROOT/<new BE>/<layer>': dataset does not
+# exist" for every image and container.
+#
+# install-disk.sh gives new machines <pool>/containers mounted on
+# /var/db/containers. Machines installed before that get it here, once: the
+# old storage directory (unusable after an update anyway) is moved aside to
+# /var/db/containers.pre-dataset-<date> and the dataset is created and
+# mounted in its place. Images have to be pulled again after that one move.
+#
+# Enabled by stages/11-freebsd-system.sh.
+
+# rc.subr is FreeBSD's rc(8) library; not something shellcheck can follow.
+# shellcheck source=/dev/null
+. /etc/rc.subr
+
+name="immutablue_containers"
+rcvar="immutablue_containers_enable"
+start_cmd="${name}_start"
+stop_cmd=":"
+
+immutablue_containers_start()
+{
+	local root_ds pool ds aside
+
+	# Only on ZFS roots: <pool>/ROOT/<be> mounted on /.
+	root_ds=$(mount -p | awk '$2 == "/" && $3 == "zfs" { print $1 }')
+	[ -n "${root_ds}" ] || return 0
+	pool="${root_ds%%/*}"
+	ds="${pool}/containers"
+
+	# Already a dataset of its own: make sure it is mounted.
+	if zfs list -H -o name "${ds}" > /dev/null 2>&1; then
+		if ! mount -p | awk '$2 == "/var/db/containers" { found = 1 } END { exit !found }'; then
+			zfs mount "${ds}" 2> /dev/null || true
+		fi
+		return 0
+	fi
+
+	# ZFS will not mount over a non-empty directory: move the old storage
+	# aside rather than delete it.
+	if [ -d /var/db/containers ] && [ -n "$(ls -A /var/db/containers 2> /dev/null)" ]; then
+		aside="/var/db/containers.pre-dataset-$(date -u +%Y%m%dT%H%M%SZ)"
+		mv /var/db/containers "${aside}"
+		echo "immutablue_containers: moved the old podman storage to ${aside}"
+	fi
+	zfs create -o mountpoint=/var/db/containers "${ds}"
+	echo "immutablue_containers: podman storage is now ${ds}"
+}
+
+load_rc_config $name
+: ${immutablue_containers_enable:="NO"}
+run_rc_command "$1"

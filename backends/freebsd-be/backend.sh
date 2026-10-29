@@ -137,6 +137,59 @@ backend_deps_prepare() {
 }
 
 
+# Rebuild the ports under backends/freebsd-be/ports/<category>/<port>/ with
+# the patch-* files there added (EXTRA_PATCHES), as packages in
+# <build_dir>/ports/ for stages/31-freebsd-ports.sh to install over the stock
+# ones. For bugs in FreeBSD packages Immutablue cannot wait out (ConsoleKit2's
+# session lookup breaks unlocking the GNOME lock screen).
+#
+# The ports tree is the quarterly branch of the build date -- the one the
+# FreeBSD:15:amd64/quarterly pkg repository is built from -- so a rebuilt
+# package is the same version as the one it replaces, plus the patches.
+# Ports are built with the base system's make(1), not gmake.
+#
+# param $1: the deps build directory (/build)
+backend_deps_build_extra() {
+    local build_dir="$1"
+    local src="${IMMUTABLUE_SRC:-/tmp/immutablue}/backends/freebsd-be/ports"
+    local ports_tree="/tmp/ports"
+    local month
+    local branch
+    local dir
+    local origin
+    local patches
+    local attempt
+
+    [[ -d "${src}" ]] || return 0
+    month="$(date -u +%m)"
+    branch="$(date -u +%Y)Q$(( (10#${month} - 1) / 3 + 1 ))"
+    for attempt in 1 2 3 4
+    do
+        rm -rf "${ports_tree}"
+        if git clone --depth 1 --branch "${branch}" https://git.FreeBSD.org/ports.git "${ports_tree}"
+        then
+            break
+        fi
+        [[ ${attempt} -lt 4 ]] || return 1
+        sleep $(( attempt * 5 ))
+    done
+
+    mkdir -p "${build_dir}/ports"
+    for dir in "${src}"/*/*/
+    do
+        origin="${dir%/}"
+        origin="${origin#"${src}/"}"
+        patches="$(find "${dir}" -name 'patch-*' -type f | sort | tr '\n' ' ')"
+        echo "=== ports: ${origin} (${branch}) with ${patches} ==="
+        /usr/bin/make -C "${ports_tree}/${origin}" BATCH=yes install-missing-packages
+        /usr/bin/make -C "${ports_tree}/${origin}" BATCH=yes WRKDIRPREFIX=/tmp/ports-wrk \
+            EXTRA_PATCHES="${patches}" package
+        cp "/tmp/ports-wrk${ports_tree}/${origin}"/work/pkg/*.pkg "${build_dir}/ports/"
+    done
+    rm -rf "${ports_tree}" /tmp/ports-wrk
+}
+
+
 # Refresh the run-time linker hints after a library install.
 #
 # A bare ldconfig on FreeBSD replaces the hints with only the directories it

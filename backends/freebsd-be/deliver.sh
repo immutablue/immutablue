@@ -239,6 +239,43 @@ staged=0
 RSYNC_OPTS=(-aH --file-flags --force-change)
 
 
+# Progress is shown only to a person watching (stderr is a terminal):
+# 'immutablue-backend upgrade' run by hand gets it, scripted runs and logs
+# do not. pv ships in the image; without it the extraction stays silent.
+show_progress() {
+    [[ -t 2 ]]
+}
+
+
+# Unpack the image's root filesystem into a directory.
+#
+# podman export streams the container's whole filesystem as one tar; pv
+# reports it against the image's size, which is what the export comes to.
+#
+# param $1: container id
+# param $2: image reference (for its size)
+# param $3: destination directory
+extract_rootfs() {
+    local cid="$1"
+    local ref="$2"
+    local dest="$3"
+    local size
+    local pv_opts=(-N "extracting image")
+
+    if show_progress && command -v pv > /dev/null
+    then
+        size="$(podman image inspect --format '{{.Size}}' "${ref}" 2> /dev/null || true)"
+        if [[ "${size}" =~ ^[0-9]+$ ]] && [[ "${size}" -gt 0 ]]
+        then
+            pv_opts+=(-s "${size}")
+        fi
+        podman export "${cid}" | pv "${pv_opts[@]}" | tar -xpf - -C "${dest}"
+    else
+        podman export "${cid}" | tar -xpf - -C "${dest}"
+    fi
+}
+
+
 # EXIT trap. A boot environment that was created but not activated is
 # unmounted and destroyed; nothing is ever deleted through its mountpoint.
 # The exported image tree carries schg flags, so they are cleared first.
@@ -352,6 +389,7 @@ main() {
     local ref=""
     local mnt
     local filter=()
+    local progress=()
     local path
 
     while [[ $# -gt 0 ]]
@@ -395,7 +433,7 @@ main() {
     fi
     cid="$(podman create "${ref}" /bin/true)"
     mkdir -p "${work}/rootfs"
-    podman export "${cid}" | tar -xpf - -C "${work}/rootfs"
+    extract_rootfs "${cid}" "${ref}" "${work}/rootfs"
 
     if [[ ! -f "${work}/rootfs/usr/immutablue/backend" ]] || \
        [[ "$(head -n 1 "${work}/rootfs/usr/immutablue/backend")" != "freebsd-be" ]]
@@ -430,8 +468,15 @@ main() {
     # -----------------------------------
     # 3. Lay the image over the clone, keeping machine state
     # -----------------------------------
+    # rsync's own overall progress (bytes, rate, files to check) when a
+    # person is watching; the boot environment is a clone, so most files are
+    # already there and only the differences are written.
     log "installing image tree"
-    rsync "${RSYNC_OPTS[@]}" --delete "${filter[@]}" "${work}/rootfs/" "${mnt}/"
+    if show_progress
+    then
+        progress=(--info=progress2)
+    fi
+    rsync "${RSYNC_OPTS[@]}" "${progress[@]}" --delete "${filter[@]}" "${work}/rootfs/" "${mnt}/"
 
     restore_modes "${work}/rootfs/${STOCK_REL}/modes" "${mnt}"
 

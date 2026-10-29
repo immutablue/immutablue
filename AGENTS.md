@@ -271,6 +271,12 @@ Scripts run in alphanumeric order during container build, merged by name with th
 
 A backend is `backend.yaml` (facts and `provides` capabilities), `backend.sh` (the build contract), `runtime.sh` (verbs for `immutablue-backend`), a `Containerfile` and `deps.Containerfile`, and optionally `backend.mk` (Make defaults), `stages/` and `overrides/`. `tests/test_backend_contract.sh` checks every backend against the contract. Variants declare what they need in `variants/<option>.yaml` (`requires:`), enforced by `make backend_check` / `scripts/check-backend.sh`.
 
+freebsd-be can also rebuild FreeBSD packages with Immutablue's patches:
+`backends/freebsd-be/ports/<category>/<port>/patch-*` are built from the
+quarterly ports branch in the deps image (`backend_deps_build_extra`) and
+installed and `pkg lock`ed by `stages/31-freebsd-ports.sh`. ConsoleKit2 is
+patched there so the GNOME lock screen can be unlocked.
+
 ### Runtime (installed to image)
 
 | Command | Location | Purpose |

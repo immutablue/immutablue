@@ -16,6 +16,7 @@
 #         <pool>/home                     /home
 #         <pool>/tmp                      /tmp
 #         <pool>/var/{audit,crash,log,mail,tmp}
+#         <pool>/containers               /var/db/containers (podman storage)
 #
 # The image's root filesystem is laid into the boot environment, its recorded
 # setuid/setgid/schg modes are restored (buildah drops them, see
@@ -231,6 +232,10 @@ main() {
     zfs create -o exec=off -o setuid=off "${POOL}/var/log"
     zfs create -o atime=on "${POOL}/var/mail"
     zfs create -o setuid=off "${POOL}/var/tmp"
+    # podman's zfs storage driver makes each layer a child of the dataset
+    # holding its graphroot. Inside the boot environment those children are
+    # not part of the next one, so every update would orphan the storage.
+    zfs create -o mountpoint=/var/db/containers "${POOL}/containers"
     zpool set bootfs="${POOL}/ROOT/${be}" "${POOL}"
 
     # -----------------------------------

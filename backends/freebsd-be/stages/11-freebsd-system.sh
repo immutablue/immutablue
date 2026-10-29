@@ -46,9 +46,25 @@ sysrc linux_enable=YES immutablue_linux_compat_enable=YES
 # and mounts fdescfs on /dev/fd, which podman also needs.
 sysrc pf_enable=YES immutablue_podman_pf_enable=YES
 
+# podman's storage needs a dataset outside the boot environment, or every
+# update orphans its layers: rc.d/immutablue_containers creates
+# <pool>/containers on machines installed before install-disk.sh did.
+sysrc immutablue_containers_enable=YES
+
+# ConsoleKit2 tracks and switches VTs through one console descriptor. It
+# tries /dev/tty (a daemon has none), then /dev/tty0, then /dev/console --
+# which it cannot open once X runs -- and ends on /dev/consolectl, where
+# every VT ioctl fails with ENOTTY. Sessions then never become active and
+# gdm cannot activate one, so unlocking the GNOME lock screen fails after
+# the password is accepted. /dev/tty0 -> ttyv0 gives it a real VT.
+if ! grep -q '^link[[:space:]]*ttyv0[[:space:]]*tty0' /etc/devfs.conf 2> /dev/null
+then
+    printf '\n# ConsoleKit2 needs a VT device it can open (Immutablue, stage 11).\nlink\tttyv0\ttty0\n' >> /etc/devfs.conf
+fi
+
 # The rc.d scripts and cron table shipped in overrides/ must be executable /
 # root-owned for rc(8) and cron(8) to accept them.
-chmod 0555 /usr/local/etc/rc.d/immutablue_first_boot /usr/local/etc/rc.d/immutablue_onboot /usr/local/etc/rc.d/immutablue_procfs /usr/local/etc/rc.d/immutablue_readonly_usr /usr/local/etc/rc.d/immutablue_xorg /usr/local/etc/rc.d/immutablue_linux_compat /usr/local/etc/rc.d/immutablue_podman_pf
+chmod 0555 /usr/local/etc/rc.d/immutablue_first_boot /usr/local/etc/rc.d/immutablue_onboot /usr/local/etc/rc.d/immutablue_procfs /usr/local/etc/rc.d/immutablue_readonly_usr /usr/local/etc/rc.d/immutablue_xorg /usr/local/etc/rc.d/immutablue_linux_compat /usr/local/etc/rc.d/immutablue_podman_pf /usr/local/etc/rc.d/immutablue_containers
 chmod 0755 /usr/bin/immutablue-linux /usr/local/bin/brew
 chmod 0644 /etc/cron.d/immutablue /etc/profile.d/30-immutablue-linux.sh
 
