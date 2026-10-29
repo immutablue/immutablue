@@ -86,7 +86,11 @@ function test_container_contents_generic() {
       do
           [[ -e "${path}" ]] || { echo "missing: ${path}"; rc=1; }
       done
-      if command -v systemctl > /dev/null
+      # Only where the backend runs build/60-services.sh: gnomeos skips it
+      # (GNOME OS ships its own service set) and never enabled these units,
+      # on master as now.
+      backend_yaml="/usr/immutablue/backends/$(cat /usr/immutablue/backend)/backend.yaml"
+      if command -v systemctl > /dev/null && ! grep -qE "^[[:space:]]*-[[:space:]]*60-services\.sh" "${backend_yaml}" 2> /dev/null
       then
           for unit in immutablue-first-boot.service immutablue-onboot.service immutablue-daily.timer
           do

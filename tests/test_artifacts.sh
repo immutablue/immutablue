@@ -144,9 +144,11 @@ function test_override_files_in_container() {
   write_override_skip_list "${skip_list}"
 
   # crispy ships with the in-house deps, which not every image has (a
-  # backend or build without them). Those images get the same comparison
-  # done in bash, with the same skip rules as validate_artifacts.c.
-  if ! podman run --rm --entrypoint "" "$IMAGE" sh -c 'command -v crispy' > /dev/null 2>&1; then
+  # backend or build without them), and it compiles its script with gcc and
+  # pkg-config, which some images with crispy lack (gnomeos). Those images
+  # get the same comparison done in bash, with the same skip rules as
+  # validate_artifacts.c.
+  if ! podman run --rm --entrypoint "" "$IMAGE" sh -c 'command -v crispy && command -v gcc && command -v pkg-config' > /dev/null 2>&1; then
     test_override_files_in_container_shell "${skip_list}" || rc=$?
     rm -f "${skip_list}"
     return "${rc}"
@@ -242,6 +244,15 @@ function test_initramfs_regenerated() {
 
   if ! podman run --rm "$IMAGE" bash -c '
     set -euo pipefail
+
+    # A backend that skips build/80-initramfs.sh boots an initramfs it does
+    # not build (gnomeos: GNOME OS ships its own), so there is nothing of
+    # Immutablue'"'"'s to check.
+    backend_yaml="/usr/immutablue/backends/$(cat /usr/immutablue/backend 2>/dev/null)/backend.yaml"
+    if grep -qE "^[[:space:]]*-[[:space:]]*80-initramfs\.sh" "${backend_yaml}" 2> /dev/null; then
+      echo "SKIP: this backend does not build the initramfs (80-initramfs.sh skipped)"
+      exit 0
+    fi
 
     kver=""
     for moddir in /usr/lib/modules/*/; do
