@@ -238,3 +238,11 @@ backend_finalize() {
 
     pkg clean -ay
 }
+
+
+# Last step of an image built FROM an Immutablue image: record the stock
+# configuration and setuid modes again, so deliver.sh's three-way /etc merge
+# and mode restore see what the derived image ships.
+backend_finalize_derived() {
+    backend_finalize
+}

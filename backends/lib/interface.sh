@@ -43,6 +43,15 @@ BACKEND_REQUIRED_FUNCS=(
     backend_finalize            # last step of the image build
 )
 
+# Optional functions a backend may define; callers test with 'declare -F':
+#   backend_deps_prepare        before the deps container installs build_deps
+#   backend_deps_build_extra    <build-dir>: extras after the shared deps
+#   backend_ldconfig            refresh the linker cache (default: ldconfig)
+#   backend_finalize_derived    last step of an image built FROM an Immutablue
+#                               image (immutablue-custom and its forks), where
+#                               backend_finalize's one-time layout work must not
+#                               run again
+
 
 # Locate the backends/ directory.
 #

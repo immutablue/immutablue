@@ -132,3 +132,15 @@ backend_finalize() {
 
     printf '[composefs]\nenabled = yes\n[sysroot]\nreadonly = true\n' > /usr/lib/ostree/prepare-root.conf
 }
+
+
+# Last step of an image built FROM an Immutablue image. backend_finalize's
+# layout work (deleting /var, /usr/local and friends, the symlinks into /var)
+# is done once in the base image and must not run again: it deletes what the
+# derived layers put under those paths and fails on the existing links. A
+# derived build only drops pacman's package cache, which its installs filled,
+# and lets bootc check the result.
+backend_finalize_derived() {
+    rm -rf /usr/lib/sysimage/cache/pacman/pkg/*
+    bootc container lint
+}

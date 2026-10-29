@@ -65,3 +65,9 @@ backend_os_release_path() {
 backend_finalize() {
     bootc container lint || true
 }
+
+
+# Last step of an image built FROM an Immutablue image: the same lint.
+backend_finalize_derived() {
+    bootc container lint || true
+}

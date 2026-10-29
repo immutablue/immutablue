@@ -394,9 +394,12 @@ get_backend_package_list() {
         return 0
     fi
 
+    # '|| return' on each: a group reports only its last command's status, so
+    # a malformed native list would otherwise print its error and still hand
+    # the caller a shorter list with success.
     {
-        get_yaml_array ".immutablue.${pkg_key}${suffix}"
-        get_yaml_array ".immutablue.pkg${suffix}" "${pkg_key}"
+        get_yaml_array ".immutablue.${pkg_key}${suffix}" || return
+        get_yaml_array ".immutablue.pkg${suffix}" "${pkg_key}" || return
     } | dedupe_lines
 }
 

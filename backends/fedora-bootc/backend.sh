@@ -165,6 +165,12 @@ backend_finalize() {
 }
 
 
+# Last step of an image built FROM an Immutablue image: the same commit.
+backend_finalize_derived() {
+    ostree container commit
+}
+
+
 # Prepare the deps container's package manager before build_deps install.
 # (Optional hook; used by deps-container/00-build.sh only.)
 backend_deps_prepare() {
