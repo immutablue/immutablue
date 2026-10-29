@@ -175,7 +175,7 @@ build_zapper () {
 # Downloads .tar.xz archives from GitHub releases, extracts .ttf files
 # Produces: /usr/share/fonts/nerd-fonts/{FiraCode,FiraMono,Hack}/*.ttf
 build_nerd_fonts () {
-	local stage_dir="${BUILD_DIR}/nerd_fonts/usr/share/fonts/nerd-fonts"
+	local stage_dir="${BUILD_DIR}/nerd_fonts${DEPS_PREFIX}/share/fonts/nerd-fonts"
 	local base_url="https://github.com/ryanoasis/nerd-fonts/releases/latest/download"
 	local fonts=(FiraCode FiraMono Hack)
 	local archive
@@ -221,12 +221,12 @@ build_yaml_glib () {
 	local libdir
 	libdir="$(immutablue_libdir)"
 
-	make DEBUG=1 all PREFIX=/usr
-	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}"
+	make DEBUG=1 all PREFIX="${DEPS_PREFIX}"
+	make DEBUG=1 install PREFIX="${DEPS_PREFIX}" LIBDIR="${DEPS_PREFIX}/${libdir}" DESTDIR="${stage_dir}"
 
 	# Also install to the deps container itself so gst/gowl can link against it
-	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}"
-	ldconfig
+	make DEBUG=1 install PREFIX="${DEPS_PREFIX}" LIBDIR="${DEPS_PREFIX}/${libdir}"
+	deps_ldconfig
 }
 
 # crispy -- C script compiler/runner (GLib/GObject project)
@@ -244,11 +244,11 @@ build_crispy () {
 
 	mkdir -p "${stage_dir}"
 	cd "${src_dir}"
-	make DEBUG=1 all PREFIX=/usr
-	make DEBUG=1 install PREFIX=/usr DESTDIR="${stage_dir}"
+	make DEBUG=1 all PREFIX="${DEPS_PREFIX}"
+	make DEBUG=1 install PREFIX="${DEPS_PREFIX}" DESTDIR="${stage_dir}"
 
-	make DEBUG=1 install PREFIX=/usr
-	ldconfig
+	make DEBUG=1 install PREFIX="${DEPS_PREFIX}"
+	deps_ldconfig
 }
 
 # gst -- GObject Simple Terminal (terminal emulator)
@@ -272,7 +272,7 @@ build_gst () {
 	# once graylib is built, so it must be generated before the LRG sources
 	# compile. Doing it explicitly here is also safe against parallel make
 	# (-j) injected by the Forgejo runners.
-	make DEBUG=1 -C deps/libregnum/deps/graylib lib
+	make DEBUG=1 -C deps/libregnum/deps/graylib lib ${DEPS_GRAYLIB_CFLAGS:+CUSTOM_CFLAGS="${DEPS_GRAYLIB_CFLAGS}"}
 
 	# Generate version headers before the main build. Forgejo runners may
 	# inject MAKEFLAGS with -j, causing parallel make to start compilation
@@ -285,8 +285,8 @@ build_gst () {
 	local libdir
 	libdir="$(immutablue_libdir)"
 
-	make DEBUG=1 LRG_BACKEND=1 MCP=1 WEBVIEW=1 all PREFIX=/usr LIBDIR="/usr/${libdir}" BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
-	make DEBUG=1 LRG_BACKEND=1 MCP=1 WEBVIEW=1 install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
+	make DEBUG=1 LRG_BACKEND=1 MCP=1 WEBVIEW=1 all PREFIX="${DEPS_PREFIX}" LIBDIR="${DEPS_PREFIX}/${libdir}" BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
+	make DEBUG=1 LRG_BACKEND=1 MCP=1 WEBVIEW=1 install PREFIX="${DEPS_PREFIX}" LIBDIR="${DEPS_PREFIX}/${libdir}" DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_WAYLAND=1 BUILD_GIR=0
 }
 
 # gsurf -- GObject Surf (WebKit2GTK web browser)
@@ -314,15 +314,15 @@ build_gsurf () {
 	# graylib is needed -- gsurf links the graylib/raylib archives, not
 	# liblibregnum.a -- so this stays self-contained (no libregnum deps) and
 	# is also safe against parallel make (-j) injected by the Forgejo runners.
-	make DEBUG=1 -C deps/libregnum/deps/graylib lib
+	make DEBUG=1 -C deps/libregnum/deps/graylib lib ${DEPS_GRAYLIB_CFLAGS:+CUSTOM_CFLAGS="${DEPS_GRAYLIB_CFLAGS}"}
 
 	# Generate version headers before the main build. Forgejo runners may
 	# inject MAKEFLAGS with -j, causing parallel make to start compilation
 	# before the generated headers exist.
 	make DEBUG=1 LRG_BACKEND=1 src/gsurf-version.h deps/crispy/src/crispy-version.h
 
-	make DEBUG=1 LRG_BACKEND=1 MCP=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=0
-	make DEBUG=1 LRG_BACKEND=1 MCP=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_GIR=0
+	make DEBUG=1 LRG_BACKEND=1 MCP=1 all PREFIX="${DEPS_PREFIX}" BUILD_MODULES=1 BUILD_GIR=0
+	make DEBUG=1 LRG_BACKEND=1 MCP=1 install PREFIX="${DEPS_PREFIX}" DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_GIR=0
 }
 
 # gowl -- GObject Wayland Compositor
@@ -351,11 +351,11 @@ build_gowl () {
 	# gi -- simply is not there on the image, because nothing else generates a
 	# typelib for it. gobject-introspection-devel is already a build dependency
 	# here for ai-glib, which uses the same mechanism.
-	make DEBUG=1 MCP=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=1 BUILD_XWAYLAND=1
-	make DEBUG=1 MCP=1 install PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_GIR=1 BUILD_XWAYLAND=1
+	make DEBUG=1 MCP=1 all PREFIX="${DEPS_PREFIX}" BUILD_MODULES=1 BUILD_GIR=1 BUILD_XWAYLAND=1
+	make DEBUG=1 MCP=1 install PREFIX="${DEPS_PREFIX}" DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_GIR=1 BUILD_XWAYLAND=1
 
-	make DEBUG=1 MCP=1 install PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=1 BUILD_XWAYLAND=1
-	ldconfig
+	make DEBUG=1 MCP=1 install PREFIX="${DEPS_PREFIX}" BUILD_MODULES=1 BUILD_GIR=1 BUILD_XWAYLAND=1
+	deps_ldconfig
 
 	# Install PAM config for screenlock module (/etc/pam.d/gowl)
 	if [[ -f "${src_dir}/data/gowl-screenlock.pam" ]]; then
@@ -387,12 +387,12 @@ build_mcp_glib () {
 	local libdir
 	libdir="$(immutablue_libdir)"
 
-	make DEBUG=1 all PREFIX=/usr LIBDIR="/usr/${libdir}"
-	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}"
+	make DEBUG=1 all PREFIX="${DEPS_PREFIX}" LIBDIR="${DEPS_PREFIX}/${libdir}"
+	make DEBUG=1 install PREFIX="${DEPS_PREFIX}" LIBDIR="${DEPS_PREFIX}/${libdir}" DESTDIR="${stage_dir}"
 
 	# Also install to the deps container itself so mcp-gdb-glib can link against it
-	make DEBUG=1 install PREFIX=/usr LIBDIR="/usr/${libdir}"
-	ldconfig
+	make DEBUG=1 install PREFIX="${DEPS_PREFIX}" LIBDIR="${DEPS_PREFIX}/${libdir}"
+	deps_ldconfig
 }
 
 # mcp-gdb-glib -- GDB MCP server (uses mcp-glib for protocol handling)
@@ -418,9 +418,9 @@ build_mcp_gdb_glib () {
 		MCP_GLIB_CFLAGS="$(pkg-config --cflags mcp-glib-1.0)" \
 		MCP_GLIB_LIBS="$(pkg-config --libs mcp-glib-1.0)"
 
-	# Manual install to /usr/bin (Makefile hardcodes /usr/local/bin)
-	install -d "${stage_dir}/usr/bin"
-	install -m 755 build/gdb-mcp-server "${stage_dir}/usr/bin/"
+	# Manual install to ${DEPS_PREFIX}/bin (Makefile hardcodes /usr/local/bin)
+	install -d "${stage_dir}${DEPS_PREFIX}/bin"
+	install -m 755 build/gdb-mcp-server "${stage_dir}${DEPS_PREFIX}/bin/"
 }
 
 
@@ -454,11 +454,11 @@ build_ai_glib () {
 	# GIR=1 builds and installs AiGlib-1.0.{gir,typelib} into standard GI
 	# search paths so the final image's introspection consumers (cmacs,
 	# python-gi, gjs) can `(gi-require "AiGlib" "1.0")` out of the box.
-	make DEBUG=1 GIR=1 all PREFIX=/usr LIBDIR="/usr/${libdir}"
-	make DEBUG=1 GIR=1 install PREFIX=/usr LIBDIR="/usr/${libdir}" DESTDIR="${stage_dir}"
+	make DEBUG=1 GIR=1 all PREFIX="${DEPS_PREFIX}" LIBDIR="${DEPS_PREFIX}/${libdir}"
+	make DEBUG=1 GIR=1 install PREFIX="${DEPS_PREFIX}" LIBDIR="${DEPS_PREFIX}/${libdir}" DESTDIR="${stage_dir}"
 
-	make DEBUG=1 GIR=1 install PREFIX=/usr LIBDIR="/usr/${libdir}"
-	ldconfig
+	make DEBUG=1 GIR=1 install PREFIX="${DEPS_PREFIX}" LIBDIR="${DEPS_PREFIX}/${libdir}"
+	deps_ldconfig
 }
 
 
@@ -483,11 +483,11 @@ build_podomation () {
 	# Generate version header and build deps before the main build (parallel make race guard)
 	make DEBUG=1 version deps
 
-	make DEBUG=1 all PREFIX=/usr
-	make DEBUG=1 install PREFIX=/usr DESTDIR="${stage_dir}"
+	make DEBUG=1 all PREFIX="${DEPS_PREFIX}"
+	make DEBUG=1 install PREFIX="${DEPS_PREFIX}" DESTDIR="${stage_dir}"
 
-	make DEBUG=1 install PREFIX=/usr
-	ldconfig
+	make DEBUG=1 install PREFIX="${DEPS_PREFIX}"
+	deps_ldconfig
 }
 
 
@@ -511,11 +511,11 @@ build_bacon () {
 	# Generate version headers before the main build (parallel make race guard)
 	make DEBUG=1 src/bacon-version.h deps/crispy/src/crispy-version.h
 
-	make DEBUG=1 all PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=0
-	make DEBUG=1 install install-lsp PREFIX=/usr DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_GIR=0
+	make DEBUG=1 all PREFIX="${DEPS_PREFIX}" BUILD_MODULES=1 BUILD_GIR=0
+	make DEBUG=1 install install-lsp PREFIX="${DEPS_PREFIX}" DESTDIR="${stage_dir}" BUILD_MODULES=1 BUILD_GIR=0
 
-	make DEBUG=1 install install-lsp PREFIX=/usr BUILD_MODULES=1 BUILD_GIR=0
-	ldconfig
+	make DEBUG=1 install install-lsp PREFIX="${DEPS_PREFIX}" BUILD_MODULES=1 BUILD_GIR=0
+	deps_ldconfig
 }
 
 
@@ -540,12 +540,12 @@ build_mcp_kuberblue_glib () {
 	cd "${src_dir}"
 
 	# SYSTEM_DEPS=1: use system-installed mcp-glib and yaml-glib (already built above)
-	if ! make DEBUG=1 SYSTEM_DEPS=1 all PREFIX=/usr; then
+	if ! make DEBUG=1 SYSTEM_DEPS=1 all PREFIX="${DEPS_PREFIX}"; then
 		echo "ERROR: mcp-kuberblue-glib build failed"
 		echo "Verify mcp-glib-1.0 and yaml-glib-1.0 are findable via pkg-config"
 		exit 1
 	fi
-	make DEBUG=1 SYSTEM_DEPS=1 install PREFIX=/usr DESTDIR="${stage_dir}"
+	make DEBUG=1 SYSTEM_DEPS=1 install PREFIX="${DEPS_PREFIX}" DESTDIR="${stage_dir}"
 }
 
 
@@ -584,6 +584,70 @@ immutablue_libdir () {
 	fi
 }
 
+# How the C projects are built on this backend: backend.yaml 'deps_build'.
+# Fedora and Arch set none of it and get exactly what this script always did
+# (PREFIX=/usr, make, the projects' default compiler, ldconfig). FreeBSD
+# builds under /usr/local with gmake and gcc.
+#
+# Sets DEPS_PREFIX, DEPS_MAKE, DEPS_GRAYLIB_CFLAGS and DEPS_SKIP (build names
+# to leave out), and exports CC and PKG_CONFIG_PATH when the backend asks.
+deps_build_env () {
+	local cc
+	local libdir
+
+	DEPS_PREFIX="$(backend_get deps_build.prefix)"
+	DEPS_PREFIX="${DEPS_PREFIX:-/usr}"
+	DEPS_MAKE="$(backend_get deps_build.make)"
+	DEPS_MAKE="${DEPS_MAKE:-make}"
+	DEPS_GRAYLIB_CFLAGS="$(backend_get deps_build.graylib_cflags)"
+	mapfile -t DEPS_SKIP < <(backend_get 'deps_build.skip // [] | .[]')
+
+	cc="$(backend_get deps_build.cc)"
+	if [[ -n "${cc}" ]]; then
+		export CC="${cc}"
+	fi
+
+	# pkg-config already searches /usr; a prefix elsewhere is added in
+	# front of (not instead of) its default path.
+	if [[ "${DEPS_PREFIX}" != "/usr" ]]; then
+		libdir="$(immutablue_libdir)"
+		export PKG_CONFIG_PATH="${DEPS_PREFIX}/${libdir}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+	fi
+}
+
+# Every 'make' below runs the backend's GNU make (gmake on FreeBSD, where
+# make is bmake).
+make () {
+	command "${DEPS_MAKE}" "$@"
+}
+
+# Refresh the linker cache after an install, so the next project links and
+# runs against what was just installed. backend_ldconfig when the backend has
+# one (FreeBSD's ldconfig must merge, not replace), plain ldconfig otherwise.
+deps_ldconfig () {
+	if declare -F backend_ldconfig > /dev/null; then
+		backend_ldconfig
+	else
+		ldconfig
+	fi
+}
+
+# Is a build name listed in backend.yaml deps_build.skip?
+#
+# param $1: build name, e.g. 'zapper'
+# returns: 0 when skipped, 1 otherwise
+deps_build_skipped () {
+	local skip
+
+	for skip in "${DEPS_SKIP[@]}"
+	do
+		if [[ "${skip}" == "${1}" ]]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
 install_build_deps () {
 	local deps=()
 
@@ -608,11 +672,17 @@ install_build_deps () {
 
 main () {
 	load_immutablue_library
+	deps_build_env
 	install_build_deps
+	deps_ldconfig
 	mkdir -p "${BUILD_DIR}"
 
 	for name in "${BUILDS[@]}"
 	do
+		if deps_build_skipped "${name}"; then
+			echo "=== Skipping: ${name} (not built on ${IMMUTABLUE_BACKEND}) ==="
+			continue
+		fi
 		echo "=== Building: ${name} ==="
 		"build_${name}"
 	done

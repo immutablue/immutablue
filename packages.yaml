@@ -58,6 +58,10 @@ immutablue:
     - gcc
     - {name: glibc-static, pacman: glibc, freebsd: null}
 
+    # nerd_fonts and the retried fetches: curl ships in the Fedora and Arch
+    # base images, FreeBSD's base has only fetch(1)
+    - {name: curl, rpm: null, pacman: null}
+
     # build tools (yaml-glib/crispy/g/st/gowl)
     - {name: make, freebsd: gmake}
     - {name: pkgconf-pkg-config, pacman: pkgconf, freebsd: pkgconf}
@@ -595,6 +599,11 @@ immutablue:
     # FreeBSD's gnome package does not pull an X server in; GDM needs one
     # (the Handbook installs xorg alongside gnome).
     - xorg
+    # cmacs (quay.io/zachpodbielniak/cmacs:freebsd-15.1) links these and
+    # nothing in GNOME pulls them in: OpenXR for the VR frames, ONNX Runtime
+    # for hand tracking.
+    - openxr
+    - onnxruntime
 
   # Urls to RPMs to download (they are curled)
   rpm_url:

@@ -371,19 +371,30 @@ vm_install() {
 }
 
 
-# Copy the checkout in. deps/ and the submodule histories stay behind:
-# freebsd-be builds no in-house dependencies.
+# Copy the checkout in. The submodule histories stay behind (2.7G), so deps/
+# goes across as its tracked files only -- the source build-deps compiles,
+# without build output a host checkout may hold -- and the deps manifest,
+# which needs those histories, is generated here first
+# (DEPS_MANIFEST_PREBUILT=1 on the VM's make).
 vm_sync() {
     local host
     local port
+    local ssh_cmd
 
     read -r host port < <(vm_target)
+    ssh_cmd="ssh -i ${VM_DIR}/vmkey -p ${port} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o BatchMode=yes"
+
+    bash "${ROOT_DIR}/scripts/gen-dep-info.sh" "${ROOT_DIR}/deps-container/dep_info.json"
     rsync -a --delete \
         --exclude /images/ --exclude /deps/ \
         --exclude /.git/modules/deps/ --exclude /.git/modules/artifacts/ \
         --exclude /docs/public/ --exclude /iso/ --exclude /.image-source.json \
-        -e "ssh -i ${VM_DIR}/vmkey -p ${port} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o BatchMode=yes" \
+        -e "${ssh_cmd}" \
         "${ROOT_DIR}/" "builder@${host}:immutablue/"
+    git -C "${ROOT_DIR}" ls-files -z --recurse-submodules deps \
+        | rsync -a --from0 --files-from=- \
+            -e "${ssh_cmd}" \
+            "${ROOT_DIR}/" "builder@${host}:immutablue/"
 }
 
 
@@ -452,7 +463,7 @@ main() {
             # Every image build leaves the one it replaced untagged (~11 GB
             # for GNOME); they are pruned afterwards so the VM's disk does not
             # fill up over a few builds.
-            vm_ssh "cd immutablue && sudo gmake $(printf '%q ' "$@"); rc=\$?; sudo podman image prune -f > /dev/null 2>&1; exit \$rc"
+            vm_ssh "cd immutablue && sudo gmake DEPS_MANIFEST_PREBUILT=1 $(printf '%q ' "$@"); rc=\$?; sudo podman image prune -f > /dev/null 2>&1; exit \$rc"
             ;;
         deliver)
             vm_sync

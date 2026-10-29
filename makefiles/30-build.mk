@@ -41,9 +41,18 @@ deps_manifest:
 	@rm -rf $(LEGACY_DEP_INFO)
 	@bash scripts/gen-dep-info.sh --image $(DEP_INFO)
 
+# DEPS_MANIFEST_PREBUILT=1: use the deps-container/dep_info.json already there.
+# For a build host that has the deps/ sources but not their git histories
+# (backends/freebsd-be/builder-vm.sh generates it on the workstation first).
+DEPS_MANIFEST_PREBUILT ?= 0
+
 .PHONY: deps_build_manifest
 deps_build_manifest:
-	@bash scripts/gen-dep-info.sh deps-container/dep_info.json
+	@if [ "$(DEPS_MANIFEST_PREBUILT)" = 1 ] && [ -f deps-container/dep_info.json ]; then \
+		echo "Using the prebuilt deps-container/dep_info.json"; \
+	else \
+		bash scripts/gen-dep-info.sh deps-container/dep_info.json; \
+	fi
 
 $(IMAGE_IGNOREFILE): .containerignore
 	@cat $< > $@

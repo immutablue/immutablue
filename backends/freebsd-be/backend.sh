@@ -137,6 +137,20 @@ backend_deps_prepare() {
 }
 
 
+# Refresh the run-time linker hints after a library install.
+#
+# A bare ldconfig on FreeBSD replaces the hints with only the directories it
+# is given; -m merges. The library directories ports register (gcc's runtime,
+# FFmpeg, ...) live in /usr/local/libdata/ldconfig and are normally added at
+# boot by rc.d/ldconfig, which never runs in a container build.
+backend_ldconfig() {
+    local dirs=()
+
+    mapfile -t dirs < <(cat /usr/local/libdata/ldconfig/* 2> /dev/null || true)
+    ldconfig -m /usr/local/lib "${dirs[@]}"
+}
+
+
 # Last step of the build.
 #
 # Records the image's own /etc and /usr/local/etc as shipped, under

@@ -43,7 +43,7 @@ This machine's is in `/usr/immutablue/backend` (or `immutablue-backend name`).
 | `fedora-bootc` | Fedora Atomic | dnf5 | systemd | bootc/ostree | default |
 | `gnomeos` | GNOME OS nightly | none | systemd | bootc/composefs | `DISTROLESS=1` is the same build |
 | `arch-bootc` | Arch Linux + bootc v1.17.1 | pacman | systemd | bootc/ostree | in-house projects and cmacs (`cmacs:arch`) ship; `make BACKEND=arch-bootc build-deps` first |
-| `freebsd-be` | FreeBSD 15.1 pkgbase | pkg | rc | ZFS boot environment | early; builds and boots on a FreeBSD host (`backends/freebsd-be/builder-vm.sh` makes one as a VM) |
+| `freebsd-be` | FreeBSD 15.1 pkgbase | pkg | rc | ZFS boot environment | early; builds and boots on a FreeBSD host (`backends/freebsd-be/builder-vm.sh` makes one as a VM); in-house projects and cmacs (`cmacs:freebsd-15.1`) ship under `/usr/local`; `builder-vm.sh --libvirt make BACKEND=freebsd-be build-deps` first |
 
 ```bash
 make BACKEND=arch-bootc NUCLEUS=1 build   # -> :arch-nucleus

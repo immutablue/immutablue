@@ -59,3 +59,21 @@ chmod 0644 /etc/cron.d/immutablue /etc/profile.d/30-immutablue-linux.sh
 rm -rf /etc/sudoers.d
 chown root:wheel /usr/local/etc/sudoers.d /usr/local/etc/sudoers.d/immutablue-*
 chmod 0440 /usr/local/etc/sudoers.d/immutablue-*
+
+# The in-house C projects (and cmacs) install their pkg-config files into
+# /usr/local/lib/pkgconfig, where Linux pkg-config looks, but FreeBSD's pkgconf
+# searches /usr/local/libdata/pkgconfig. Link each one there so run-time users
+# find them -- crispy, for one, gets the flags to compile its own config.c
+# from 'pkg-config --cflags crispy'. A port's own file of the same name wins.
+if [[ -d /usr/local/lib/pkgconfig ]]
+then
+    mkdir -p /usr/local/libdata/pkgconfig
+    for pc in /usr/local/lib/pkgconfig/*.pc
+    do
+        [[ -e "${pc}" ]] || continue
+        if [[ ! -e "/usr/local/libdata/pkgconfig/$(basename "${pc}")" ]]
+        then
+            ln -s "../../lib/pkgconfig/$(basename "${pc}")" /usr/local/libdata/pkgconfig/
+        fi
+    done
+fi

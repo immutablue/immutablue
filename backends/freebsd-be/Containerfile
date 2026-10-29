@@ -11,7 +11,27 @@
 # backends/freebsd-be/builder-vm.sh.
 ARG BASE_IMAGE=ghcr.io/freebsd/freebsd-runtime
 ARG BASE_IMAGE_TAG=15.1
+# The in-house C projects, built by backends/freebsd-be/deps.Containerfile
+# ('make BACKEND=freebsd-be build-deps'); the Makefile passes the resolved,
+# digest-pinned image, or 'no-deps' for the empty stand-in below.
+ARG DEPS_IMAGE=no-deps
+# cmacs built for FreeBSD by the cmacs repository's
+# './build-container freebsd-15.1'; everything under /usr/local.
+ARG CMACS_IMAGE=quay.io/zachpodbielniak/cmacs:freebsd-15.1
 
+# -----------------------------------
+# Stand-in for the deps image: an empty /build.
+# -----------------------------------
+FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG} AS no-deps
+RUN mkdir -p /build
+
+FROM ${DEPS_IMAGE} AS build-deps
+FROM ${CMACS_IMAGE} AS cmacs-build
+
+
+# -----------------------------------
+# Main image stage
+# -----------------------------------
 FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG}
 
 ARG FEDORA_VERSION=15.1
@@ -33,6 +53,11 @@ ARG IMMUTABLUE_BACKEND=freebsd-be
 # so the copy leaves no layer behind.
 COPY . /mnt-ctx
 
+# The same goes for the deps and cmacs trees build/10-copy.sh installs from:
+# copied to the paths the other backends bind-mount them at, then deleted.
+COPY --from=build-deps /build /mnt-build-deps
+COPY --from=cmacs-build / /mnt-cmacs
+
 # The runtime image is only sh, rc and pkg: the stages need bash, (Go) yq and
 # the base userland (cut, basename, find, ...). The pkgbase repository is
 # enabled first and the whole base set installed here; stage 30 then adds the
@@ -45,6 +70,6 @@ RUN mkdir -p /usr/local/etc/pkg/repos && \
     { command -v yq > /dev/null || ln -s "$(command -v go-yq)" /usr/local/bin/yq; }
 
 RUN /usr/local/bin/bash /mnt-ctx/backends/lib/run-stages.sh /mnt-ctx && \
-    rm -rf /mnt-ctx
+    rm -rf /mnt-ctx /mnt-build-deps /mnt-cmacs
 
 LABEL org.immutablue.backend=freebsd-be

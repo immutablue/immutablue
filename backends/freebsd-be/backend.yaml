@@ -33,7 +33,35 @@ skip_stages:
   - 65-crash-capture.sh
   - 80-initramfs.sh
 
+# Shared overrides this backend drops on purpose: sudo on FreeBSD reads
+# /usr/local/etc/sudoers.d only, so stage 11 removes /etc/sudoers.d and the
+# FreeBSD versions ship in this backend's overrides. tests/test_artifacts.sh
+# skips them (an entry ending in '/' covers the directory).
+drops_overrides:
+  - /etc/sudoers.d/
+
+# The deps image is built locally (in the builder VM) until a FreeBSD one is
+# published; scripts/resolve-deps-image.sh may fall back to local storage.
+deps_local_fallback: true
+
+# How deps-container/00-build.sh builds the in-house C projects here:
+# everything under /usr/local, GNU make (the projects' Makefiles are GNU make
+# throughout), gcc for gnu89 C (FreeBSD's cc is clang), and pkgconf told about
+# /usr/local/lib/pkgconfig, which ports do not use but these projects install
+# into. zapper is Linux-only (ptrace). graylib_cflags: the raylib vendored in
+# gst/gsurf's libregnum pin is linked into shared objects, and FreeBSD's gcc
+# does not default to PIE the way Fedora's does.
+deps_build:
+  prefix: /usr/local
+  make: gmake
+  cc: gcc
+  skip:
+    - zapper
+  graylib_cflags: "-O2 -fPIC"
+
 provides:
+  - inhouse_deps     # built by backends/freebsd-be/deps.Containerfile
+  - cmacs            # quay.io/zachpodbielniak/cmacs:freebsd-15.1 (cmacs ./build-container freebsd-15.1)
   - zfs
   - jails
   - bhyve

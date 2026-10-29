@@ -85,6 +85,19 @@ if [[ -f "${INSTALL_DIR}/build/99-common.sh" ]]; then source "${INSTALL_DIR}/bui
 if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 
 
+# Refresh the linker cache after installing libraries: backend_ldconfig when
+# the backend has one (FreeBSD's ldconfig replaces the hints unless told to
+# merge), plain ldconfig otherwise.
+refresh_ldconfig() {
+    if declare -F backend_ldconfig > /dev/null
+    then
+        backend_ldconfig
+    else
+        ldconfig
+    fi
+}
+
+
 # Copy a staged usr/ tree into /usr.
 #
 # A plain 'cp -a src/. /usr/' fails when the tree has a real lib64 directory
@@ -183,7 +196,7 @@ if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
     if [[ -d "/mnt-cmacs/etc" ]]; then
         cp -a /mnt-cmacs/etc/. /etc/
     fi
-    ldconfig
+    refresh_ldconfig
 fi
 
 # podomation: Podman automation DSL engine (always install)
@@ -218,7 +231,7 @@ if [[ "$(is_option_in_build_options kuberblue)" == "${TRUE}" ]] && \
 fi
 
 # Update shared library cache for new .so files
-ldconfig 2>/dev/null || true
+refresh_ldconfig 2>/dev/null || true
 
 
 # Install overrides for all build options
