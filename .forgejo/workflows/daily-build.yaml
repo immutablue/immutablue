@@ -7,7 +7,6 @@
 #   deps-current  ──┐
 #                   ├──> builds (matrix, max-parallel: 4)
 #   deps-previous ──┘
-#   arch-bootc (independent, non-blocking, no push)
 #
 # Required secrets:
 #   QUAY_USER  - quay.io username
@@ -188,58 +187,6 @@ jobs:
 
       - name: Clean up images
         run: make ${{ matrix.variant }} ${{ matrix.version_arg }} clean-build
-
-  # --------------------------------------------------------------------------
-  # arch-bootc backend (non-blocking, build + test only)
-  #
-  # Independent of the Fedora jobs and nothing waits on it. It does not push:
-  # Arch images are not published until the backend has been validated on
-  # hardware. The Arch deps image is built to catch in-house C projects that
-  # stop compiling on Arch, but is not pushed or used by the image yet.
-  # --------------------------------------------------------------------------
-  arch-bootc:
-    runs-on: linux-amd64
-    continue-on-error: true
-    container:
-      image: git.podbielniak.com/zachpodbielniak/build-container:43
-      options: --privileged
-
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        variant:
-          - "NUCLEUS=1"
-          - ""
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Fetch submodules over HTTPS
-        run: |
-          git config --global url."https://gitlab.com/".insteadOf "git@gitlab.com:"
-          git config --global url."https://git.podbielniak.com/".insteadOf "git@git-ssh.podbielniak.com:"
-          git submodule update --init --recursive
-
-      - name: Pre-test (shellcheck)
-        run: make BACKEND=arch-bootc ${{ matrix.variant }} pre_test
-
-      - name: Build Arch deps container (compile check)
-        if: matrix.variant == 'NUCLEUS=1'
-        run: make BACKEND=arch-bootc build-deps
-
-      - name: Build image
-        run: make BACKEND=arch-bootc ${{ matrix.variant }} SKIP_TEST=1 build
-
-      - name: Test image
-        run: make BACKEND=arch-bootc ${{ matrix.variant }} test
-
-      - name: Clean up images
-        if: always()
-        run: |
-          make BACKEND=arch-bootc ${{ matrix.variant }} clean-build || true
-          make BACKEND=arch-bootc clean-deps || true
 
   # --------------------------------------------------------------------------
   # Trigger downstream builds after all variants complete
