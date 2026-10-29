@@ -8,6 +8,10 @@ black, and the box sits dead until someone presses reset. Immutablue's policy
 turns that into a panic with a visible trace, and on unattended machines into an
 automatic reboot.
 
+This guide is Linux-only. freebsd-be skips `65-crash-capture.sh` (`skip_stages`
+in its `backend.yaml`), and the `06-crash-capture` recipes, sysctl files and
+watchdog settings below target Linux and systemd.
+
 ## Two tiers, chosen by whether a human is present
 
 | Tier | Variants | What it does |

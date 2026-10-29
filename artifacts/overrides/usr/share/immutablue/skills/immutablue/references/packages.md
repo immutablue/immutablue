@@ -145,7 +145,7 @@ distrobox, never over the host's copy.
 What does work:
 
 ```bash
-ai --version            # "ai (ai-glib) 0.7.2 (built …)": no git describe on an image build
+ai --version            # "ai (ai-glib) 0.9.1 (built …)": no git describe on an image build
 jq '.deps[] | select(.name == "ai-glib")' /usr/immutablue/deps/dep_info.json   # the commit it was built from
 ```
 
@@ -158,10 +158,24 @@ All from the one build, so one image update moves them together:
 
 | Binary | What it is |
 |---|---|
-| `ai` | the CLI (`ai project`, `ai loop`, `ai goal`, `ai --usage`, `ai --setup`, …) |
+| `ai` | the CLI (`ai project`, `ai loop`, `ai goal`, `ai decide`, `ai benchmark`, `ai --usage`, `ai --setup`, …) |
 | `ai-tui` | the terminal client and project dashboard |
 | `ai-gui` | the GTK4/libadwaita client, with a launcher (`org.copyleft.AiGlib.Gui.desktop`, `StartupWMClass=ai-gui`) |
 | `ai-call` | the voice frontend — needs a speech service you provide, see [`automation.md`](automation.md#voice-sessions-ai-call) |
+
+`ai benchmark` (ai-glib 0.8.0 and later) runs the same work against several
+providers, models or decision models and compares latency, accuracy against
+labelled answers, calibration and token use: `ai benchmark --list-kinds`,
+`ai benchmark SUITE.yaml --dry-run` to see the calls before making them, or
+quick mode, `ai benchmark --kind chat --stream -T ollama:llama3.2 -T claude 'Say hi'`.
+Calls run one at a time; results go to stdout (`--format table|yaml|json|csv`,
+`-o FILE`), progress to stderr. Every call costs what the provider charges —
+check the plan with `--dry-run` first. `ai decide` and its backends are in
+[`configuration.md`](configuration.md#ai-glib-keys-worth-knowing).
+
+On `freebsd-be` ai-glib's binaries install under `/usr/local/bin` (`ai-tui`
+builds there from ai-glib `02678e0`), and the provenance file is still
+`/usr/immutablue/deps/dep_info.json`.
 
 `ai-gui` is built into the image: the dependency container carries `gtk4-devel`
 and `libadwaita-devel` precisely so ai-glib's `make` does not skip it, and

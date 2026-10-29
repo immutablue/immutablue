@@ -78,8 +78,9 @@ remembers it.
 ### The extended widget set
 
 Shipped in `bar.so` but **off** unless named in a widget list (under
-`emacs --gowl`, `cpu` activity mode, `ai-assistant`, `meeting-notes` and
-`ai-rewrite` are added by cmacs's defaults; ai-rewrite is on Super+e).
+`emacs --gowl`, `cpu` activity mode, `ai-assistant`, `meeting-notes`,
+`ai-rewrite` and `gabbrev` are added by cmacs's defaults,
+`cmacs-gowl-bar-default-widgets`; ai-rewrite is on Super+e).
 
 | Widget | Does |
 |---|---|
@@ -94,6 +95,7 @@ Shipped in `bar.so` but **off** unless named in a widget list (under
 | `netshares` | mount CIFS, NFS and SSHFS shares |
 | `tvremote` | Fire TV, Android TV, Roku, Samsung, LG remote |
 | `wow-gold` | World of Warcraft gold and sales via `tsmctl` |
+| `gabbrev` | text expansion: on/off (middle-click toggles), expansions still resolving with a cancel each, phrases learning noticed (`a` accepts, `x` dismisses), usage. Needs the opt-in `gabbrev` module standalone, else it stays muted — [`gowl-gabbrev.md`](gowl-gabbrev.md) |
 
 Each has a page under `deps/gowl/bar-widgets/<name>.org` (standalone and cmacs
 configuration). Open a panel from a key with `gowl-msg bar-panel NAME`, or send a
@@ -363,6 +365,8 @@ cat "${XDG_STATE_HOME:-$HOME/.local/state}/gowl/bar-plugins.journal"
 | Building a `.so` fails with `cairo.h: No such file` | an older `gowl.pc` omits cairo and pango | `pkg-config --cflags --libs gowl cairo pangocairo` |
 | Colours are wrong after a theme switch | a hex literal instead of a colour role | use the `GOWL_BAR_COLOR_*` roles |
 | The whole session died | a plugin crashed outside the guard | see [Containment](#containment) — the journal stops it loading again |
+| The `gabbrev` widget is always muted | the `gabbrev` module is not loaded (standalone it is opt-in), or expansion is off | `modules: gabbrev: {enabled: true}`; `gowl-msg gabbrev-on` |
+| A gabbrev "still waiting" / "typed often" toast opens nothing | the `gabbrev` widget is on no bar | `widgets-right-add: "gabbrev"` |
 
 ## Under cmacs
 

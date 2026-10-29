@@ -43,11 +43,12 @@ This machine's is in `/usr/immutablue/backend` (or `immutablue-backend name`).
 | `fedora-bootc` | Fedora Atomic | dnf5 | systemd | bootc/ostree | default |
 | `gnomeos` | GNOME OS nightly | none | systemd | bootc/composefs | `DISTROLESS=1` is the same build |
 | `arch-bootc` | Arch Linux + bootc v1.17.1 | pacman | systemd | bootc/ostree | in-house projects and cmacs (`cmacs:arch`) ship; `make BACKEND=arch-bootc build-deps` first |
-| `freebsd-be` | FreeBSD 15.1 pkgbase | pkg | rc | ZFS boot environment | early; builds and boots on a FreeBSD host (`backends/freebsd-be/builder-vm.sh` makes one as a VM); in-house projects and cmacs (`cmacs:freebsd-15.1`) ship under `/usr/local`; `builder-vm.sh --libvirt make BACKEND=freebsd-be build-deps` first |
+| `freebsd-be` | FreeBSD 15.1 pkgbase | pkg | rc | ZFS boot environment | early; builds only on FreeBSD — on Linux `make` hands the work to a builder VM (below); in-house projects and cmacs (`cmacs:freebsd-15.1`) ship under `/usr/local`; `make FREEBSD=1 build-deps` first (neither image is published yet) |
 
 ```bash
 make BACKEND=arch-bootc NUCLEUS=1 build   # -> :arch-nucleus
 make BACKEND=arch-bootc backend_check     # can this backend do these variants?
+make FREEBSD=1 NUCLEUS=1 build            # same as BACKEND=freebsd-be; ARCHLINUX=1 is arch-bootc
 ```
 
 `make backend_check` (run by `build`) refuses impossible combinations before
@@ -58,6 +59,47 @@ backend (cyan, asahi, trueblue, LTS, ZFS and the Fedora desktop bases need
 contract in `backends/lib/interface.sh`), `runtime.sh`, a `Containerfile`, a
 `deps.Containerfile`, and optionally `backend.mk`, `stages/` and `overrides/`;
 `tests/test_backend_contract.sh` checks each one.
+
+### freebsd-be from a Linux workstation: the builder VM
+
+freebsd-be images are built by podman + ocijail on FreeBSD 15.1.
+`backends/freebsd-be/builder-vm.sh` runs one under QEMU/KVM (or, with
+`--libvirt`, as the libvirt domain `immutablue-freebsd-builder`). On any host
+where `uname -s` is not FreeBSD, `backend.mk` sets `BACKEND_VM` and
+`makefiles/27-backend-vm.mk` turns `build`, `build-deps`, `test` (and the single
+suites), `push` and `push-deps` into `builder-vm.sh delegate`, which syncs the
+checkout and runs the same `gmake` with the same command-line variables inside
+the VM. Other targets still run on the host; `iso` hands itself over through
+`make-iso.sh`.
+
+```bash
+backends/freebsd-be/builder-vm.sh --libvirt create   # once: ~1 GB download, 120G disk
+make FREEBSD=1 build-deps                            # in-house deps image, in the VM
+make FREEBSD=1 NUCLEUS=1 build test                  # delegated to the VM
+backends/freebsd-be/builder-vm.sh --libvirt ssh      # once, before the first push:
+sudo podman login quay.io                            #   root in the VM pushes
+```
+
+| Behaviour | Detail |
+|-----------|--------|
+| no VM exists | `delegate` creates nothing; it prints the two `create` commands and stops |
+| which VM | the libvirt domain if defined, else `images/freebsd-vm/builder.qcow2`; `--libvirt` / `FREEBSD_VM_LIBVIRT=1` override; a stopped VM is started |
+| push targets | refuse unless root in the VM is logged in to the image's registry (`podman login --get-login`); the workstation's login does not reach the VM |
+| disk space | every non-push `make` in the VM first removes stopped and buildah working containers, dated tags no longer the undated tag's image, and untagged images, then stops (listing what is left) when less than `FREEBSD_VM_MIN_FREE_GB` (default 50) is free |
+| deps manifest | `deps/` is synced as tracked files only, so `deps-container/dep_info.json` is generated on the workstation and the VM's make runs with `DEPS_MANIFEST_PREBUILT=1` |
+| delivery test | `builder-vm.sh deliver` stages the VM's own build as a boot environment (`deliver.sh --local`) |
+
+The FreeBSD-specific stages are `11-freebsd-system.sh` (bash links, read-only
+`/usr`, `pf` + `immutablue_podman_pf` for podman NAT, `immutablue_procfs`,
+`immutablue_containers`, the devfs `ttyv0 -> tty0` link ConsoleKit2 needs, and
+`/usr/local/libdata/pkgconfig` links for the in-house projects' `.pc` files),
+`31-freebsd-ports.sh` and `61-freebsd-desktop.sh`. **Patched ports:**
+`backends/freebsd-be/ports/<category>/<port>/` holds extra patches (today
+`sysutils/consolekit2`, without which the GNOME lock screen never unlocks); the
+deps image's `backend_deps_build_extra` builds those ports into `/build/ports`,
+and stage 31 installs them over the stock packages with `pkg add -f` and
+`pkg lock`s them, so a `pkg upgrade` cannot put the unpatched one back. A patched
+port reaches an image only after `make FREEBSD=1 build-deps`.
 
 ### Cyan (NVIDIA) on Fedora 44+
 
@@ -102,7 +144,11 @@ installed as RPMs.
 Which optional pieces of a component get built is decided by the build packages
 in `packages.yaml` under `build_deps` (resolved per backend by
 `deps-container/00-build.sh`), and a missing one is dropped quietly rather than
-failing. ai-glib needs `gtk4-devel` and `libadwaita-devel` or its `ai-gui` client
+failing. How the projects are compiled is per backend: `backend.yaml`
+`deps_build` sets `prefix` (`/usr/local` on freebsd-be, `/usr` elsewhere),
+`make` (`gmake`), `cc` (`gcc`), `skip` (freebsd-be skips `zapper`, which needs
+Linux `ptrace`) and `graylib_cflags`, and an optional `backend_ldconfig` refreshes
+the linker cache. ai-glib needs `gtk4-devel` and `libadwaita-devel` or its `ai-gui` client
 and the `org.copyleft.AiGlib.Gui.desktop` launcher are not built, and (0.6.0+, voice)
 `gstreamer1-devel` and `gstreamer1-plugins-base-devel`, since a missing
 gstreamer `.pc` makes ai-glib's whole `pkg-config --cflags` call fail. podomation
@@ -113,7 +159,7 @@ Run `git submodule update --init --recursive` after cloning or pulling. The
 components under `deps/` are submodules, and a stale checkout silently builds the
 wrong source.
 
-`deps/` is compiled into the **deps container** (`backends/<backend>/deps.Containerfile`, `make build-deps`; `make BACKEND=arch-bootc build-deps` for Arch) and excluded from the main image's build context. A submodule bump reaches the image only after that dependency container is rebuilt and published. `make build` runs prechecks but does not automatically run the post-build suite; run `make test` separately.
+`deps/` is compiled into the **deps container** (`backends/<backend>/deps.Containerfile`, `make build-deps`; `make BACKEND=arch-bootc build-deps` for Arch, `make FREEBSD=1 build-deps` for FreeBSD) and excluded from the main image's build context. A submodule bump reaches the image only after that dependency container is rebuilt and published. `make build` runs prechecks but does not automatically run the post-build suite; run `make test` separately.
 
 ### Artifact provenance
 
@@ -242,7 +288,8 @@ call `backend_pkg_install`, `backend_svc` and the rest, and test
 | `40-uninstall-packages.sh` | removals |
 | `50-remove-files.sh` | file removals |
 | `60-services.sh` | enable/disable/mask units |
-| `65-crash-capture.sh` | unattended-tier kernel crash policy — [`crash-capture.md`](crash-capture.md) |
+| `65-crash-capture.sh` | unattended-tier kernel crash policy — [`crash-capture.md`](crash-capture.md); skipped on freebsd-be (`skip_stages`), as is `80-initramfs.sh` |
+| `11-freebsd-system.sh`, `31-freebsd-ports.sh`, `61-freebsd-desktop.sh` *(freebsd-be)* | rc.d services, pf, procfs, podman dataset, pkgconfig links; patched ports; dbus/gdm — see above |
 | `61-arch-system.sh` *(arch-bootc)* | networking, resolved, timesyncd, GDM: what Fedora presets and Arch does not |
 | `75-nvidia.sh` *(fedora-bootc)* | cyan 44+: finalize the NVIDIA sysext images (its `install` phase is called from `29-`) |
 | `80-initramfs.sh` | regenerate and verify the initramfs; `SKIP=initramfs` skips it |
@@ -270,12 +317,34 @@ every one of these refuses on `DISTROLESS=1`:
 
 | Target | Produces |
 |--------|----------|
-| `make iso` / `make iso-config` | an installer ISO; `anaconda-iso` for the Anaconda flavour. On `arch-bootc` / `freebsd-be` it runs `backends/<b>/make-iso.sh` instead: a live ISO whose tty installer lays the image onto a disk (`bootc install to-disk` from an OCI layout on the ISO / `install-disk.sh --source-root /`); `ISO_AUTOINSTALL=<disk>` makes it unattended |
+| `make iso` / `make iso-config` | an installer ISO; `anaconda-iso` for the Anaconda flavour. On `arch-bootc` / `freebsd-be` it runs `backends/<b>/make-iso.sh` instead: a live ISO whose text installer lays the image onto disk (`bootc install to-disk` from an OCI layout on the ISO / `install-disk.sh --source-root /`); `ISO_AUTOINSTALL=<disk>` makes it unattended. The freebsd-be installer (below) takes several disks |
 | `make qcow2` / `make qcow2-config` | a VM disk; `qcow2-config` prompts for user, password, wheel, SSH key |
 | `make raw` / `make vhd` / `make vmdk` | disk images for bare metal, Hyper-V, VMware |
 | `make ami` / `make gce` | cloud images, with `push_ami` / `push_gce` to upload |
 | `make LIMA=1 qcow2 && make lima` | a Lima VM definition; then `lima-start`, `lima-shell`, `lima-stop`, `lima-delete` |
 | `make run_qcow2` / `run_iso_qemu` / `run_raw_qemu` | boot the artefact in QEMU locally |
+
+**The freebsd-be installer.** `make FREEBSD=1 iso` builds in the builder VM and
+copies `iso/immutablue-<tag>.iso` back. The live ISO runs a `bsddialog`
+installer on the screen (`ttyv0`, even when a serial port is the kernel's primary
+console): a disk checklist, a layout menu limited to what that many disks allow,
+optional GELI encryption (passphrase typed twice), swap per disk, hostname, and a
+summary before anything is erased. Underneath is `install-disk.sh`, usable
+directly on a FreeBSD host with the image in podman storage:
+
+```bash
+install-disk.sh [--layout stripe|mirror|raidz1|raidz2|raidz3] [--encrypt --passphrase-file F] \
+    [--swap 2g] [--pool zimmutablue] [--hostname H] [--ssh-key F] [--yes] <image:tag> <disk>...
+```
+
+Default layout is `stripe` for one disk, `mirror` for several; every disk gets the
+ESP, loader and `gptzfsboot`, so a mirror boots with any disk gone. `--encrypt`
+is GELI under ZFS (the loader asks once), swap is one-time-keyed, and GELI
+metadata backups land in `/var/backups/zfs<i>.eli`. Podman storage gets its own
+dataset, `<pool>/containers`. No user is created (GNOME's first-login setup
+does that). For automated tests, `ISO_AUTOINSTALL="vtbd0 vtbd1"` with
+`ISO_AUTOINSTALL_LAYOUT`, `ISO_AUTOINSTALL_SWAP` and `ISO_AUTOINSTALL_PASSPHRASE`
+(stored readable on the ISO — tests only) installs without asking and powers off.
 
 Lima is the quickest way to boot what you just built on the same machine. Output
 paths come from `immutablue.gen.*` in `settings.yaml`.
@@ -298,7 +367,7 @@ bash tests/run_tests.sh --suite regressions
 ./tests/test_pkg_resolve.sh         # logical package resolution per backend
 ./tests/test_backend_contract.sh    # every backend implements the interface
 ./tests/test_backend_dispatch.sh    # immutablue-backend verbs against stub tools
-./tests/test_artifacts.sh           # every override file reached the image intact
+./tests/test_artifacts.sh           # every override file reached the image intact (minus the backend's drops_overrides)
 ./tests/test_container.sh
 ```
 

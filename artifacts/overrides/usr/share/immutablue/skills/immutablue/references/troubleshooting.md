@@ -50,6 +50,11 @@ before answering from memory. See [`cmacs.md`](cmacs.md).
 | Black screen or no NVIDIA driver on a cyan (Fedora 44+) image | `immutablue nvidia_status`; `journalctl -b -u immutablue-nvidia.service` | [`hardware.md`](hardware.md) |
 | An always-on machine suspended anyway | the sleep targets are not masked | [`hardware.md`](hardware.md) |
 | Image build fails | `make pre_test` first; then the failing build script's output | [`building.md`](building.md) |
+| freebsd-be: every `podman` command fails with `cannot open '<pool>/ROOT/<BE>/<layer>': dataset does not exist` after an update | podman storage is inside the boot environment; `zfs list <pool>/containers` | [`updates.md`](updates.md), *Podman storage across updates* |
+| freebsd-be: `immutablue-backend upgrade` finishes but nothing changed | the image predates 72326fd and re-delivered its stale local copy (or the log says "pull failed; using the local copy" — offline) | [`updates.md`](updates.md) |
+| freebsd-be: `podman run` fails with "The pf kernel module must be loaded to support ipMasq networks" | image predates 26218c4 — update; or `/etc/pf.conf` lacks the marker line and needs podman's nat rules | [`updates.md`](updates.md) |
+| Building freebsd-be from Linux: make stops with "less than N GB free in the builder VM" | `builder-vm.sh ssh 'sudo podman rmi …'`, or lower `FREEBSD_VM_MIN_FREE_GB` | [`building.md`](building.md) |
+| `make FREEBSD=1 push`: "the builder VM is not logged in to quay.io" | `builder-vm.sh --libvirt ssh`, then `sudo podman login quay.io` | [`building.md`](building.md) |
 
 ## Desktop and applications
 
@@ -84,6 +89,16 @@ before answering from memory. See [`cmacs.md`](cmacs.md).
 | `ai-call` fails at join or has no audio | STT/TTS/LiveKit endpoints; `gst-inspect-1.0 livekitwebrtcsrc`; try `--local` | [`automation.md`](automation.md) |
 | `cmacs-mcp` finds no socket | `emacsctl eval '(cmacs-mcp-socket-path)'`, then pass `--socket` | [`cmacs.md`](cmacs.md) |
 | The agent does not know about this system | `immutablue install_immutablue_skill`; `ls -l ~/.agents/skills/immutablue` | this skill |
+| freebsd-be: the GNOME lock screen rejects the correct password | image predates b5341b3 (ConsoleKit2 patch, devfs `tty0` link) — update the image | [`desktop.md`](desktop.md) |
+| freebsd-be: gst exits at X11 start with `BadRequest (major opcode 0)` | gst older than 118d542 — update; `--wayland` meanwhile | [`gst.md`](gst.md) |
+| freebsd-be: gsurf shows a blank window, GTK criticals, or crashes | `GSURF_GVFS=1` or a non-`local` `GIO_USE_VFS` in the environment, or gsurf older than 268fb30 | [`gsurf.md`](gsurf.md) |
+| `;today` or snippets do not expand under standalone gowl | the `gabbrev` module is opt-in | [`gowl-gabbrev.md`](gowl-gabbrev.md) |
+| A `hotkey:` section does nothing | the `hotkey` module is opt-in; `gowl-msg hotkey-problems` | [`gowl-hotkey.md`](gowl-hotkey.md) |
+| Workspace switch cuts instead of animating | no transition module loaded (standalone gowl loads none) | [`gowl.md`](gowl.md) |
+| Screen share black or frozen | image's gowl predates 8512361 — update | [`gowl.md`](gowl.md) |
+| Clipboard history empty under standalone gowl | image's gowl predates 720b394 — update | [`gowl.md`](gowl.md) |
+| `emacs --gowl` dies with SIGSEGV in `pixman_region32_copy` | cmacs before 46c2bf7 — update the image | [`cmacs.md`](cmacs.md) |
+| A podomation `fs_mount` rule never fires on freebsd-be | the event source is Linux-only (podomation #1) | [`automation.md`](automation.md) |
 
 ## Troubleshooting docs already on the machine
 

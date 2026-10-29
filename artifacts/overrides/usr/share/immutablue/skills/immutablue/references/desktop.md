@@ -16,6 +16,13 @@ Check which one is running before advising:
 echo "${XDG_CURRENT_DESKTOP}"
 ```
 
+On **freebsd-be** the shipped session is GNOME (gdm, with ConsoleKit2 instead of
+logind). Images before immutablue `b5341b3` could not unlock the GNOME lock screen
+even with the right password (ConsoleKit2 had no usable VT and rejected gdm's
+session path); the fix is a patched, `pkg lock`ed `consolekit2` plus a devfs
+`ttyv0 -> tty0` link, so the answer there is to update the image, not to
+`pkg unlock` or rebuild the package by hand.
+
 ## Where each part is documented
 
 | Part | Guide |

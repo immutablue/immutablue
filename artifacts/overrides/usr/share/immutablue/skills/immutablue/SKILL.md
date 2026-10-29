@@ -13,13 +13,22 @@ description: >
   remap, foot pedal, macro pad, gowl menu, macro-record, floatdesk, broadcast,
   pointer confine, bar widget, ai-call, ai project, emacs --lrg, VR headset,
   Steam Frame, cmacs-mcp, cmacs, gsurf, gst, NVIDIA, cyan,
-  dictation, voxtype.
+  dictation, voxtype, gabbrev, espanso, text expansion, snippet, abbreviation,
+  hotkey, AutoHotkey, hotstring, CapsLock layer, tag transition, workspace
+  animation, menu-choose, JSON-RPC, wire protocol, screencast, screen share,
+  restore token, voice loop, wake word, voice command, hand tracking,
+  SpaceMouse, ai benchmark, ai decide, gsurf adblock, uBlock, EasyList, filter
+  list, freebsd-be, FreeBSD, bectl, boot environment, deliver.sh,
+  builder-vm.sh, install-disk.sh, GELI, raidz, mirror.
   Covers reporting a confirmed Immutablue bug.
 ---
 
 # Immutablue
 
 Immutablue is a Fedora Atomic (bootc/OSTree) image builder and the OS it produces.
+The same configuration also builds on other bases (backends): Arch Linux with bootc
+(`arch-bootc`) and FreeBSD with ZFS boot environments (`freebsd-be`), where some
+commands differ. `cat /usr/immutablue/backend` says which one you are on.
 This skill is for working **on a machine running it**, and for changing the image
 itself.
 
@@ -55,7 +64,7 @@ When something here does not match what you see, or you are asked about a
 feature this skill does not cover, check how far the image and the skill have
 drifted before answering:
 
-<!-- skill-baseline:start — reviewed 2026-10-28; update with the skill, see AGENTS.md -->
+<!-- skill-baseline:start — reviewed 2026-10-29; update with the skill, see AGENTS.md -->
 ```bash
 # CHANGED = the image and this skill were written against different commits.
 while read -r name base; do
@@ -65,37 +74,38 @@ while read -r name base; do
     else state="CHANGED"; fi
     printf '%-20s %-13s skill=%.12s image=%.12s\n' "${name}" "${state}" "${base}" "${image}"
 done <<'EOF'
-immutablue           64a309d5ba7188b1ac4defd6443088c0166dd059
-ai-glib              7c772d6fc01d667059a3c216f5b34b4680fd6599
-bacon                cf8bfadef33b379bf2954258048a9ad7dd359ebc
-crispy               53b8fc7c5444fb3b94bdb689c5b160483d3a95c4
-gowl                 fcf3ac67ef789e875ba799fc27834297772ded32
-gst                  0c56dea2c9089004e60d86152cb5c9436a8dc1cd
-gsurf                722fc8c8701855c4dc73b5f08e4abcb95c4e0ed2
+immutablue           c60556d671e3a1a00fb02538eee8ce1bb1a36555
+ai-glib              02678e0e24cc91cae9c44244b66d2ea212ed8dfa
+bacon                f0a1c596cd454e2063b7d1149a50327eaf8c861e
+crispy               9b9ec4eeffb2bd84e76b91cd9196133e79fc8344
+gowl                 fa0d3e1be4bb0509b08afd9d5b5890b0cac504c2
+gst                  118d542dba9d0c6f6a29fa5b540713a11476269d
+gsurf                268fb3069b5611d07f1fb0104ca8075330a49803
 mcp-gdb-glib         626ee15456e15b37254dcfe0482e5e35586ee4a9
-mcp-glib             ccad2035d84fb081e5ca24c8cc2822c623e6161d
+mcp-glib             80611856d89e322ee6c41a22104d496bc8158eda
 mcp-kuberblue-glib   a11bcc211e7ccebd24c412a551e73fb396b7faa8
-podomation           2639ff8f8fac28747bb1f376a6acf28444347ae2
-yaml-glib            04c8dffa5d82deceb2cfecb5126f228e4d6f27ab
+podomation           5fa9ec8b4061d9ef8042de4bda72a9f7701e53de
+yaml-glib            46baefcef3285c74eb4155f40e993c9a13ec1fa7
 EOF
 ```
 <!-- skill-baseline:end -->
 
-The immutablue line was reviewed on 2026-10-28 (backend installer ISOs added to the build guide's image table; FreeBSD Linux compatibility -- immutablue-linux, brew, boxes, chroot -- in the packages guide) and before that on 2026-10-27: the backend split (`backends/`, `BACKEND=`, logical `pkg` lists, `build_deps`, `immutablue-backend`, the arch-bootc and freebsd-be backends) is in [the build guide](references/building.md), with backend notes at the top of [updates](references/updates.md) and [packages](references/packages.md); the libspnav/libvorbis-devel package additions needed no guide change. The `deps/` lines were not re-reviewed and keep their 2026-10-18 baseline, even where a pin has since moved. Every line was last fully reviewed on 2026-10-18: each component's changes since the previous baseline were read from source and written into the guides (bacon, crispy, gst, gsurf, the three mcp libraries, podomation and yaml-glib had no changes). Of note since the last review: gowl's macro recorder and voice macros, region OCR and colour pick, pointer confinement, input broadcasting, the floating desktop, live Keybindings menu and the extended bar widget set; ai-glib's projects, `ai-call` voice sessions and `ai-gui`; cmacs's VR display backend and MCP additions; and the image's non-Fedora RPM routes and deps-container packages.
+Every line was fully reviewed on 2026-10-29: each component's changes since the previous baseline were read from source and written into the guides. Of note: the freebsd-be backend grew up — the in-house projects and cmacs under `/usr/local`, patched ports (ConsoleKit2, so the GNOME lock screen unlocks), podman storage on its own dataset, `deliver.sh` always pulling with progress, an installer with mirror/raidz layouts and GELI full-disk encryption, and `make FREEBSD=1` running in the builder VM ([building](references/building.md), [updates](references/updates.md), [desktop](references/desktop.md)); gowl's tag transitions, JSON-RPC wire protocol, screen-sharing portal, `menu-choose`, and the new [gabbrev](references/gowl-gabbrev.md) text expander and [hotkey](references/gowl-hotkey.md) module; gsurf's local-file addresses and uBlock/EasyList filter lists; cmacs's voice loop, camera, hand tracking and SpaceMouse; ai-glib's `ai decide` backends and `ai benchmark`. crispy, mcp-glib, yaml-glib, bacon and podomation changed for FreeBSD portability (plus podomation's Linux-only `fs_mount` noted in [automation](references/automation.md)); mcp-gdb-glib and mcp-kuberblue-glib did not change.
 
 For manifests with `dependency_image`, `.deps` comes from the digest-pinned dependency container, while `.immutablue` identifies the main image checkout. Older manifests were generated from that checkout's submodules and can misidentify binaries from a separately built dependency container. Do not treat a missing entry as proof that a component is absent, or replace an artifact's recorded commit with a newer local submodule pin. See [the build guide](references/building.md) for migration and scope.
 
 cmacs is not in `dep_info.json`: it arrives from the cmacs container image, not a
 `deps/` submodule. The cmacs material in this skill was checked against cmacs
-`ef1d85e56cfe26b4bc6b04514b83ffab0193c2e9` (reviewed 2026-10-18). The manual
+`28957a8ba78c281cffccc3af949f6039157b8253` (reviewed 2026-10-29). The manual
 installed under `/usr/share/emacs/*/doc_org/cmacs/` matches the installed cmacs
 and what it links in — read that rather than diffing. Its `deps/<dep>/` docs
 follow **cmacs's own submodule pins**, which differ from immutablue's: at this
-review cmacs pinned ai-glib `adc932d89898` (same as immutablue), bacon `02d4843581d2`,
-podomation `643fe8313d95` and gsurf `f9d2b0bd421e` (gowl, crispy, mcp-glib and yaml-glib
-matched). Only podomation and bacon differ from immutablue's pins. The standalone `ai`, `ai-tui`, `podomation`, `bacon` and `gsurf` come
-from immutablue's `deps/` and can be ahead of or behind that manual — see
-[`references/cmacs.md`](references/cmacs.md).
+review cmacs pinned ai-glib `02678e0e24cc`, bacon `f0a1c596cd45`, podomation
+`5fa9ec8b4061` and gowl `fa0d3e1be4bb` (the same as immutablue), but crispy
+`8116b9cf705c`, mcp-glib `ccad2035d84f`, yaml-glib `e8de6ef29a4b` and gsurf
+`f9d2b0bd421e` (all behind immutablue's). The standalone `ai`, `ai-tui`,
+`podomation`, `bacon` and `gsurf` come from immutablue's `deps/` and can be ahead
+of or behind that manual — see [`references/cmacs.md`](references/cmacs.md).
 
 For a component marked CHANGED, read the difference from its source at both
 commits. The recorded remotes are SSH URLs; clone over https unless the machine
@@ -130,9 +140,11 @@ This skill is always installed at `/usr/share/immutablue/skills/immutablue/`. If
 - [`references/packages.md`](references/packages.md) — installing software, and the decision tree that keeps you off `rpm-ostree install`
 - [`references/updates.md`](references/updates.md) — updating, `/var` snapshots, deployment rollback, rebasing between variants
 - [`references/desktop.md`](references/desktop.md) — which session is running, polkit under gowl, dictation, and a map of the desktop guides
-- [`references/gowl.md`](references/gowl.md) — configuring gowl (YAML and C), keybinds, rules, outputs, the menu, `gowl-msg`, and writing and loading compositor modules
+- [`references/gowl.md`](references/gowl.md) — configuring gowl (YAML and C), keybinds, rules, outputs, tag transitions, the menu, `gowl-msg` and the JSON-RPC wire protocol, screen sharing/screenshot portal, and writing and loading compositor modules
 - [`references/gowl-macros.md`](references/gowl-macros.md) — gowl macros (crispy C run in the compositor, triggers, filters) and per-device input remapping (foot pedals, macro pads)
 - [`references/gowl-bar.md`](references/gowl-bar.md) — the bar: layout, widgets, and writing, loading and hot-reloading plugins
+- [`references/gowl-gabbrev.md`](references/gowl-gabbrev.md) — text expansion (gabbrev, espanso-compatible): matches, variables, built-ins like `;today`, the expand key, usage and learning
+- [`references/gowl-hotkey.md`](references/gowl-hotkey.md) — AutoHotkey for gowl: hotkeys, remaps, CapsLock layers, modes, contexts, hotstrings, timers, C scripts
 - [`references/cmacs.md`](references/cmacs.md) — configuring cmacs (`init.el`, `init.c`, `init.bacon`), and the manuals installed on the machine
 - [`references/gst.md`](references/gst.md) — configuring gst, the terminal
 - [`references/gsurf.md`](references/gsurf.md) — configuring gsurf, the browser, standalone and inside cmacs
@@ -273,6 +285,18 @@ with the detail.
 | "Change a gowl keybind / rule / effect" | `~/.config/gowl/config.yaml`, then `gowl --check-config` — [`references/gowl.md`](references/gowl.md) |
 | "Query or drive the running gowl session from a script" | `gowl-msg` (`clients`, `focused`, `action`, `-s` for events) — [`references/gowl.md`](references/gowl.md) |
 | "Add something to the Super+space menu" | `~/.config/gowl/menu.yaml` overlay — [`references/gowl.md`](references/gowl.md) |
+| "Expand `;today`" / "text expander" / "use my espanso config" | `modules: gabbrev:` + a `gabbrev:` section — [`references/gowl-gabbrev.md`](references/gowl-gabbrev.md) |
+| "AutoHotkey on Linux" / "CapsLock as a layer" / "hotkey that works in a fullscreen game" | `modules: hotkey:` + a `hotkey:` section — [`references/gowl-hotkey.md`](references/gowl-hotkey.md) |
+| "Change the workspace switch animation" | `tag-transition:` + `modules: <name>:`, Super+: — [`references/gowl.md`](references/gowl.md) |
+| "Drive gowl from a program" / "JSON-RPC" | `gowl-msg -c METHOD`, `gowl-msg -d` — [`references/gowl.md`](references/gowl.md) |
+| "Screen share is black / pick what to share / stop an app recording without asking" | the gowl portal; `$XDG_STATE_HOME/gowl/screencast-grants.yaml` — [`references/gowl.md`](references/gowl.md) |
+| "Talk to the desktop / hands-free commands / dictation in cmacs" | the voice loop and spoken commands — [`references/cmacs.md`](references/cmacs.md) |
+| "Camera, hand gestures, SpaceMouse" | [`references/cmacs.md`](references/cmacs.md), *Camera, hand gestures and the SpaceMouse* |
+| "Compare models / typed decisions" | `ai benchmark`, `ai decide` — [`references/configuration.md`](references/configuration.md), [`references/packages.md`](references/packages.md) |
+| "Block ads in gsurf" | `modules: adblock:` with `filter_lists:` — [`references/gsurf.md`](references/gsurf.md) |
+| "Open a local HTML file in the browser" | `gsurf ./file.html` — [`references/gsurf.md`](references/gsurf.md) |
+| "Update / roll back a FreeBSD (freebsd-be) machine" | `immutablue-backend upgrade` / `rollback` (boot environments) — [`references/updates.md`](references/updates.md) |
+| "Build a freebsd-be image from Linux / install to several disks / encrypted" | `make FREEBSD=1 …` runs in the builder VM; `install-disk.sh`, the ISO — [`references/building.md`](references/building.md) |
 | "Write a gowl macro" / "run X when a window opens" | `~/.config/gowl/macros/NAME.c`, `modules: macro:` triggers — [`references/gowl-macros.md`](references/gowl-macros.md) |
 | "Remap a foot pedal / macro pad / one mouse" | `modules: inputremap:` + `input-remap:`, `gowl-msg inputremap-identify` — [`references/gowl-macros.md`](references/gowl-macros.md) |
 | "Record / replay a macro" / "run a macro by voice" | Super+Alt+r, Super+Alt+m (needs `modules: macro:`) — [`references/gowl-macros.md`](references/gowl-macros.md) |

@@ -20,7 +20,13 @@ gsurf --list-modules                                         # alphabetical
 gsurf --no-modules / --no-c-config / --no-yaml-config        # isolate a problem
 gsurf -c PATH / --c-config PATH                              # use a specific file
 gsurf -f URI / --lrg URI                                     # fullscreen; libregnum/raylib backend
+gsurf ./page.html  ~/notes/index.html  file:///tmp/a.html    # local files
 ```
+
+The positional argument and the address bar share one normaliser: absolute,
+`./`, `../`, `~/` and `~user/` paths, and the name of a file in the working
+directory, open as `file://` URIs; a bare host (`example.com`,
+`localhost:8080`) gains `https://`; any other scheme passes through unchanged.
 
 ```yaml
 browser:
@@ -61,8 +67,9 @@ modules:                        # one block per module; enabled: gates it
 
 `search_engines` trims the input, then the **longest** matching prefix wins
 (`g ` and `g site ` can coexist); prefixes are case-sensitive literals, so keep
-the trailing space. Explicit schemes, dotted hosts and `localhost` pass through
-as addresses; anything else goes to `default` while `default_is_search` is true.
+the trailing space. Explicit schemes, dotted hosts, `localhost` and filesystem paths pass
+through as addresses (an explicit prefix still wins, so `g /etc/hosts` is a
+search); anything else goes to `default` while `default_is_search` is true.
 History is appended to `$XDG_DATA_HOME/gsurf/history` unless `modules.history.file`
 says otherwise (`file: ""` disables it).
 
@@ -98,7 +105,11 @@ It is compiled by crispy and cached as `$XDG_CACHE_HOME/gsurf/cconfig/<hash>.so`
 Key strings are optional modifiers plus a GDK keyval name: `"Ctrl+r"`,
 `"Alt+Left"`, `"Ctrl+Shift+g"`, `"slash"`, `"j"`. Modifiers are `Ctrl`
 (`Control`), `Alt` (`Mod1`), `Shift`, `Super` (`Logo`, `Mod4`); order and case
-are normalised. Values are action names, with `-` or `_` accepted.
+are normalised. A single letter's case means Shift: `N`, `Shift+n` and
+`Shift+N` are the same key, a lowercase `o` never fires for Shift+o, and
+`ISO_Left_Tab` is `Shift+Tab`. Values are action names, with `-` or `_`
+accepted. A YAML `keybinds:` entry overrides that one key; the rest of the
+default table stays.
 
 | Default | Action |
 |---|---|
@@ -108,8 +119,23 @@ are normalised. Values are action names, with `-` or `_` accepted.
 | `Ctrl+plus` / `minus` / `0` | zoom in / out / reset |
 | `Ctrl+f`, `Ctrl+g` / `Ctrl+Shift+g` | find, next / previous |
 | `F11`, `Ctrl+q` | `toggle-fullscreen`, `quit` |
-| `o`, `Ctrl+l` | `open-prompt` (address bar) |
+| `o`, `Ctrl+l` | `open-prompt` (address bar, text selected) |
+| `Ctrl+e` / `Ctrl+y` | `scroll-down` / `scroll-up` |
 | `?` (keyval `question`) | `show-keybinds` |
+
+Actions with no built-in implementation are performed by the module that owns
+their UI: `open-prompt` by `chromebar`, `find` by `find_bar`, `tab-*` by
+`tabs`, `follow-hints` and `enter-*-mode` by `modal` (all on by default). With
+that module disabled the key does nothing. `find_bar` adds `/` to open the
+find box; `Enter` there confirms and returns to the page, where `n` / `N` step
+through matches (only while a search is up).
+
+Focus: the page holds keyboard focus at startup and after every tab switch.
+`Enter` in the address bar loads and returns focus to the page; `Escape` there
+restores the current URI and returns to the page. `Escape` in a page field
+(including one the page autofocused) blurs it — core behaviour, with or
+without `modal`; anywhere else `Escape` is `stop`. Chords the field does not
+use itself (`Ctrl+t`, `Ctrl+w`, `Ctrl+q`, `F11`, …) still work while typing.
 
 `?` opens a help overlay listing every binding **currently active** — the core
 table plus each enabled module's own keys — rebuilt on each press, so it is the
@@ -180,7 +206,7 @@ to both protocols.
 |---|---|
 | chrome | `chromebar`, `omnibar`, `tabs`, `find_bar`, `status_bar`, `downloads` |
 | navigation | `modal`, `search_engines`, `spacesearch`, `homepage`, `history`, `bookmarks`, `session` |
-| content | `adblock`, `dark_mode`, `site_styles`, `userscripts`, `uri_params`, `useragent` |
+| content | `adblock` (below), `dark_mode`, `site_styles`, `userscripts`, `uri_params`, `useragent` |
 | privacy and trust | `cookie_policy`, `cert_manager`, `geolocation`, `proxy_switch`, `toggles` |
 | integration | `externalpipe`, `playexternal` (mpv), `notifications`, `inspector`, `mcp` |
 
@@ -188,10 +214,14 @@ A module is on only if the effective config says `enabled: true`.
 
 **The module-directory trap.** Standalone gsurf takes modules from *one*
 directory: the first that exists of `$GSURF_MODULE_PATH`, `<exe-dir>/modules/`,
-`/usr/lib64/gsurf/modules/`. Pointing `GSURF_MODULE_PATH` at a directory
-holding only your module therefore drops every shipped module. For a personal
-module, make a directory of symlinks to the system `.so` files plus your own,
-and point the variable at that. (cmacs searches several directories — see
+the system directory (`/usr/lib64/gsurf/modules/` on Fedora images,
+`/usr/lib/gsurf/modules/` on arch-bootc, `/usr/local/lib/gsurf/modules/` on
+freebsd-be). Pointing `GSURF_MODULE_PATH` at a directory holding only your
+module therefore drops every shipped module. For a personal module, make a
+directory of symlinks to the system `.so` files plus your own, and point the
+variable at that — symlink the `adblock-webext/` subdirectory too, since
+`adblock` looks for its web-process extension next to the path it was loaded
+from. (cmacs searches several directories — see
 below — so the variable adds there instead of replacing.)
 
 A module is a `.so` exporting `gsurf_module_register()`, returning a
@@ -201,6 +231,58 @@ before it loads), `GsurfNavigationHook` (before/after navigate, load events),
 `GsurfScriptInjector` (once per view), and more. Its options come from
 `gsurf_config_get_module_node(config, "<name>")`. Build it against the
 installed library with `$(pkg-config --cflags --libs gsurf)`.
+
+## Ad blocking (uBlock Origin / EasyList lists)
+
+`adblock` is off by default. It parses uBO/ABP filter lists natively —
+network rules and element hiding compile to WebKit content blockers; a
+web-process extension applies `$redirect`, `$removeparam`, `##+js(...)`
+scriptlets and procedural cosmetics (`:has-text()`, `:upward()`, …).
+
+```yaml
+modules:
+  adblock:
+    enabled: true
+    filter_lists:                     # a path, or { path: ..., trusted: true }
+      - "~/.config/gsurf/adblock/easylist.txt"
+      - "~/.config/gsurf/adblock/easyprivacy.txt"
+      - { path: "~/.config/gsurf/adblock/ublock-filters.txt", trusted: true }
+    filters: |                        # your own filters, always trusted
+      example.com##.cookie-banner
+    cosmetic: true                    # element hiding + procedural cosmetics
+    scriptlets: true
+    redirects: true                   # off: redirects become plain blocks
+    whitelist: []                     # sites (and subdomains) left unfiltered
+    host_files: []                    # hosts-format lists; also veto navigation
+```
+
+Only `trusted: true` lists may use `trusted-*` scriptlets (give it to uBO's own
+lists). The lists are not shipped. Upstream's `make adblock-lists` is a source
+tree target; its script, `modules/adblock/fetch-lists.sh`, is plain Bash that
+downloads EasyList, EasyPrivacy and uBO's lists **with their `!#include`
+files** into `~/.config/gsurf/adblock/` — run it from a gsurf clone (see the
+end of this file). Fetching only the top-level uBO files with `curl` misses
+their includes.
+
+Compiled rulesets are cached in `$XDG_CACHE_HOME/gsurf/filters/`: the first
+launch takes WebKit about 5 s and pages loaded before that are unfiltered;
+later launches recompile only changed lists. The startup log line
+(`gsurf adblock: … N unsupported, N invalid`) counts what was skipped. The
+extension is `adblock-webext/gsurf-adblock-webext.so` beside `adblock.so`
+(override with `web_process_extension:`); without it only network and
+element-hiding rules work, and the log says so. The old `content_filters:`
+(pre-converted WebKit JSON) still works but is rarely needed.
+
+## FreeBSD (freebsd-be)
+
+gsurf installs under `/usr/local` (modules in `/usr/local/lib/gsurf/modules/`;
+`/etc/gsurf/` is still `/etc`). On FreeBSD gsurf sets `GIO_USE_VFS=local` for
+itself before GIO starts — unless `GIO_USE_VFS` is already set or
+`GSURF_GVFS=1` — because GIO's GVfs client module overwrites GTK's type data in
+any process showing a `WebKitWebView` there (blank window, streams of GTK
+criticals, a crash with the AT-SPI bridge loaded). gsurf needs no GVfs mounts
+and accessibility keeps working, so leave it. The vendored raylib needs `-fPIC`
+on FreeBSD (gsurf issue #1 on git.podbielniak.com); the image build handles it.
 
 ## Embedded in cmacs
 
@@ -235,8 +317,9 @@ To use gsurf's own files as well — layering, last wins:
 **The embedded copy is a separate build.** cmacs vendors its own
 `deps/gsurf`, pinned independently of the standalone `gsurf` binary, and it can
 lag well behind: at this skill's last review it predated native Gopher/Gemini,
-kiosk/PWA, the `?` overlay and `hint_font_size`, and cmacs exposes no kiosk or
-PWA Elisp. If a feature above is missing inside cmacs, use standalone `gsurf`
+kiosk/PWA, the `?` overlay, `hint_font_size`, local-file addresses, uBO filter
+lists in `adblock` and the focus/keyboard-navigation fixes above, and cmacs
+exposes no kiosk or PWA Elisp. If a feature above is missing inside cmacs, use standalone `gsurf`
 (`(start-process "gsurf" nil "gsurf" URL)`), and check whether
 `deps/gsurf/protocols.org` exists in the installed manual to tell which side
 you are on.
@@ -268,6 +351,12 @@ env | grep -E '^GSURF_'     # GSURF_CONFIG_C or GSURF_MODULE_PATH redirecting th
 | Unsure which keys a config produced | | press `?` for the live binding list |
 | A Gemini capsule shows a certificate-mismatch page | its certificate changed since first visit (TOFU pin) | verify out of band, delete the pin file the page names, reload |
 | A kiosk window will not open a link | the link needs a popup or new view, which kiosk blocks | expected; open it in a normal `gsurf` |
+| `o` / `Ctrl+l`, `/`, `f` or `Ctrl+t` does nothing | the module that performs that action (`chromebar`, `find_bar`, `modal`, `tabs`) is disabled | enable it under `modules:` |
+| Keys never reach the page or keymap at startup (focus stuck in the address bar or a tab button) | gsurf older than `356eb93` set no initial focus | update the image; meanwhile click the page |
+| A `Shift+<letter>` or `Shift+Tab` binding never fires | gsurf older than `356eb93` compared `Shift+N` events with `Shift+n` strings | update the image |
+| Ads still show with `adblock` on | lists not downloaded, an `!#include` missing, the first launch still compiling, or the web-process extension not found | read the `gsurf adblock:` lines on stderr; fetch with `fetch-lists.sh`; wait for the first compile; keep `adblock-webext/` next to `adblock.so` |
+| A site breaks with `adblock` on | a filter hits it | add the host to `modules.adblock.whitelist` |
+| freebsd-be: blank window, GTK criticals, or a crash on start | `GSURF_GVFS=1`, or a `GIO_USE_VFS` other than `local`, in the environment re-enables GVfs; or gsurf older than `268fb30` | unset them; compare the gsurf commit in `dep_info.json` |
 
 Embedded in cmacs:
 
@@ -288,12 +377,12 @@ Under `/usr/share/emacs/<version>/doc_org/cmacs/`, openable with
 | File | Covers |
 |---|---|
 | `deps/gsurf/configuration.org`, `c-config.org`, `keybindings.org` | the standalone config reference |
-| `deps/gsurf/modules.org`, `module-system.org` | every module, and writing one |
+| `deps/gsurf/modules.org`, `module-system.org` | every module, and writing one (`GsurfActionHandler`, web-process extensions — newer than cmacs's copy) |
 | `cmacs-gsurf.org` | the embedded browser: focus model, keymap, config from Elisp, JS bridge, caret mode, `gsurf-lite` |
 
 That tree documents **cmacs's** gsurf copy, so it can be older than the
-standalone binary — at the last review it lacked `protocols.org` (Gopher/Gemini)
-and `kiosk-pwa.org`. For those, read the source at the commit the standalone
+standalone binary — at the last review it lacked `protocols.org` (Gopher/Gemini),
+`kiosk-pwa.org` and `adblock.org`. For those, read the source at the commit the standalone
 binary was built from:
 
 ```bash
@@ -301,4 +390,6 @@ remote=$(jq -r '.deps[] | select(.name=="gsurf") | .remote' /usr/immutablue/deps
 commit=$(jq -r '.deps[] | select(.name=="gsurf") | .commit' /usr/immutablue/deps/dep_info.json)
 git clone "${remote}" /tmp/gsurf && git -C /tmp/gsurf checkout "${commit}"
 # docs/protocols.org  docs/kiosk-pwa.org  docs/keybindings.org  docs/modules.org
+# docs/adblock.org    docs/cli.org (addresses, environment, FreeBSD GVfs note)
+/tmp/gsurf/modules/adblock/fetch-lists.sh                 # -> ~/.config/gsurf/adblock/
 ```

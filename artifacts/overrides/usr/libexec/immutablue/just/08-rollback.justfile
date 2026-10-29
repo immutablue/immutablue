@@ -53,7 +53,8 @@ rollback:
 
     sudo immutablue-backend rollback
     echo ""
-    echo "Rollback staged. Reboot to apply:  systemctl reboot"
+    # systemd backends reboot with systemctl; freebsd-be (rc) has none.
+    echo "Rollback staged. Reboot to apply:  $(command -v systemctl > /dev/null && echo 'systemctl reboot' || echo 'shutdown -r now')"
 
 
 # Rebase onto another Immutablue variant, chosen from the registry
@@ -130,7 +131,8 @@ rebase tag="":
     sudo immutablue-backend rebase "${image}:${tag}"
 
     echo ""
-    echo "Rebase staged. Reboot to apply:  systemctl reboot"
+    # systemd backends reboot with systemctl; freebsd-be (rc) has none.
+    echo "Rebase staged. Reboot to apply:  $(command -v systemctl > /dev/null && echo 'systemctl reboot' || echo 'shutdown -r now')"
 
 
 # List the /var snapshots taken before updates

@@ -20,7 +20,24 @@ manuals, and this skill's older wording, write `cmacs --gowl` for
 
 Subsystems are gated at build time, so ask the running instance rather than
 guessing what is compiled in: `emacsctl instances`, and `emacsctl describe
-instance` lists `features[]` (`lrgterm`, `lrgvr`, `gowl`, `ai-brigade`, …).
+instance` lists `features[]` (`lrgterm`, `lrgvr`, `gowl`, `ai-brigade`,
+`spacemouse`, `camera`, `handtrack`, …). From Elisp the same is
+`IS-CMACS-<NAME>` (`IS-CMACS-CAMERA`, …).
+
+**On the `freebsd-be` backend** cmacs comes from the
+`quay.io/zachpodbielniak/cmacs:freebsd-15.1` image (cmacs's
+`./build-container freebsd-15.1`, `admin/cmacs-build-freebsd.sh`) and lives
+under `/usr/local`: `/usr/local/bin/emacs`, the manuals in
+`/usr/local/share/emacs/<version>/doc_org/`, the C API libraries in
+`/usr/local/lib/cmacs`, registered with the loader by
+`/usr/local/libdata/ldconfig/cmacs` (the Linux image uses
+`/etc/ld.so.conf.d/cmacs.conf`). It is the same configure flag set, built with
+gcc13 and gcc13's libgccjit for native compilation (gcc14's libgccjit corrupts
+the heap on FreeBSD), with kqueue file notification. The FreeBSD build bundles
+no whisper model or piper voice, so speech features start by downloading one
+into your home (`M-x cmacs-whisper-download-model`). bacon's `sandbox` builtin
+(Linux namespaces) is not built on FreeBSD. `nucleus` images carry no cmacs on
+any backend.
 
 ## Configuration files
 
@@ -90,8 +107,8 @@ cmacs's AI features link **cmacs's own copy** of ai-glib, built from cmacs's
 submodule pin, not `/usr/bin/ai`. The two can differ: a feature `ai` or `ai-tui`
 has may not exist in `M-x cmacs-ai-*` yet, and the reverse. Voice calls
 (`ai-call`) and `ai project` are standalone CLIs — see
-[`automation.md`](automation.md#voice-sessions-ai-call); cmacs has its own
-voice loop (`M-x cmacs-ai-voice-chat`: whisper, then the chat, then piper).
+[`automation.md`](automation.md#voice-sessions-ai-call); cmacs has its own,
+offline voice stack — see [Voice](#voice-the-engine-the-always-on-loop-and-spoken-commands).
 Details that matter when chatting in cmacs:
 
 - A chat's built-in tools (`bash`, `read`, `write`, `edit`, `multi_edit`,
@@ -111,9 +128,10 @@ Details that matter when chatting in cmacs:
 
 ### The gowl session from Elisp
 
-Under `emacs --gowl` most of the session is cmacs Elisp. Remapping and macros
-ship no rule and load nothing until first used; the IPC socket, the lock key and
-the menu are on by default. Each row is a section of `gowl.org`:
+Under `emacs --gowl` most of the session is cmacs Elisp. Remapping, macros and
+hotkeys ship no rule and load nothing until first used; the IPC socket, the
+lock key, the menu, text expansion (gabbrev) and the tag transitions are on by
+default. Each row is a section of `gowl.org`:
 
 | Want | Entry point | `gowl.org` section |
 |---|---|---|
@@ -123,6 +141,12 @@ the menu are on by default. Each row is a section of `gowl.org`:
 | React to windows, focus, outputs, lock | `cmacs-gowl-client-added-functions` and the other `cmacs-gowl-*-functions` hooks | Hooks |
 | Per-output settings and dock/undock profiles | `cmacs-gowl-monitor-configs`, `cmacs-gowl-output-profiles`, `M-x cmacs-gowl-apply-output-config` | Monitor settings and profiles from Elisp |
 | Drive the session from a shell | `gowl-msg` over `$XDG_RUNTIME_DIR/gowl.sock`; `cmacs-gowl-ipc` moves or disables it | The IPC socket |
+| Drive the session from a program (lay out windows, place what you spawn) | the JSON-RPC wire protocol on the same socket: `gowl-msg -d` lists methods, `gowl-msg -c window.set_geometry id=12 …`; processes Emacs starts get `GOWL_SOCKET`. Methods that would move an *embedded* window answer refused (`-32002`) | The IPC socket → The wire protocol |
+| AutoHotkey-style hotkeys, remaps, hotstrings, with Elisp functions as actions | `cmacs-gowl-hotkey-define "#!c" #'org-capture`, `cmacs-gowl-hotkey-remaps`, `-hotstrings`, `-scripts` (crispy C); `M-x cmacs-gowl-hotkey-show`, `M-x cmacs-gowl-hotkey-problems`; shell: `emacsctl compositor hotkey status`. Loaded only when `cmacs-gowl-hotkey-enable` is set, something is configured, or a `cmacs-gowl-hotkey-` function is first called | Hotkeys (AutoHotkey); `deps/gowl/hotkey.org` |
+| Text expansion in any window (`;today`, `;now`, `;shrug`, `;reword`, `;fix`) | `cmacs-gowl-gabbrev-define`, `cmacs-gowl-gabbrev-builtin` (nil drops the built-ins), `M-x cmacs-gowl-gabbrev-toggle`, `M-x cmacs-gowl-gabbrev-list`; `Super+Alt+e` expands the trigger just typed | Text expansion (gabbrev); `deps/gowl/gabbrev.org` |
+| Animated workspace switches | `cmacs-gowl-tag-transition` (default `random`; a name, or `none`), `Super+:` / `M-x cmacs-gowl-cycle-tag-transition`, `M-x cmacs-gowl-set-tag-transition`; standalone gowl defaults to the cube | Tag transitions; `deps/gowl/transitions.org` |
+| Move, click and scroll the pointer from Lisp | `gowl-pointer-position`, `gowl-pointer-warp`, `gowl-pointer-move`, `gowl-pointer-button`, `gowl-pointer-scroll`, `gowl-output-geometry` | Driving the pointer from Lisp and C |
+| Share one window (not the whole screen) in a call; screenshots through the portal | gowl's own portal backend (ScreenCast, Screenshot, PickColor) from the cmacs image; the picker is `$GOWL_PORTAL_CHOOSER`, else the Super+space menu card, else bemenu/fuzzel/wofi/rofi/dmenu | Input Capture / KVM (deskflow) → *Sharing one window* ([`gowl.md`](gowl.md)) |
 | Lock screen | `Super+Shift+l`, `cmacs-gowl-lock-command`, `cmacs-gowl-lock-on-suspend` | Locking the screen |
 | Launcher / control menu | `Super+space`, `Super+Shift+space` (adds `$PATH`), `~/.config/gowl/menu.yaml` | The menu |
 | HDR | `M-x cmacs-gowl-toggle-hdr`, `cmacs-gowl-hdr-*` | HDR |
@@ -135,6 +159,58 @@ the menu are on by default. Each row is a section of `gowl.org`:
 
 Do not invent names around these: `M-x apropos RET ^cmacs-gowl-` in the running
 session, or `rg -n` the section in `gowl.org`, before writing config.
+
+## Voice: the engine, the always-on loop and spoken commands
+
+Everything that uses the microphone or speaks in cmacs goes through one engine
+(`cmacs-voice.el`): one 16 kHz capture however many features listen, and one
+speech queue, so replies are spoken in order. Push-to-talk features (VR's hold
+A/Y, `C-c v v`, dictation, the voice chat, the brigade) take the microphone
+ahead of the always-on loop, which shows `Voice:paused` until they finish.
+All of it is offline: whisper for speech, Silero for voice detection, piper
+for speech output.
+
+| Want | Entry point |
+|---|---|
+| A conversation you start by name ("Jarvis, what's on my agenda?") | `C-c v l` (`cmacs-voice-loop-mode`); `C-c v j` addresses it without the wake phrase; `M-x cmacs-voice-loop-status` |
+| Several names going to different places | `cmacs-voice-loop-wake-phrase` (a string or a list) and `cmacs-voice-loop-routes`: each phrase to `chat`, `commands`, `(agent NAME)` (a brigade task) or a function; `cmacs-voice-loop-default-route` |
+| Act on speech with no model in between ("workspace three", "focus firefox", "run rule standup") | `C-c v v` (`cmacs-voice-command`, push-to-talk), or a wake phrase routed to `commands`; `C-c v ?` lists what applies. Destructive actions ask first (`cmacs-voice-confirm-destructive`) |
+| Dictation into the buffer | `C-c v d` (`cmacs-whisper-dictate`); text appears dimmed while you talk and lands every 3 s |
+| Use a particular microphone | `cmacs-voice-device` — under PipeWire a node *name* (`pw-cli ls Node`, `node.name`) |
+| Stop it hearing its own replies through speakers | `M-x cmacs-voice-loop-echo-cancel-config` (`C-u` writes a PipeWire echo-cancel drop-in into `~/.config/pipewire/`), then `cmacs-voice-device "cmacs-echo-cancel-source"` and `cmacs-voice-loop-tts-gating 'none`; or `cmacs-voice-loop-tts-gating 'mute` |
+
+- **Off until you turn it on.** Nothing listens until the mode is enabled;
+  audio stays in memory and is wiped after transcription. Speech without the
+  wake phrase is transcribed by the small wake model and dropped. Only an
+  addressed request's text goes to the chat's provider; `cmacs-voice-loop-save-directory`
+  keeps WAVs only if you set it. A wake phrase of nil is an open microphone.
+- **Models.** The Linux image ships `ggml-base.en.bin` and a piper voice in
+  `/usr/share/cmacs/`. Optional and downloaded by you into your home:
+  `M-x cmacs-whisper-download-vad-model` (Silero, about 1 MB — without it an
+  energy detector is used, poor in a noisy room) and
+  `M-x cmacs-whisper-download-model RET ggml-tiny.en.bin` (cheaper wake-phrase
+  spotting).
+- The old `cmacs-voice-loop-device`, `-threads`, `-vad-model`, `-voice`, … are
+  obsolete aliases of `cmacs-voice-device`, `cmacs-voice-threads`, … — new
+  config should use the `cmacs-voice-` names.
+
+The manuals: `cmacs-voice.org` (the engine and the `C-c v` keys),
+`cmacs-voice-loop.org` (every option, privacy, troubleshooting),
+`cmacs-voice-commands.org` (what you can say, adding commands),
+`cmacs-whisper.org`.
+
+## Camera, hand gestures and the SpaceMouse
+
+| Feature | Entry point | Needs |
+|---|---|---|
+| A camera as a frame source, with a visible "●CAM" indicator and a bar toast | `M-x cmacs-camera-start` / `-stop`, `M-x cmacs-camera-preview`; `cmacs-camera-device` (nil = first camera, `"/dev/video0"`, `"pipewire:SERIAL"`, `"portal"`) | feature `camera` |
+| Hands seen by the camera as gestures; one hand as the gowl pointer | `M-x cmacs-handtrack-mode`, `cmacs-handtrack-pointer-mode`, `M-x cmacs-handtrack-describe` | feature `handtrack`, onnxruntime (`(cmacs-handtrack-available-p)`), and the MediaPipe models, **not shipped**: `M-x cmacs-handtrack-download-models` fetches them into your home |
+| Tracked hands in VR instead of controllers | automatic when the OpenXR runtime has hand tracking; `cmacs-lrg-vr-hand-tracking` nil turns it off | feature `lrgvr` |
+| A 3Dconnexion SpaceMouse orbiting the libregnum scene, the `--lrg=3d` room and VR | `cmacs-spacemouse-mode`, `cmacs-spacemouse-sensitivity`, buttons as `<spacemouse-N>` in `cmacs-spacemouse-mode-map`; `M-x cmacs-spacemouse-describe` | feature `spacemouse`, and the **`spacenavd` daemon, which the image does not ship** — add it to `packages.yaml` ([`building.md`](building.md)); the mode retries every three seconds until it appears |
+
+Frames never touch disk, and nothing opens the camera on its own. Details:
+`cmacs-camera.org` (camera and hand tracking), `cmacs-spacemouse.org`, and
+*Hand tracking* in `cmacs-lrgterm.org`.
 
 ## Display backends and VR
 
@@ -233,7 +309,10 @@ names the socket and `cmacs-mcp --socket PATH`, `--name NAME` or
 `$CMACS_MCP_SOCKET` pick one explicitly. The gowl tools include
 `gowl_macro_run` / `_list` / `_status` / `_stop` / `_record`,
 `gowl_macro_voice_match`, `gowl_screen_text` (OCR), `gowl_pick_color`,
-`gowl_clipboard_list` / `_entry` / `_copy` and `gowl_broadcast_*`; the recorder,
+`gowl_clipboard_list` / `_entry` / `_copy`, `gowl_broadcast_*` and the hotkey
+tools `gowl_hotkey_status` / `_list` / `_history` / `_add` / `_remove` / `_set`
+/ `_send` / `_fire`; `podomation_control` with `{"action":"run","pod":NAME}`
+runs a pod's rules now (see [`automation.md`](automation.md#podomation-event-driven-automation)). The recorder,
 the macro runner, voice matching and the clipboard are *privileged* for the
 brigade (named in an allowlist, not swept in by `*`). `gowl_macro_record start`
 is refused until `input-recording: true` is consented to in the gowl config.
@@ -258,7 +337,8 @@ embeds, as org files:
 /usr/share/emacs/<version>/doc_org/cmacs/
 ```
 
-`ls -d /usr/share/emacs/*/doc_org` gives the version. Inside cmacs it is
+`ls -d /usr/share/emacs/*/doc_org` gives the version (on freebsd-be the tree is
+under `/usr/local/share/emacs/`). Inside cmacs it is
 `(expand-file-name "../doc_org/cmacs/" data-directory)`.
 
 - `M-x cmacs-manual` opens the index, `cmacs.org`.
@@ -282,9 +362,11 @@ dropped, so ai-glib's `docs/cli.org` is `deps/ai-glib/cli.org` and podomation's
 `ai-tui`, `podomation` and `bacon` on `$PATH` are built from immutablue's own
 `deps/` submodules — cmacs links in its own copies, and where it ships the
 same files (podomation and bacon modules) the image installs immutablue's over
-them — so they can be newer or older than their manual here. The pins have
-tracked each other lately (ai-glib is the same commit in both), but podomation
-and bacon have not always: compare before assuming. Before citing `deps/ai-glib/`
+them — so they can be newer or older than their manual here. Compare before
+assuming: cmacs `c4ff11f` pins ai-glib `adc932d`, older than the `ai` 0.9.1
+the image builds, so its manual has no `benchmark.org` or `decisions.org`
+(`ai benchmark`, the TypeSafe and Ollama decision backends); cmacs `28957a8`
+moved its ai-glib, bacon and podomation pins up to immutablue's. Before citing `deps/ai-glib/`
 for `ai` itself, compare `ai --version` and the `ai-glib` entry in
 `/usr/immutablue/deps/dep_info.json` with what the doc describes; a missing doc
 (ai-glib's `voice.org` or `projects.org` on an image whose cmacs predates 0.6.0,
@@ -298,7 +380,9 @@ recorded commit is the reference.
 | crispy | `crispy.org`, `api.org` | `deps/crispy/` |
 | clawtilla | `clawtilla.org` | `deps/clawtilla/` |
 | libreclaw | `libreclaw/` | `deps/libreclaw/` |
-| gowl | `gowl.org`, `gowl/` (`bar-widgets*.org`, `multi-display.org`, `screenshot-recording.org`, `clipboard-sync.org`) | `deps/gowl/` |
+| gowl | `gowl.org`, `gowl/` (`bar-widgets*.org`, `multi-display.org`, `screenshot-recording.org`, `clipboard-sync.org`) | `deps/gowl/` (`hotkey.org`, `gabbrev.org`, `transitions.org`, `ipc.org`, …) |
+| voice (whisper, piper) | `cmacs-voice.org`, `cmacs-voice-loop.org`, `cmacs-voice-commands.org`, `cmacs-whisper.org`, `cmacs-piper.org` | `deps/piper/` |
+| camera, hand tracking, SpaceMouse | `cmacs-camera.org`, `cmacs-spacemouse.org` | — |
 | gsurf | `cmacs-gsurf.org` | `deps/gsurf/` |
 | libregnum | `cmacs-libregnum.org`, `cmacs-lrgterm.org` (the 3D scene and the VR mode), `cmacs-lrgterm-3d-roadmap.org` | `deps/libregnum/` |
 | podomation | `podomation.org` | `deps/podomation/` |
@@ -344,6 +428,13 @@ journalctl --user -b -t emacs   # what cmacs wrote to stderr
 | `bacon-start` hangs (a cmacs built from source, older than the fix) | the same bacon module `.so` found in two module directories and loaded twice | cmacs now loads each module file name once across the dev-build, installed, cmacs and `$CMACS_MODULE_DIR` directories; on an image this shows up only if you add a duplicate directory |
 | An HTTP-provider chat's `glob`/`grep` froze Emacs | tool walk started in `$HOME` over a network mount | newer cmacs and ai-glib resolve against the chat's directory, skip mount points and run off the command loop; `C-c C-k` cancels |
 | A feature or command does not exist | not compiled into this build | `emacsctl describe instance`, then the manual for the installed version |
+| `emacs --gowl` died with SIGSEGV in `pixman_region32_copy` under `wlr_scene_output_build_state` | cmacs before `46c2bf7`: gowl DEFUNs (`gowl-set-tags`, `gowl-toggle-client-fullscreen`, …) changed the scene from Emacs's thread without the compositor lock | update the image; [`crash-analysis.md`](crash-analysis.md) to confirm the stack |
+| The voice loop never wakes | the wake model mishears the name, or the detector hears nothing | `M-x cmacs-voice-loop-status`; check the lighter turns `Voice:hearing` when you talk; install the VAD model; lower `cmacs-voice-loop-wake-threshold` (0.75) or add the misspelling as another phrase |
+| The voice loop answers itself | speakers reach the microphone | the echo-cancel config above, a headset, or `cmacs-voice-loop-tts-gating 'mute` |
+| A microphone choice is ignored (cmacs before `ddede24`) | the hint was set as `device`, which `pipewiresrc` does not have | newer cmacs passes it as `target-object`; use the PipeWire node name |
+| SpaceMouse does nothing | no `spacenavd` (not in the image), or the feature is missing | `M-x cmacs-spacemouse-describe`; add `spacenavd` to `packages.yaml` and enable its service |
+| `cmacs-handtrack-mode` says hand tracking is not available | no onnxruntime in this build, or the models are not downloaded | `(cmacs-handtrack-available-p)`; `M-x cmacs-handtrack-download-models` |
+| freebsd-be: bacon's `cmacs_gi` (or another program) cannot load `libcmacs-api.so` | a `cmacs:freebsd-15.1` image built before cmacs `28957a8` did not register `/usr/local/lib/cmacs` with the loader | update the image; check `ls /usr/local/libdata/ldconfig/cmacs` and `ldconfig -r \| grep cmacs`; for one process, `LD_LIBRARY_PATH=/usr/local/lib/cmacs` |
 | Keybinds and rules vanished after a config reload | `(gowl-reload-config)` with no argument resets to built-in defaults | reload with the YAML path, or re-run the Elisp that set them |
 | A gowl macro is refused every time | it faulted or timed out once and is held back, across restarts | `M-x cmacs-gowl-macro-list-macros` (`c` on a line) or `M-x cmacs-gowl-macro-clear` releases it; fix the macro first — the log says what killed it |
 | The session returns to the login screen, an Electron app forgets its login, Super keys are dead, keys are stuck in an embedded client | the compositor side | [`gowl.md`](gowl.md#troubleshooting) |
@@ -356,8 +447,8 @@ crispy, audio, speech, video, lrgterm; the index is in
 
 ## What not to do
 
-- Do not edit anything under `/usr/share/emacs/` — it is the image, read-only,
-  and replaced on update.
+- Do not edit anything under `/usr/share/emacs/` (`/usr/local/share/emacs/` on
+  freebsd-be) — it is the image, read-only, and replaced on update.
 - Do not `setenv` in `init.el` a variable that C code reads at startup, such as
   `CMACS_GOWL_MODULE_DIR`. `setenv` changes `process-environment`, not the
   process environment `g_getenv` sees; set it in `~/.config/environment.d/`.
