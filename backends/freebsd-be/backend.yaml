@@ -25,7 +25,7 @@ libdir: lib
 
 # scripts/check-backend.sh refuses to start the build anywhere else.
 build_host_os: FreeBSD
-build_host_note: "Build on FreeBSD 15.1 with sysutils/podman-suite and sysutils/ocijail, or run backends/freebsd-be/builder-vm.sh create, then builder-vm.sh make BACKEND=freebsd-be build."
+build_host_note: "Build on FreeBSD 15.1 with sysutils/podman-suite and sysutils/ocijail. On Linux, make build/test/push/build-deps/push-deps run in the builder VM by themselves (create it once with backends/freebsd-be/builder-vm.sh --libvirt create); other targets: backends/freebsd-be/builder-vm.sh make <target>."
 
 # build/ stages that cannot apply: no systemd crash-capture policy, no dracut
 # initramfs (FreeBSD's loader boots the kernel directly).

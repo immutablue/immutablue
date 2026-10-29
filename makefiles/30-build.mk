@@ -71,6 +71,9 @@ $(IMAGE_IGNOREFILE): .containerignore
 # ------------------------------------------------------------------------------
 # Dependency Container Builds
 # ------------------------------------------------------------------------------
+# With BACKEND_VM (freebsd-be on Linux) build-deps, push-deps, build and push
+# are makefiles/27-backend-vm.mk's: they run in the builder VM.
+ifndef BACKEND_VM
 build-deps: backend_check deps_build_manifest $(DEPS_CONTAINERFILE)
 	buildah \
 		build \
@@ -92,6 +95,7 @@ build-deps: backend_check deps_build_manifest $(DEPS_CONTAINERFILE)
 push-deps:
 	buildah push $(DEPS_CONTAINER)
 	buildah push $(DEPS_CONTAINER_DATE)
+endif
 
 # ------------------------------------------------------------------------------
 # NVIDIA/Cyan Dependency Build
@@ -120,6 +124,7 @@ push-cyan-deps:
 # The build context is always the repository root ('.'): without it podman
 # (the DISTROLESS path) defaults to the Containerfile's directory, which is
 # backends/<backend>/ now that Containerfiles live there.
+ifndef BACKEND_VM
 build: backend_check pre_test deps_manifest $(IMAGE_IGNOREFILE)
 ifeq ($(DISTROLESS),1)
 	deps_image="$$(if [ "$(BACKEND_INHOUSE_DEPS)" = true ]; then bash scripts/resolve-deps-image.sh $(BACKEND_DEPS_RESOLVE_FLAGS) "$(DEPS_IMAGE)"; else echo no-deps; fi)" && sudo podman \
@@ -192,6 +197,7 @@ ifeq ($(SET_AS_LATEST), 1)
 endif
 	buildah push $(IMAGE):$(TAG)
 	buildah push $(IMAGE):$(DATE_TAG)
+endif
 
 retag:
 	buildah tag $(IMAGE):$(TAG) $(IMAGE):$(RETAG)

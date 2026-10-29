@@ -100,7 +100,13 @@ The default `make iso` uses `bootc-image-builder` (same tooling as qcow2), produ
 `arch-bootc` and `freebsd-be` are not supported by bootc-image-builder, so
 `make iso` runs their own `backends/<backend>/make-iso.sh` instead
 (`make ARCHLINUX=1 iso`, `make FREEBSD=1 iso` — the latter builds in the
-FreeBSD builder VM from Linux). Both boot a live system whose text installer
+FreeBSD builder VM from Linux).
+
+On Linux, `make FREEBSD=1 build|test|push|build-deps|push-deps` (and `all`)
+run in that builder VM by themselves (`makefiles/27-backend-vm.mk` →
+`builder-vm.sh delegate`); without a VM they print the
+`builder-vm.sh --libvirt create` command, and pushing needs a one-time
+`sudo podman login quay.io` inside the VM (`builder-vm.sh --libvirt ssh`). Both boot a live system whose text installer
 lays the image onto a disk; GNOME's first-login setup creates the user.
 `ISO_AUTOINSTALL=<disk>` bakes in an unattended install for tests.
 

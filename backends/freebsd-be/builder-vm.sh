@@ -28,6 +28,12 @@
 #   ssh [cmd]   Run a command in the VM (interactive shell without one)
 #   sync        Copy this checkout into the VM (~/immutablue)
 #   make ARGS   sync, then 'sudo gmake ARGS' in the VM
+#   delegate [--push REGISTRY] ARGS
+#               What 'make' runs on a Linux host for freebsd-be's build, test,
+#               push, build-deps and push-deps: finds the VM (the libvirt
+#               domain, else the QEMU disk), starts it if needed, and runs
+#               'make ARGS' in it. With no VM it prints how to create one;
+#               with --push it first checks the VM is logged in to REGISTRY
 #   deliver     Deliver the built image into a boot environment in the VM
 #   iso OUT     Build an installer ISO of FREEBSD_IMAGE_REF in the VM with
 #               make-iso.sh and copy it back to OUT
@@ -43,6 +49,7 @@
 #   backends/freebsd-be/builder-vm.sh make BACKEND=freebsd-be NUCLEUS=1 build
 #   backends/freebsd-be/builder-vm.sh make BACKEND=freebsd-be NUCLEUS=1 test
 #   backends/freebsd-be/builder-vm.sh deliver
+#   make FREEBSD=1 NUCLEUS=1 build      # on Linux: delegated to this VM
 #   backends/freebsd-be/builder-vm.sh ssh 'bectl list'
 #   backends/freebsd-be/builder-vm.sh --libvirt create
 #   backends/freebsd-be/builder-vm.sh --libvirt import
@@ -86,6 +93,7 @@ CPUS="${FREEBSD_VM_CPUS:-8}"
 DISK="${FREEBSD_VM_DISK:-120G}"
 IMAGE_REF="${FREEBSD_IMAGE_REF:-quay.io/immutablue/immutablue:15.1-freebsd-nucleus}"
 LIBVIRT="${FREEBSD_VM_LIBVIRT:-0}"
+LIBVIRT_CHOSEN=0
 DOMAIN="${FREEBSD_VM_DOMAIN:-immutablue-freebsd-builder}"
 URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
 INSTALL_DOMAIN="${FREEBSD_INSTALL_DOMAIN:-immutablue-freebsd}"
@@ -398,6 +406,133 @@ vm_sync() {
 }
 
 
+# Run 'sudo gmake ARGS' in the VM against a fresh sync of this checkout.
+#
+# Every image build leaves the one it replaced untagged (~11 GB for GNOME);
+# they are pruned afterwards so the VM's disk does not fill up over a few
+# builds. The deps manifest is the one vm_sync generated on the host.
+#
+# param $@: gmake arguments
+vm_make() {
+    vm_sync
+    # Arguments are passed through; quote each for the remote shell.
+    vm_ssh "cd immutablue && sudo gmake DEPS_MANIFEST_PREBUILT=1 $(printf '%q ' "$@"); rc=\$?; sudo podman image prune -f > /dev/null 2>&1; exit \$rc"
+}
+
+
+# Which builder VM exists. --libvirt or FREEBSD_VM_LIBVIRT decide the mode
+# when given; otherwise the libvirt domain wins if one is defined ('import'
+# leaves the QEMU disk behind, so the domain is checked first), else the
+# QEMU-mode disk.
+#
+# returns: 0 with LIBVIRT set, 1 when there is no VM
+vm_detect() {
+    if [[ -n "${FREEBSD_VM_LIBVIRT:-}" ]] || [[ "${LIBVIRT_CHOSEN}" -eq 1 ]]
+    then
+        if [[ "${LIBVIRT}" -eq 1 ]]
+        then
+            vsh dominfo "${DOMAIN}" > /dev/null 2>&1
+        else
+            [[ -f "${VM_DIR}/builder.qcow2" ]]
+        fi
+        return
+    fi
+
+    if command -v virsh > /dev/null && vsh dominfo "${DOMAIN}" > /dev/null 2>&1
+    then
+        LIBVIRT=1
+        return 0
+    fi
+    if [[ -f "${VM_DIR}/builder.qcow2" ]]
+    then
+        LIBVIRT=0
+        return 0
+    fi
+    return 1
+}
+
+
+# How to let the VM push: buildah push runs as root there, so root needs the
+# registry login (kept in /run/containers/0/auth.json on the VM's disk, so it
+# survives reboots).
+#
+# param $1: registry, e.g. quay.io
+print_push_login_help() {
+    local registry="$1"
+    local flag=""
+
+    if [[ "${LIBVIRT}" -eq 1 ]]
+    then
+        flag=" --libvirt"
+    fi
+    cat >&2 <<HELP
+To push from the builder VM, log its root user in to ${registry} once:
+
+    backends/freebsd-be/builder-vm.sh${flag} ssh
+    sudo podman login ${registry}
+HELP
+}
+
+
+# There is no builder VM: say how to make one.
+print_create_help() {
+    cat >&2 <<HELP
+freebsd-be images are built on FreeBSD; on this host 'make' runs them in the
+builder VM, and there is none yet (no libvirt domain '${DOMAIN}' and no
+${VM_DIR}/builder.qcow2). Create it once -- it downloads FreeBSD 15.1
+(~1 GB) and makes a ${DISK} disk:
+
+    backends/freebsd-be/builder-vm.sh --libvirt create   # libvirt domain, visible in virt-manager
+    backends/freebsd-be/builder-vm.sh create             # or a plain QEMU process
+
+then run the same make command again.
+
+HELP
+}
+
+
+# 'make' on a Linux host for freebsd-be: run the target in the builder VM.
+#
+# param --push REGISTRY: (optional) the target pushes to REGISTRY; refuse
+#                        early unless the VM is logged in to it
+# param $@: gmake arguments (the target and the command-line variables)
+vm_delegate() {
+    local registry=""
+    local where
+
+    if [[ "${1:-}" == "--push" ]]
+    then
+        registry="$2"
+        shift 2
+    fi
+
+    if ! vm_detect
+    then
+        print_create_help
+        print_push_login_help "${registry:-quay.io}"
+        return 1
+    fi
+
+    if [[ "${LIBVIRT}" -eq 1 ]]
+    then
+        where="libvirt domain ${DOMAIN}"
+    else
+        where="QEMU, ${VM_DIR}"
+    fi
+    echo "==> freebsd-be: running 'make $*' in the builder VM (${where})" >&2
+    vm_start
+
+    if [[ -n "${registry}" ]] && ! vm_ssh "sudo podman login --get-login $(printf '%q' "${registry}")" > /dev/null 2>&1
+    then
+        echo "ERROR: the builder VM is not logged in to ${registry}" >&2
+        print_push_login_help "${registry}"
+        return 1
+    fi
+
+    vm_make "$@"
+}
+
+
 # Build an installer ISO of IMAGE_REF in the VM and copy it to the host.
 #
 # param $1: output path on the host
@@ -428,6 +563,7 @@ main() {
     if [[ "${1:-}" == "--libvirt" ]]
     then
         LIBVIRT=1
+        LIBVIRT_CHOSEN=1
         shift
     fi
     local cmd="${1:-}"
@@ -458,12 +594,11 @@ main() {
         sync) vm_sync ;;
         make)
             shift
-            vm_sync
-            # Arguments are passed through; quote each for the remote shell.
-            # Every image build leaves the one it replaced untagged (~11 GB
-            # for GNOME); they are pruned afterwards so the VM's disk does not
-            # fill up over a few builds.
-            vm_ssh "cd immutablue && sudo gmake DEPS_MANIFEST_PREBUILT=1 $(printf '%q ' "$@"); rc=\$?; sudo podman image prune -f > /dev/null 2>&1; exit \$rc"
+            vm_make "$@"
+            ;;
+        delegate)
+            shift
+            vm_delegate "$@"
             ;;
         deliver)
             vm_sync
@@ -475,6 +610,12 @@ main() {
                 echo "usage: builder-vm.sh iso <output.iso>" >&2
                 return 2
             fi
+            if ! vm_detect
+            then
+                print_create_help
+                return 1
+            fi
+            vm_start
             vm_iso "$2"
             ;;
         destroy)

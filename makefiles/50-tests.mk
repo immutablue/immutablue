@@ -26,6 +26,9 @@ test_regressions:
 pre_test:
 	@bash tests/run_tests.sh --suite pre $(IMAGE):$(TAG)
 
+# With BACKEND_VM (freebsd-be on Linux) the image lives in the builder VM, so
+# the suites that test it run there (makefiles/27-backend-vm.mk).
+ifndef BACKEND_VM
 test run_all_tests:
 	@IMMUTABLUE_BUILD_OPTIONS="$(BUILD_OPTIONS)" VERSION="$(VERSION)" KUBERBLUE="$(KUBERBLUE)" \
 		bash tests/run_tests.sh $(IMAGE):$(TAG)
@@ -33,6 +36,7 @@ test run_all_tests:
 test_container test_package_presence test_container_qemu test_artifacts test_setup:
 	@IMMUTABLUE_BUILD_OPTIONS="$(BUILD_OPTIONS)" VERSION="$(VERSION)" \
 		bash tests/run_tests.sh --suite $(patsubst test_%,%,$@) $(IMAGE):$(TAG)
+endif
 
 # ------------------------------------------------------------------------------
 # Kuberblue Tests
