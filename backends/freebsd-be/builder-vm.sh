@@ -67,6 +67,8 @@
 #   FREEBSD_VM_DOMAIN  libvirt domain name (default: immutablue-freebsd-builder)
 #   FREEBSD_INSTALL_DOMAIN  domain 'install' creates (default: immutablue-freebsd)
 #   FREEBSD_INSTALL_DISK    its disk size (default: 60G)
+#   FREEBSD_VM_MIN_FREE_GB  free space 'make' needs in the VM after its
+#                      cleanup of old images (default: 50)
 #   FREEBSD_INSTALL_SSH_KEY a public key installed for root on that machine
 #   FREEBSD_ISO_AUTOINSTALL  disk the ISO installs to unattended (tests only)
 #   LIBVIRT_DEFAULT_URI  libvirt connection (default: qemu:///system)
@@ -98,6 +100,7 @@ DOMAIN="${FREEBSD_VM_DOMAIN:-immutablue-freebsd-builder}"
 URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
 INSTALL_DOMAIN="${FREEBSD_INSTALL_DOMAIN:-immutablue-freebsd}"
 INSTALL_DISK="${FREEBSD_INSTALL_DISK:-60G}"
+MIN_FREE_GB="${FREEBSD_VM_MIN_FREE_GB:-50}"
 
 
 show_help() {
@@ -406,14 +409,43 @@ vm_sync() {
 }
 
 
-# Run 'sudo gmake ARGS' in the VM against a fresh sync of this checkout.
+# Free the VM's container storage before a build: a GNOME image is ~12 GB,
+# a deps image ~9 GB, and the commit of a squashed build needs roughly the
+# image's size again on top, so a few builds fill the disk. Removes stopped
+# containers and buildah working containers (a failed build leaves its own),
+# the dated tags every build adds (<tag>-YYYYMMDD; the undated tags stay),
+# and every image no tag refers to any more. Then refuses to go on with
+# less than MIN_FREE_GB free, saying what is left.
+vm_cleanup() {
+    vm_ssh "sudo sh -s ${MIN_FREE_GB}" <<'CLEAN'
+min_gb="$1"
+podman container prune -f > /dev/null 2>&1
+buildah rm --all > /dev/null 2>&1
+podman images --format '{{.Repository}}:{{.Tag}}' | grep -E -- '-[0-9]{8}$' | xargs -r podman rmi -f > /dev/null 2>&1
+podman image prune -f > /dev/null 2>&1
+free_kb=$(df -k /var/db/containers | awk 'NR == 2 { print $4 }')
+free_gb=$(( free_kb / 1024 / 1024 ))
+echo "==> builder VM: ${free_gb} GB free after cleanup" >&2
+if [ "${free_gb}" -lt "${min_gb}" ]; then
+	echo "ERROR: less than ${min_gb} GB free in the builder VM; images left:" >&2
+	podman images --format '  {{.Repository}}:{{.Tag}} {{.Size}}' >&2
+	echo "Remove what is not needed (builder-vm.sh ssh 'sudo podman rmi <image>') or lower FREEBSD_VM_MIN_FREE_GB." >&2
+	exit 1
+fi
+CLEAN
+}
+
+
+# Run 'sudo gmake ARGS' in the VM against a fresh sync of this checkout,
+# after vm_cleanup.
 #
 # Every image build leaves the one it replaced untagged (~11 GB for GNOME);
-# they are pruned afterwards so the VM's disk does not fill up over a few
-# builds. The deps manifest is the one vm_sync generated on the host.
+# they are pruned afterwards too. The deps manifest is the one vm_sync
+# generated on the host.
 #
 # param $@: gmake arguments
 vm_make() {
+    vm_cleanup
     vm_sync
     # Arguments are passed through; quote each for the remote shell.
     vm_ssh "cd immutablue && sudo gmake DEPS_MANIFEST_PREBUILT=1 $(printf '%q ' "$@"); rc=\$?; sudo podman image prune -f > /dev/null 2>&1; exit \$rc"
