@@ -413,7 +413,8 @@ vm_sync() {
 # a deps image ~9 GB, and the commit of a squashed build needs roughly the
 # image's size again on top, so a few builds fill the disk. Removes stopped
 # containers and buildah working containers (a failed build leaves its own),
-# the dated tags every build adds (<tag>-YYYYMMDD; the undated tags stay),
+# the dated tags every build adds (<tag>-YYYYMMDD) once a newer build owns
+# the undated tag,
 # and every image no tag refers to any more. Then refuses to go on with
 # less than MIN_FREE_GB free, saying what is left.
 vm_cleanup() {
@@ -421,8 +422,18 @@ vm_cleanup() {
 min_gb="$1"
 podman container prune -f > /dev/null 2>&1
 buildah rm --all > /dev/null 2>&1
-podman images --format '{{.Repository}}:{{.Tag}}' | grep -E -- '-[0-9]{8}$' | xargs -r podman rmi -f > /dev/null 2>&1
+# A dated tag goes only when its image is no longer the undated tag's: the
+# current build's dated tag is what 'push' sends next to the undated one.
+podman images --format '{{.Repository}}:{{.Tag}} {{.ID}}' | grep -E -- '-[0-9]{8} ' | while read -r tag id; do
+	current=$(podman image inspect --format '{{.Id}}' "${tag%-*}" 2> /dev/null | cut -c1-12)
+	if [ "${current}" != "${id}" ]; then
+		podman rmi "${tag}" > /dev/null 2>&1
+	fi
+done
 podman image prune -f > /dev/null 2>&1
+# An image replaced under its tag keeps its repository name ('<repo>:<none>')
+# and is not dangling to 'prune'; it is just as unreachable.
+podman images --format '{{.ID}} {{.Tag}}' | awk '$2 == "<none>" { print $1 }' | xargs -r podman rmi > /dev/null 2>&1
 free_kb=$(df -k /var/db/containers | awk 'NR == 2 { print $4 }')
 free_gb=$(( free_kb / 1024 / 1024 ))
 echo "==> builder VM: ${free_gb} GB free after cleanup" >&2
