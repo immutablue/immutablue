@@ -100,15 +100,19 @@ The default `make iso` uses `bootc-image-builder` (same tooling as qcow2), produ
 `arch-bootc` and `freebsd-be` are not supported by bootc-image-builder, so
 `make iso` runs their own `backends/<backend>/make-iso.sh` instead
 (`make ARCHLINUX=1 iso`, `make FREEBSD=1 iso` — the latter builds in the
-FreeBSD builder VM from Linux).
+FreeBSD builder VM from Linux). Both boot a live system whose text installer
+lays the image onto a disk; GNOME's first-login setup creates the user.
+`ISO_AUTOINSTALL=<disk>` bakes in an unattended install for tests. The
+FreeBSD installer (and `install-disk.sh`) takes several disks as a stripe,
+mirror or raidz1/2/3, with optional GELI full-disk encryption (one passphrase
+at the loader) and swap; `ISO_AUTOINSTALL_LAYOUT`, `_SWAP` and `_PASSPHRASE`
+drive that unattended.
 
 On Linux, `make FREEBSD=1 build|test|push|build-deps|push-deps` (and `all`)
 run in that builder VM by themselves (`makefiles/27-backend-vm.mk` →
 `builder-vm.sh delegate`); without a VM they print the
 `builder-vm.sh --libvirt create` command, and pushing needs a one-time
-`sudo podman login quay.io` inside the VM (`builder-vm.sh --libvirt ssh`). Both boot a live system whose text installer
-lays the image onto a disk; GNOME's first-login setup creates the user.
-`ISO_AUTOINSTALL=<disk>` bakes in an unattended install for tests.
+`sudo podman login quay.io` inside the VM (`builder-vm.sh --libvirt ssh`).
 
 **Important**: Run `make iso-config` before `make iso` to configure user accounts. Without it, no users are created in the ISO.
 

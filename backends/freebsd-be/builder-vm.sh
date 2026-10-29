@@ -70,7 +70,9 @@
 #   FREEBSD_VM_MIN_FREE_GB  free space 'make' needs in the VM after its
 #                      cleanup of old images (default: 50)
 #   FREEBSD_INSTALL_SSH_KEY a public key installed for root on that machine
-#   FREEBSD_ISO_AUTOINSTALL  disk the ISO installs to unattended (tests only)
+#   FREEBSD_ISO_AUTOINSTALL  disks the ISO installs to unattended (tests only)
+#   FREEBSD_ISO_AUTOINSTALL_LAYOUT, _SWAP, _PASSPHRASE  the rest of that
+#                      install (make-iso.sh --autoinstall-*)
 #   LIBVIRT_DEFAULT_URI  libvirt connection (default: qemu:///system)
 #
 # Host requirements (Fedora package names): qemu-kvm, xorriso,
@@ -601,10 +603,24 @@ vm_iso() {
     local host
     local port
 
+    # The ISO's work tree (~12 GB) and the ISO itself (~10 GB) need room.
+    vm_cleanup
     vm_sync
     if [[ -n "${FREEBSD_ISO_AUTOINSTALL:-}" ]]
     then
         auto="--autoinstall $(printf '%q' "${FREEBSD_ISO_AUTOINSTALL}")"
+        if [[ -n "${FREEBSD_ISO_AUTOINSTALL_LAYOUT:-}" ]]
+        then
+            auto+=" --autoinstall-layout $(printf '%q' "${FREEBSD_ISO_AUTOINSTALL_LAYOUT}")"
+        fi
+        if [[ -n "${FREEBSD_ISO_AUTOINSTALL_SWAP:-}" ]]
+        then
+            auto+=" --autoinstall-swap $(printf '%q' "${FREEBSD_ISO_AUTOINSTALL_SWAP}")"
+        fi
+        if [[ -n "${FREEBSD_ISO_AUTOINSTALL_PASSPHRASE:-}" ]]
+        then
+            auto+=" --autoinstall-passphrase $(printf '%q' "${FREEBSD_ISO_AUTOINSTALL_PASSPHRASE}")"
+        fi
     fi
     vm_ssh "cd immutablue && sudo bash backends/freebsd-be/make-iso.sh ${auto} $(printf '%q' "${IMAGE_REF}") ${remote}"
     read -r host port < <(vm_target)

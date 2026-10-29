@@ -13,11 +13,18 @@
 # libvirt builder, as for builder-vm.sh.
 #
 # Usage:
-#   make-iso.sh [--autoinstall DISK] <image:tag> <output.iso>
+#   make-iso.sh [--autoinstall DISKS [--autoinstall-layout L]
+#               [--autoinstall-swap SIZE] [--autoinstall-passphrase P]]
+#               <image:tag> <output.iso>
 #
 # Options:
-#   --autoinstall DISK  Install to DISK unattended at boot and power off
-#                       (for automated tests; wipes DISK without asking)
+#   --autoinstall DISKS  Install to DISKS (space-separated) unattended at boot
+#                        and power off (for automated tests; wipes them
+#                        without asking)
+#   --autoinstall-layout L      stripe, mirror, raidz1, raidz2 or raidz3
+#   --autoinstall-swap SIZE     swap on each disk, e.g. 2g
+#   --autoinstall-passphrase P  GELI-encrypt with passphrase P. It is stored
+#                               in the ISO's loader.conf.local: tests only
 #   -h, --help          Show this help message
 #   --license           Show license information
 #
@@ -69,6 +76,9 @@ cleanup() {
 
 main() {
     local autoinstall=""
+    local auto_layout=""
+    local auto_swap=""
+    local auto_pass=""
     local args=()
     local image
     local out
@@ -83,6 +93,9 @@ main() {
             -h|--help) show_help; return 0 ;;
             --license) echo 'make-iso.sh - part of Immutablue. AGPL-3.0-or-later.'; return 0 ;;
             --autoinstall) autoinstall="$2"; shift ;;
+            --autoinstall-layout) auto_layout="$2"; shift ;;
+            --autoinstall-swap) auto_swap="$2"; shift ;;
+            --autoinstall-passphrase) auto_pass="$2"; shift ;;
             -*) log "unknown option $1"; return 2 ;;
             *) args+=("$1") ;;
         esac
@@ -100,6 +113,8 @@ main() {
     then
         log "not on FreeBSD: building in the builder VM"
         FREEBSD_IMAGE_REF="${image}" FREEBSD_ISO_AUTOINSTALL="${autoinstall}" \
+            FREEBSD_ISO_AUTOINSTALL_LAYOUT="${auto_layout}" FREEBSD_ISO_AUTOINSTALL_SWAP="${auto_swap}" \
+            FREEBSD_ISO_AUTOINSTALL_PASSPHRASE="${auto_pass}" \
             exec bash "$(dirname "$0")/builder-vm.sh" iso "${out}"
     fi
     if [[ "$(id -u)" -ne 0 ]]
@@ -185,6 +200,18 @@ EOF
     if [[ -n "${autoinstall}" ]]
     then
         printf 'immutablue.autoinstall="%s"\n' "${autoinstall}" >> "${root}/boot/loader.conf.local"
+        if [[ -n "${auto_layout}" ]]
+        then
+            printf 'immutablue.autoinstall_layout="%s"\n' "${auto_layout}" >> "${root}/boot/loader.conf.local"
+        fi
+        if [[ -n "${auto_swap}" ]]
+        then
+            printf 'immutablue.autoinstall_swap="%s"\n' "${auto_swap}" >> "${root}/boot/loader.conf.local"
+        fi
+        if [[ -n "${auto_pass}" ]]
+        then
+            printf 'immutablue.autoinstall_passphrase="%s"\n' "${auto_pass}" >> "${root}/boot/loader.conf.local"
+        fi
     fi
     mkdir -p "${root}/usr/libexec/immutablue"
     install -m 0555 "$(dirname "$0")/iso/installer.sh" "${root}/usr/libexec/immutablue/freebsd-installer"
