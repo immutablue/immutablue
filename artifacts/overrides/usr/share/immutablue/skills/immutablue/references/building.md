@@ -42,7 +42,7 @@ This machine's is in `/usr/immutablue/backend` (or `immutablue-backend name`).
 |---------|------|----------|------|--------------|--------|
 | `fedora-bootc` | Fedora Atomic | dnf5 | systemd | bootc/ostree | default |
 | `gnomeos` | GNOME OS nightly | none | systemd | bootc/composefs | `DISTROLESS=1` is the same build |
-| `arch-bootc` | Arch Linux + bootc v1.17.1 | pacman | systemd | bootc/ostree | in-house projects and cmacs (`cmacs:arch`) ship; `make BACKEND=arch-bootc build-deps` first |
+| `arch-bootc` | Arch Linux + bootc v1.17.1 | pacman | systemd | bootc/ostree | in-house projects and cmacs (`cmacs:arch`) ship; `make BACKEND=arch-bootc build-deps` first; `LTS`/`ZFS`/`TRUEBLUE` (ArchZFS) and `KUBERBLUE` build too |
 | `freebsd-be` | FreeBSD 15.1 pkgbase | pkg | rc | ZFS boot environment | early; builds only on FreeBSD — on Linux `make` hands the work to a builder VM (below); in-house projects and cmacs (`cmacs:freebsd-15.1`) ship under `/usr/local`; `make FREEBSD=1 build-deps` first (neither image is published yet) |
 
 ```bash
@@ -291,13 +291,14 @@ call `backend_pkg_install`, `backend_svc` and the rest, and test
 | `10-copy.sh` | overrides and prebuilt deps into the image |
 | `20-add-repos.sh` | third-party repos (set to priority 200, below Fedora's 99) |
 | `29-kernel-zfs-nvidia.sh` *(fedora-bootc)* | udev rules, akmods, LTS kernel, kernel versionlock, ZFS DKMS, `rpm_url`, cyan NVIDIA |
-| `32-kernel-zfs.sh` *(arch-bootc)* | `LTS`: `linux` → `linux-lts`; `ZFS`/`LTS`: ArchZFS repo (vendored key, `SigLevel = Required TrustAll`), prebuilt `zfs-<kernel>` else `zfs-dkms`, ZFS units enabled — a kernel ArchZFS/OpenZFS doesn't support yet fails the build here |
 | `30-install-packages.sh` | package installation, and binaries fetched from releases |
 | `31-post-urls.sh` *(fedora-bootc)* | `rpm_post_url` |
+| `32-kernel-zfs.sh` *(arch-bootc)* | the kernel — `linux`, or `linux-lts` for `LTS`/`TRUEBLUE` (no `packages.yaml` list names one); `ZFS`/`LTS`: ArchZFS repo (vendored key, `SigLevel = Required TrustAll`), prebuilt `zfs-<kernel>` else `zfs-dkms`, ZFS units enabled — a kernel ArchZFS/OpenZFS doesn't support yet fails the build here |
+| `33-kuberblue-k8s.sh` *(arch-bootc)* | `KUBERBLUE`: upstream static kubeadm/kubelet/kubectl, the CRI-O bundle and cri-tools' crictl at the minor of `rpm_kuberblue.<CURRENT>` (the current Fedora release's), checksum-verified, under `/usr`; records it in `/usr/immutablue/kuberblue-k8s-minor` |
 | `35-mesa-freeworld.sh`, `36-ffmpeg-freeworld.sh` *(fedora-bootc)* | swap in RPM Fusion's full codecs |
 | `40-uninstall-packages.sh` | removals |
-| `50-remove-files.sh` | file removals |
-| `60-services.sh` | enable/disable/mask units |
+| `50-remove-files.sh` | file removals; a path the container runtime mounts into the build (`/etc/resolv.conf` on Arch) is skipped |
+| `60-services.sh` | enable/disable/mask units; disabling a unit that is not installed is skipped (variant lists are shared across backends) |
 | `65-crash-capture.sh` | unattended-tier kernel crash policy — [`crash-capture.md`](crash-capture.md); skipped on freebsd-be (`skip_stages`), as is `80-initramfs.sh` |
 | `11-freebsd-system.sh`, `31-freebsd-ports.sh`, `61-freebsd-desktop.sh` *(freebsd-be)* | rc.d services, pf, procfs, podman dataset, pkgconfig links; patched ports; dbus/gdm — see above |
 | `61-arch-system.sh` *(arch-bootc)* | networking, resolved, timesyncd, GDM: what Fedora presets and Arch does not |
@@ -375,6 +376,7 @@ bash tests/run_tests.sh --suite regressions
 ./tests/test_justfile_syntax.sh     # every shipped justfile parses
 ./tests/test_package_presence.sh    # packages.yaml matches the built image (per backend)
 ./tests/test_pkg_resolve.sh         # logical package resolution per backend
+./tests/test_os_release.sh          # generated os-release per backend and variant
 ./tests/test_backend_contract.sh    # every backend implements the interface
 ./tests/test_backend_dispatch.sh    # immutablue-backend verbs against stub tools
 ./tests/test_artifacts.sh           # every override file reached the image intact (minus the backend's drops_overrides)
@@ -419,3 +421,16 @@ Immutablue is designed to be built on. `immutablue-custom` is the fork point for
 personal variant; Hyacinth Macaw, Trueblue and Kuberblue are examples of the
 pattern. If a change is genuinely personal rather than general, it belongs in a
 derivative image rather than in Immutablue itself.
+
+A derived build ends with the base backend's `backend_finalize_derived`, not
+`backend_finalize` (immutablue-custom's `immutablue_custom_finalize` calls it):
+Fedora commits the ostree container, Arch drops pacman's cache and runs
+`bootc container lint` (its `backend_finalize` deletes `/var` and `/usr/local`
+and cannot run twice), FreeBSD re-records the stock `/etc` and modes. To brand
+os-release, call the base's generator from the derived `build/10-copy.sh`:
+
+```bash
+OS_RELEASE_NAME="Hyacinth Macaw" OS_RELEASE_URL="https://…" OS_RELEASE_HOSTNAME=hyacinth-macaw \
+    bash /usr/immutablue/scripts/os-release.sh "$(backend_dir)" \
+        "$(head -n 1 /usr/immutablue/build_options)" "$(backend_os_release_path)"
+```

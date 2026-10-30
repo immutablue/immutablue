@@ -95,7 +95,13 @@ confirms first and only stages; reboot to apply.
 
 Variants include `-cyan` (NVIDIA), `-lts`, `-trueblue` (ZFS + LTS), `-kuberblue`,
 `-nucleus` (headless), `-asahi` (Apple Silicon), `-kinoite`/`-sericea`/other
-desktop bases, and `-nix`.
+desktop bases, and `-nix`. Arch images are tagged `arch`, `arch-trueblue`,
+`arch-kuberblue-nucleus`, …, FreeBSD ones `15.1-freebsd…`.
+
+**Stay on your backend.** The picker lists every tag in the registry, Fedora,
+Arch and FreeBSD alike; check `cat /usr/immutablue/backend` and pick a tag of
+the same family (`arch*` on arch-bootc, a release number on fedora-bootc).
+Switching an installed system between backends is not supported.
 
 NVIDIA and rebasing (details in [`hardware.md`](hardware.md)):
 

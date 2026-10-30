@@ -83,19 +83,24 @@ The image's package set is data, not mystery:
 
 ```bash
 cat /usr/immutablue/packages.yaml
-rpm -qa | sort                    # what is actually in this deployment
+immutablue-backend list-pkgs      # what is actually in this deployment (rpm, pacman or pkg)
 rpm-ostree status                 # including anything layered on top
 flatpak list
 brew list
 distrobox list
 ```
 
-`packages.yaml` is organised by variant and architecture: `rpm`, `rpm_gui`,
-`rpm_silverblue`, `rpm_kinoite`, `rpm_nucleus`, `rpm_kuberblue`, `rpm_trueblue`,
-`rpm_x86_64`, and so on, each split into `all`, `<version>`, `all_<arch>` and
-`<version>_<arch>` sub-keys (`.immutablue.rpm.all`, `.immutablue.rpm_gui.all`),
-plus `rpm_rm*` lists of packages removed from the base image. If you are asked
-why some package is or is not present, that file is the answer.
+`packages.yaml` is organised by variant and architecture. Packages shared by
+backends are logical lists — `pkg`, `pkg_gui`, `pkg_silverblue`, `pkg_kuberblue`,
+`pkg_trueblue`, … — whose entries are a plain name or
+`{name: <fedora>, pacman: <arch>, freebsd: <freebsd>}` (`null` = not on that
+backend). Backend-only packages are in native lists named by the backend's
+package manager: `rpm*` (e.g. `rpm_kuberblue.<ver>`, Fedora's versioned
+Kubernetes), `pacman*`, `freebsd*`. Each splits into `all`, `<version>`,
+`all_<arch>` and `<version>_<arch>` sub-keys (`.immutablue.pkg.all`), and the
+`*_rm*` lists remove packages from the base image. If you are asked why some
+package is or is not present, that file is the answer — see
+[`building.md`](building.md) for the full schema.
 
 ## Updating what is installed
 

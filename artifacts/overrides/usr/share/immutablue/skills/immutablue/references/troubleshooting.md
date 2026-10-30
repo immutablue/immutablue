@@ -50,6 +50,11 @@ before answering from memory. See [`cmacs.md`](cmacs.md).
 | Black screen or no NVIDIA driver on a cyan (Fedora 44+) image | `immutablue nvidia_status`; `journalctl -b -u immutablue-nvidia.service` | [`hardware.md`](hardware.md) |
 | An always-on machine suspended anyway | the sleep targets are not masked | [`hardware.md`](hardware.md) |
 | Image build fails | `make pre_test` first; then the failing build script's output | [`building.md`](building.md) |
+| trueblue: the ZFS ARC is not capped at half of RAM | images before 0d27d9f never ran `zfs-arc-max.service` (wrong path, broken script); `cat /sys/module/zfs/parameters/zfs_arc_max` | update the image; meanwhile `echo <bytes> \| sudo tee` that file — [`updates.md`](updates.md) |
+| `/etc/os-release` says `Silverblue` on a kuberblue/nucleus/trueblue machine | images before d280d3a shipped one generic file per release | `image-info.json` has the real tag; update the image |
+| Arch `ZFS=1`/`TRUEBLUE=1` build stops in `32-kernel-zfs.sh` after "building zfs-dkms" | ArchZFS has not rebuilt for the kernel Arch just shipped, and OpenZFS does not support it yet | wait for ArchZFS, or build `TRUEBLUE=1` (linux-lts) — [`building.md`](building.md) |
+| Arch kuberblue build: "names no kubernetes<major>.<minor> package" | `rpm_kuberblue.<CURRENT>` in `packages.yaml` lacks the `kubernetes1.NN` entry for the current Fedora release | add it with the Fedora list — [`building.md`](building.md) |
+| `immutablue rebase` offers tags of another OS | the picker lists the whole registry | pick a tag of `cat /usr/immutablue/backend`'s family — [`updates.md`](updates.md) |
 | freebsd-be: every `podman` command fails with `cannot open '<pool>/ROOT/<BE>/<layer>': dataset does not exist` after an update | podman storage is inside the boot environment; `zfs list <pool>/containers` | [`updates.md`](updates.md), *Podman storage across updates* |
 | freebsd-be: `immutablue-backend upgrade` finishes but nothing changed | the image predates 72326fd and re-delivered its stale local copy (or the log says "pull failed; using the local copy" — offline) | [`updates.md`](updates.md) |
 | freebsd-be: `podman run` fails with "The pf kernel module must be loaded to support ipMasq networks" | image predates 26218c4 — update; or `/etc/pf.conf` lacks the marker line and needs podman's nat rules | [`updates.md`](updates.md) |
@@ -83,7 +88,7 @@ before answering from memory. See [`cmacs.md`](cmacs.md).
 | gowl keybinds and rules vanished after a reload in cmacs | `(gowl-reload-config)` with no argument resets to defaults; pass the YAML path | [`cmacs.md`](cmacs.md) |
 | `ai` uses the wrong provider or model | `immutablue ai_defaults` shows what resolved and from where | [`configuration.md`](configuration.md) |
 | Image build fails installing a 45Drives URL on trueblue | the pinned `rpm_post_url_trueblue` URL is dead or wrong | edit `packages.yaml` — [`building.md`](building.md) |
-| A dep's GUI or voice feature is missing after a submodule bump | its `-devel` package is not in `deps-container/00-build.sh`; optional parts are dropped silently | add it and rebuild the deps container — [`building.md`](building.md) |
+| A dep's GUI or voice feature is missing after a submodule bump | its `-devel` package is not in `packages.yaml` `build_deps`; optional parts are dropped silently | add it and rebuild the deps container — [`building.md`](building.md) |
 | Super+Alt+r / Super+Alt+m / Super+g / floatdesk keys do nothing | the module behind them is not enabled | [`gowl.md`](gowl.md), [`gowl-macros.md`](gowl-macros.md) |
 | `emacs --lrg=3dvr` opens a desktop 3D frame, or controllers do nothing | stderr; `M-x cmacs-lrg-vr-describe`; SteamVR dashboard must be closed | [`cmacs.md`](cmacs.md) |
 | `ai-call` fails at join or has no audio | STT/TTS/LiveKit endpoints; `gst-inspect-1.0 livekitwebrtcsrc`; try `--local` | [`automation.md`](automation.md) |
