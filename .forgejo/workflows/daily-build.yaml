@@ -9,8 +9,10 @@
 #   deps-previous ──┘
 #
 # Required secrets:
-#   QUAY_USER  - quay.io username
-#   QUAY_TOKEN - quay.io password/token
+#   QUAY_USER     - quay.io username
+#   QUAY_TOKEN    - quay.io password/token
+#   RELEASE_TOKEN - Forgejo API token, to dispatch hyacinth-macaw's build
+#                   (Forgejo refuses secret names starting with FORGEJO_)
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -200,10 +202,10 @@ jobs:
     steps:
       - name: Trigger hyacinth-macaw build
         env:
-          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           curl -sf -X POST \
-              -H "Authorization: token ${FORGEJO_TOKEN}" \
+              -H "Authorization: token ${RELEASE_TOKEN}" \
               -H "Content-Type: application/json" \
               -d '{"ref":"master"}' \
               "https://git.podbielniak.com/api/v1/repos/immutablue/hyacinth-macaw/actions/workflows/on-daily-build.yaml/dispatches"
