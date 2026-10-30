@@ -68,7 +68,7 @@
 #   FREEBSD_INSTALL_DOMAIN  domain 'install' creates (default: immutablue-freebsd)
 #   FREEBSD_INSTALL_DISK    its disk size (default: 60G)
 #   FREEBSD_VM_MIN_FREE_GB  free space 'make' needs in the VM after its
-#                      cleanup of old images (default: 50)
+#                      cleanup of old images (default: 70)
 #   FREEBSD_INSTALL_SSH_KEY a public key installed for root on that machine
 #   FREEBSD_ISO_AUTOINSTALL  disks the ISO installs to unattended (tests only)
 #   FREEBSD_ISO_AUTOINSTALL_LAYOUT, _SWAP, _PASSPHRASE  the rest of that
@@ -102,7 +102,9 @@ DOMAIN="${FREEBSD_VM_DOMAIN:-immutablue-freebsd-builder}"
 URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
 INSTALL_DOMAIN="${FREEBSD_INSTALL_DOMAIN:-immutablue-freebsd}"
 INSTALL_DISK="${FREEBSD_INSTALL_DISK:-60G}"
-MIN_FREE_GB="${FREEBSD_VM_MIN_FREE_GB:-50}"
+# 70: a squashed GNOME build ran out of disk at its commit with 55 GB free
+# (the ~12 GB image is written twice, beside its unsquashed layers).
+MIN_FREE_GB="${FREEBSD_VM_MIN_FREE_GB:-70}"
 
 
 show_help() {
@@ -620,6 +622,15 @@ vm_iso() {
         if [[ -n "${FREEBSD_ISO_AUTOINSTALL_PASSPHRASE:-}" ]]
         then
             auto+=" --autoinstall-passphrase $(printf '%q' "${FREEBSD_ISO_AUTOINSTALL_PASSPHRASE}")"
+        fi
+        if [[ -n "${FREEBSD_ISO_AUTOINSTALL_USER:-}" ]]
+        then
+            auto+=" --autoinstall-user $(printf '%q' "${FREEBSD_ISO_AUTOINSTALL_USER}")"
+            auto+=" --autoinstall-user-password $(printf '%q' "${FREEBSD_ISO_AUTOINSTALL_USER_PASSWORD:-}")"
+        fi
+        if [[ -n "${FREEBSD_ISO_AUTOINSTALL_DISPLAY_MANAGER:-}" ]]
+        then
+            auto+=" --autoinstall-display-manager $(printf '%q' "${FREEBSD_ISO_AUTOINSTALL_DISPLAY_MANAGER}")"
         fi
     fi
     vm_ssh "cd immutablue && sudo bash backends/freebsd-be/make-iso.sh ${auto} $(printf '%q' "${IMAGE_REF}") ${remote}"

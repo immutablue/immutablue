@@ -613,13 +613,41 @@ immutablue:
     - just
     - starship
     - fontconfig
+    # wlroots compositors (gowl, cmacs --gowl) get the display and input
+    # devices through libseat; on FreeBSD that is the seatd daemon.
+    - seatd
+    # Wi-Fi firmware for the common laptop chipsets (Intel, Realtek, Qualcomm
+    # Atheros, MediaTek). FreeBSD's installer fetches only the machine's own
+    # with fwget(8), but a boot environment is replaced on every update, so a
+    # package added on the machine would not survive one: they ship here, as
+    # linux-firmware does on Linux.
+    - wifi-firmware-iwlwifi-kmod
+    - wifi-firmware-rtw88-kmod
+    - wifi-firmware-rtw89-kmod
+    - wifi-firmware-ath11k-kmod
+    - wifi-firmware-mt76-kmod
   freebsd_silverblue:
     all:
     - gnome
-    - gdm
-    # FreeBSD's gnome package does not pull an X server in; GDM needs one
-    # (the Handbook installs xorg alongside gnome).
+    # The display managers, one chosen per machine (rc.d/immutablue_dm):
+    # FreeBSD's gdm (installed anyway: gnome depends on it) keeps GNOME's lock
+    # screen but is built X11-only, so it never lists Wayland sessions -- gowl
+    # and CMacs; LightDM lists xsessions and wayland-sessions alike.
+    - lightdm
+    - lightdm-gtk-greeter
+    # FreeBSD's gnome package does not pull an X server in; GNOME and the
+    # greeter need one (the Handbook installs xorg alongside gnome).
     - xorg
+    # The GPU's DRM driver (drm-612-kmod) and its firmware, which
+    # rc.d/immutablue_drm loads at boot by GPU vendor. Without them there is no
+    # /dev/dri: GNOME falls back to the unaccelerated scfb framebuffer and a
+    # wlroots session (gowl, CMacs) cannot start at all.
+    - drm-kmod
+    # GNOME Settings' Wi-Fi panel is a NetworkManager client, and FreeBSD
+    # has no NetworkManager: networkmgr is a tray network picker (GhostBSD's),
+    # wifimgr a plain window that edits wpa_supplicant.conf.
+    - networkmgr
+    - wifimgr
     # cmacs (quay.io/zachpodbielniak/cmacs:freebsd-15.1) links these and
     # nothing in GNOME pulls them in: OpenXR for the VR frames, ONNX Runtime
     # for hand tracking.

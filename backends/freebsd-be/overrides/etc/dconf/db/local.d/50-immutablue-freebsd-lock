@@ -1,0 +1,20 @@
+# Immutablue (freebsd-be): Super+L locks, or says why it cannot.
+#
+# GNOME Shell locks only when gdm is the display manager; under LightDM (see
+# .immutablue.freebsd.display_manager) GNOME cannot lock at all. GNOME's own
+# Super+L (the 'screensaver' media key) is replaced by a custom binding that
+# runs /usr/libexec/immutablue/freebsd-lock: it locks under gdm and, under
+# LightDM, shows a notification pointing at the gdm login screen.
+#
+# custom-keybindings is one array key, and dconf takes the later file's value
+# for a key set in two keyfiles, so this list repeats every entry of the
+# shared 00-immutablue-defaults list (tests/test_dconf_overrides.sh checks
+# that it does).
+[org/gnome/settings-daemon/plugins/media-keys]
+screensaver=@as []
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/immutablue-dictate/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/immutablue-lock/']
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/immutablue-lock]
+name='Lock screen'
+command='/usr/libexec/immutablue/freebsd-lock'
+binding='<Super>l'

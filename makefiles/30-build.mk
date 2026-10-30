@@ -154,6 +154,7 @@ ifeq ($(DISTROLESS),1)
 		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS) \
 		--build-arg=IMMUTABLUE_BUILD_OPTIONS=$(BUILD_OPTIONS) \
 		--build-arg=SKIP=$(SKIP) \
+		$(if $(CMACS_IMAGE),--build-arg=CMACS_IMAGE=$(CMACS_IMAGE)) \
 		.
 	sudo podman tag $(IMAGE):$(TAG) $(IMAGE):$(DATE_TAG)
 else
@@ -180,6 +181,7 @@ else
 		--build-arg=DO_INSTALL_AKMODS=$(DO_INSTALL_AKMODS) \
 		--build-arg=IMMUTABLUE_BUILD_OPTIONS=$(BUILD_OPTIONS) \
 		--build-arg=SKIP=$(SKIP) \
+		$(if $(CMACS_IMAGE),--build-arg=CMACS_IMAGE=$(CMACS_IMAGE)) \
 		.
 endif
 

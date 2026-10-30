@@ -2,7 +2,7 @@
 #
 # PROVIDE: immutablue_xorg
 # REQUIRE: FILESYSTEMS kld
-# BEFORE: gdm
+# BEFORE: gdm lightdm
 # KEYWORD: nojail
 #
 # Pick the X driver for machines without a DRM driver (freebsd-be GNOME).
@@ -10,7 +10,7 @@
 # Booted by UEFI with no /dev/dri/card0 -- a VM's virtio GPU, or a GPU whose
 # drm-kmod driver is not loaded -- Xorg's autoconfiguration matches
 # modesetting, scfb and vesa at once and gives up ("Cannot run in framebuffer
-# mode"), so GDM never shows. Then scfb, the UEFI framebuffer driver, is
+# mode"), so no display manager (LightDM, GDM) shows. Then scfb, the UEFI framebuffer driver, is
 # selected explicitly; on every other boot the snippet is removed so a real
 # DRM driver (or VESA under BIOS) is used as usual.
 #

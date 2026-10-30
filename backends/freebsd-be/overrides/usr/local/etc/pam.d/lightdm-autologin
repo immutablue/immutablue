@@ -1,0 +1,25 @@
+#%PAM-1.0
+#
+# Immutablue (freebsd-be): LightDM autologin.
+#
+# The port's sample ends its session stack with pam_permit, so an autologin
+# session got no XDG_RUNTIME_DIR (pam_xdg, in /etc/pam.d/system) and no
+# lastlog entry -- and a Wayland session (gowl, CMacs) cannot start without a
+# runtime directory. The session stack is now the system one, as for a login
+# with a password (/usr/local/etc/pam.d/lightdm). pkg installs the sample only
+# when this file is missing, so this one stays.
+
+# Block login if they are globally disabled
+account      required pam_nologin.so
+
+# Allow access without authentication
+auth      required pam_permit.so
+
+# Stop autologin if account requires action
+account   required pam_unix.so        no_warn try_first_pass
+
+# Can't change password
+password  required pam_deny.so
+
+# Setup session: as for a password login (pam_lastlog, pam_xdg)
+session   include  system

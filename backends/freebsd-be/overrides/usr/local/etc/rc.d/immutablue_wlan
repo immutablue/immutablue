@@ -1,0 +1,76 @@
+#!/bin/sh
+#
+# PROVIDE: immutablue_wlan
+# REQUIRE: FILESYSTEMS kld
+# BEFORE: netif
+# KEYWORD: nojail
+#
+# Bring Wi-Fi up without anyone writing rc.conf by hand.
+#
+# FreeBSD only creates a wlan(4) interface for a wireless card when rc.conf
+# names one (wlans_iwlwifi0="wlan0"); bsdinstall writes that, Immutablue's
+# installer lays an image down instead. So on each boot, before netif runs,
+# every wireless device the kernel found (net.wlan.devices) that rc.conf has
+# no wlans_ entry for gets one, with WPA and background DHCP, and an
+# /etc/wpa_supplicant.conf the network pickers (networkmgr, wifimgr) can
+# drive through wpa_supplicant's control socket. A machine that already
+# configures a card keeps its own settings: only missing entries are added.
+#
+# The firmware these cards need ships in the image (packages.yaml), so the
+# drivers load it on their own.
+#
+# Enabled on every freebsd-be image by stages/11-freebsd-system.sh.
+
+# rc.subr is FreeBSD's rc(8) library; not something shellcheck can follow.
+# shellcheck source=/dev/null
+. /etc/rc.subr
+
+name="immutablue_wlan"
+rcvar="immutablue_wlan_enable"
+start_cmd="${name}_start"
+stop_cmd=":"
+
+wpa_conf="/etc/wpa_supplicant.conf"
+
+immutablue_wlan_start()
+{
+    local devs dev n
+
+    devs="$(sysctl -n net.wlan.devices 2>/dev/null)"
+    [ -n "${devs}" ] || return 0
+
+    # The next free wlanN: one past the highest any wlans_ entry already uses.
+    n=0
+    for dev in $(sysrc -a 2>/dev/null | sed -n 's/^wlans_[^:]*: *wlan\([0-9]*\).*/\1/p')
+    do
+        [ "${dev}" -ge "${n}" ] && n=$((dev + 1))
+    done
+
+    for dev in ${devs}
+    do
+        if [ -n "$(sysrc -n -q "wlans_${dev}" 2>/dev/null)" ]
+        then
+            continue
+        fi
+        # The card itself only carries the wlan interface; the default
+        # (ifconfig_DEFAULT, SYNCDHCP) would hold the boot on a DHCP request
+        # that a bare 802.11 device can never answer.
+        sysrc "wlans_${dev}=wlan${n}" "ifconfig_${dev}=up" \
+            "ifconfig_wlan${n}=WPA DHCP" > /dev/null
+        echo "${name}: ${dev} -> wlan${n} (WPA, DHCP)"
+        n=$((n + 1))
+    done
+
+    # wpa_supplicant's control socket, readable by wheel (the installer's
+    # user is in it), with update_config so a picker can save networks.
+    if [ ! -f "${wpa_conf}" ]
+    then
+        printf 'ctrl_interface=/var/run/wpa_supplicant\nctrl_interface_group=wheel\nupdate_config=1\n' > "${wpa_conf}"
+        chmod 0600 "${wpa_conf}"
+        echo "${name}: wrote ${wpa_conf}"
+    fi
+}
+
+load_rc_config "${name}"
+: "${immutablue_wlan_enable:=NO}"
+run_rc_command "$1"

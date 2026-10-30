@@ -102,12 +102,16 @@ The default `make iso` uses `bootc-image-builder` (same tooling as qcow2), produ
 `make iso` runs their own `backends/<backend>/make-iso.sh` instead
 (`make ARCHLINUX=1 iso`, `make FREEBSD=1 iso` — the latter builds in the
 FreeBSD builder VM from Linux). Both boot a live system whose text installer
-lays the image onto a disk; GNOME's first-login setup creates the user.
+lays the image onto a disk; on Arch GNOME's first-login setup creates the
+user, on FreeBSD the installer asks for it and for the login screen (gdm with
+GNOME's lock screen, or LightDM, which also offers gowl and CMacs).
 `ISO_AUTOINSTALL=<disk>` bakes in an unattended install for tests. The
 FreeBSD installer (and `install-disk.sh`) takes several disks as a stripe,
 mirror or raidz1/2/3, with optional GELI full-disk encryption (one passphrase
-at the loader) and swap; `ISO_AUTOINSTALL_LAYOUT`, `_SWAP` and `_PASSPHRASE`
-drive that unattended.
+at the loader) and swap; `ISO_AUTOINSTALL_LAYOUT`, `_SWAP`, `_PASSPHRASE` and
+`_USER` (with `_USER_PASSWORD`) and `_DISPLAY_MANAGER` drive that unattended. The FreeBSD ISO is a
+hybrid image (GPT with isoboot and the ESP in its system area, as FreeBSD's
+own media), so `dd` to a USB stick boots it under UEFI and BIOS.
 
 On Linux, `make FREEBSD=1 build|test|push|build-deps|push-deps` (and `all`)
 run in that builder VM by themselves (`makefiles/27-backend-vm.mk` →
@@ -315,6 +319,7 @@ Located in `/usr/libexec/immutablue/just/`:
 ./tests/test_pkg_resolve.sh       # Logical package resolution per backend
 ./tests/test_os_release.sh        # Generated os-release per backend and variant
 ./tests/test_rebase_tags.sh       # Rebase tags limited to this backend's bootable images
+./tests/test_dconf_overrides.sh   # Backend dconf keyfiles keep the shared keybinding list
 ./tests/test_backend_dispatch.sh  # immutablue-backend verbs against stub tools
 ./tests/test_backend_contract.sh  # Every backend implements the interface
 ./tests/test_container.sh         # Container validation

@@ -101,6 +101,7 @@ These exist only on the variant that ships them:
 | Variant | Recipes |
 |---------|---------|
 | cyan (`10-cyan`) | `nvidia_status` (saved driver choice, no root), `nvidia_setup *args` (re-detect and save, or `--driver open\|580\|none`; reboot to apply), `enable_nvidia_kmod` (44+: re-detect; all: append kargs; reboot), `disable_nvidia_kmod` (44+: save `none`; remove kargs — before rebasing off `-cyan`). See [`hardware.md`](hardware.md) |
+| freebsd-be (`12-freebsd`) | `display_manager [gdm\|lightdm]` — show or choose the login screen (gdm: GNOME's lock screen; lightdm: also gowl and CMacs, but GNOME cannot lock). See [`desktop.md`](desktop.md) |
 | asahi (`25-asahi`) | `asahi_enable_notch_render` / `asahi_disable_notch_render` |
 | kuberblue (`30-kuberblue`) | `kube_init`, `kube_join *ARGS`, `kube_reset *FLAGS`, `kube_status`, `kube_doctor`, `kube_get_config`, `deploy file_path`, `deploy_all`, `kube_override file`, `kube_sops_setup`, `kube_encrypt` / `kube_decrypt *FILES`, `kube_refresh_token *FLAGS`, `kube_upgrade *ARGS`, `kube_untaint_master`, `kube_post_install`, `kube_add_kuberblue_user`, `kube_mcp_serve`, plus the boot hooks `on_boot`, `on_shutdown`, `first_boot`, `systemd_settings`, `run_post_install` |
 

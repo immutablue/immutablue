@@ -1,0 +1,43 @@
+#!/usr/local/bin/bash
+# freebsd-lock - Lock the GNOME session on freebsd-be, or say why it cannot
+#
+# GNOME Shell locks the screen only when gdm is the display manager: it
+# registers with gdm (org.gnome.DisplayManager) and needs it to unlock. Under
+# LightDM (chosen for the Wayland sessions gowl and CMacs, see
+# .immutablue.freebsd.display_manager) GNOME cannot lock at all -- GNOME
+# Shell refuses ("Screen Locking requires the GNOME display manager"), and an
+# X11 locker such as i3lock cannot take the keyboard and pointer from GNOME
+# Shell's grab. gowl and CMacs lock with their own gowl-lock either way.
+#
+# GNOME's Super+L is bound to this command on freebsd-be (dconf:
+# 50-immutablue-freebsd-lock): under gdm it locks; under LightDM it shows a
+# notification saying how to get a lockable GNOME (the gdm login screen).
+#
+# Usage: freebsd-lock [-h|--help] [--license]
+#
+# Examples:
+#   /usr/libexec/immutablue/freebsd-lock    # lock now (gdm), or explain
+#
+# Exit codes:
+#   0 - Locked
+#   1 - GNOME cannot lock under this login screen (a notification says so)
+set -euo pipefail
+
+case "${1:-}" in
+    -h|--help) sed -n '2,/^set -euo pipefail$/{/^set /d;s/^# \{0,1\}//;p}' "$0"; exit 0 ;;
+    --license) echo 'freebsd-lock - part of Immutablue. AGPL-3.0-or-later.'; exit 0 ;;
+    *) ;;
+esac
+
+# The check GNOME Shell itself makes: gdm owns org.gnome.DisplayManager.
+if gdbus call --system --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
+    --method org.freedesktop.DBus.NameHasOwner org.gnome.DisplayManager 2> /dev/null | grep -q true
+then
+    exec gdbus call --session --dest org.gnome.ScreenSaver \
+        --object-path /org/gnome/ScreenSaver --method org.gnome.ScreenSaver.Lock > /dev/null
+fi
+
+message="GNOME cannot lock the screen when LightDM is the login screen. For a lockable GNOME, switch to gdm: immutablue display_manager gdm (gowl and CMacs then start from a text console)."
+echo "freebsd-lock: ${message}" >&2
+notify-send --app-name=Immutablue --icon=system-lock-screen "Screen lock unavailable" "${message}" 2> /dev/null || true
+exit 1

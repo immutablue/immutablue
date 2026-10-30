@@ -95,6 +95,12 @@ before answering from memory. See [`cmacs.md`](cmacs.md).
 | `ai-call` fails at join or has no audio | STT/TTS/LiveKit endpoints; `gst-inspect-1.0 livekitwebrtcsrc`; try `--local` | [`automation.md`](automation.md) |
 | `cmacs-mcp` finds no socket | `emacsctl eval '(cmacs-mcp-socket-path)'`, then pass `--socket` | [`cmacs.md`](cmacs.md) |
 | The agent does not know about this system | `immutablue install_immutablue_skill`; `ls -l ~/.agents/skills/immutablue` | this skill |
+| freebsd-be: CMacs missing from LightDM's sessions | `cmacs:freebsd-15.1` built before cmacs 521d142 ships no session file — update the image | [`desktop.md`](desktop.md) |
+| freebsd-be: gowl / CMacs not offered at login | the login screen is gdm (X11-only on FreeBSD) — `immutablue display_manager lightdm`, or start them from a text console | [`desktop.md`](desktop.md) |
+| freebsd-be: GNOME says "Screen Locking requires the GNOME display manager" | expected under LightDM: GNOME cannot lock there (Super+L only notifies); for a lockable GNOME, `immutablue display_manager gdm` and reboot | [`desktop.md`](desktop.md) |
+| freebsd-be: choosing gowl or CMacs at login returns to the greeter | `~/.xsession-errors`: "Found 0 GPUs" means no DRM driver (`kldstat`; VM or NVIDIA); "Unterminated quoted string" means an image before the LightDM wrapper fix — update | [`desktop.md`](desktop.md) |
+| freebsd-be: no Wi-Fi panel in GNOME Settings, or no `wlan0` | expected (no NetworkManager on FreeBSD): `networkmgr`/`wifimgr`; `ifconfig wlan0` — `immutablue_wlan_enable`, firmware in the image | [`desktop.md`](desktop.md) |
+| freebsd-be ISO under Ventoy stops at `mountroot>` | Ventoy older than 1.1.08 has no FreeBSD 15 module — update Ventoy, or `dd` the (hybrid) ISO to the stick | [`building.md`](building.md) |
 | freebsd-be: the GNOME lock screen rejects the correct password | image predates b5341b3 (ConsoleKit2 patch, devfs `tty0` link) — update the image | [`desktop.md`](desktop.md) |
 | freebsd-be: gst exits at X11 start with `BadRequest (major opcode 0)` | gst older than 118d542 — update; `--wayland` meanwhile | [`gst.md`](gst.md) |
 | freebsd-be: gsurf shows a blank window, GTK criticals, or crashes | `GSURF_GVFS=1` or a non-`local` `GIO_USE_VFS` in the environment, or gsurf older than 268fb30 | [`gsurf.md`](gsurf.md) |

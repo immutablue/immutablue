@@ -102,6 +102,19 @@ immutablue:
     # registry.fedoraproject.org/fedora:44
     image: ""
 
+  # FreeBSD desktop (freebsd-be only; ignored elsewhere).
+  freebsd:
+    # The login screen, chosen at each boot by rc.d/immutablue_dm:
+    #   gdm     -- GNOME's; the GNOME lock screen works, but FreeBSD's gdm is
+    #              X11-only, so gowl and CMacs are not offered at login
+    #              (start them from a text console instead)
+    #   lightdm -- offers GNOME (X11) and the Wayland sessions gowl and CMacs,
+    #              but GNOME sessions cannot lock: GNOME Shell's lock screen
+    #              needs gdm, and its input grab keeps X lockers out (gowl and
+    #              CMacs lock with gowl-lock)
+    # The installer asks; 'immutablue display_manager <gdm|lightdm>' switches.
+    display_manager: gdm
+
 services:
   syncthing:
     # Tailscale mode:

@@ -25,8 +25,9 @@ endif
 # ships its own backends/<b>/make-iso.sh <image> <output.iso>; ISO_AUTOINSTALL
 # bakes an unattended install to that disk into the ISO (tests only). On
 # freebsd-be ISO_AUTOINSTALL may name several disks ("vtbd0 vtbd1"), and
-# ISO_AUTOINSTALL_LAYOUT / _SWAP / _PASSPHRASE choose the layout, swap and
-# GELI encryption of that install.
+# ISO_AUTOINSTALL_LAYOUT / _SWAP / _PASSPHRASE / _USER (with _USER_PASSWORD) /
+# _DISPLAY_MANAGER choose the layout, swap, GELI encryption, first user and
+# login screen of that install.
 iso: _check_not_distroless
 ifneq ($(wildcard backends/$(BACKEND)/make-iso.sh),)
 	@mkdir -p $(ISO_DIR)
@@ -34,6 +35,8 @@ ifneq ($(wildcard backends/$(BACKEND)/make-iso.sh),)
 		$(if $(ISO_AUTOINSTALL_LAYOUT),--autoinstall-layout $(ISO_AUTOINSTALL_LAYOUT)) \
 		$(if $(ISO_AUTOINSTALL_SWAP),--autoinstall-swap $(ISO_AUTOINSTALL_SWAP)) \
 		$(if $(ISO_AUTOINSTALL_PASSPHRASE),--autoinstall-passphrase "$(ISO_AUTOINSTALL_PASSPHRASE)") \
+		$(if $(ISO_AUTOINSTALL_USER),--autoinstall-user "$(ISO_AUTOINSTALL_USER)" --autoinstall-user-password "$(ISO_AUTOINSTALL_USER_PASSWORD)") \
+		$(if $(ISO_AUTOINSTALL_DISPLAY_MANAGER),--autoinstall-display-manager $(ISO_AUTOINSTALL_DISPLAY_MANAGER)) \
 		$(IMAGE):$(TAG) $(ISO_DIR)/immutablue-$(TAG).iso
 	cd $(ISO_DIR) && sha256sum immutablue-$(TAG).iso > immutablue-$(TAG).iso.CHECKSUM
 	@echo "ISO built: $(ISO_DIR)/immutablue-$(TAG).iso"

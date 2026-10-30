@@ -5,7 +5,8 @@
 # the way FreeBSD's own install media are: /tmp and /var are RAM disks, the
 # desktop and Immutablue's services stay off, and /etc/rc.local starts the
 # text installer (iso/installer.sh), which runs install-disk.sh with the live
-# root as its source. Boots under BIOS (cdboot) and UEFI (loader.efi).
+# root as its source. Boots under BIOS (cdboot) and UEFI (loader.efi), as a
+# CD and, being a hybrid image, written raw to a USB stick (dd).
 #
 # Runs as root on a FreeBSD host with the image in podman storage. On Linux
 # it hands the job to the builder VM (builder-vm.sh iso), where freebsd-be
@@ -14,7 +15,9 @@
 #
 # Usage:
 #   make-iso.sh [--autoinstall DISKS [--autoinstall-layout L]
-#               [--autoinstall-swap SIZE] [--autoinstall-passphrase P]]
+#               [--autoinstall-swap SIZE] [--autoinstall-passphrase P]
+#               [--autoinstall-user NAME --autoinstall-user-password P]
+#               [--autoinstall-display-manager gdm|lightdm]]
 #               <image:tag> <output.iso>
 #
 # Options:
@@ -23,6 +26,9 @@
 #                        without asking)
 #   --autoinstall-layout L      stripe, mirror, raidz1, raidz2 or raidz3
 #   --autoinstall-swap SIZE     swap on each disk, e.g. 2g
+#   --autoinstall-user NAME     create user NAME (with --autoinstall-user-
+#                               password P, also in loader.conf.local)
+#   --autoinstall-display-manager DM  the login screen, gdm or lightdm
 #   --autoinstall-passphrase P  GELI-encrypt with passphrase P. It is stored
 #                               in the ISO's loader.conf.local: tests only
 #   -h, --help          Show this help message
@@ -74,11 +80,95 @@ cleanup() {
 }
 
 
+# Make the ISO a hybrid image, so it also boots written raw to a USB stick
+# (dd, or any image writer) under UEFI and BIOS, as FreeBSD's own release
+# ISOs do (release/amd64/mkisoimages.sh).
+#
+# A plain El Torito ISO only boots as a CD: a USB stick has no MBR or GPT
+# for the firmware to find. This puts a protective MBR with BIOS boot code
+# (pmbr), a freebsd-boot partition carrying isoboot (which reads the loader
+# from the ISO9660 filesystem) and an EFI partition pointing at the ESP image
+# already inside the ISO into the ISO's 32 KB system area, which ISO9660
+# leaves unused. Booted that way the kernel still finds the root, because
+# GEOM labels the raw stick (da0) as iso9660/IMMUTABLUE just as it does cd0.
+#
+# param $1: the live root (for boot/pmbr and boot/isoboot)
+# param $2: the ISO to modify in place
+make_hybrid() {
+    if [[ $# -ne 2 ]]
+    then
+        echo 'make_hybrid() requires 2 positional arguments' >&2
+        echo 'make_hybrid <root> <iso>' >&2
+        exit 1
+    fi
+
+    local root="${1}"
+    local iso="${2}"
+    local entry
+    local et_platform=""
+    local et_lba=""
+    local et_sectors=""
+    local esp_param=""
+    local hybrid="${WORK}/hybrid.img"
+    local f
+
+    for f in "${root}/boot/pmbr" "${root}/boot/isoboot"
+    do
+        if [[ ! -f "${f}" ]]
+        then
+            log "cannot make a hybrid image: ${f#"${root}"} is not in the image"
+            exit 1
+        fi
+    done
+
+    # Where the El Torito EFI image sits in the ISO: etdump prints each boot
+    # catalog entry as one word of ';'-separated shell assignments
+    # (et_platform, et_lba in 2048-byte sectors, et_sectors in 512-byte
+    # ones), evaluated whole as mkisoimages.sh does -- after checking it is
+    # nothing but et_* assignments of plain words.
+    for entry in $(etdump --format shell "${iso}")
+    do
+        if [[ ! "${entry}" =~ ^(et_[a-z]+=[A-Za-z0-9._-]*;?)+$ ]]
+        then
+            log "unexpected etdump output: ${entry}"
+            exit 1
+        fi
+        eval "${entry}"
+        if [[ "${et_platform}" == "efi" ]] && [[ -n "${et_lba}" ]] && [[ -n "${et_sectors}" ]]
+        then
+            esp_param="-p efi::$(( et_sectors * 512 )):$(( et_lba * 2048 ))"
+            break
+        fi
+    done
+    if [[ -z "${esp_param}" ]]
+    then
+        log "cannot make a hybrid image: no EFI entry in ${iso}'s boot catalog"
+        exit 1
+    fi
+
+    # The GPT and boot code, sized to the ISO, then only its first 32 KB is
+    # written into the ISO: the backup GPT is left out, as on FreeBSD's media
+    # (the kernel notes "the secondary GPT header is not in the last LBA").
+    # shellcheck disable=SC2086 # esp_param is two words: -p and its value
+    mkimg -s gpt --capacity "$(stat -f %z "${iso}")" \
+        -b "${root}/boot/pmbr" \
+        -p "freebsd-boot:=${root}/boot/isoboot" \
+        ${esp_param} \
+        -o "${hybrid}"
+    dd if="${hybrid}" of="${iso}" bs=32k count=1 conv=notrunc status=none
+    rm -f "${hybrid}"
+    log "hybrid: GPT with isoboot (BIOS) and the ESP (UEFI) in the system area"
+}
+
+
 main() {
     local autoinstall=""
     local auto_layout=""
     local auto_swap=""
     local auto_pass=""
+    local auto_user=""
+    local auto_user_pass=""
+    local auto_dm=""
     local args=()
     local image
     local out
@@ -96,6 +186,9 @@ main() {
             --autoinstall-layout) auto_layout="$2"; shift ;;
             --autoinstall-swap) auto_swap="$2"; shift ;;
             --autoinstall-passphrase) auto_pass="$2"; shift ;;
+            --autoinstall-user) auto_user="$2"; shift ;;
+            --autoinstall-user-password) auto_user_pass="$2"; shift ;;
+            --autoinstall-display-manager) auto_dm="$2"; shift ;;
             -*) log "unknown option $1"; return 2 ;;
             *) args+=("$1") ;;
         esac
@@ -115,6 +208,8 @@ main() {
         FREEBSD_IMAGE_REF="${image}" FREEBSD_ISO_AUTOINSTALL="${autoinstall}" \
             FREEBSD_ISO_AUTOINSTALL_LAYOUT="${auto_layout}" FREEBSD_ISO_AUTOINSTALL_SWAP="${auto_swap}" \
             FREEBSD_ISO_AUTOINSTALL_PASSPHRASE="${auto_pass}" \
+            FREEBSD_ISO_AUTOINSTALL_USER="${auto_user}" FREEBSD_ISO_AUTOINSTALL_USER_PASSWORD="${auto_user_pass}" \
+            FREEBSD_ISO_AUTOINSTALL_DISPLAY_MANAGER="${auto_dm}" \
             exec bash "$(dirname "$0")/builder-vm.sh" iso "${out}"
     fi
     if [[ "$(id -u)" -ne 0 ]]
@@ -212,6 +307,15 @@ EOF
         then
             printf 'immutablue.autoinstall_passphrase="%s"\n' "${auto_pass}" >> "${root}/boot/loader.conf.local"
         fi
+        if [[ -n "${auto_user}" ]]
+        then
+            printf 'immutablue.autoinstall_user="%s"\nimmutablue.autoinstall_user_password="%s"\n' \
+                "${auto_user}" "${auto_user_pass}" >> "${root}/boot/loader.conf.local"
+        fi
+        if [[ -n "${auto_dm}" ]]
+        then
+            printf 'immutablue.autoinstall_display_manager="%s"\n' "${auto_dm}" >> "${root}/boot/loader.conf.local"
+        fi
     fi
     mkdir -p "${root}/usr/libexec/immutablue"
     install -m 0555 "$(dirname "$0")/iso/installer.sh" "${root}/usr/libexec/immutablue/freebsd-installer"
@@ -260,6 +364,7 @@ EOF
         -eltorito-alt-boot -e efiboot.img -no-emul-boot \
         -graft-points -o "${out}" \
         "/=${root}" "/efiboot.img=${WORK}/efiboot.img"
+    make_hybrid "${root}" "${out}"
     log "wrote ${out} ($(du -h "${out}" | cut -f1))"
 }
 

@@ -16,8 +16,24 @@ Check which one is running before advising:
 echo "${XDG_CURRENT_DESKTOP}"
 ```
 
-On **freebsd-be** the shipped session is GNOME (gdm, with ConsoleKit2 instead of
-logind). Images before immutablue `b5341b3` could not unlock the GNOME lock screen
+On **freebsd-be** the login screen is chosen per machine
+(`immutablue display_manager` shows it; `immutablue display_manager
+gdm|lightdm` switches; setting `.immutablue.freebsd.display_manager`):
+**gdm** (default) keeps GNOME Shell's lock screen but, being X11-only on
+FreeBSD, never offers gowl or CMacs — start those from a text console;
+**lightdm** offers GNOME (X11), gowl and CMacs, but GNOME sessions then
+cannot lock (GNOME Shell needs gdm; i3lock cannot take GNOME Shell's grab).
+Super+L runs `/usr/libexec/immutablue/freebsd-lock`, which locks under gdm and
+otherwise notifies and exits 1. Don't put `gdm_enable`/`lightdm_enable` in
+`rc.conf` by hand: `rc.d/immutablue_dm` writes `/etc/rc.conf.d/{gdm,lightdm}`
+from the setting at each boot, and updates reset `rc.conf`'s copies to `NO`.
+The installer creates the first user (and asks which login screen). GNOME
+Settings has no Wi-Fi panel on FreeBSD (it needs NetworkManager): use
+`networkmgr` or `wifimgr`, or `wpa_cli -i wlan0`; `rc.d/immutablue_wlan`
+creates the `wlan0` interface for each card at boot. gowl and CMacs need the
+GPU's DRM driver: `rc.d/immutablue_drm` loads `i915kms` (Intel) or `amdgpu`
+(AMD) at boot (`kldstat | grep -E 'i915|amdgpu'`); in a VM, or on NVIDIA, they
+stop at "Found 0 GPUs" while GNOME (X11) still runs. Images before immutablue `b5341b3` could not unlock the GNOME lock screen
 even with the right password (ConsoleKit2 had no usable VT and rejected gdm's
 session path); the fix is a patched, `pkg lock`ed `consolekit2` plus a devfs
 `ttyv0 -> tty0` link, so the answer there is to update the image, not to

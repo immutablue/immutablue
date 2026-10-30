@@ -44,8 +44,8 @@ EOF
 
 printf '%s\n' 44 44-nucleus 44-deps arch arch-trueblue arch-deps 15.1-freebsd 15.1-deps 43-distroless > "$temporary/tags"
 
-[[ "$(bash "$helper" filter arch-bootc < "$temporary/tags" | paste -sd ' ')" == "arch arch-trueblue" ]] || fail 'arch filter'
-[[ "$(bash "$helper" filter fedora-bootc < "$temporary/tags" | paste -sd ' ')" == "44 44-nucleus" ]] || fail 'fedora filter'
+[[ "$(bash "$helper" filter arch-bootc < "$temporary/tags" | paste -s -d ' ' -)" == "arch arch-trueblue" ]] || fail 'arch filter'
+[[ "$(bash "$helper" filter fedora-bootc < "$temporary/tags" | paste -s -d ' ' -)" == "44 44-nucleus" ]] || fail 'fedora filter'
 
 # The default backend is the machine's; an image without the file is Fedora.
 echo freebsd-be > "$temporary/backend"

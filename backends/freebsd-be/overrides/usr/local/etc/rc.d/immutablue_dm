@@ -1,0 +1,78 @@
+#!/bin/sh
+#
+# PROVIDE: immutablue_dm
+# REQUIRE: FILESYSTEMS
+# BEFORE: gdm lightdm
+# KEYWORD: nojail
+#
+# Start the login screen the machine has chosen: gdm or LightDM.
+#
+# GNOME images ship both. gdm keeps GNOME's lock screen working but is built
+# X11-only on FreeBSD, so it never offers the Wayland sessions (gowl, CMacs);
+# LightDM offers them, but under it GNOME sessions cannot lock (GNOME Shell's
+# lock screen needs gdm; /usr/libexec/immutablue/freebsd-lock explains). The
+# choice is the setting .immutablue.freebsd.display_manager (default gdm),
+# which the installer writes to /etc/immutablue/settings.yaml and
+# 'immutablue display_manager' changes.
+#
+# It cannot live in rc.conf: deliver.sh applies the image's rc.conf keys over
+# the machine's on every update, and the image keeps gdm_enable and
+# lightdm_enable at NO. load_rc_config reads /etc/rc.conf.d/<service> after
+# rc.conf, so each boot, before either display manager runs, the choice is
+# written there and wins; deliver.sh never touches those files.
+#
+# Enabled for GNOME variants by stages/61-freebsd-desktop.sh.
+
+# rc.subr is FreeBSD's rc(8) library; not something shellcheck can follow.
+# shellcheck source=/dev/null
+. /etc/rc.subr
+
+# rc(8) runs scripts with PATH=/sbin:/bin:/usr/sbin:/usr/bin and, at boot,
+# no HOME; immutablue-settings needs both (yq is in /usr/local/bin, and the
+# settings cascade starts in $HOME). Without them it returned nothing and
+# every machine got gdm.
+PATH="/etc:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
+HOME="${HOME:-/root}"
+export PATH HOME
+
+name="immutablue_dm"
+rcvar="immutablue_dm_enable"
+start_cmd="${name}_start"
+stop_cmd=":"
+
+confd="/etc/rc.conf.d"
+
+immutablue_dm_start()
+{
+    local dm gdm lightdm
+
+    dm="$(/usr/bin/immutablue-settings .immutablue.freebsd.display_manager 2> /dev/null)"
+    case "${dm}" in
+        lightdm)
+            gdm="NO"
+            lightdm="YES"
+            ;;
+        gdm|""|null)
+            dm="gdm"
+            gdm="YES"
+            lightdm="NO"
+            ;;
+        *)
+            echo "${name}: unknown display_manager '${dm}'; using gdm"
+            dm="gdm"
+            gdm="YES"
+            lightdm="NO"
+            ;;
+    esac
+
+    mkdir -p "${confd}"
+    printf '# Written at boot by rc.d/immutablue_dm from\n# .immutablue.freebsd.display_manager; edit the setting, not this file.\ngdm_enable="%s"\n' \
+        "${gdm}" > "${confd}/gdm"
+    printf '# Written at boot by rc.d/immutablue_dm from\n# .immutablue.freebsd.display_manager; edit the setting, not this file.\nlightdm_enable="%s"\n' \
+        "${lightdm}" > "${confd}/lightdm"
+    echo "${name}: ${dm}"
+}
+
+load_rc_config "${name}"
+: "${immutablue_dm_enable:=NO}"
+run_rc_command "$1"

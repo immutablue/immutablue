@@ -51,6 +51,11 @@ sysrc pf_enable=YES immutablue_podman_pf_enable=YES
 # <pool>/containers on machines installed before install-disk.sh did.
 sysrc immutablue_containers_enable=YES
 
+# Wi-Fi: rc.d/immutablue_wlan gives each wireless card the wlans_ entry and
+# wpa_supplicant.conf FreeBSD needs before netif will bring it up, which no
+# installer step writes (the firmware ships in packages.yaml).
+sysrc immutablue_wlan_enable=YES
+
 # ConsoleKit2 tracks and switches VTs through one console descriptor. It
 # tries /dev/tty (a daemon has none), then /dev/tty0, then /dev/console --
 # which it cannot open once X runs -- and ends on /dev/consolectl, where

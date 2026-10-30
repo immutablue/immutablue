@@ -5,8 +5,10 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 
 # 61-freebsd-desktop.sh (freebsd-be)
 #
-# GNOME variants: the display manager and the system bus it needs, which a
-# Fedora or Arch base enables through systemd presets and FreeBSD leaves off,
+# GNOME variants: the display manager (LightDM, configured in
+# overrides/usr/local/etc/lightdm/lightdm.conf.d/) and the system bus it
+# needs, which a Fedora or Arch base enables through systemd presets and
+# FreeBSD leaves off,
 # and the scfb framebuffer driver where no DRM device exists
 # (rc.d/immutablue_xorg). procfs on /proc, which GNOME also requires, is
 # mounted on every image (stage 11).
@@ -21,10 +23,57 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 # Classic in the session menu. The arguments are dropped from TryExec (Exec
 # keeps them).
 # Runs after 60-services.sh, once 30-install-packages.sh has installed gdm.
-if [[ -x /usr/local/etc/rc.d/gdm ]]
+# The display manager is chosen per machine: gdm (GNOME's lock screen works;
+# FreeBSD's gdm is X11-only, so it never lists wayland-sessions) or LightDM
+# (gowl and CMacs at login; GNOME sessions cannot lock under it). The setting is
+# .immutablue.freebsd.display_manager, and rc.d/immutablue_dm turns it into
+# /etc/rc.conf.d/{gdm,lightdm} at each boot. rc.conf itself keeps both at NO:
+# deliver.sh applies the image's rc.conf keys over a machine's on every
+# update, which would undo any choice written there.
+if [[ -x /usr/local/etc/rc.d/lightdm ]] && [[ -x /usr/local/etc/rc.d/gdm ]]
 then
-    sysrc dbus_enable=YES gdm_enable=YES immutablue_xorg_enable=YES
+    sysrc dbus_enable=YES gdm_enable=NO lightdm_enable=NO immutablue_dm_enable=YES \
+        immutablue_xorg_enable=YES immutablue_drm_enable=YES
 fi
+
+# The FreeBSD recipes (display_manager, ...), imported the way 90-post.sh
+# imports the variant justfiles.
+if [[ -f /usr/libexec/immutablue/just/12-freebsd.justfile ]] && \
+   ! grep -q '12-freebsd.justfile' /usr/libexec/immutablue/just/Justfile
+then
+    echo -e 'import "./12-freebsd.justfile"\n' >> /usr/libexec/immutablue/just/Justfile
+fi
+
+# LightDM runs every session through its session-wrapper, Xsession, handing it
+# the session's whole Exec line as ONE argument; the port's wrapper ends in
+# 'exec $@', whose word splitting breaks any Exec with quotes in it -- gowl's
+# and CMacs's ('/bin/sh -c '\''gowl; ...'\''') died with "Unterminated quoted
+# string". 'eval exec "$@"' parses the line once, as a shell would.
+xsession=/usr/local/etc/lightdm/Xsession
+if [[ -f "${xsession}" ]] && grep -q '^exec \$@$' "${xsession}"
+then
+    sed 's/^exec \$@$/eval exec "$@"/' "${xsession}" > "${xsession}.tmp"
+    cat "${xsession}.tmp" > "${xsession}"
+    rm -f "${xsession}.tmp"
+fi
+
+# wlroots compositors (gowl, cmacs --gowl) open the display and input devices
+# through libseat, which on FreeBSD talks to seatd; users reach its socket
+# through the video group (the installer adds its user there). Here rather
+# than in stage 11, which runs before 30-install-packages.sh installs seatd.
+if [[ -x /usr/local/etc/rc.d/seatd ]]
+then
+    sysrc seatd_enable=YES
+fi
+
+# GNOME on Wayland needs logind and does not run on FreeBSD; its
+# wayland-sessions entries would sit in the greeter's list beside the
+# working X11 GNOME, under the same names. Only GNOME's are removed: gowl's
+# and CMacs's are the reason LightDM is here.
+rm -f /usr/local/share/wayland-sessions/gnome.desktop \
+    /usr/local/share/wayland-sessions/gnome-wayland.desktop \
+    /usr/local/share/wayland-sessions/gnome-classic.desktop \
+    /usr/local/share/wayland-sessions/gnome-classic-wayland.desktop
 
 if [[ -x /usr/local/libexec/gnome-initial-setup ]] && ! pw usershow gnome-initial-setup > /dev/null 2>&1
 then

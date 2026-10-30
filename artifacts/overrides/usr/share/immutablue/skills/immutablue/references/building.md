@@ -88,7 +88,7 @@ sudo podman login quay.io                            #   root in the VM pushes
 | no VM exists | `delegate` creates nothing; it prints the two `create` commands and stops |
 | which VM | the libvirt domain if defined, else `images/freebsd-vm/builder.qcow2`; `--libvirt` / `FREEBSD_VM_LIBVIRT=1` override; a stopped VM is started |
 | push targets | refuse unless root in the VM is logged in to the image's registry (`podman login --get-login`); the workstation's login does not reach the VM |
-| disk space | every non-push `make` in the VM first removes stopped and buildah working containers, dated tags no longer the undated tag's image, and untagged images, then stops (listing what is left) when less than `FREEBSD_VM_MIN_FREE_GB` (default 50) is free |
+| disk space | every non-push `make` in the VM first removes stopped and buildah working containers, dated tags no longer the undated tag's image, and untagged images, then stops (listing what is left) when less than `FREEBSD_VM_MIN_FREE_GB` (default 70) is free |
 | deps manifest | `deps/` is synced as tracked files only, so `deps-container/dep_info.json` is generated on the workstation and the VM's make runs with `DEPS_MANIFEST_PREBUILT=1` |
 | delivery test | `builder-vm.sh deliver` stages the VM's own build as a boot environment (`deliver.sh --local`) |
 
@@ -345,17 +345,22 @@ directly on a FreeBSD host with the image in podman storage:
 
 ```bash
 install-disk.sh [--layout stripe|mirror|raidz1|raidz2|raidz3] [--encrypt --passphrase-file F] \
-    [--swap 2g] [--pool zimmutablue] [--hostname H] [--ssh-key F] [--yes] <image:tag> <disk>...
+    [--swap 2g] [--pool zimmutablue] [--hostname H] [--ssh-key F] \
+    [--user NAME --user-password-file F [--user-fullname TEXT]] [--yes] <image:tag> <disk>...
 ```
 
 Default layout is `stripe` for one disk, `mirror` for several; every disk gets the
 ESP, loader and `gptzfsboot`, so a mirror boots with any disk gone. `--encrypt`
 is GELI under ZFS (the loader asks once), swap is one-time-keyed, and GELI
 metadata backups land in `/var/backups/zfs<i>.eli`. Podman storage gets its own
-dataset, `<pool>/containers`. No user is created (GNOME's first-login setup
-does that). For automated tests, `ISO_AUTOINSTALL="vtbd0 vtbd1"` with
-`ISO_AUTOINSTALL_LAYOUT`, `ISO_AUTOINSTALL_SWAP` and `ISO_AUTOINSTALL_PASSPHRASE`
+dataset, `<pool>/containers`. `--user` creates the first user (wheel,
+operator, video) and `--display-manager gdm|lightdm` the login screen (written
+to `/etc/immutablue/settings.yaml`); the ISO's installer asks for both. For automated tests, `ISO_AUTOINSTALL="vtbd0 vtbd1"` with
+`ISO_AUTOINSTALL_LAYOUT`, `_SWAP`, `_PASSPHRASE`, `_USER`/`_USER_PASSWORD` and `_DISPLAY_MANAGER`
 (stored readable on the ISO — tests only) installs without asking and powers off.
+The ISO is a hybrid image: `dd` it to a USB stick and it boots under UEFI and
+BIOS; under Ventoy it needs Ventoy 1.1.08 or later (FreeBSD 15 support), or the
+kernel stops at `mountroot>`.
 
 Lima is the quickest way to boot what you just built on the same machine. Output
 paths come from `immutablue.gen.*` in `settings.yaml`.
@@ -378,6 +383,7 @@ bash tests/run_tests.sh --suite regressions
 ./tests/test_pkg_resolve.sh         # logical package resolution per backend
 ./tests/test_os_release.sh          # generated os-release per backend and variant
 ./tests/test_rebase_tags.sh         # rebase offers only this backend's bootable tags
+./tests/test_dconf_overrides.sh     # backend dconf keyfiles keep the shared keybinding list
 ./tests/test_backend_contract.sh    # every backend implements the interface
 ./tests/test_backend_dispatch.sh    # immutablue-backend verbs against stub tools
 ./tests/test_artifacts.sh           # every override file reached the image intact (minus the backend's drops_overrides)

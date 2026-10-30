@@ -40,9 +40,9 @@
 # setuid/setgid/schg modes are restored (buildah drops them, see
 # backend_finalize), and the machine-specific files are written: loader.conf
 # (ZFS, video console), rc.conf (hostname, DHCP on every interface),
-# and the pool cache. No user is created: GNOME images ask for the first user
-# through gnome-initial-setup at first login; --ssh-key installs a root key for
-# headless access.
+# and the pool cache. --user creates the first user (in wheel, operator and
+# video -- the last for seatd, which gowl and CMacs sessions use);
+# --ssh-key installs a root key for headless access.
 #
 # Usage:
 #   install-disk.sh [options] <image:tag> <disk>...
@@ -62,6 +62,15 @@
 #                     boot when --encrypt
 #   --pool NAME       zpool name (default: zimmutablue; must not exist on the host)
 #   --hostname NAME   hostname (default: immutablue)
+#   --user NAME       create the user NAME (needs --user-password-file)
+#   --user-fullname TEXT
+#                     the user's full name (default: NAME)
+#   --user-password-file FILE
+#                     the user's password, the whole file (a trailing newline
+#                     is removed)
+#   --display-manager gdm|lightdm
+#                     the login screen (.immutablue.freebsd.display_manager in
+#                     /etc/immutablue/settings.yaml; default: the image's, gdm)
 #   --ssh-key FILE    install FILE as root's authorized_keys
 #   --yes             do not ask before destroying the disk's contents
 #   --source-root DIR install from a directory tree instead of a podman image:
@@ -89,10 +98,19 @@
 
 set -euo pipefail
 
+# The installer ISO runs this from rc(8), whose PATH has no /usr/local; yq,
+# bash's helpers and pkg live there.
+PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
+export PATH
+
 STOCK_REL="usr/share/immutablue/stock"
 POOL="zimmutablue"
 HOSTNAME_NEW="immutablue"
 SSH_KEY=""
+USER_NAME=""
+USER_FULLNAME=""
+USER_PASSFILE=""
+DISPLAY_MANAGER=""
 SOURCE_ROOT=""
 ASSUME_YES=0
 LAYOUT=""
@@ -260,6 +278,10 @@ main() {
             --pool) POOL="$2"; shift ;;
             --hostname) HOSTNAME_NEW="$2"; shift ;;
             --ssh-key) SSH_KEY="$2"; shift ;;
+            --user) USER_NAME="$2"; shift ;;
+            --user-fullname) USER_FULLNAME="$2"; shift ;;
+            --user-password-file) USER_PASSFILE="$2"; shift ;;
+            --display-manager) DISPLAY_MANAGER="$2"; shift ;;
             --yes) ASSUME_YES=1 ;;
             --source-root) SOURCE_ROOT="$2"; shift ;;
             --layout) LAYOUT="$2"; shift ;;
@@ -310,6 +332,24 @@ main() {
     if [[ $(printf '%s\n' "${disks[@]}" | sort -u | wc -l) -ne ${#disks[@]} ]]
     then
         log "a disk is listed twice"
+        return 2
+    fi
+    if [[ -n "${USER_NAME}" ]]
+    then
+        if [[ ! "${USER_NAME}" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]
+        then
+            log "--user: '${USER_NAME}' is not a valid user name (lower case, digits, _ and -; 32 at most)"
+            return 2
+        fi
+        if [[ -z "${USER_PASSFILE}" ]] || [[ ! -s "${USER_PASSFILE}" ]]
+        then
+            log "--user needs a non-empty --user-password-file"
+            return 2
+        fi
+    fi
+    if [[ -n "${DISPLAY_MANAGER}" ]] && [[ "${DISPLAY_MANAGER}" != "gdm" ]] && [[ "${DISPLAY_MANAGER}" != "lightdm" ]]
+    then
+        log "--display-manager takes gdm or lightdm"
         return 2
     fi
     if [[ ${ENCRYPT} -eq 1 ]] && { [[ -z "${PASSFILE}" ]] || [[ ! -s "${PASSFILE}" ]]; }
@@ -515,6 +555,41 @@ EOF
         ifconfig_DEFAULT="SYNCDHCP" \
         zfs_enable="YES" \
         sshd_enable="YES" > /dev/null
+    # The first user. The display manager (LightDM) has no first-login setup
+    # to create one, as gdm's gnome-initial-setup did. wheel for sudo and the
+    # wpa_supplicant control socket, operator for shutdown, video for seatd.
+    # pw(8) reads the password from fd 0 (-h 0); the home directory lands on
+    # <pool>/home, mounted under the install root. The shell is pw.conf's.
+    if [[ -n "${USER_NAME}" ]]
+    then
+        printf '%s\n' "$(cat "${USER_PASSFILE}")" \
+            | pw -R "${ALTROOT}" useradd "${USER_NAME}" -c "${USER_FULLNAME:-${USER_NAME}}" \
+                -m -G wheel,operator,video -h 0
+        log "created user ${USER_NAME}"
+    fi
+    # The login screen, in the machine's settings (which updates keep);
+    # rc.d/immutablue_dm reads it at each boot. The file is new on a fresh
+    # install and is written whole; yq merges only into one that has content.
+    # It is read back, so a write that went wrong fails the install instead
+    # of leaving the machine on gdm.
+    if [[ -n "${DISPLAY_MANAGER}" ]]
+    then
+        local settings="${ALTROOT}/etc/immutablue/settings.yaml"
+        mkdir -p "$(dirname "${settings}")"
+        if [[ -s "${settings}" ]]
+        then
+            yq -i ".immutablue.freebsd.display_manager = \"${DISPLAY_MANAGER}\"" "${settings}"
+        else
+            printf '# Immutablue Settings file -- see /usr/immutablue/settings.yaml\n# Written by install-disk.sh --display-manager.\nimmutablue:\n  freebsd:\n    display_manager: %s\n' \
+                "${DISPLAY_MANAGER}" > "${settings}"
+        fi
+        if [[ "$(yq '.immutablue.freebsd.display_manager' "${settings}")" != "${DISPLAY_MANAGER}" ]]
+        then
+            log "could not record the login screen in ${settings#"${ALTROOT}"}"
+            return 1
+        fi
+        log "login screen: ${DISPLAY_MANAGER}"
+    fi
     # Everything by GPT label (device names shift when a disk is gone), and
     # failok: with a mirror or raidz the system still boots when the first
     # disk -- the one whose ESP is mounted -- has died; a failed fstab mount
