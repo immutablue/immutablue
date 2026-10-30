@@ -613,6 +613,11 @@ immutablue:
     - just
     - starship
     - fontconfig
+    # Cloudflare Tunnel client (net/cloudflared), on every FreeBSD image.
+    - cloudflared
+    # Linux images get onefetch from brew or a box; FreeBSD has a native
+    # package and no Flatpak/distrobox, so it ships here.
+    - onefetch
     # wlroots compositors (gowl, cmacs --gowl) get the display and input
     # devices through libseat; on FreeBSD that is the seatd daemon.
     - seatd
@@ -648,6 +653,11 @@ immutablue:
     # wifimgr a plain window that edits wpa_supplicant.conf.
     - networkmgr
     - wifimgr
+    # Browsers: Linux images get them as Flatpaks (org.mozilla.firefox), which
+    # FreeBSD cannot run (bubblewrap needs Linux namespaces), so the native
+    # packages ship in the image.
+    - firefox
+    - librewolf
     # cmacs (quay.io/zachpodbielniak/cmacs:freebsd-15.1) links these and
     # nothing in GNOME pulls them in: OpenXR for the VR frames, ONNX Runtime
     # for hand tracking.
