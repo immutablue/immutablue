@@ -71,7 +71,7 @@ When something here does not match what you see, or you are asked about a
 feature this skill does not cover, check how far the image and the skill have
 drifted before answering:
 
-<!-- skill-baseline:start — reviewed 2026-10-29; update with the skill, see AGENTS.md -->
+<!-- skill-baseline:start — reviewed 2026-10-30; update with the skill, see AGENTS.md -->
 ```bash
 # CHANGED = the image and this skill were written against different commits.
 while read -r name base; do
@@ -81,7 +81,7 @@ while read -r name base; do
     else state="CHANGED"; fi
     printf '%-20s %-13s skill=%.12s image=%.12s\n' "${name}" "${state}" "${base}" "${image}"
 done <<'EOF'
-immutablue           e85b48be2022dbf4cc7cba6adee9f5fa8cb05a94
+immutablue           5c0c1f44b6dafb720fe2ea59c7df9b6bbb4874e1
 ai-glib              02678e0e24cc91cae9c44244b66d2ea212ed8dfa
 bacon                f0a1c596cd454e2063b7d1149a50327eaf8c861e
 crispy               9b9ec4eeffb2bd84e76b91cd9196133e79fc8344
@@ -99,13 +99,15 @@ EOF
 
 Every line was fully reviewed on 2026-10-29: each component's changes since the previous baseline were read from source and written into the guides. Of note: the freebsd-be backend grew up — the in-house projects and cmacs under `/usr/local`, patched ports (ConsoleKit2, so the GNOME lock screen unlocks), podman storage on its own dataset, `deliver.sh` always pulling with progress, an installer with mirror/raidz layouts and GELI full-disk encryption, and `make FREEBSD=1` running in the builder VM ([building](references/building.md), [updates](references/updates.md), [desktop](references/desktop.md)); gowl's tag transitions, JSON-RPC wire protocol, screen-sharing portal, `menu-choose`, and the new [gabbrev](references/gowl-gabbrev.md) text expander and [hotkey](references/gowl-hotkey.md) module; gsurf's local-file addresses and uBlock/EasyList filter lists; cmacs's voice loop, camera, hand tracking and SpaceMouse; ai-glib's `ai decide` backends and `ai benchmark`. crispy, mcp-glib, yaml-glib, bacon and podomation changed for FreeBSD portability (plus podomation's Linux-only `fs_mount` noted in [automation](references/automation.md)); mcp-gdb-glib and mcp-kuberblue-glib did not change.
 
-A second review the same day brought immutablue itself up to `d280d3a` (no `deps/` pin or cmacs moved): arch-bootc gained `LTS`/`ZFS`/`TRUEBLUE` through ArchZFS and `KUBERBLUE` at the current Fedora release's Kubernetes minor; os-release is now generated per image (name, release and variant); derived images finish with `backend_finalize_derived`; trueblue's `zfs-arc-max` works for the first time; and `immutablue rebase` offers only the running backend's bootable tags (the commit after the baseline adds `immutablue-rebase-tags`; earlier images list every tag); gowl moved only to `11a1d63`, a wlroots 0.19 build fix with no behaviour change on 0.20 ([building](references/building.md), [updates](references/updates.md), [packages](references/packages.md), [troubleshooting](references/troubleshooting.md)).
+A second review the same day brought immutablue itself up to `d280d3a` (no `deps/` pin or cmacs moved): arch-bootc gained `LTS`/`ZFS`/`TRUEBLUE` through ArchZFS and `KUBERBLUE` at the current Fedora release's Kubernetes minor; os-release is now generated per image (name, release and variant); derived images finish with `backend_finalize_derived`; trueblue's `zfs-arc-max` works for the first time; and `immutablue rebase` offers only the running backend's bootable tags (images before `2686025` list every tag); gowl moved only to `11a1d63`, a wlroots 0.19 build fix with no behaviour change on 0.20 ([building](references/building.md), [updates](references/updates.md), [packages](references/packages.md), [troubleshooting](references/troubleshooting.md)).
+
+A review on 2026-10-30 brought immutablue up to `5c0c1f4` and cmacs to `b7b8656` (no `deps/` pin moved). On freebsd-be each machine now chooses its login screen — gdm, with GNOME's lock screen, or LightDM, which also offers the gowl and CMacs Wayland sessions but under which GNOME cannot lock (Super+L says so) — in the installer or with `immutablue display_manager`; Wi-Fi works through firmware packages, `immutablue_wlan` and the networkmgr/wifimgr pickers; `immutablue_drm` loads the GPU's DRM driver; the installer creates the first user; and the ISO is a hybrid that boots when `dd`'d to a USB stick. cmacs's two commits only ship `cmacs.desktop` in the FreeBSD image ([desktop](references/desktop.md), [building](references/building.md), [recipes](references/recipes.md), [troubleshooting](references/troubleshooting.md)).
 
 For manifests with `dependency_image`, `.deps` comes from the digest-pinned dependency container, while `.immutablue` identifies the main image checkout. Older manifests were generated from that checkout's submodules and can misidentify binaries from a separately built dependency container. Do not treat a missing entry as proof that a component is absent, or replace an artifact's recorded commit with a newer local submodule pin. See [the build guide](references/building.md) for migration and scope.
 
 cmacs is not in `dep_info.json`: it arrives from the cmacs container image, not a
 `deps/` submodule. The cmacs material in this skill was checked against cmacs
-`28957a8ba78c281cffccc3af949f6039157b8253` (reviewed 2026-10-29). The manual
+`b7b8656deec28f0917860a8cddd4a54a9d71902f` (reviewed 2026-10-30). The manual
 installed under `/usr/share/emacs/*/doc_org/cmacs/` matches the installed cmacs
 and what it links in — read that rather than diffing. Its `deps/<dep>/` docs
 follow **cmacs's own submodule pins**, which differ from immutablue's: at this
