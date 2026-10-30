@@ -1,0 +1,10 @@
+# Immutablue (freebsd-be): show tray icons in GNOME.
+#
+# networkmgr, the Wi-Fi and network picker, is only a tray icon (its
+# autostart entry runs 'sudo networkmgr' and it has no window of its own).
+# GNOME has no tray unless the Status Icons extension, shipped by
+# gnome-shell-extensions, is enabled; FreeBSD's gnome-shell has no
+# gnome-extensions command to turn it on, so it is on by default here. Users
+# who enable other extensions replace this list with their own, as usual.
+[org/gnome/shell]
+enabled-extensions=['status-icons@gnome-shell-extensions.gcampax.github.com']

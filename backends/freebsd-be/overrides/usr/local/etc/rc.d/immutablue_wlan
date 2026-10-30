@@ -17,7 +17,9 @@
 # configures a card keeps its own settings: only missing entries are added.
 #
 # The firmware these cards need ships in the image (packages.yaml), so the
-# drivers load it on their own.
+# drivers load it on their own. Cards whose drivers attach after this runs
+# (iwlwifi, rtw88/rtw89: they wait for their firmware) are handled by
+# /usr/local/etc/devd/immutablue-wlan.conf, which runs this again on attach.
 #
 # Enabled on every freebsd-be image by stages/11-freebsd-system.sh.
 

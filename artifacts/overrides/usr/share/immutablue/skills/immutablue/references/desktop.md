@@ -29,8 +29,12 @@ otherwise notifies and exits 1. Don't put `gdm_enable`/`lightdm_enable` in
 from the setting at each boot, and updates reset `rc.conf`'s copies to `NO`.
 The installer creates the first user (and asks which login screen). GNOME
 Settings has no Wi-Fi panel on FreeBSD (it needs NetworkManager): use
-`networkmgr` or `wifimgr`, or `wpa_cli -i wlan0`; `rc.d/immutablue_wlan`
-creates the `wlan0` interface for each card at boot. gowl and CMacs need the
+`networkmgr` (a tray icon; GNOME shows it through the Status Icons extension,
+on by default on FreeBSD) or `wifimgr` (a window), or `wpa_cli -i wlan0`;
+`rc.d/immutablue_wlan` creates the `wlan0` interface for each card at boot, and
+`/usr/local/etc/devd/immutablue-wlan.conf` for cards that attach later
+(iwlwifi, rtw88/rtw89). There is no `gnome-extensions` command on FreeBSD; use
+`gsettings set org.gnome.shell enabled-extensions …`. gowl and CMacs need the
 GPU's DRM driver: `rc.d/immutablue_drm` loads `i915kms` (Intel) or `amdgpu`
 (AMD) at boot (`kldstat | grep -E 'i915|amdgpu'`); in a VM, or on NVIDIA, they
 stop at "Found 0 GPUs" while GNOME (X11) still runs. Images before immutablue `b5341b3` could not unlock the GNOME lock screen
