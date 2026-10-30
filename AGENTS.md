@@ -314,6 +314,7 @@ Located in `/usr/libexec/immutablue/just/`:
 ./tests/test_package_presence.sh  # Assert packages.yaml matches the image (per backend)
 ./tests/test_pkg_resolve.sh       # Logical package resolution per backend
 ./tests/test_os_release.sh        # Generated os-release per backend and variant
+./tests/test_rebase_tags.sh       # Rebase tags limited to this backend's bootable images
 ./tests/test_backend_dispatch.sh  # immutablue-backend verbs against stub tools
 ./tests/test_backend_contract.sh  # Every backend implements the interface
 ./tests/test_container.sh         # Container validation

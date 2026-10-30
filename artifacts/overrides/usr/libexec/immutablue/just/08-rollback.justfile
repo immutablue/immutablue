@@ -58,13 +58,34 @@ rollback:
 
 
 # Rebase onto another Immutablue variant, chosen from the registry
+# (only this machine's backend; --force to name a tag of another one)
 [group('rollback')]
-rebase tag="":
+rebase tag="" *FLAGS:
     #!/bin/bash
     set -euo pipefail
 
     image="{{ IMMUTABLUE_IMAGE }}"
     tag="{{ tag }}"
+    force=0
+    for flag in {{ FLAGS }}
+    do
+        case "${flag}" in
+            --force) force=1 ;;
+            *) echo "Unknown flag: ${flag} (only --force)" >&2; exit 1 ;;
+        esac
+    done
+    # 'immutablue rebase --force' with no tag arrives with --force as the tag.
+    if [[ "${tag}" == "--force" ]]
+    then
+        tag=""
+        force=1
+    fi
+
+    # The registry holds every backend's images and the build containers under
+    # one repository; a machine may only move between its own backend's images
+    # (immutablue-rebase-tags documents the naming).
+    tags_helper="/usr/libexec/immutablue/immutablue-rebase-tags"
+    backend="$("${tags_helper}" current)"
 
     # Tags come from the registry rather than a hardcoded list, so a variant
     # added to the build matrix shows up here without this file changing, and a
@@ -79,11 +100,12 @@ rebase tag="":
         fi
 
         echo "Fetching available tags from ${image}..." >&2
-        tags="$(skopeo list-tags "docker://${image}" 2>/dev/null | jq -r '.Tags[]' | sort -rV)"
+        tags="$(skopeo list-tags "docker://${image}" 2>/dev/null | jq -r '.Tags[]' \
+            | "${tags_helper}" filter "${backend}" | sort -rV)"
 
         if [[ -z "${tags}" ]]
         then
-            echo "Could not list tags for ${image}." >&2
+            echo "Could not list ${backend} tags for ${image}." >&2
             exit 1
         fi
 
@@ -112,6 +134,22 @@ rebase tag="":
     then
         echo "Nothing selected."
         exit 0
+    fi
+
+    # A tag typed by hand is checked too: a build container is never bootable,
+    # and another backend's image is refused unless --force says it is meant.
+    tag_backend="$("${tags_helper}" backend "${tag}")"
+    if [[ "${tag_backend}" == "none" ]]
+    then
+        echo "${image}:${tag} is not a bootable Immutablue image (a build container, or an unknown tag)." >&2
+        exit 1
+    fi
+    if [[ "${tag_backend}" != "${backend}" ]] && [[ ${force} -eq 0 ]]
+    then
+        echo "${tag} is a ${tag_backend} image; this machine runs ${backend}." >&2
+        echo "Switching an installed system between backends is not supported." >&2
+        echo "Pass --force to try anyway: immutablue rebase ${tag} --force" >&2
+        exit 1
     fi
 
     echo ""

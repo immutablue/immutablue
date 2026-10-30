@@ -81,7 +81,7 @@ while read -r name base; do
     else state="CHANGED"; fi
     printf '%-20s %-13s skill=%.12s image=%.12s\n' "${name}" "${state}" "${base}" "${image}"
 done <<'EOF'
-immutablue           d280d3acf80239f6c7a489c6be7a0210962bb73f
+immutablue           e85b48be2022dbf4cc7cba6adee9f5fa8cb05a94
 ai-glib              02678e0e24cc91cae9c44244b66d2ea212ed8dfa
 bacon                f0a1c596cd454e2063b7d1149a50327eaf8c861e
 crispy               9b9ec4eeffb2bd84e76b91cd9196133e79fc8344
@@ -99,7 +99,7 @@ EOF
 
 Every line was fully reviewed on 2026-10-29: each component's changes since the previous baseline were read from source and written into the guides. Of note: the freebsd-be backend grew up — the in-house projects and cmacs under `/usr/local`, patched ports (ConsoleKit2, so the GNOME lock screen unlocks), podman storage on its own dataset, `deliver.sh` always pulling with progress, an installer with mirror/raidz layouts and GELI full-disk encryption, and `make FREEBSD=1` running in the builder VM ([building](references/building.md), [updates](references/updates.md), [desktop](references/desktop.md)); gowl's tag transitions, JSON-RPC wire protocol, screen-sharing portal, `menu-choose`, and the new [gabbrev](references/gowl-gabbrev.md) text expander and [hotkey](references/gowl-hotkey.md) module; gsurf's local-file addresses and uBlock/EasyList filter lists; cmacs's voice loop, camera, hand tracking and SpaceMouse; ai-glib's `ai decide` backends and `ai benchmark`. crispy, mcp-glib, yaml-glib, bacon and podomation changed for FreeBSD portability (plus podomation's Linux-only `fs_mount` noted in [automation](references/automation.md)); mcp-gdb-glib and mcp-kuberblue-glib did not change.
 
-A second review the same day brought immutablue itself up to `d280d3a` (no `deps/` pin or cmacs moved): arch-bootc gained `LTS`/`ZFS`/`TRUEBLUE` through ArchZFS and `KUBERBLUE` at the current Fedora release's Kubernetes minor; os-release is now generated per image (name, release and variant); derived images finish with `backend_finalize_derived`; trueblue's `zfs-arc-max` works for the first time; and `immutablue rebase` lists other backends' tags ([building](references/building.md), [updates](references/updates.md), [packages](references/packages.md), [troubleshooting](references/troubleshooting.md)).
+A second review the same day brought immutablue itself up to `d280d3a` (no `deps/` pin or cmacs moved): arch-bootc gained `LTS`/`ZFS`/`TRUEBLUE` through ArchZFS and `KUBERBLUE` at the current Fedora release's Kubernetes minor; os-release is now generated per image (name, release and variant); derived images finish with `backend_finalize_derived`; trueblue's `zfs-arc-max` works for the first time; and `immutablue rebase` offers only the running backend's bootable tags (the commit after the baseline adds `immutablue-rebase-tags`; earlier images list every tag) ([building](references/building.md), [updates](references/updates.md), [packages](references/packages.md), [troubleshooting](references/troubleshooting.md)).
 
 For manifests with `dependency_image`, `.deps` comes from the digest-pinned dependency container, while `.immutablue` identifies the main image checkout. Older manifests were generated from that checkout's submodules and can misidentify binaries from a separately built dependency container. Do not treat a missing entry as proof that a component is absent, or replace an artifact's recorded commit with a newer local submodule pin. See [the build guide](references/building.md) for migration and scope.
 

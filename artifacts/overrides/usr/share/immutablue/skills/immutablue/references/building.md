@@ -377,6 +377,7 @@ bash tests/run_tests.sh --suite regressions
 ./tests/test_package_presence.sh    # packages.yaml matches the built image (per backend)
 ./tests/test_pkg_resolve.sh         # logical package resolution per backend
 ./tests/test_os_release.sh          # generated os-release per backend and variant
+./tests/test_rebase_tags.sh         # rebase offers only this backend's bootable tags
 ./tests/test_backend_contract.sh    # every backend implements the interface
 ./tests/test_backend_dispatch.sh    # immutablue-backend verbs against stub tools
 ./tests/test_artifacts.sh           # every override file reached the image intact (minus the backend's drops_overrides)

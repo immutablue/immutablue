@@ -98,10 +98,16 @@ Variants include `-cyan` (NVIDIA), `-lts`, `-trueblue` (ZFS + LTS), `-kuberblue`
 desktop bases, and `-nix`. Arch images are tagged `arch`, `arch-trueblue`,
 `arch-kuberblue-nucleus`, …, FreeBSD ones `15.1-freebsd…`.
 
-**Stay on your backend.** The picker lists every tag in the registry, Fedora,
-Arch and FreeBSD alike; check `cat /usr/immutablue/backend` and pick a tag of
-the same family (`arch*` on arch-bootc, a release number on fedora-bootc).
-Switching an installed system between backends is not supported.
+**Stay on your backend.** The registry holds every backend's images and the
+build containers (`44-deps`, `42-rpms`) together. The picker offers only the
+running backend's bootable tags, and a typed tag of another backend is refused
+without `--force` — switching an installed system between backends is not
+supported, so do not pass it on a user's behalf.
+`/usr/libexec/immutablue/immutablue-rebase-tags backend <tag>` says which
+backend a tag is. On images built before that check (no such file), the
+picker lists every tag: check `cat /usr/immutablue/backend` and pick a tag of
+the same family (`arch*` on arch-bootc, a release number on fedora-bootc),
+never a `-deps` or `-rpms` one.
 
 NVIDIA and rebasing (details in [`hardware.md`](hardware.md)):
 
