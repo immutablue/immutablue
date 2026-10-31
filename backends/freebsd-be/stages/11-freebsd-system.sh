@@ -56,6 +56,11 @@ sysrc immutablue_containers_enable=YES
 # installer step writes (the firmware ships in packages.yaml).
 sysrc immutablue_wlan_enable=YES
 
+# The clock: nothing else keeps it right (bsdinstall asks; an image install
+# does not), and a test laptop was 14 s off. ntpd_sync_on_start
+# steps it at boot however far off it is (ntpd -g), then ntpd slews it.
+sysrc ntpd_enable=YES ntpd_sync_on_start=YES
+
 # ConsoleKit2 tracks and switches VTs through one console descriptor. It
 # tries /dev/tty (a daemon has none), then /dev/tty0, then /dev/console --
 # which it cannot open once X runs -- and ends on /dev/consolectl, where
