@@ -201,6 +201,9 @@ immutablue:
     - {name: bpftrace, freebsd: null}
     - buildah
     - {name: buildstream, pacman: null, freebsd: null}
+    # libre-query-language (lql): compressed inputs. Arch's bzip2 and
+    # FreeBSD's base system carry the headers; FreeBSD has no bzip2 port.
+    - {name: bzip2-devel, pacman: bzip2, freebsd: null}
     - {name: cloud-init, freebsd: py312-cloud-init}
     - chafa
     - {name: cmake, freebsd: cmake-core}
@@ -257,6 +260,8 @@ immutablue:
     - {name: libxml2-devel, pacman: libxml2, freebsd: libxml2}
     - {name: libyaml-devel, pacman: libyaml, freebsd: libyaml}
     - {name: libzip-devel, pacman: libzip, freebsd: libzip}
+    # lql: zstd-compressed logs (rotated .zst files)
+    - {name: libzstd-devel, pacman: zstd, freebsd: zstd}
     - {name: lm_sensors, freebsd: null}
     - {name: luajit-devel, pacman: luajit, freebsd: luajit}
     - {name: make, freebsd: gmake}
@@ -287,6 +292,9 @@ immutablue:
     - {name: strace, freebsd: null}
     - syncthing
     - {name: syncthing-tools, pacman: null, freebsd: null}
+    # lql: the journal source command (libsystemd); systemd-libs carries
+    # libsystemd.pc on Arch, FreeBSD has no journal
+    - {name: systemd-devel, pacman: systemd-libs, freebsd: null}
     - tailscale
     - tmux
     # Backs the gowl bar's `power' widget, which reads and sets the
@@ -300,9 +308,14 @@ immutablue:
     - {name: tuned-ppd, freebsd: null}
     - unrar
     - {name: usbip, freebsd: null}
+    # memory checking for the C projects (make test-valgrind); the FreeBSD
+    # port builds for amd64 and aarch64 only, like the image
+    - valgrind
     - {name: vips, pacman: libvips}
     - {name: virt-bootstrap, pacman: null, freebsd: null}
     - {name: webkit2gtk4.1-devel, pacman: webkit2gtk-4.1, freebsd: webkit2-gtk_41}
+    # lql: xz/lzma-compressed logs; liblzma is in FreeBSD's base system
+    - {name: xz-devel, pacman: xz, freebsd: null}
     # The gowl display panel's `Outputs' button opens wdisplays.
     - wdisplays
     # The gowl bar's `recorder' widget.  Paired with slurp above: slurp
