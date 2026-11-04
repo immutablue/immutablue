@@ -132,21 +132,31 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
+        # Built for both the current and the previous version.
         variant:
-          - "ZFS=1"
           - "LTS=1"
           - "KUBERBLUE=1"
-          - "TRUEBLUE=1"
-          - "KUBERBLUE=1 TRUEBLUE=1"
           - "NUCLEUS=1"
           - "NUCLEUS=1 LTS=1"
           - "NUCLEUS=1 KUBERBLUE=1"
-          - "NUCLEUS=1 TRUEBLUE=1"
           - "NUCLEUS=1 LTS=1 KUBERBLUE=1"
-          - "NUCLEUS=1 KUBERBLUE=1 TRUEBLUE=1"
         version_arg:
           - ""
           - "VERSION=44"
+        # ZFS/TRUEBLUE variants are built for 44 only: OpenZFS has not
+        # published a Fedora 45 repo yet (see zfs_rpm_url in packages.yaml).
+        # Uncomment the 45 entries once it has.
+        include:
+          - { variant: "ZFS=1", version_arg: "VERSION=44" }
+          - { variant: "TRUEBLUE=1", version_arg: "VERSION=44" }
+          - { variant: "KUBERBLUE=1 TRUEBLUE=1", version_arg: "VERSION=44" }
+          - { variant: "NUCLEUS=1 TRUEBLUE=1", version_arg: "VERSION=44" }
+          - { variant: "NUCLEUS=1 KUBERBLUE=1 TRUEBLUE=1", version_arg: "VERSION=44" }
+          # - { variant: "ZFS=1", version_arg: "" }
+          # - { variant: "TRUEBLUE=1", version_arg: "" }
+          # - { variant: "KUBERBLUE=1 TRUEBLUE=1", version_arg: "" }
+          # - { variant: "NUCLEUS=1 TRUEBLUE=1", version_arg: "" }
+          # - { variant: "NUCLEUS=1 KUBERBLUE=1 TRUEBLUE=1", version_arg: "" }
 
     steps:
       - name: Checkout

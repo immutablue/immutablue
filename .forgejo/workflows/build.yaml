@@ -18,6 +18,11 @@ on:
     branches:
       - master
 
+env:
+  # ZFS needs a Fedora release OpenZFS has published; 45 has none yet (see
+  # zfs_rpm_url in packages.yaml). Comment this out to build the current one.
+  VERSION_ARG: "VERSION=44"
+
 jobs:
   build:
     runs-on: linux-amd64
@@ -53,28 +58,28 @@ jobs:
           exit 1
 
       - name: Build deps container
-        run: make build-deps
+        run: make ${{ env.VERSION_ARG }} build-deps
 
       - name: Push deps container
-        run: make push-deps
+        run: make ${{ env.VERSION_ARG }} push-deps
 
       - name: Clean up deps images
-        run: make clean-deps
+        run: make ${{ env.VERSION_ARG }} clean-deps
 
       - name: Pre-test (shellcheck)
-        run: make ZFS=1 pre_test
+        run: make ${{ env.VERSION_ARG }} ZFS=1 pre_test
 
       - name: Build image
-        run: make ZFS=1 SKIP_TEST=1 build
+        run: make ${{ env.VERSION_ARG }} ZFS=1 SKIP_TEST=1 build
 
       - name: Test image
-        run: make ZFS=1 test
+        run: make ${{ env.VERSION_ARG }} ZFS=1 test
 
       - name: Push image
-        run: make ZFS=1 push
+        run: make ${{ env.VERSION_ARG }} ZFS=1 push
 
       - name: Clean up images
-        run: make ZFS=1 clean-build
+        run: make ${{ env.VERSION_ARG }} ZFS=1 clean-build
 
       - name: Trigger hyacinth-macaw build
         env:
