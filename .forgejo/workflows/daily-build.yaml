@@ -25,7 +25,7 @@ on:
 
 env:
   # Update version_arg in the build matrix when changing this
-  PREVIOUS_VERSION: "43"
+  PREVIOUS_VERSION: "44"
 
 jobs:
   # --------------------------------------------------------------------------
@@ -34,7 +34,7 @@ jobs:
   deps-current:
     runs-on: linux-amd64
     container:
-      image: git.podbielniak.com/zachpodbielniak/build-container:43
+      image: git.podbielniak.com/zachpodbielniak/build-container:44
       options: --privileged
 
     steps:
@@ -76,7 +76,7 @@ jobs:
   deps-previous:
     runs-on: linux-amd64
     container:
-      image: git.podbielniak.com/zachpodbielniak/build-container:43
+      image: git.podbielniak.com/zachpodbielniak/build-container:44
       options: --privileged
 
     steps:
@@ -125,7 +125,7 @@ jobs:
     needs: [deps-current, deps-previous]
     runs-on: linux-amd64
     container:
-      image: git.podbielniak.com/zachpodbielniak/build-container:43
+      image: git.podbielniak.com/zachpodbielniak/build-container:44
       options: --privileged
 
     strategy:
@@ -146,7 +146,7 @@ jobs:
           - "NUCLEUS=1 KUBERBLUE=1 TRUEBLUE=1"
         version_arg:
           - ""
-          - "VERSION=43"
+          - "VERSION=44"
 
     steps:
       - name: Checkout
@@ -197,7 +197,7 @@ jobs:
     needs: [builds]
     runs-on: linux-amd64
     container:
-      image: git.podbielniak.com/zachpodbielniak/build-container:43
+      image: git.podbielniak.com/zachpodbielniak/build-container:44
 
     steps:
       - name: Trigger hyacinth-macaw build

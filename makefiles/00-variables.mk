@@ -15,7 +15,7 @@ endif
 BASE_IMAGE := quay.io/fedora-ostree-desktops/silverblue
 IMAGE_BASE_TAG := immutablue
 IMAGE := $(REGISTRY)/$(IMAGE_BASE_TAG)
-CURRENT := 44
+CURRENT := 45
 MANIFEST := $(IMAGE_BASE_TAG)
 VARIANT := Silverblue
 

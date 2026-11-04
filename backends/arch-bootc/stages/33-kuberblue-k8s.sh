@@ -13,8 +13,8 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 # may never be newer than the API server, and kubeadm upgrades one minor at a
 # time. So the version is pinned the way Fedora pins it, by taking it FROM
 # Fedora: packages.yaml's rpm_kuberblue.<current Fedora release> names
-# kubernetes<major>.<minor> (kubernetes1.36 for 44), and that minor is
-# installed here. When the current Fedora release moves (45), the next Arch
+# kubernetes<major>.<minor> (kubernetes1.37 for 45), and that minor is
+# installed here. When the current Fedora release moves (46), the next Arch
 # image follows to the same minor, in step with Fedora's kuberblue.
 #
 # The binaries are upstream's static release builds, checked against the

@@ -4,9 +4,9 @@
 # Remix, ...). The build stages run through backends/lib/run-stages.sh, which
 # ends with this backend's backend_finalize (ostree container commit).
 ARG BASE_IMAGE=quay.io/fedora-ostree-desktops/silverblue
-# For Fedora: BASE_IMAGE_TAG=43 -> silverblue:43
-ARG BASE_IMAGE_TAG=43
-ARG FEDORA_VERSION=43
+# For Fedora: BASE_IMAGE_TAG=45 -> silverblue:45
+ARG BASE_IMAGE_TAG=45
+ARG FEDORA_VERSION=45
 ARG DEPS_IMAGE
 ARG CYAN_DEPS_IMAGE=quay.io/immutablue/immutablue:${FEDORA_VERSION}-cyan-deps
 
@@ -31,7 +31,7 @@ ARG BASE_IMAGE_TAG
 FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG}
 
 ARG BASE_IMAGE=quay.io/fedora-ostree-desktops/silverblue
-ARG FEDORA_VERSION=43
+ARG FEDORA_VERSION=45
 ARG IMAGE_TAG=${FEDORA_VERSION}
 ARG INSTALL_DIR=/usr/immutablue
 ARG DO_INSTALL_AKMODS=false

@@ -4,12 +4,16 @@ immutablue:
     42: "6.12"
     43: "6.12"
     44: "6.18"
+    45: "6.18"
 
   zfs_rpm_url:
     41: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-2-8.fc41.noarch.rpm"
     42: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-2-8.fc42.noarch.rpm"
     43: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-3-0.fc43.noarch.rpm"
     44: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-3-1.fc44.noarch.rpm"
+    # 45: not published yet -- OpenZFS has no zfs-release fc45 RPM and no
+    # download.zfsonlinux.org/fedora/45 repo, so ZFS/TRUEBLUE builds on 45
+    # fail until it lands. Add it here when upstream publishes it.
 
   # Repo URLs to add in the build (they are curled)
   repo_urls:
@@ -33,6 +37,9 @@ immutablue:
     44:
     - name: podman-bootc.repo
       url: https://copr.fedorainfracloud.org/coprs/gmaglione/podman-bootc/repo/fedora-44/gmaglione-podman-bootc-fedora-44.repo
+    45:
+    - name: podman-bootc.repo
+      url: https://copr.fedorainfracloud.org/coprs/gmaglione/podman-bootc/repo/fedora-45/gmaglione-podman-bootc-fedora-45.repo
 
   repo_urls_trueblue:
     42:
@@ -44,6 +51,9 @@ immutablue:
     44:
     - name: znapzend.repo
       url: https://copr.fedorainfracloud.org/coprs/spike/znapzend/repo/fedora-44/spike-znapzend-fedora-44.repo
+    45:
+    - name: znapzend.repo
+      url: https://copr.fedorainfracloud.org/coprs/spike/znapzend/repo/fedora-45/spike-znapzend-fedora-45.repo
 
 
   # Packages the deps container (deps-container/00-build.sh) installs to build
@@ -532,6 +542,12 @@ immutablue:
     - kubernetes1.36-client
     - kubernetes1.36-kubeadm
     - kubernetes1.36-systemd
+    45:
+    - cri-tools1.37
+    - kubernetes1.37
+    - kubernetes1.37-client
+    - kubernetes1.37-kubeadm
+    - kubernetes1.37-systemd
 
 
   pkg_x86_64:
@@ -688,6 +704,9 @@ immutablue:
     44:
     - https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-44.noarch.rpm
     - https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-44.noarch.rpm
+    45:
+    - https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-45.noarch.rpm
+    - https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-45.noarch.rpm
 
 
   # trueblue cockpit plugins from 45Drives GitHub releases (installed after rpm_trueblue).
