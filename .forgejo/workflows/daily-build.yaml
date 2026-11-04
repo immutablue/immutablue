@@ -145,8 +145,11 @@ jobs:
           - "VERSION=44"
         # ZFS/TRUEBLUE variants are built for 44 only: OpenZFS has not
         # published a Fedora 45 repo yet (see zfs_rpm_url in packages.yaml).
-        # Uncomment the 45 entries once it has.
+        # Uncomment the 45 entries once it has. Until then 45's plain image
+        # (normally the ZFS=1 build, which keeps the same tag) is built
+        # without ZFS by the first entry; drop it when ZFS=1 comes back.
         include:
+          - { variant: "", version_arg: "" }
           - { variant: "ZFS=1", version_arg: "VERSION=44" }
           - { variant: "TRUEBLUE=1", version_arg: "VERSION=44" }
           - { variant: "KUBERBLUE=1 TRUEBLUE=1", version_arg: "VERSION=44" }

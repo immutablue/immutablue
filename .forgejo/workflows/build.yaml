@@ -1,7 +1,7 @@
 # build.yaml - Forgejo CI workflow
 #
-# Builds the deps container, then builds and pushes the ZFS-enabled
-# immutablue image on every push to master.
+# Builds the deps container, then builds and pushes the
+# immutablue image (ZFS-enabled once ZFS_ARG is restored) on every push to master.
 #
 # Required secrets:
 #   QUAY_USER     - quay.io username
@@ -19,9 +19,10 @@ on:
       - master
 
 env:
-  # ZFS needs a Fedora release OpenZFS has published; 45 has none yet (see
-  # zfs_rpm_url in packages.yaml). Comment this out to build the current one.
-  VERSION_ARG: "VERSION=44"
+  # ZFS is off until OpenZFS publishes a Fedora 45 repo (see zfs_rpm_url in
+  # packages.yaml); the image is built without it. Swap the lines back then.
+  ZFS_ARG: ""
+  # ZFS_ARG: "ZFS=1"
 
 jobs:
   build:
@@ -58,28 +59,28 @@ jobs:
           exit 1
 
       - name: Build deps container
-        run: make ${{ env.VERSION_ARG }} build-deps
+        run: make build-deps
 
       - name: Push deps container
-        run: make ${{ env.VERSION_ARG }} push-deps
+        run: make push-deps
 
       - name: Clean up deps images
-        run: make ${{ env.VERSION_ARG }} clean-deps
+        run: make clean-deps
 
       - name: Pre-test (shellcheck)
-        run: make ${{ env.VERSION_ARG }} ZFS=1 pre_test
+        run: make ${{ env.ZFS_ARG }} pre_test
 
       - name: Build image
-        run: make ${{ env.VERSION_ARG }} ZFS=1 SKIP_TEST=1 build
+        run: make ${{ env.ZFS_ARG }} SKIP_TEST=1 build
 
       - name: Test image
-        run: make ${{ env.VERSION_ARG }} ZFS=1 test
+        run: make ${{ env.ZFS_ARG }} test
 
       - name: Push image
-        run: make ${{ env.VERSION_ARG }} ZFS=1 push
+        run: make ${{ env.ZFS_ARG }} push
 
       - name: Clean up images
-        run: make ${{ env.VERSION_ARG }} ZFS=1 clean-build
+        run: make ${{ env.ZFS_ARG }} clean-build
 
       - name: Trigger hyacinth-macaw build
         env:
