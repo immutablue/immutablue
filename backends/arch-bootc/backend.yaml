@@ -1,0 +1,53 @@
+# arch-bootc: Arch Linux delivered as a bootable OCI image through bootc and
+# ostree/composefs, modelled on bootcrew/mono's arch image. Arch is rolling, so
+# images are tagged 'arch' rather than by release.
+name: arch-bootc
+description: Arch Linux (rolling) via bootc/ostree
+
+base_image: docker.io/archlinux/archlinux
+devel_image: docker.io/archlinux/archlinux
+
+pkg_key: pacman
+repo_key: ""
+
+init: systemd
+kernel: linux
+delivery: ostree-container
+
+# Arch installs libraries to /usr/lib; /usr/lib64 is a symlink to it.
+libdir: lib
+
+# Pinned rather than built from bootc's main branch, so a build is repeatable.
+bootc_version: v1.17.1
+
+# Until quay.io/immutablue/immutablue:arch-deps is published, the image may be
+# built against a deps image that only exists locally ('make BACKEND=arch-bootc
+# build-deps' first); the resolver still pins it by digest.
+deps_local_fallback: true
+
+dracut_modules:
+  - ostree
+  - bootc
+
+provides:
+  - systemd
+  - dracut
+  - ostree
+  - flatpak
+  - distrobox
+  - brew
+  - nix
+  - linux_binaries
+  - inhouse_deps     # built by backends/arch-bootc/deps.Containerfile
+  - cmacs            # quay.io/zachpodbielniak/cmacs:arch (cmacs ./build-container arch)
+  #          pip (Arch's python is externally managed, PEP 668)
+
+# libosinfo id for libvirt domains (make bootc-disk-libvirt).
+osinfo: archlinux
+
+# os-release: scripts/os-release.sh from ./os-release (ID=immutablue,
+# ID_LIKE=arch) plus the variant; 'silverblue' here is plain GNOME.
+os_release_base: os-release
+os_release_version: "Arch"
+os_release_aliases:
+  silverblue: gnome

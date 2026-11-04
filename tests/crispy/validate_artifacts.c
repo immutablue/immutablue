@@ -5,8 +5,13 @@
  * Compares SHA256 checksums of all files under an expected directory
  * against their corresponding paths on the root filesystem.
  *
- * Usage: crispy validate_artifacts.c <expected_dir>
+ * Usage: crispy validate_artifacts.c <expected_dir> [skip_list]
  *   expected_dir: path to the artifacts/overrides mount (e.g. /expected)
+ *   skip_list:    optional file of paths (relative to /, one per line) the
+ *                 image's backend replaces or drops on purpose; an entry
+ *                 ending in '/' skips everything under that directory.
+ *                 tests/test_artifacts.sh writes it from the backend's own
+ *                 overrides and backend.yaml 'drops_overrides'.
  *
  * Exit codes:
  *   0 - all files match
@@ -16,11 +21,78 @@
 
 #include <glib.h>
 
+/* backend skip list entries (paths from /), loaded from the optional
+ * skip_list argument; NULL when none was given */
+static GPtrArray *backend_skips = NULL;
+
+/* load_skip_list:
+ * @path: file with one path per line
+ *
+ * Reads the backend skip list into backend_skips. Blank lines are ignored.
+ *
+ * Returns: TRUE on success, FALSE if the file cannot be read
+ */
+static gboolean
+load_skip_list(
+    const gchar *path
+){
+    g_autofree gchar *contents = NULL;
+    g_auto(GStrv) lines = NULL;
+    g_autoptr(GError) error = NULL;
+    guint i;
+
+    if (!g_file_get_contents(path, &contents, NULL, &error))
+    {
+        g_printerr("ERROR: cannot read skip list %s: %s\n", path, error->message);
+        return FALSE;
+    }
+
+    backend_skips = g_ptr_array_new_with_free_func(g_free);
+    lines = g_strsplit(contents, "\n", -1);
+    for (i = 0; lines[i] != NULL; i++)
+    {
+        g_strstrip(lines[i]);
+        if (lines[i][0] != '\0')
+            g_ptr_array_add(backend_skips, g_strdup(lines[i]));
+    }
+    return TRUE;
+}
+
+/* is rel_path covered by the backend skip list? an exact match, or under an
+ * entry that ends in '/' */
+static gboolean
+backend_skips_path(
+    const gchar *rel_path
+){
+    guint i;
+
+    if (backend_skips == NULL)
+        return FALSE;
+
+    for (i = 0; i < backend_skips->len; i++)
+    {
+        const gchar *entry = (const gchar *)g_ptr_array_index(backend_skips, i);
+
+        if (g_str_has_suffix(entry, "/"))
+        {
+            if (g_str_has_prefix(rel_path, entry))
+                return TRUE;
+        }
+        else if (g_strcmp0(rel_path, entry) == 0)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 /* skip patterns for files that should not be compared */
 static gboolean
 should_skip(
     const gchar *rel_path
 ){
+    if (backend_skips_path(rel_path))
+        return TRUE;
     if (g_strstr_len(rel_path, -1, "/test/") != NULL)
         return TRUE;
     if (g_str_has_suffix(rel_path, "/Justfile"))
@@ -108,9 +180,12 @@ main(
 
     if (argc < 2)
     {
-        g_printerr("Usage: crispy validate_artifacts.c <expected_dir>\n");
+        g_printerr("Usage: crispy validate_artifacts.c <expected_dir> [skip_list]\n");
         return 2;
     }
+
+    if (argc >= 3 && !load_skip_list(argv[2]))
+        return 2;
 
     expected_dir = argv[1];
     prefix_len = strlen(expected_dir);

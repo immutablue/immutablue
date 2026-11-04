@@ -12,7 +12,10 @@ optionally overridden by a crispy-compiled C file.
 | C | `--c-config PATH`, `~/.config/gst/config.c`, `/etc/gst/config.c`, `/usr/share/gst/config.c` |
 
 The C config runs **after** the YAML, so anything it sets wins. With no file at
-all the built-in defaults apply.
+all the built-in defaults apply. The last entry is the compiled-in data
+directory: `/usr/share/gst/` on Fedora and Arch images, `/usr/local/share/gst/`
+on freebsd-be (`/etc/gst/` is `/etc` everywhere). `gst --help` prints the
+`/usr/share` paths regardless.
 
 ```bash
 gst --generate-yaml-config > ~/.config/gst/config.yaml     # every key, commented
@@ -153,9 +156,11 @@ getter; `gst --generate-c-config` prints a template that uses them.
 | `mcp` | an MCP server so an agent can drive the terminal |
 
 Each is gated by `modules: <name>: enabled:`. Modules load at startup from, in
-order, `$GST_MODULE_PATH` (colon-separated), `~/.config/gst/modules/`, and
-`/usr/lib64/gst/modules/`. A module gst does not know by name — your own —
-defaults to **enabled**.
+order, `$GST_MODULE_PATH` (colon-separated), `~/.config/gst/modules/`, and the
+system module directory — `/usr/lib64/gst/modules/` on Fedora images,
+`/usr/lib/gst/modules/` on arch-bootc, `/usr/local/lib/gst/modules/` on
+freebsd-be (the module list in `gst --help` is out of date; trust this one). A
+module gst does not know by name — your own — defaults to **enabled**.
 
 A personal module is a `.so` exporting `gst_module_register()` that returns a
 `GstModule` subclass implementing hook interfaces (`GstBellHandler`, …), built
@@ -169,6 +174,12 @@ the quick way to try one before installing it.
 `gst --wayland` / `--x11` force a backend; `--lrg=2d` renders through
 libregnum/raylib. `--mcp-socket=NAME` names the MCP socket when several
 terminals run the `mcp` module.
+
+On freebsd-be gst is built from the same source with `/usr/local` as its
+prefix, and links `forkpty()` from `libutil`. Its vendored raylib must be built
+with `-fPIC` there (the backend passes `graylib_cflags: "-O2 -fPIC"`; tracked
+upstream as gst issue #1 on git.podbielniak.com) — a build concern, nothing to
+do on a running machine.
 
 ## Troubleshooting
 
@@ -192,6 +203,7 @@ output is lost, so reproduce from another terminal: `gst 2>&1 | tee /tmp/gst.log
 | Oddities under `--lrg` | expected limits of that backend | `PRIMARY` is the clipboard, `--windid` embedding is unsupported, `3d`/`3dvr` are rejected, keyboard shortcuts assume a US physical layout, and it repaints at ~60 fps |
 | `transparency` has no effect under `--lrg` | gst older than `9e8202b` used GLFW window opacity, which gowl ignores | newer gst fades the framebuffer itself; needs a compositing display server |
 | It picked the wrong display backend | | force it with `--wayland` or `--x11` |
+| On freebsd-be under X11, gst exits at startup with `BadRequest (major opcode 0)` (sometimes `BadRegion` on XFIXES) | gst through `fede3c2` closed its font-metrics X display before opening the window's; FreeBSD's allocator reused the address and Xft/Xrender state went stale. Fixed in `118d542` | compare the gst commit in `dep_info.json` and update the image; meanwhile run it under Wayland (`--wayland`) |
 
 ## Documentation
 

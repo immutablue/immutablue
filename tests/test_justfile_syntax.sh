@@ -93,13 +93,19 @@ if [[ ! -d "${ARTIFACTS_DIR}" ]]; then
     exit 0
 fi
 
-# Collect every justfile under artifacts/. The vendored source moved to deps/
-# and is outside this tree entirely, so there is nothing to prune any more.
+# Collect every justfile under artifacts/ and the backends' overrides (a
+# backend ships its own, e.g. freebsd-be's 12-freebsd.justfile). The vendored
+# source moved to deps/ and is outside these trees, so nothing is pruned.
 JUSTFILES=()
+BACKEND_OVERRIDES=()
+for dir in "${ROOT_DIR}"/backends/*/overrides
+do
+    [[ -d "${dir}" ]] && BACKEND_OVERRIDES+=("${dir}")
+done
 while IFS= read -r -d '' justfile
 do
     JUSTFILES+=("${justfile}")
-done < <(find "${ARTIFACTS_DIR}" \
+done < <(find "${ARTIFACTS_DIR}" "${BACKEND_OVERRIDES[@]}" \
               \( -name '*.justfile' -o -name 'Justfile' -o -name 'justfile' \) \
               -type f -print0 | sort -z)
 

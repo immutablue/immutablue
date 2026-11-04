@@ -31,6 +31,7 @@ filing.
 immutablue sysinfo
 cat /usr/share/immutablue/image-info.json    # exact tag and build date
 rpm-ostree status                            # deployment + anything layered
+immutablue-backend name; immutablue-backend status   # any backend (bectl list on freebsd-be)
 immutablue doctor_json                       # structured health state
 immutablue check_local_etc_overrides         # how far this machine diverges
 cat /usr/immutablue/deps/dep_info.json       # exact commit of every component

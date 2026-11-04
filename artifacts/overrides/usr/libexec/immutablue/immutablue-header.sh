@@ -86,7 +86,7 @@ immutablue_get_image_full() {
     fi
 
     # Fallback for images built before image-info.json existed.
-    rpm-ostree status | grep -i quay | head -n 1 | awk -F/ '{ printf "%s\n", $3 }'
+    immutablue-backend image-ref
 }
 
 # Extract just the tag portion of the image
@@ -220,7 +220,7 @@ immutablue_build_is_asahi() {
 immutablue_build_has_package() {
     local pkg_search="$1"
     local pkg_exclude="$2"
-    pkg=$(rpm -qa | grep -P "${pkg_search}" | grep -vP "${pkg_exclude}")
+    pkg=$(immutablue-backend list-pkgs 2>/dev/null | grep -P "${pkg_search}" | grep -vP "${pkg_exclude}")
     if [[ "$pkg" != "" ]]
     then 
         echo ${TRUE}

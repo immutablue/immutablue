@@ -1,0 +1,79 @@
+# backends/gnomeos/Containerfile
+#
+# Immutablue on GNOME OS nightly (formerly DISTROLESS=1). GNOME OS has no
+# package manager, so development tools are copied out of the GNOME OS devel
+# image in devel-stage and laid over the base by build/10-copy.sh.
+ARG BASE_IMAGE=quay.io/gnome_infrastructure/gnome-build-meta
+# GNOME OS tags are not Fedora versions: gnomeos-nightly
+ARG BASE_IMAGE_TAG=gnomeos-nightly
+ARG BASE_IMAGE_DEVEL=quay.io/gnome_infrastructure/gnome-build-meta:gnomeos-devel-nightly
+# Still used to pick the in-house dependency, cmacs and nautilus images, which
+# are built on Fedora and tagged by its release.
+ARG FEDORA_VERSION=43
+ARG IS_DISTROLESS=true
+ARG DEPS_IMAGE
+ARG CYAN_DEPS_IMAGE=quay.io/immutablue/immutablue:${FEDORA_VERSION}-cyan-deps
+
+FROM scratch as ctx
+COPY / /
+
+FROM quay.io/zachpodbielniak/nautilusopenwithcode:${FEDORA_VERSION} AS nautilusopenwithcode
+FROM ${DEPS_IMAGE} as build-deps
+FROM ${CYAN_DEPS_IMAGE} AS cyan-deps
+FROM quay.io/zachpodbielniak/cmacs:${FEDORA_VERSION} AS cmacs-build
+FROM quay.io/immutablue/linuxbrew:latest AS linuxbrew
+FROM docker.io/mikefarah/yq AS yq
+
+FROM ghcr.io/ublue-os/config:latest AS ublue-config
+
+
+# -----------------------------------
+# Devel stage: copy development tools (gcc, make, git, ...) and the libraries
+# they need out of the GNOME OS devel image into /rootfs.
+# -----------------------------------
+ARG BASE_IMAGE_DEVEL
+
+FROM ${BASE_IMAGE_DEVEL} AS devel-stage
+
+RUN --mount=type=bind,from=ctx,src=/,dst=/tmp/ctx \
+    mkdir -p /rootfs && \
+    /tmp/ctx/backends/gnomeos/devel-build.sh
+
+
+# -----------------------------------
+# Main image stage
+# -----------------------------------
+ARG BASE_IMAGE
+ARG BASE_IMAGE_TAG
+FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG}
+
+ARG BASE_IMAGE=quay.io/gnome_infrastructure/gnome-build-meta
+ARG FEDORA_VERSION=43
+ARG IMAGE_TAG=${FEDORA_VERSION}
+ARG INSTALL_DIR=/usr/immutablue
+ARG DO_INSTALL_AKMODS=false
+ARG DO_INSTALL_ZFS=false
+ARG DO_INSTALL_LTS=false
+ARG IMMUTABLUE_BUILD=true
+ARG IMAGE_TAG=immutablue
+ARG IMMUTABLUE_BUILD_OPTIONS=${IMMUTABLUE_BUILD_OPTIONS}
+ARG IS_DISTROLESS=true
+ARG SKIP=
+ARG DEPS_IMAGE
+# Selects backends/<name>/ for build/99-common.sh and backends/lib/run-stages.sh.
+ARG IMMUTABLUE_BACKEND=gnomeos
+
+
+RUN --mount=type=bind,from=ctx,src=/,dst=/mnt-ctx \
+    --mount=type=bind,from=nautilusopenwithcode,src=/usr/lib64/nautilus/extensions-4,dst=/mnt-nautilusopenwithcode \
+    --mount=type=bind,from=yq,src=/usr/bin,dst=/mnt-yq \
+    --mount=type=bind,from=ublue-config,src=/rpms,dst=/mnt-ublue-config \
+    --mount=type=bind,from=cyan-deps,src=/rpms,dst=/mnt-cyan-deps \
+    --mount=type=bind,from=build-deps,src=/build,dst=/mnt-build-deps \
+    --mount=type=bind,from=cmacs-build,src=/,dst=/mnt-cmacs \
+    --mount=type=bind,from=linuxbrew,src=/,dst=/mnt-linuxbrew \
+    --mount=type=bind,from=devel-stage,src=/rootfs,dst=/mnt-devel-rootfs \
+    set -eux && \
+    bash /mnt-ctx/backends/lib/run-stages.sh /mnt-ctx
+
+LABEL containers.bootc=1

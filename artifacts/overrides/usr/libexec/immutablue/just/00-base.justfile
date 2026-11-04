@@ -18,7 +18,7 @@ sysinfo:
     #!/bin/bash 
     set -euo pipefail
 
-    rpm-ostree status --verbose
+    immutablue-backend status --verbose
     fpaste --sysinfo --printonly
     flatpak list --columns=application,version,options
     distrobox list
@@ -131,7 +131,7 @@ clean_system:
     podman image prune -af
     podman volume prune -f
     flatpak uninstall --unused
-    rpm-ostree cleanup -bm
+    sudo immutablue-backend cleanup
 
 
 # toggle firewall (useful for testing connection issues)

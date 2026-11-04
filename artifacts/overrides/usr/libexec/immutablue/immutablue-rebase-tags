@@ -1,0 +1,136 @@
+#!/bin/bash
+# immutablue-rebase-tags - Which registry tags a machine can rebase onto
+#
+# quay.io/immutablue/immutablue carries every backend's images, and the build
+# containers, under one repository. `immutablue rebase` lists the registry, so
+# without this an Arch machine was offered Fedora tags (switching an installed
+# system between backends is not supported) and every machine was offered the
+# deps and rpm build containers, which are not bootable images at all.
+#
+# A tag's backend follows from how each backend names its images
+# (backends/<backend>/backend.mk, makefiles/20-variants-logic.mk):
+#
+#   arch-bootc    arch, arch-nucleus, arch-trueblue, arch-20261029, ...
+#   freebsd-be    15.1-freebsd, 15.1-freebsd-20261029, ...
+#   gnomeos       43-distroless, ...
+#   fedora-bootc  44, 44-nucleus, 44-cyan-lts, 44-20261029, ...
+#   (none)        *-deps*, *-rpms*: build containers, never offered
+#
+# Usage:
+#   immutablue-rebase-tags backend <tag>      print the tag's backend, or
+#                                             'none' for a build container
+#   immutablue-rebase-tags filter [<backend>] read tags on stdin, print those
+#                                             of <backend> (default: this
+#                                             machine's, /usr/immutablue/backend)
+#
+# Examples:
+#   immutablue-rebase-tags backend arch-trueblue        # arch-bootc
+#   skopeo list-tags docker://quay.io/immutablue/immutablue \
+#       | jq -r '.Tags[]' | immutablue-rebase-tags filter
+set -euo pipefail
+
+BACKEND_FILE="${IMMUTABLUE_BACKEND_FILE:-/usr/immutablue/backend}"
+
+
+# The backend an image tag belongs to.
+#
+# param $1: tag
+# returns: backend name on stdout, 'none' for a build container or a tag that
+#          matches no backend's naming
+tag_backend () {
+    if [[ $# -ne 1 ]]
+    then
+        echo 'tag_backend() requires 1 positional argument' >&2
+        echo 'tag_backend <tag>' >&2
+        exit 1
+    fi
+
+    local tag="${1}"
+
+    case "${tag}" in
+        *-deps|*-deps-*|*-rpms|*-rpms-*)
+            echo "none" ;;
+        arch|arch-*)
+            echo "arch-bootc" ;;
+        *-freebsd|*-freebsd-*)
+            echo "freebsd-be" ;;
+        *-distroless|*-distroless-*)
+            echo "gnomeos" ;;
+        [0-9]*)
+            echo "fedora-bootc" ;;
+        *)
+            echo "none" ;;
+    esac
+}
+
+
+# The backend this machine runs; images from before the backend file existed
+# are all fedora-bootc.
+#
+# returns: backend name on stdout
+current_backend () {
+    local backend=""
+
+    if [[ -r "${BACKEND_FILE}" ]]
+    then
+        backend="$(head -n 1 "${BACKEND_FILE}")"
+    fi
+    echo "${backend:-fedora-bootc}"
+}
+
+
+# Print the tags on stdin that belong to a backend.
+#
+# param $1: backend name
+filter_tags () {
+    if [[ $# -ne 1 ]]
+    then
+        echo 'filter_tags() requires 1 positional argument' >&2
+        echo 'filter_tags <backend>' >&2
+        exit 1
+    fi
+
+    local backend="${1}"
+    local tag
+
+    while IFS= read -r tag
+    do
+        [[ -n "${tag}" ]] || continue
+        if [[ "$(tag_backend "${tag}")" == "${backend}" ]]
+        then
+            echo "${tag}"
+        fi
+    done
+}
+
+
+main () {
+    local command="${1:-}"
+
+    case "${command}" in
+        backend)
+            if [[ $# -ne 2 ]]
+            then
+                echo 'usage: immutablue-rebase-tags backend <tag>' >&2
+                exit 1
+            fi
+            tag_backend "${2}"
+            ;;
+        filter)
+            filter_tags "${2:-$(current_backend)}"
+            ;;
+        current)
+            current_backend
+            ;;
+        -h|--help)
+            sed -n '2,/^set -euo pipefail$/{/^set /d;s/^# \{0,1\}//;p}' "${BASH_SOURCE[0]}"
+            ;;
+        *)
+            echo 'usage: immutablue-rebase-tags {backend <tag>|filter [<backend>]|current}' >&2
+            exit 1
+            ;;
+    esac
+}
+
+
+main "$@"

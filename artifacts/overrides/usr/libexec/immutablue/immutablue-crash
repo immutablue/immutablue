@@ -208,8 +208,8 @@ crash_prepare() {
         echo "executable: ${exe}"
         echo "classified: $(crash_classify "${exe}")"
         echo
-        echo "--- rpm -qf ---"
-        rpm -qf "${exe}" 2>&1
+        echo "--- owning package ($(immutablue-backend name)) ---"
+        immutablue-backend pkg-owner "${exe}" 2>&1
         echo
         echo "--- is it built from /usr/src/gitlab? ---"
         if [[ -d /usr/src/gitlab ]]
@@ -222,7 +222,7 @@ crash_prepare() {
 
     # System state at the time of reading. The deployment matters more here than
     # on a normal distro: it pins the exact image the crash happened on.
-    rpm-ostree status > "${dir}/deployment.txt" 2>&1
+    immutablue-backend deployments > "${dir}/deployment.txt" 2>&1
     cp /usr/share/immutablue/image-info.json "${dir}/image-info.json" 2>/dev/null
 
     if command -v immutablue-doctor &>/dev/null

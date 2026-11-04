@@ -84,7 +84,13 @@ ships **no service unit**; to keep one running, write a user unit
 (`~/.config/systemd/user/podomation.service` with
 `ExecStart=/usr/bin/podomation run %h/.config/podomation/main.pod`,
 `Restart=always`) and `systemctl --user enable --now podomation`. Inside cmacs
-the engine is also embedded — see `podomation.org` in the cmacs manual.
+the engine is also embedded — see `podomation.org` in the cmacs manual. There a
+pod's rules can be run on demand, through the engine as a real event would
+(guards, pipes, result capture): `(cmacs-podomation-run-pod "standup")`,
+`(cmacs-podomation-pod-events "standup")` for the events it binds, the MCP
+`podomation_control` action `run`, the D-Bus method
+`org.cmacs.Editor1.Podomation.RunPod`, or the spoken "run rule standup"
+([`cmacs.md`](cmacs.md#voice-the-engine-the-always-on-loop-and-spoken-commands)).
 
 Example: tell the desktop when the image this machine tracks is repushed.
 
@@ -104,10 +110,23 @@ AI handlers exist per backend — `ai_chat` (any ai-glib provider via
 `provider:`), plus `ai_claude_code`, `ai_codex_cli`, `ai_cursor`,
 `ai_antigravity`, `ai_opencode`, `ai_grok_build`. Each CLI backend must already
 be installed and logged in ([`packages.md`](packages.md)); podomation never
-installs or authenticates one, and `skip_permissions` is opt-in. Module docs are
+installs or authenticates one, and `skip_permissions` is opt-in. The CLI
+backends have **no wall-clock deadline** on images with ai-glib 0.8.0 or later
+(the library's `process-timeout-ms` now defaults to 0, and the modules set none):
+a wedged CLI holds its handler until it exits or is killed. Module docs are
 `deps/podomation/modules/<module>.org` in the cmacs manual, which follows
 cmacs's podomation pin rather than the binary's — `podomation help-module` is
 the authority for what the installed build accepts.
+
+**On the `freebsd-be` backend** podomation is `/usr/local/bin/podomation`
+(config is still read from `/etc/podomation/`), there is no systemd, so the
+user unit above and the `systemd` module do not apply, and `fs_mount` is
+partial: its mount/unmount **events** never fire (the source reads Linux's
+`/proc/self/mountinfo`; tracked as podomation issue #1), `is_mounted` and
+`get_info` read the same file and find nothing, `lazy_unmount` fails with
+`ENOTSUP`, `bind_mount` makes a nullfs mount, and `mount` / `remount` run
+`/usr/bin/mount`, which FreeBSD does not have (its `mount` is `/sbin/mount`), so
+they fail. `unmount`, `force_unmount` and `get_usage` work.
 
 ## Scheduled AI prompts: `/loop` and `/goal`
 
@@ -238,7 +257,7 @@ source /usr/libexec/immutablue/immutablue-header.sh
 | `immutablue_get_image_full` / `_base` / `_tag` / `_version` | `immutablue:44` / `immutablue` / `44-lts` / `44`, from `image-info.json` |
 | `immutablue_image_info_field <name>` | one flat string field of `image-info.json` (`built`, `source_commit`) |
 | `immutablue_has_internet` / `_v4` / `_v6` | `${TRUE}` or `${FALSE}`; honours `header.force_always_has_internet*` and `header.has_internet_host_v4/v6` |
-| `immutablue_build_is_<variant>` / `immutablue_build_has_zfs` / `_has_gnome` / `_has_package <regex> <exclude-regex\|null>` | `${TRUE}` or `${FALSE}`, from `/usr/immutablue/build_options` or `rpm -qa`. `_is_kinoite` read the misspelt `kionite` (always `${FALSE}`) on images built from immutablue `f549e2d` or earlier — there, use `immutablue_is_option_in_build_options kinoite` |
+| `immutablue_build_is_<variant>` / `immutablue_build_has_zfs` / `_has_gnome` / `_has_package <regex> <exclude-regex\|null>` | `${TRUE}` or `${FALSE}`, from `/usr/immutablue/build_options` or `immutablue-backend list-pkgs` (the backend's package manager). `_is_kinoite` read the misspelt `kionite` (always `${FALSE}`) on images built from immutablue `f549e2d` or earlier — there, use `immutablue_is_option_in_build_options kinoite` |
 | `immutablue_try_command_and_try_again_on_delay <secs> <cmd> [args…]` | runs `cmd`, sleeps and retries once on failure; prints `${TRUE}`/`${FALSE}` — there is no wait-for-network loop, use this around a connectivity check |
 | `immutablue_get_terminal_command` | kitty → ptyxis → gnome-terminal, or `header.preferred_terminal` |
 | `immutablue_services_enable_setup_for_next_boot` / `immutablue_services_force_setup_to_run_now` | re-arm the first-boot wizard for the next boot / and start it now (both `sudo`) |

@@ -14,14 +14,17 @@ echo "$XDG_CURRENT_DESKTOP"; pgrep -a gowl; pgrep -af 'emacs.*--gowl'
 
 The bar and its plugins are their own topic: [`gowl-bar.md`](gowl-bar.md).
 Macros and per-device input remapping (foot pedals, macro pads) are in
-[`gowl-macros.md`](gowl-macros.md).
+[`gowl-macros.md`](gowl-macros.md); text expansion (espanso-style `;today`) in
+[`gowl-gabbrev.md`](gowl-gabbrev.md); AutoHotkey-style hotkeys, remaps and
+layers in [`gowl-hotkey.md`](gowl-hotkey.md).
 
 | Program | What it is |
 |---|---|
 | `gowl` | the compositor; `--check-config`, `--recompile`, `--list-modules`, `--supervise` |
-| `gowl-msg` | the IPC client — query and drive a running session from a shell, standalone or under cmacs |
+| `gowl-msg` | the IPC client — text commands and the JSON-RPC wire protocol, standalone or under cmacs |
 | `gowl-lock` | the lock screen, a separate program on purpose (it holds the password and dlopens PAM) |
 | `gowl-mcp`, `gowlbar` | the MCP server and the standalone bar |
+| `xdg-desktop-portal-gowl` | the portal backend: screen casts, screenshots, input capture — see [Screen sharing and screenshots](#screen-sharing-and-screenshots) |
 
 ## Configuration files
 
@@ -62,12 +65,18 @@ the menu module), `repeat-rate`, `repeat-delay`, `sloppyfocus`, `manage_lid`,
 `border-width`, `border-color-*`, `mfact`, `nmaster`, `tag-count`, `palette`,
 `xkb-layout`/`-variant`/`-options`/`-model`/`-rules`/`-file`, `lock-command`,
 `lock-on-suspend`, `idle-timeout`, `dpms-timeout`, `allow-tearing`,
+`tag-transition`, `tag-transition-duration`, `tag-transition-curve`,
+`tag-transition-all-monitors`,
 `focus-on-activate`, `window-backdrop`, `wallpaper`, `wallpaper-tags`,
 `wallpaper-outputs`, `no-fx-apps`, `hints-*`, and the effect families —
 `animation-*`, `cube-*`, `expo-*`, `switcher-*`, `magnifier-*`, `blur-*`,
 `shadow-*`, `glass-*`, `water-*`, `rain-*`, `crt-*`, `hdr-*`. Tables:
 `keybinds`, `modes`, `mousebinds`, `gestures`, `rules`, `dropdowns`,
-`autostart`, `input`, `input-remap`, `monitors`, `profiles`, `modules`.
+`autostart`, `input`, `input-remap`, `monitors`, `profiles`, `modules`, and the
+sections handed whole to an opt-in module — `broadcast`, `gabbrev`
+([`gowl-gabbrev.md`](gowl-gabbrev.md)) and `hotkey`
+([`gowl-hotkey.md`](gowl-hotkey.md)); `--check-config` only checks that those
+are mappings, the module reports the rest.
 Colours may name a palette role (`accent`, `surface`, `red`, or `base/cc` for
 alpha) instead of a hex value, and should — a role follows a theme switch.
 The effect families are long; `deps/gowl/configuration.org` has every key.
@@ -93,6 +102,7 @@ keybinds:
 | `toggle_below`, `toggle_below_all`, `toggle_crt` | —, `"on"`, `"off"` |
 | `toggle_hdr` | —, `"on"`, `"off"`, or an output name |
 | `cycle_backdrop` | —, `next`, `prev`, or a style (`glass`, `water`, `rain`, `snow`, `blur`, `none`, …) |
+| `cycle_tag_transition` | — (next), `prev`, a loaded transition's name, `random`, `none` — see [Tag transitions](#tag-transitions) |
 | `output_power` | `"on"`, `"off"`, or — to toggle |
 | `mode` | a mode name, or `default` to leave |
 | `switch_layout` | keyboard layout: `next`, `prev`, or an index |
@@ -221,8 +231,62 @@ guard by design, and an `ipc:` guard must be a read-only query. A file that
 will not parse leaves the shipped tree standing. `gowl-msg menu-refresh`
 re-reads it; `gowl-msg menu-list ROUTE` shows what is there.
 
+**The card as a dmenu for another program.** `menu-choose
+PROMPT<TAB>LINE<TAB>LINE…` opens the card on exactly those lines and answers
+`OK TOKEN` at once; the pick arrives as the event `menu chosen TOKEN INDEX`
+(INDEX from 0, in the asker's order) or `menu cancelled TOKEN`, so subscribe
+first. `menu-choice [TOKEN]` polls instead (`TOKEN pending`, `TOKEN chosen N`,
+`TOKEN cancelled`, `none`); `menu-pick N` picks row N (from 1) as Alt+N does.
+Refused while locked. The screen-share portal uses this as its chooser.
+
+```bash
+gowl-msg -s | grep --line-buffered '^EVENT menu' &      # listen first
+gowl-msg "menu-choose $(printf 'Open which?\tnotes\tmail\tcalendar')"
+```
+
 The full key reference is gowl's own `configuration.org`, installed at
 `/usr/share/emacs/*/doc_org/cmacs/deps/gowl/configuration.org`.
+
+### Tag transitions
+
+What a tag switch looks like is one setting over many modules. Each
+transition is its own module; `tag-transition` picks which loaded one runs,
+`random` draws a different one every switch, `none` cuts. **Super+:**
+(`Super+Shift+semicolon`, `cycle_tag_transition`) steps through the loaded ones
+with a toast, `random` last; the menu's *Next tag transition* row does the same.
+
+| Transitions, in Super+:'s order | |
+|---|---|
+| `cube`, `slide`, `fade`, `zoom`, `iris`, `flip`, `pagecurl`, `carousel`, `sphere` | turn, slide, crossfade, stack, circle from the pointer, card, page, ring, globe |
+| `burn`, `ripple`, `pixelate`, `glitch`, `melt`, `shatter`, `explode`, `implode` | fire, water drop, mosaic, broken signal, dripping columns, glass, blast, pulled into the pointer |
+
+```yaml
+tag-transition: pagecurl          # default cube; or random, none
+tag-transition-duration: 460      # ms, scaled per transition (the cube keeps cube-duration); 0 = instant
+tag-transition-curve: "ease-in-out-cubic"
+tag-transition-all-monitors: false
+modules:                          # standalone loads none of them unless enabled
+  cube:     { enabled: true }
+  pagecurl: { enabled: true }
+  melt:     { enabled: true }
+keybinds:
+  "Super+Ctrl+semicolon": { action: cycle_tag_transition, arg: prev }
+```
+
+```bash
+gowl-msg tag-transition              # OK cube
+gowl-msg tag-transition list         # the loaded ones, plus "random"
+gowl-msg tag-transition melt         # or next, prev, random, none
+gowl-msg -c transition.set name=melt duration=900
+```
+
+A name whose module is not loaded is refused (`ERROR no transition 'x' is
+loaded`); selected via YAML it simply cuts. Transitions need the GLES2 renderer
+and sit out on rotated outputs, while locked, and on unfocused outputs unless
+`tag-transition-all-monitors`. Under cmacs every transition is loaded and the
+default is `random` (`cmacs-gowl-tag-transition`; `M-x
+cmacs-gowl-set-tag-transition`, `cmacs-gowl-cycle-tag-transition`). Full page:
+`deps/gowl/transitions.org`.
 
 ### Other opt-in modules and keys
 
@@ -235,6 +299,8 @@ All of these are inert until enabled with `modules: <name>: {enabled: true}` (cm
 | Input broadcasting (multiboxing) | `broadcast` | repeats keys/clicks from one window of a *team* into the others; teams and rules live in a top-level `broadcast:` section (`data/example-broadcast.yaml`). `gowl-msg broadcast-on\|-off\|-toggle\|-panic\|-status\|-list\|-assign TEAM SLOT\|-focus-slot`. Several games forbid it — check their rules first |
 | Region OCR / colour pick | `screenshot` (+ `tesseract` for OCR) | Super+Alt+Shift+s puts a region's text on the clipboard (`screenshot-ocr`); Super+Alt+c puts a pixel's `#rrggbb` there (`screenshot-color`) |
 | Macro record / voice | `macro` | Super+Alt+r, Super+Alt+Shift+r, Super+Alt+m — [`gowl-macros.md`](gowl-macros.md) |
+| Text expansion | `gabbrev` | espanso-compatible `;today` → `2026-10-19`, an expand key, usage counts, phrase learning — [`gowl-gabbrev.md`](gowl-gabbrev.md) |
+| Hotkeys (AutoHotkey) | `hotkey` | hotkeys in AutoHotkey notation, remaps, layers, modes, timers, hotstrings — [`gowl-hotkey.md`](gowl-hotkey.md) |
 | Keybinding list | `menu` | **Super+?** opens the menu at *Keybindings*: every bind read live from the compositor, saying what it runs (macros and custom code called out), with mouse, gesture and remapped-device views. Super+Alt+v opens the clipboard history (a private entry) |
 
 Under MCP these have tools too: `broadcast_*`, `macro_record`, `macro_voice_match`, `screen_text`, `pick_color`, recorder and clipboard tools.
@@ -299,10 +365,11 @@ symbol, `gowl_module_register()`, returning its type. The shipped set is
 |---|---|
 | layouts | tile, monocle, tabbed, float, scrolling, bstack, deck, grid, mirrortile, columns, centeredmaster, fibonacci |
 | effects | animation, alpha, roundcorners, cube, expo, switcher, magnifier, crt, layout-indicator, osd |
+| tag transitions (`tag-transition:` picks one) | cube, slide, fade, zoom, iris, flip, pagecurl, carousel, sphere, burn, ripple, pixelate, glitch, melt, shatter, explode, implode |
 | backdrops (behind translucent windows; `window-backdrop:` picks one) | blur (also `bokeh`), liquidglass, liquidwater, liquidrain (also `storm`), snow, leaves, fizz, soapfilm, submerged, embers, dew |
 | session | menu, hints, scratchpad, dropdown, screenlock, notifyd (notification daemon, standalone only), clipboard, screenshot, recording, wallpaper, bar |
 | behaviour | autostart, swallow, pertag, movestack, vanitygaps, copyhighlight, windowrules, ipc, mcp |
-| opt-in automation | macro, inputremap — [`gowl-macros.md`](gowl-macros.md) |
+| opt-in automation | macro, inputremap — [`gowl-macros.md`](gowl-macros.md); gabbrev — [`gowl-gabbrev.md`](gowl-gabbrev.md); hotkey — [`gowl-hotkey.md`](gowl-hotkey.md); floatdesk, broadcast |
 
 An app that should get no effects at all: `no-fx-apps:` in the config, or
 `GOWL_NO_FX=1` in its environment.
@@ -312,8 +379,12 @@ How the binary loads them, which is **not** how bar plugins load:
 - Only modules with `enabled: true` under `modules:` are loaded. `tile`,
   `monocle` and `float` are on unless explicitly disabled.
 - Each is looked up as `<name>.so` in `<exe-dir>/modules/`, then
-  `/usr/lib64/gowl/modules/`, first match wins. There is no home-directory
-  scan and no `.c` compilation for compositor modules.
+  `/usr/lib64/gowl/modules/`, first match wins (`gowl --list-modules-ex`
+  prints the search path and any shadowed copy). There is no home-directory
+  scan and no `.c` compilation for compositor modules. Paths in this guide are
+  the Fedora image's; arch-bootc uses `/usr/lib/gowl/…`, and freebsd-be
+  installs gowl under `/usr/local` (`/usr/local/lib/gowl/modules`,
+  `/usr/local/share/gowl`).
 - Loading happens once, at startup. There is no load/unload/reload IPC for
   compositor modules; `reload_config` reloads configuration only. A new or
   rebuilt `.so` means restarting the session.
@@ -503,9 +574,14 @@ the only route that reaches every machine.
 
 ## Driving a running session: `gowl-msg`
 
-The compositor listens on `$XDG_RUNTIME_DIR/gowl.sock`, standalone and under
-cmacs alike. One command line in, one reply line out: queries answer JSON,
-the rest `OK …` / `ERROR …`. `gowl-msg` exits non-zero on `ERROR`.
+The compositor listens on `$GOWL_SOCKET` (exported to the session; default
+`$XDG_RUNTIME_DIR/gowl.sock`), standalone and under cmacs alike. One connection
+speaks two dialects, told apart by the first byte of each line: the **text**
+dialect (one command line in, one reply line out: queries answer JSON, the rest
+`OK …` / `ERROR …`) for shells, and the **wire protocol** — JSON-RPC 2.0, one
+object per line, named and type-checked parameters, typed error codes,
+structured events — for programs. `gowl-msg` exits 0 on success, 1 on an error
+reply, 2 on a usage error, 3 when nothing answered.
 
 ```bash
 gowl-msg ping; gowl-msg version
@@ -523,6 +599,31 @@ gowl-msg expo                           # anything else is a module's command, b
 gowl-msg -s                             # subscribe: EVENT client-added|focus|tags|layout|mode|lock|… lines
 ```
 
+The wire protocol, for anything a program or agent does — prefer it over
+parsing `OK` lines:
+
+```bash
+gowl-msg -d                             # every method and event of the running build
+gowl-msg -d window.set_geometry         # one method's parameters
+gowl-msg -c gowl.state | jq '.windows[] | {id, app_id, tags}'
+gowl-msg -c windows.list app_id=foot
+gowl-msg -c window.set_geometry id=12 x=0.5 y=0 width=0.5 height=1 units=fraction relative_to=area
+gowl-msg -c spawn argv='["gst"]' tag=2 floating=true width=900 height=600
+gowl-msg -c gowl.command line="scratchpad-toggle"   # any text command, module ones included
+gowl-msg -s -j 'window.*' tags.changed  # structured events, one JSON object per line
+printf '%s\n' '{"id":1,"method":"gowl.state"}' | gowl-msg --pipe
+```
+
+`-c METHOD k=v…` (values parsed as JSON when they are JSON), `-p` indents,
+`-r` prints the whole response; `--socket PATH` names another socket. Errors
+are by code: `-32602` bad parameter (the message names it), `-32001` no such
+window/output, `-32002` refused (locked, or a cmacs-embedded window), `-32601`
+no such method (a module not loaded). Modules add methods (`hotkey.*`,
+`transition.get/set`). gowl ships its own agent skill for this, `gowl-msg`
+(`skills/gowl-msg/` in gowl's source; not installed on the image — if the
+harness already has it, use it), and the reference is the *wire protocol* part
+of `deps/gowl/ipc.org`.
+
 A module command is the same word everywhere: the `ipc_command` keybind
 action, a menu row's `command:`, a remap `command:` target, MCP, and
 `(gowl-run-command "…")` under cmacs. `gowl-msg help` lists the core words;
@@ -532,6 +633,39 @@ program, not something to script.
 
 `gowl --supervise` runs the compositor in a child and restarts it after a
 crash signal (up to five a minute), keeping the login alive.
+
+## Screen sharing and screenshots
+
+Screen casts (browsers, OBS, Zoom) and the Screenshot portal are served by
+gowl's own backend, `xdg-desktop-portal-gowl`, with `xdg-desktop-portal-wlr`
+as the fallback: `/usr/share/xdg-desktop-portal/gowl-portals.conf` routes
+`ScreenCast` and `Screenshot` to `gowl;wlr`, and `InputCapture`/`RemoteDesktop`
+to `gowl`. The backend declines ScreenCast without PipeWire, and both without
+image-copy-capture, and the frontend moves on to wlr.
+
+- **Chooser** — what to share is picked by `$GOWL_PORTAL_CHOOSER` (a dmenu-style
+  command; the value `gowl` means the menu card only), else gowl's menu card
+  when the `menu` module is loaded (via `menu-choose`), else the first of
+  bemenu, fuzzel, wofi, rofi, dmenu. With none, a cast shares the first output.
+  The pick is asynchronous: a pending choice never freezes other casts; it is
+  withdrawn after 5 minutes (`$GOWL_PORTAL_CHOOSER_TIMEOUT`, seconds).
+- **Restore tokens** — an app that asks to persist (`persist_mode` 2) skips the
+  chooser next time. Those grants live in
+  `$XDG_STATE_HOME/gowl/screencast-grants.yaml` (mode 0600, 64 most recent);
+  **delete an entry, or the file, to revoke** a standing permission to record
+  the screen. A restore that is ambiguous asks again rather than guessing.
+- **Screenshot v3** — targets Screen, Window, Area (`slurp`, or
+  `$GOWL_PORTAL_AREA_PICKER`), Active Window; files go to
+  `$GOWL_PORTAL_SCREENSHOT_DIR`, else `$XDG_PICTURES_DIR/Screenshots`.
+  `PickColor` uses `$GOWL_PORTAL_POINT_PICKER`, else `slurp -p`, else the pointer.
+- The portal is D-Bus activated, so these variables must be in the systemd user
+  environment (`~/.config/environment.d/*.conf`, then
+  `systemctl --user restart xdg-desktop-portal`), not just a shell.
+- Single-window casts need wlroots 0.20 (Fedora 44+ images); on a 0.19 build
+  only outputs can be shared.
+
+Before gowl `8512361`, casts through this backend negotiated and linked but
+**delivered no frames** (a black or frozen share); on such an image, update.
 
 ## Under cmacs
 
@@ -545,12 +679,15 @@ crash signal (up to five a minute), keeping the login alive.
   compositor started later from Elisp (`gowl-start`), not of `emacs --gowl`
   — verified in cmacs `src/emacs.c`.
 - cmacs also loads `floatdesk` by default (nothing floats until Super+w toggles a workspace). Its Elisp surfaces cover the new features: `cmacs-gowl-floatdesk-*` (Super+w, Super+n, Super+Shift+n, Super+Shift+w), `cmacs-gowl-broadcast-*` (nothing is on until `cmacs-gowl-broadcast-enable` is set, a team/rule is defined, or `-start` is called; Super+b toggles, Super+Shift+b panics), `(gowl-pointer-confine 'on|'off|'toggle)` and `cmacs-gowl-pointer-confine-changed-functions`.
-- cmacs loads its own module set — every layout, `animation`, `cube`, `expo`,
+- cmacs loads its own module set — every layout, `animation`, `cube` and every
+  other tag transition (`cmacs-gowl-tag-transition`, default `random`), `expo`,
   `switcher`, `magnifier`, `blur`, the liquid and weather backdrops,
-  `wallpaper`, and the menu and hints — which is why the shipped YAML leaves
-  several `enabled: false` with a comment saying so. `macro` and `inputremap`
-  are loaded by their Elisp surfaces on first use, not from YAML
-  ([`gowl-macros.md`](gowl-macros.md)).
+  `wallpaper`, the menu and hints, and `gabbrev` — which is why the shipped YAML
+  leaves several `enabled: false` with a comment saying so. `macro`,
+  `inputremap` and `hotkey` are loaded by their Elisp surfaces on first use (or
+  `cmacs-gowl-hotkey-enable`), not from YAML ([`gowl-macros.md`](gowl-macros.md),
+  [`gowl-hotkey.md`](gowl-hotkey.md)). The gabbrev expand key is Super+Alt+e
+  ([`gowl-gabbrev.md`](gowl-gabbrev.md)).
 - Monitor settings and output profiles are also set from Elisp
   (`cmacs-gowl-monitor-configs`, `cmacs-gowl-output-profiles`,
   `gowl-add-output-profile`), and HDR through `gobject-set` on the config
@@ -580,11 +717,15 @@ All under `/usr/share/emacs/<version>/doc_org/cmacs/` (`ls -d
 | `deps/gowl/modules.org` | writing modules: every interface and vfunc, step by step |
 | `deps/gowl/architecture.org` | core objects, dispatch, signals |
 | `deps/gowl/bar.org` | the bar and its plugin contract |
-| `deps/gowl/ipc.org` | the socket, every `gowl-msg` command, reply and event |
+| `deps/gowl/ipc.org` | the socket, every `gowl-msg` command, reply and event, and the JSON-RPC wire protocol |
 | `deps/gowl/macros.org` | macros: ABI, API, triggers and filters, containment, the 25 examples |
 | `deps/gowl/input-remap.org` | per-device remapping: rules, targets, identify, C API |
 | `deps/gowl/mcp.org`, `deps/gowl/input-capture.org` | the MCP tools; KVM/deskflow input capture |
 | `deps/gowl/floatdesk.org`, `deps/gowl/broadcast.org` | the floating desktop and input broadcasting |
+| `deps/gowl/transitions.org` | tag transitions: every one, selection, writing one |
+| `deps/gowl/gabbrev.org`, `deps/gowl/bar-widgets/gabbrev.org` | text expansion, and its bar widget |
+| `deps/gowl/hotkey.org` | the hotkey module (AutoHotkey for gowl), with a cookbook |
+| `deps/gowl/architecture.org` (*Screen Sharing*) | the portal backend: chooser, restore tokens, Screenshot |
 | `gowl.org` | gowl embedded in cmacs: startup, Elisp API, modules, bar, monitors |
 | `gowl/bar-widgets.org`, `gowl/multi-display.org`, `gowl/screenshot-recording.org` | cmacs-side topics |
 
@@ -616,6 +757,14 @@ systemctl --user status gowl-session.target graphical-session.target
 | Wrong layout after docking | a connector-name key moved ports | key `monitors:`/`profiles:` by description; `gowl-msg profile` |
 | Locked out after a lock-program crash | `gowl-lock` died; the session stays locked by design | from a TTY or SSH: `gowl-msg unlock` |
 | Macro or foot pedal problems | | [`gowl-macros.md`](gowl-macros.md) |
+| Text expansion or hotkey problems | | [`gowl-gabbrev.md`](gowl-gabbrev.md), [`gowl-hotkey.md`](gowl-hotkey.md) |
+| A tag switch cuts instead of animating | the selected transition's module is not loaded (standalone loads none), a non-GLES2 renderer, a rotated or unfocused output, or `tag-transition: none` | `gowl-msg tag-transition list`; enable `modules: <name>:`; `tag-transition-all-monitors: true` |
+| Super+: does nothing | no transition module is loaded standalone | enable at least one (`cube`, `slide`, …) |
+| Screen share shows a black/frozen picture | an image whose gowl predates `8512361` (casts delivered no frames) | update the image |
+| A screen-share app never asks what to share | a restore token from an earlier grant | delete its entry in `$XDG_STATE_HOME/gowl/screencast-grants.yaml` |
+| The share picker is the wrong program | `$GOWL_PORTAL_CHOOSER` in the user environment, or the `menu` module is off | `systemctl --user show-environment \| grep GOWL_PORTAL`; set `GOWL_PORTAL_CHOOSER=gowl` for the menu card |
+| Clipboard history (Super+Alt+v) stays empty standalone | an image whose gowl predates `720b394`: the history read its pipe on a GLib context nothing iterated | update the image |
+| `-32601` / `ERROR unknown command` for a module word | the module is not loaded | `gowl-msg -d` lists what the running build offers |
 | Super+g or a `confine-pointer` rule does not hold the pointer | a client's own pointer lock wins while it holds one; a manual release sticks until focus has been elsewhere | `gowl-msg pointer-confine` (JSON: `client_constraint`, `by_rule`) |
 | `floatdesk-*` / `broadcast-*` reply `unknown command` | the module is not enabled | `modules: floatdesk: {enabled: true}` / `broadcast` |
 | Two-finger click is not a right click | libinput default is button areas | `click-method: clickfinger` in the touchpad's `input` block |

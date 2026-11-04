@@ -1,11 +1,9 @@
-#!/bin/bash 
+#!/bin/bash
 set -euo pipefail
 
-# get the mem amount and divide by 2
-mem_amount=$(free | grep Mem | awk '{printf "%s\n", $1}')
-mem_amount_half=$(bc <<< "${mem_amount}/2")
+# Cap the ZFS ARC at half of system memory, leaving the rest for VMs and
+# containers. zfs_arc_max is in bytes; /proc/meminfo's MemTotal is in KiB.
+mem_total_kib="$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo)"
+arc_max_bytes=$(( mem_total_kib * 1024 / 2 ))
 
-# set zfs l1 arc cache to half of system mem amount 
-# this leaves leftover ram space for vms and containers
-echo "${mem_amount_half}" > /sys/module/zfs/parameters/zfs_arc_max
-
+echo "${arc_max_bytes}" > /sys/module/zfs/parameters/zfs_arc_max

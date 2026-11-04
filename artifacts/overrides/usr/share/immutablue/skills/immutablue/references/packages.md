@@ -2,6 +2,19 @@
 
 Read this before installing anything on a machine running Immutablue.
 
+This guide is written for the `fedora-bootc` backend (`immutablue-backend name`).
+On `arch-bootc` the host package manager is pacman inside the same image model
+(layering is `bootc usroverlay` + `pacman`, transient); on `freebsd-be` it is
+`pkg`, and changes made in the running boot environment are replaced by the next
+update — add the package to `packages.yaml` (see [`building.md`](building.md))
+instead. On `freebsd-be`, Linux software comes through the Linuxulator:
+`brew` runs Homebrew in a Fedora/Arch userland at `/compat/linux` (formulae run
+from the FreeBSD shell), `immutablue-linux box create|enter` gives podman Linux
+containers with `/home` shared in place of distrobox, and `immutablue-linux
+status` shows whether the userland exists (`sudo immutablue-linux setup` creates
+it); `immutablue-linux chroot dnf install X` (or `pacman -S`) adds Linux packages
+to the userland itself. Flatpak is impossible there: bubblewrap needs Linux namespaces.
+
 There is no `dnf` on the host in the sense that matters, and `rpm-ostree install`
 is the *last* option rather than the first. Work down this list and stop at the
 first one that fits.
@@ -70,19 +83,24 @@ The image's package set is data, not mystery:
 
 ```bash
 cat /usr/immutablue/packages.yaml
-rpm -qa | sort                    # what is actually in this deployment
+immutablue-backend list-pkgs      # what is actually in this deployment (rpm, pacman or pkg)
 rpm-ostree status                 # including anything layered on top
 flatpak list
 brew list
 distrobox list
 ```
 
-`packages.yaml` is organised by variant and architecture: `rpm`, `rpm_gui`,
-`rpm_silverblue`, `rpm_kinoite`, `rpm_nucleus`, `rpm_kuberblue`, `rpm_trueblue`,
-`rpm_x86_64`, and so on, each split into `all`, `<version>`, `all_<arch>` and
-`<version>_<arch>` sub-keys (`.immutablue.rpm.all`, `.immutablue.rpm_gui.all`),
-plus `rpm_rm*` lists of packages removed from the base image. If you are asked
-why some package is or is not present, that file is the answer.
+`packages.yaml` is organised by variant and architecture. Packages shared by
+backends are logical lists — `pkg`, `pkg_gui`, `pkg_silverblue`, `pkg_kuberblue`,
+`pkg_trueblue`, … — whose entries are a plain name or
+`{name: <fedora>, pacman: <arch>, freebsd: <freebsd>}` (`null` = not on that
+backend). Backend-only packages are in native lists named by the backend's
+package manager: `rpm*` (e.g. `rpm_kuberblue.<ver>`, Fedora's versioned
+Kubernetes), `pacman*`, `freebsd*`. Each splits into `all`, `<version>`,
+`all_<arch>` and `<version>_<arch>` sub-keys (`.immutablue.pkg.all`), and the
+`*_rm*` lists remove packages from the base image. If you are asked why some
+package is or is not present, that file is the answer — see
+[`building.md`](building.md) for the full schema.
 
 ## Updating what is installed
 
@@ -132,7 +150,7 @@ distrobox, never over the host's copy.
 What does work:
 
 ```bash
-ai --version            # "ai (ai-glib) 0.7.2 (built …)": no git describe on an image build
+ai --version            # "ai (ai-glib) 0.9.1 (built …)": no git describe on an image build
 jq '.deps[] | select(.name == "ai-glib")' /usr/immutablue/deps/dep_info.json   # the commit it was built from
 ```
 
@@ -145,10 +163,24 @@ All from the one build, so one image update moves them together:
 
 | Binary | What it is |
 |---|---|
-| `ai` | the CLI (`ai project`, `ai loop`, `ai goal`, `ai --usage`, `ai --setup`, …) |
+| `ai` | the CLI (`ai project`, `ai loop`, `ai goal`, `ai decide`, `ai benchmark`, `ai --usage`, `ai --setup`, …) |
 | `ai-tui` | the terminal client and project dashboard |
 | `ai-gui` | the GTK4/libadwaita client, with a launcher (`org.copyleft.AiGlib.Gui.desktop`, `StartupWMClass=ai-gui`) |
 | `ai-call` | the voice frontend — needs a speech service you provide, see [`automation.md`](automation.md#voice-sessions-ai-call) |
+
+`ai benchmark` (ai-glib 0.8.0 and later) runs the same work against several
+providers, models or decision models and compares latency, accuracy against
+labelled answers, calibration and token use: `ai benchmark --list-kinds`,
+`ai benchmark SUITE.yaml --dry-run` to see the calls before making them, or
+quick mode, `ai benchmark --kind chat --stream -T ollama:llama3.2 -T claude 'Say hi'`.
+Calls run one at a time; results go to stdout (`--format table|yaml|json|csv`,
+`-o FILE`), progress to stderr. Every call costs what the provider charges —
+check the plan with `--dry-run` first. `ai decide` and its backends are in
+[`configuration.md`](configuration.md#ai-glib-keys-worth-knowing).
+
+On `freebsd-be` ai-glib's binaries install under `/usr/local/bin` (`ai-tui`
+builds there from ai-glib `02678e0`), and the provenance file is still
+`/usr/immutablue/deps/dep_info.json`.
 
 `ai-gui` is built into the image: the dependency container carries `gtk4-devel`
 and `libadwaita-devel` precisely so ai-glib's `make` does not skip it, and

@@ -1,0 +1,8 @@
+# Base for the image's os-release on arch-bootc. scripts/os-release.sh adds
+# NAME, VERSION, PRETTY_NAME, VARIANT(_ID), the URLs and the rest from the
+# build options; this file carries only what identifies the OS underneath.
+ID=immutablue
+ID_LIKE=arch
+BUILD_ID=rolling
+LOGO=archlinux-logo
+DEFAULT_HOSTNAME="immutablue"

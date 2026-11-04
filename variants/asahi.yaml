@@ -1,0 +1,3 @@
+# asahi: Fedora Asahi Remix base images for Apple Silicon.
+requires:
+  pkg_key: rpm

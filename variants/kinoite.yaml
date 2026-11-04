@@ -1,0 +1,3 @@
+# kinoite: a Fedora Atomic desktop base image.
+requires:
+  pkg_key: rpm

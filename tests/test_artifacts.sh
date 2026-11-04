@@ -93,6 +93,32 @@ function test_systemd_service_files() {
   return 0
 }
 
+# Write the shared overrides the image's backend replaces or drops on purpose,
+# one path per line (an entry ending in '/' covers a directory), for both
+# validators: every file under backends/<backend>/overrides (a backend may
+# legitimately replace a shared file with its own version) and backend.yaml
+# 'drops_overrides' (shared files it removes because its OS keeps them
+# elsewhere, e.g. FreeBSD's sudo reads /usr/local/etc/sudoers.d only).
+#
+# param $1: output file
+function write_override_skip_list() {
+  local out="$1"
+  local backend
+  local backend_dir
+
+  : > "${out}"
+  backend="$(podman run --rm --entrypoint "" "$IMAGE" cat /usr/immutablue/backend 2>/dev/null || true)"
+  [[ -n "${backend}" ]] || return 0
+  backend_dir="${ARTIFACTS_DIR}/../backends/${backend}"
+
+  if [[ -d "${backend_dir}/overrides" ]]; then
+    (cd "${backend_dir}/overrides" && find . -type f | sed 's|^\.||') >> "${out}"
+  fi
+  if [[ -f "${backend_dir}/backend.yaml" ]]; then
+    yq '.drops_overrides // [] | .[]' "${backend_dir}/backend.yaml" >> "${out}"
+  fi
+}
+
 # Test override files presence and integrity in container
 # Uses a crispy script to verify all file checksums in a single container run
 # instead of spawning a container per file (massive speedup)
@@ -112,14 +138,88 @@ function test_override_files_in_container() {
     return 1
   fi
 
+  local skip_list
+  local rc=0
+  skip_list="$(mktemp)"
+  write_override_skip_list "${skip_list}"
+
+  # crispy ships with the in-house deps, which not every image has (a
+  # backend or build without them), and it compiles its script with gcc and
+  # pkg-config, which some images with crispy lack (gnomeos). Those images
+  # get the same comparison done in bash, with the same skip rules as
+  # validate_artifacts.c.
+  if ! podman run --rm --entrypoint "" "$IMAGE" sh -c 'command -v crispy && command -v gcc && command -v pkg-config' > /dev/null 2>&1; then
+    test_override_files_in_container_shell "${skip_list}" || rc=$?
+    rm -f "${skip_list}"
+    return "${rc}"
+  fi
+
   # Run the crispy script inside a single container with overrides mounted
   # at /expected. The script compares SHA256 hashes of all files under
   # /expected against their corresponding paths on the root filesystem.
   if ! podman run --rm \
     -v "${ARTIFACTS_DIR}/overrides:/expected:ro,z" \
     -v "${CRISPY_SCRIPT}:/tmp/validate_artifacts.c:ro,z" \
+    -v "${skip_list}:/tmp/override-skips:ro,z" \
     "$IMAGE" \
-    crispy --cache-dir /tmp -n /tmp/validate_artifacts.c /expected; then
+    crispy --cache-dir /tmp -n /tmp/validate_artifacts.c /expected /tmp/override-skips; then
+    rm -f "${skip_list}"
+    echo "FAIL: Override file verification failed"
+    return 1
+  fi
+  rm -f "${skip_list}"
+
+  echo "PASS: Override file verification completed"
+  return 0
+}
+
+# Bash form of validate_artifacts.c for images without crispy: every regular
+# file under the overrides must exist on the image with the same SHA256, except
+# the paths the C validator skips (test fixtures, the build-appended Justfile,
+# system.conf, Python bytecode) and the backend skip list
+# (write_override_skip_list).
+#
+# param $1: the skip list file
+function test_override_files_in_container_shell() {
+  local skip_list="$1"
+
+  if ! podman run --rm --entrypoint "" \
+    -v "${ARTIFACTS_DIR}/overrides:/expected:ro,z" \
+    -v "${skip_list}:/tmp/override-skips:ro,z" \
+    "$IMAGE" bash -c '
+      failed=0; checked=0; skipped=0
+      mapfile -t skips < /tmp/override-skips
+      backend_skips () {
+        local entry
+        for entry in "${skips[@]}"; do
+          [[ -n "${entry}" ]] || continue
+          if [[ "${entry}" == */ ]]; then
+            [[ "$1" == "${entry}"* ]] && return 0
+          elif [[ "$1" == "${entry}" ]]; then
+            return 0
+          fi
+        done
+        return 1
+      }
+      while IFS= read -r -d "" file; do
+        rel="${file#/expected}"
+        case "${rel}" in
+          */test/*|*/Justfile|*/system.conf|*__pycache__*) skipped=$((skipped + 1)); continue ;;
+        esac
+        if backend_skips "${rel}"; then
+          skipped=$((skipped + 1)); continue
+        fi
+        checked=$((checked + 1))
+        if [[ ! -f "${rel}" ]]; then
+          echo "FAIL: ${rel} (not found on filesystem)"; failed=$((failed + 1)); continue
+        fi
+        if [[ "$(sha256sum < "${file}")" != "$(sha256sum < "${rel}")" ]]; then
+          echo "FAIL: ${rel}"; failed=$((failed + 1))
+        fi
+      done < <(find /expected -type f -print0)
+      echo "- Files checked: ${checked}, skipped: ${skipped}, failed: ${failed}"
+      [[ ${failed} -eq 0 ]]
+    '; then
     echo "FAIL: Override file verification failed"
     return 1
   fi
@@ -144,6 +244,15 @@ function test_initramfs_regenerated() {
 
   if ! podman run --rm "$IMAGE" bash -c '
     set -euo pipefail
+
+    # A backend that skips build/80-initramfs.sh boots an initramfs it does
+    # not build (gnomeos: GNOME OS ships its own), so there is nothing of
+    # Immutablue'"'"'s to check.
+    backend_yaml="/usr/immutablue/backends/$(cat /usr/immutablue/backend 2>/dev/null)/backend.yaml"
+    if grep -qE "^[[:space:]]*-[[:space:]]*80-initramfs\.sh" "${backend_yaml}" 2> /dev/null; then
+      echo "SKIP: this backend does not build the initramfs (80-initramfs.sh skipped)"
+      exit 0
+    fi
 
     kver=""
     for moddir in /usr/lib/modules/*/; do

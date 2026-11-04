@@ -1,0 +1,9 @@
+# Introduced via the immutablue project (freebsd-be backend).
+# - https://gitlab.com/immutablue/immutablue
+#
+# FreeBSD's sudo reads /usr/local/etc/sudoers and only includes
+# /usr/local/etc/sudoers.d, so the shared /etc/sudoers.d drop-ins never apply
+# here; this is their FreeBSD counterpart.
+#
+# No password for use of sudo for members of the wheel group
+%wheel  ALL=(ALL)       NOPASSWD: ALL

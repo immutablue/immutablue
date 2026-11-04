@@ -176,21 +176,23 @@ print_info() {
 # ═══════════════════════════════════════════════════════════════════════════
 
 check_ostree_status() {
-    print_header "OSTree / Bootc Status"
+    local backend
+    backend="$(immutablue-backend name)"
+    print_header "Deployment Status (${backend})"
     
-    # Check if ostree is healthy
-    if rpm-ostree status &>/dev/null; then
+    # Check that the backend can read its deployment state
+    if immutablue-backend healthy; then
         local current_image
         current_image=$(immutablue_get_image_full)
-        print_pass "OSTree deployment healthy" "Current image: ${current_image}"
+        print_pass "Deployment healthy" "Current image: ${current_image}"
     else
-        print_fail "OSTree deployment" "rpm-ostree status failed" "Run 'rpm-ostree status' to see details"
+        print_fail "Deployment" "immutablue-backend healthy failed" "Run 'immutablue-backend status' to see details"
         return
     fi
     
     # Check for pending updates
     local pending
-    pending=$(rpm-ostree status | grep -c "pending" || true)
+    pending=$(immutablue-backend pending)
     if [[ "${pending}" -gt 0 ]]; then
         print_warn "Pending deployment" "Reboot required to apply updates"
     else

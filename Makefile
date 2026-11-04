@@ -13,7 +13,9 @@
 # ==============================================================================
 
 MAKEFLAGS += --no-builtin-rules
-SHELL := /bin/bash
+# bash wherever the host keeps it: /bin/bash on Linux, /usr/local/bin/bash on
+# FreeBSD (the freebsd-be build host).
+SHELL := $(or $(shell command -v bash 2>/dev/null),/bin/bash)
 
 # ==============================================================================
 # Include Modules (order matters)
@@ -21,6 +23,8 @@ SHELL := /bin/bash
 include makefiles/00-variables.mk
 include makefiles/10-variants-data.mk
 include makefiles/20-variants-logic.mk
+include makefiles/25-backend.mk
+include makefiles/27-backend-vm.mk
 include makefiles/99-utils.mk
 include makefiles/30-build.mk
 include makefiles/40-images.mk

@@ -1,0 +1,6 @@
+# Introduced via the immutablue project (freebsd-be backend).
+# - https://gitlab.com/immutablue/immutablue
+#
+# FreeBSD's search path for sudo: base system first, then ports/packages in
+# /usr/local. (The shared drop-in's Linuxbrew paths do not exist here.)
+Defaults secure_path="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"

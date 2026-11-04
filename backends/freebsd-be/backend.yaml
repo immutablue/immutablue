@@ -1,0 +1,82 @@
+# freebsd-be: FreeBSD 15.1-RELEASE built from the official pkgbase OCI image
+# and delivered as a ZFS boot environment: an update pulls the new image,
+# lays its root filesystem into a fresh boot environment, carries /etc
+# changes across, and activates it for the next boot (see deliver.sh).
+#
+# Early: the nucleus image builds, passes make test, is delivered and boots
+# on a FreeBSD 15.1 ZFS system. It must be built on FreeBSD (podman-suite +
+# ocijail); backends/freebsd-be/builder-vm.sh provides one as a VM.
+name: freebsd-be
+description: FreeBSD 15.1-RELEASE via ZFS boot environments
+
+base_image: ghcr.io/freebsd/freebsd-runtime
+devel_image: ghcr.io/freebsd/freebsd-toolchain
+release: "15.1"
+
+pkg_key: freebsd
+repo_key: ""
+
+init: rc
+kernel: freebsd
+delivery: boot-environment
+
+# Third-party software lives under /usr/local on FreeBSD.
+libdir: lib
+
+# scripts/check-backend.sh refuses to start the build anywhere else.
+build_host_os: FreeBSD
+build_host_note: "Build on FreeBSD 15.1 with sysutils/podman-suite and sysutils/ocijail. On Linux, make build/test/push/build-deps/push-deps run in the builder VM by themselves (create it once with backends/freebsd-be/builder-vm.sh --libvirt create); other targets: backends/freebsd-be/builder-vm.sh make <target>."
+
+# build/ stages that cannot apply: no systemd crash-capture policy, no dracut
+# initramfs (FreeBSD's loader boots the kernel directly).
+skip_stages:
+  - 65-crash-capture.sh
+  - 80-initramfs.sh
+
+# Shared overrides this backend drops on purpose: sudo on FreeBSD reads
+# /usr/local/etc/sudoers.d only, so stage 11 removes /etc/sudoers.d and the
+# FreeBSD versions ship in this backend's overrides. tests/test_artifacts.sh
+# skips them (an entry ending in '/' covers the directory).
+drops_overrides:
+  - /etc/sudoers.d/
+
+# The deps image is built locally (in the builder VM) until a FreeBSD one is
+# published; scripts/resolve-deps-image.sh may fall back to local storage.
+deps_local_fallback: true
+
+# How deps-container/00-build.sh builds the in-house C projects here:
+# everything under /usr/local, GNU make (the projects' Makefiles are GNU make
+# throughout), gcc for gnu89 C (FreeBSD's cc is clang), and pkgconf told about
+# /usr/local/lib/pkgconfig, which ports do not use but these projects install
+# into. zapper is Linux-only (ptrace). graylib_cflags: the raylib vendored in
+# gst/gsurf's libregnum pin is linked into shared objects, and FreeBSD's gcc
+# does not default to PIE the way Fedora's does.
+deps_build:
+  prefix: /usr/local
+  make: gmake
+  cc: gcc
+  skip:
+    - zapper
+  graylib_cflags: "-O2 -fPIC"
+
+provides:
+  - inhouse_deps     # built by backends/freebsd-be/deps.Containerfile
+  - cmacs            # quay.io/zachpodbielniak/cmacs:freebsd-15.1 (cmacs ./build-container freebsd-15.1)
+  - zfs
+  - jails
+  - bhyve
+  - dtrace
+
+# dconf's sysconfdir on FreeBSD (build/90-post.sh compiles the defaults there).
+dconf_dir: /usr/local/etc/dconf
+
+# libosinfo id for libvirt domains (builder-vm.sh --libvirt). libosinfo has
+# no 15.1 entry yet; 15.0 describes the same hardware needs.
+osinfo: freebsd15.0
+
+# os-release: scripts/os-release.sh from ./os-release (ID=immutablue,
+# ID_LIKE=freebsd, VERSION_ID) plus the variant.
+os_release_base: os-release
+os_release_version: "FreeBSD {VERSION_ID}"
+os_release_aliases:
+  silverblue: gnome

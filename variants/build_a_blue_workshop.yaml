@@ -1,0 +1,3 @@
+# build_a_blue_workshop: Fedora base-atomic workshop image.
+requires:
+  pkg_key: rpm

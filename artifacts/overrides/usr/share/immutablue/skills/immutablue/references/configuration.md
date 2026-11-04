@@ -117,6 +117,15 @@ own cascades. Do not try to drive them through `settings.yaml`:
 | `ai` (ai-glib) | `/usr/share/ai-glib/config.yaml` → `/etc/ai-glib/config.yaml` → `~/.config/ai-glib/config.yaml`, or `ai --setup`; see below |
 | podomation | `$PODOMATION_CONFIG` → `~/.config/podomation/config.yaml` → `/etc/podomation/config.yaml`, or a bare `.pod` file; see [`automation.md`](automation.md#podomation-event-driven-automation) |
 
+gowl, the bar, gst, gsurf and podomation read their YAML through yaml-glib, which
+follows the YAML 1.2 core schema on images built from yaml-glib `46baefc` or
+later: a *quoted* `"null"`, `"~"` or `""` is that string (older builds turned it
+into null), and `0x1ED` / `0o17` are integers while `010` is still 10 (gowl
+under `emacs --gowl` uses cmacs's own yaml-glib, which can lag). Quote a value
+that must stay a string. On `freebsd-be` these programs live under
+`/usr/local`, but ai-glib and podomation still read `/etc/ai-glib/`,
+`/usr/share/ai-glib/` and `/etc/podomation/` (the paths are compiled in).
+
 ### ai-glib keys worth knowing
 
 The ai-glib cascade is the same three layers as Immutablue's, later wins, and the
@@ -139,9 +148,22 @@ mapping: it refuses to start). After editing, confirm the change took —
 before assuming the key does nothing; `yq . ~/.config/ai-glib/config.yaml`
 catches a file that is not YAML at all. Environment overrides: `AI_GLIB_NO_UPDATE_CHECK=1`
 forces update checks off, `AI_LOOP_DISABLE=1` stops every `/loop` and `/goal`
-(see [`automation.md`](automation.md#scheduled-ai-prompts-loop-and-goal)), and `LAYA_BASE_URL` /
-`LAYA_API_KEY` point `ai decide` at a Laya classification server — ai-glib
-ships no Laya server or weights.
+(see [`automation.md`](automation.md#scheduled-ai-prompts-loop-and-goal)).
+
+`ai decide` (and `/decide` in `ai-tui` and `ai-gui`) asks a typed decision
+model, not the chat provider, and since ai-glib 0.8.0 picks its backend from the
+environment when `-p` is not given: `TYPESAFE_API_KEY` set → TypeSafe Jev
+(`TYPESAFE_BASE_URL`, `TYPESAFE_DEFAULT_MODEL`, default `jev-latest`);
+otherwise `LAYA_BASE_URL` set → a Laya server (`LAYA_API_KEY`); otherwise the
+local Ollama at `OLLAMA_HOST` with the decision model `tev1`, which must be
+pulled. Older builds assumed Laya on port 8000. `-p typesafe|jev|ollama|laya`
+overrides it. None of these servers or weights ships with the image. The same
+models can be compared with `ai benchmark --kind decision -T typesafe:jev-latest
+-T ollama:tev1 -q 'QUESTION' --expect true 'TEXT'`.
+
+`process-timeout-ms` for the CLI-wrapper providers (Claude Code, Codex, …) now defaults
+to 0 — no deadline — in `ai` and the library; `ai --set process-timeout-ms=600000`
+bounds one run.
 
 ## Checking your work
 

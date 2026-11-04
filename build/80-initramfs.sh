@@ -31,17 +31,28 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 # and 60-services.sh as well, which even the LTS path ran too early to see.
 # -----------------------------------
 
-# Distroless uses a different base entirely and ships no kernel.
-if [[ "$(is_option_in_build_options distroless)" == "${TRUE}" ]]
-then
-    echo "=== Distroless build: skipping initramfs regeneration ==="
-    exit 0
-fi
-
 if [[ "$(is_skipped initramfs)" == "${TRUE}" ]]
 then
     echo "=== SKIP=initramfs: leaving the base image initramfs in place ==="
     exit 0
+fi
+
+# Only backends that boot through a dracut initramfs (the ostree/bootc ones)
+# regenerate it; FreeBSD has no initramfs at all.
+if [[ "$(backend_has dracut)" == "${FALSE}" ]]
+then
+    echo "=== Backend ${IMMUTABLUE_BACKEND} does not use dracut: skipping initramfs regeneration ==="
+    exit 0
+fi
+
+# Dracut modules the backend requires in every initramfs (backend.yaml
+# 'dracut_modules'): ostree on Fedora, ostree and bootc on Arch. Each is passed
+# with --add and verified afterwards.
+mapfile -t required_dracut_modules < <(yq '.dracut_modules // [] | .[]' < "$(backend_dir)/backend.yaml")
+if [[ ${#required_dracut_modules[@]} -eq 0 ]]
+then
+    echo "ERROR: backend ${IMMUTABLUE_BACKEND} provides dracut but lists no dracut_modules" >&2
+    exit 1
 fi
 
 if ! command -v dracut &>/dev/null
@@ -80,10 +91,20 @@ do
     # gone the moment dracut overwrites the file.
     mods_before="$(mktemp)"
     mods_after="$(mktemp)"
-    lsinitrd "${initramfs}" 2>/dev/null \
-        | sed -n '/^dracut modules:/,/^===/p' | grep -v '^===' | tail -n +2 | sort > "${mods_before}"
+    #
+    # A base image that ships no initramfs at all (archlinux:latest is a plain
+    # container) has nothing to compare against; the before-set is then empty
+    # and the explicit dracut_modules check below is what guards the result.
+    if [[ -f "${initramfs}" ]]
+    then
+        { lsinitrd "${initramfs}" 2>/dev/null || true; } \
+            | sed -n '/^dracut modules:/,/^===/p' | { grep -v '^===' || true; } | tail -n +2 | sort > "${mods_before}"
+    else
+        echo "No inherited initramfs for ${kver}; nothing to compare against"
+        : > "${mods_before}"
+    fi
 
-    # --add ostree is REQUIRED and must not be dropped. The 50ostree dracut
+    # --add ostree (from dracut_modules) is REQUIRED and must not be dropped. The 50ostree dracut
     # module returns 255 from its check(), which means "only if explicitly
     # requested" -- it is never pulled in automatically. Without it the
     # initrd has no ostree-prepare-root and the image does not boot at all.
@@ -99,7 +120,7 @@ do
     dracut \
         --force \
         --no-hostonly \
-        --add ostree \
+        --add "${required_dracut_modules[*]}" \
         --kver "${kver}" \
         "${initramfs}"
 
@@ -143,14 +164,17 @@ do
     fi
 
     # Checked explicitly as well as by the comparison above, because a base
-    # image that somehow lacked it would make the comparison vacuously true.
+    # image that somehow lacked them would make the comparison vacuously true.
     # Without ostree the initrd cannot mount the deployment root at all.
-    if ! grep -qx "ostree" "${mods_after}"
-    then
-        echo "ERROR: regenerated initramfs for ${kver} has no ostree module -- refusing to ship an unbootable image" >&2
-        rm -f "${mods_before}" "${mods_after}"
-        exit 1
-    fi
+    for required_mod in "${required_dracut_modules[@]}"
+    do
+        if ! grep -qx "${required_mod}" "${mods_after}"
+        then
+            echo "ERROR: regenerated initramfs for ${kver} has no ${required_mod} module -- refusing to ship an unbootable image" >&2
+            rm -f "${mods_before}" "${mods_after}"
+            exit 1
+        fi
+    done
 
     rm -f "${mods_before}" "${mods_after}"
 

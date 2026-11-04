@@ -1,0 +1,81 @@
+#!/bin/sh
+#
+# PROVIDE: immutablue_drm
+# REQUIRE: FILESYSTEMS kld
+# BEFORE: immutablue_xorg lightdm gdm
+# KEYWORD: nojail
+#
+# Load the GPU's DRM driver, which FreeBSD never loads on its own.
+#
+# The Handbook has the administrator name it in rc.conf (kld_list="i915kms"
+# or "amdgpu"); an image laid onto any machine cannot. Without it there is no
+# /dev/dri/card0: GNOME runs unaccelerated on the scfb framebuffer
+# (rc.d/immutablue_xorg) and a wlroots session -- gowl, CMacs -- does not
+# start at all ("Found 0 GPUs"). So each boot, before X and the display
+# manager, the display controllers pciconf(8) reports are matched by vendor:
+#
+#   Intel (0x8086)  i915kms
+#   AMD   (0x1002)  amdgpu, then radeonkms (pre-GCN cards amdgpu does not drive)
+#
+# drm-kmod and its GPU firmware ship in GNOME images (packages.yaml). NVIDIA
+# needs its own driver, which the image does not ship, and is left alone. A
+# machine that already loads a DRM driver through kld_list keeps it: nothing
+# is done when kld_list names one.
+#
+# Enabled for GNOME variants by stages/61-freebsd-desktop.sh.
+
+# rc.subr is FreeBSD's rc(8) library; not something shellcheck can follow.
+# shellcheck source=/dev/null
+. /etc/rc.subr
+
+name="immutablue_drm"
+rcvar="immutablue_drm_enable"
+start_cmd="${name}_start"
+stop_cmd=":"
+
+# Load the first of the given modules that loads; true if one did.
+load_first()
+{
+    local mod
+
+    for mod in "$@"
+    do
+        if kldstat -q -m "${mod}" || kldload "${mod}" 2> /dev/null
+        then
+            echo "${name}: loaded ${mod}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+immutablue_drm_start()
+{
+    local vendors
+
+    case " ${kld_list} " in
+        *i915kms*|*amdgpu*|*radeonkms*|*nvidia*)
+            return 0
+            ;;
+    esac
+
+    # Display controllers are PCI class 0x03; pciconf -l prints
+    # "vgapci0@pci0:0:2:0: class=0x030000 ... vendor=0x8086 device=...".
+    vendors="$(pciconf -l 2> /dev/null \
+        | sed -n 's/.*class=0x03[0-9a-f]*[[:space:]].*[[:space:]]vendor=\(0x[0-9a-f]*\).*/\1/p' | sort -u)"
+
+    case "${vendors}" in
+        *0x8086*)
+            load_first i915kms || echo "${name}: i915kms did not load"
+            ;;
+    esac
+    case "${vendors}" in
+        *0x1002*)
+            load_first amdgpu radeonkms || echo "${name}: neither amdgpu nor radeonkms loaded"
+            ;;
+    esac
+}
+
+load_rc_config "${name}"
+: "${immutablue_drm_enable:=NO}"
+run_rc_command "$1"

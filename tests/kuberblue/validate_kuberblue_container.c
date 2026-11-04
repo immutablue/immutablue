@@ -3,7 +3,8 @@
 /* validate_kuberblue_container.c - Validate Kuberblue container image contents
  *
  * Runs inside the container to verify:
- *   1. Kubernetes RPM packages (version-aware: 1.32 on Fedora 42, 1.35 on Fedora 43, 1.36 on Fedora 44+)
+ *   1. Kubernetes at the minor packages.yaml pins (rpm_kuberblue.<release>):
+ *      the binaries' versions on every backend, the versioned RPMs on Fedora
  *   2. Kuberblue-specific binaries (crio, kubeadm, kubectl, kubelet, sops, helm, flux, chainsaw)
  *   3. Kuberblue directories and configuration files
  *   4. Kuberblue and Kubernetes systemd services
@@ -16,6 +17,7 @@
  */
 
 #include <glib.h>
+#include <string.h>
 
 /* run a command and capture stdout, return TRUE on success */
 static gboolean
@@ -50,20 +52,38 @@ run_command(
     return TRUE;
 }
 
-/* detect Fedora version from /etc/os-release */
-static gint
-detect_fedora_version(void)
+/* read the first line of a file, stripped; NULL if it cannot be read */
+static gchar *
+read_first_line(
+    const gchar *path
+){
+    g_autofree gchar *contents = NULL;
+    gchar *newline;
+
+    if (!g_file_get_contents(path, &contents, NULL, NULL))
+        return NULL;
+
+    newline = strchr(contents, '\n');
+    if (newline != NULL)
+        *newline = '\0';
+
+    return g_strdup(g_strstrip(contents));
+}
+
+/* read VERSION_ID from /etc/os-release, unquoted; NULL if absent (Arch) */
+static gchar *
+detect_version_id(void)
 {
     g_autofree gchar *contents = NULL;
     g_autoptr(GError) error = NULL;
     gchar **lines;
-    gint version = 43; /* default */
+    gchar *version = NULL;
     guint i;
 
     if (!g_file_get_contents("/etc/os-release", &contents, NULL, &error))
     {
         g_printerr("WARN: cannot read /etc/os-release: %s\n", error->message);
-        return version;
+        return NULL;
     }
 
     lines = g_strsplit(contents, "\n", -1);
@@ -71,21 +91,10 @@ detect_fedora_version(void)
     {
         if (g_str_has_prefix(lines[i], "VERSION_ID="))
         {
-            const gchar *val = lines[i] + strlen("VERSION_ID=");
-            /* strip surrounding quotes if any */
-            gchar *stripped = g_strstrip(g_strdup(val));
-            if (stripped[0] == '"')
-            {
-                gsize len = strlen(stripped);
-                if (len > 1 && stripped[len - 1] == '"')
-                    stripped[len - 1] = '\0';
-                version = atoi(stripped + 1);
-            }
-            else
-            {
-                version = atoi(stripped);
-            }
-            g_free(stripped);
+            version = g_strdup(lines[i] + strlen("VERSION_ID="));
+            g_strstrip(version);
+            g_strdelimit(version, "\"'", ' ');
+            g_strstrip(version);
             break;
         }
     }
@@ -93,66 +102,155 @@ detect_fedora_version(void)
     return version;
 }
 
-/* check version-specific Kubernetes RPM packages */
-static gint
-check_kubernetes_packages(gint fedora_version)
+/*
+ * The Kubernetes minor version this image must carry, e.g. "1.36".
+ *
+ * There is no table of releases here: packages.yaml is the one place that
+ * pins it. An arch-bootc image records the minor it took from the current
+ * Fedora release's kuberblue list (stages/33-kuberblue-k8s.sh writes
+ * /usr/immutablue/kuberblue-k8s-minor); on fedora-bootc it is the
+ * kubernetes<minor> entry of rpm_kuberblue.<VERSION_ID> in the image's own
+ * /usr/immutablue/packages.yaml.
+ */
+static gchar *
+detect_k8s_minor(void)
 {
-    const gchar *k8s_ver;
-    if (fedora_version <= 42)
-        k8s_ver = "1.32";
-    else if (fedora_version == 43)
-        k8s_ver = "1.35";
-    else
-        k8s_ver = "1.36";
-    g_autofree gchar *pkg_kube      = g_strdup_printf("kubernetes%s", k8s_ver);
-    g_autofree gchar *pkg_client    = g_strdup_printf("kubernetes%s-client", k8s_ver);
-    g_autofree gchar *pkg_kubeadm   = g_strdup_printf("kubernetes%s-kubeadm", k8s_ver);
-    g_autofree gchar *pkg_systemd   = g_strdup_printf("kubernetes%s-systemd", k8s_ver);
-    g_autofree gchar *pkg_critools  = g_strdup_printf("cri-tools%s", k8s_ver);
+    g_autofree gchar *version_id = NULL;
+    g_autofree gchar *cmd = NULL;
+    g_autofree gchar *output = NULL;
+    gchar *recorded;
+    gchar **lines;
+    gchar *minor = NULL;
+    gint status;
+    guint i;
 
-    const gchar *packages[] = {
-        pkg_kube,
-        pkg_client,
-        pkg_kubeadm,
-        pkg_systemd,
-        pkg_critools,
-        NULL
-    };
+    recorded = read_first_line("/usr/immutablue/kuberblue-k8s-minor");
+    if (recorded != NULL && recorded[0] != '\0')
+        return recorded;
+    g_free(recorded);
 
+    version_id = detect_version_id();
+    if (version_id == NULL)
+        return NULL;
+
+    cmd = g_strdup_printf(
+        "yq '.immutablue.rpm_kuberblue.\"%s\" // [] | .[]' /usr/immutablue/packages.yaml",
+        version_id);
+    if (!run_command(cmd, &output, &status) || status != 0)
+        return NULL;
+
+    lines = g_strsplit(output, "\n", -1);
+    for (i = 0; lines[i] != NULL && minor == NULL; i++)
+    {
+        const gchar *rest;
+
+        g_strstrip(lines[i]);
+        if (!g_str_has_prefix(lines[i], "kubernetes"))
+            continue;
+        rest = lines[i] + strlen("kubernetes");
+        if (g_ascii_isdigit(rest[0]) && strchr(rest, '-') == NULL)
+            minor = g_strdup(rest);
+    }
+    g_strfreev(lines);
+    return minor;
+}
+
+/* is a package installed? asks the image's own backend (rpm, pacman, ...) */
+static gboolean
+package_installed(
+    const gchar *name
+){
+    g_autofree gchar *cmd = NULL;
+    gint status;
+
+    cmd = g_strdup_printf("immutablue-backend has-pkg %s", name);
+    if (!run_command(cmd, NULL, &status))
+        return FALSE;
+    return status == 0;
+}
+
+/*
+ * Kubernetes at the pinned minor: the binaries report it on every backend,
+ * and on fedora-bootc the versioned RPMs carrying them are installed too
+ * (arch-bootc installs upstream's release binaries instead).
+ */
+static gint
+check_kubernetes_version(
+    const gchar *backend,
+    const gchar *k8s_minor
+){
+    g_autofree gchar *prefix = NULL;
+    g_autofree gchar *bare = NULL;
     gint failed = 0;
     gint i;
 
-    g_print("\n--- Kubernetes RPM Checks (Fedora %d / k8s %s) ---\n", fedora_version, k8s_ver);
+    static const gchar *version_cmds[] = {
+        "kubeadm version -o short",
+        "kubelet --version",
+        "kubectl version --client",
+        "crictl --version",
+        NULL
+    };
 
-    for (i = 0; packages[i] != NULL; i++)
+    g_print("\n--- Kubernetes Version Checks (%s / k8s %s) ---\n", backend, k8s_minor);
+
+    /* "v1.36." from the Kubernetes binaries; Fedora's crictl prints "1.36.0" */
+    prefix = g_strdup_printf("v%s.", k8s_minor);
+    bare = g_strdup_printf(" %s.", k8s_minor);
+    for (i = 0; version_cmds[i] != NULL; i++)
     {
-        g_autofree gchar *cmd = g_strdup_printf("rpm -q %s", packages[i]);
         g_autofree gchar *output = NULL;
         gint status;
 
-        if (!run_command(cmd, &output, &status))
+        if (!run_command(version_cmds[i], &output, &status) || status != 0)
         {
-            g_print("FAIL: %s (command error)\n", packages[i]);
+            g_print("FAIL: %s (command error)\n", version_cmds[i]);
             failed++;
             continue;
         }
-
-        if (status != 0)
-        {
-            g_print("FAIL: %s (not installed)\n", packages[i]);
-            failed++;
-        }
+        g_strstrip(output);
+        if (g_strstr_len(output, -1, prefix) != NULL || g_strstr_len(output, -1, bare) != NULL)
+            g_print("PASS: %s (%s)\n", version_cmds[i], output);
         else
         {
-            g_strstrip(output);
-            g_print("PASS: %s (%s)\n", packages[i], output);
+            g_print("FAIL: %s reports '%s', expected %s*\n", version_cmds[i], output, prefix);
+            failed++;
+        }
+    }
+
+    if (g_strcmp0(backend, "fedora-bootc") == 0)
+    {
+        static const gchar *suffixes[] = { "", "-client", "-kubeadm", "-systemd", NULL };
+
+        for (i = 0; suffixes[i] != NULL; i++)
+        {
+            g_autofree gchar *pkg = g_strdup_printf("kubernetes%s%s", k8s_minor, suffixes[i]);
+
+            if (package_installed(pkg))
+                g_print("PASS: %s\n", pkg);
+            else
+            {
+                g_print("FAIL: %s (not installed)\n", pkg);
+                failed++;
+            }
+        }
+        {
+            g_autofree gchar *pkg = g_strdup_printf("cri-tools%s", k8s_minor);
+
+            if (package_installed(pkg))
+                g_print("PASS: %s\n", pkg);
+            else
+            {
+                g_print("FAIL: %s (not installed)\n", pkg);
+                failed++;
+            }
         }
     }
 
     return failed;
 }
 
-/* check kuberblue-specific RPM packages (version-independent) */
+/* check kuberblue-specific packages (pkg_kuberblue; same names on Fedora and Arch) */
 static gint
 check_kuberblue_packages(void)
 {
@@ -172,30 +270,16 @@ check_kuberblue_packages(void)
     gint failed = 0;
     gint i;
 
-    g_print("\n--- Kuberblue RPM Checks ---\n");
+    g_print("\n--- Kuberblue Package Checks ---\n");
 
     for (i = 0; packages[i] != NULL; i++)
     {
-        g_autofree gchar *cmd = g_strdup_printf("rpm -q %s", packages[i]);
-        g_autofree gchar *output = NULL;
-        gint status;
-
-        if (!run_command(cmd, &output, &status))
-        {
-            g_print("FAIL: %s (command error)\n", packages[i]);
-            failed++;
-            continue;
-        }
-
-        if (status != 0)
+        if (package_installed(packages[i]))
+            g_print("PASS: %s\n", packages[i]);
+        else
         {
             g_print("FAIL: %s (not installed)\n", packages[i]);
             failed++;
-        }
-        else
-        {
-            g_strstrip(output);
-            g_print("PASS: %s (%s)\n", packages[i], output);
         }
     }
 
@@ -479,7 +563,8 @@ main(
     gint    argc,
     gchar **argv
 ){
-    gint fedora_version;
+    g_autofree gchar *backend = NULL;
+    g_autofree gchar *k8s_minor = NULL;
     gint total_failed;
 
     (void)argc;
@@ -487,11 +572,20 @@ main(
 
     g_print("=== Kuberblue Container Validation ===\n");
 
-    fedora_version = detect_fedora_version();
-    g_print("Detected Fedora version: %d\n", fedora_version);
+    backend = read_first_line("/usr/immutablue/backend");
+    if (backend == NULL)
+        backend = g_strdup("fedora-bootc");
+    k8s_minor = detect_k8s_minor();
+    g_print("Backend: %s, Kubernetes minor: %s\n", backend, k8s_minor ? k8s_minor : "(unknown)");
 
     total_failed = 0;
-    total_failed += check_kubernetes_packages(fedora_version);
+    if (k8s_minor == NULL)
+    {
+        g_print("FAIL: cannot determine the pinned Kubernetes minor version\n");
+        total_failed++;
+    }
+    else
+        total_failed += check_kubernetes_version(backend, k8s_minor);
     total_failed += check_kuberblue_packages();
     total_failed += check_kuberblue_binaries();
     total_failed += check_kuberblue_files();

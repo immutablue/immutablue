@@ -18,15 +18,7 @@ deployments:
     #!/bin/bash
     set -euo pipefail
 
-    if command -v bootc &>/dev/null
-    then
-        echo "=== bootc status ==="
-        bootc status || true
-        echo ""
-    fi
-
-    echo "=== rpm-ostree deployments ==="
-    rpm-ostree status
+    immutablue-backend deployments
 
 
 # Roll back to the previous deployment
@@ -35,15 +27,15 @@ rollback:
     #!/bin/bash
     set -euo pipefail
 
-    # rpm-ostree keeps exactly one previous deployment, so there is nothing to
-    # choose between -- the useful thing is showing what the rollback lands on
-    # before doing it, since the pending/rollback distinction is easy to
-    # misread in the raw status output.
+    # The backend keeps one previous deployment (rpm-ostree, bootc) or a list
+    # of boot environments (FreeBSD); either way the useful thing is showing
+    # what the rollback lands on before doing it, since the pending/rollback
+    # distinction is easy to misread in the raw status output.
     echo "Current deployments:"
-    rpm-ostree status
+    immutablue-backend status
     echo ""
 
-    if ! rpm-ostree status | grep -q "^  ostree-\|^  quay\|^●"
+    if ! immutablue-backend healthy
     then
         echo "Could not read deployments." >&2
         exit 1
@@ -59,19 +51,41 @@ rollback:
             ;;
     esac
 
-    sudo rpm-ostree rollback
+    sudo immutablue-backend rollback
     echo ""
-    echo "Rollback staged. Reboot to apply:  systemctl reboot"
+    # systemd backends reboot with systemctl; freebsd-be (rc) has none.
+    echo "Rollback staged. Reboot to apply:  $(command -v systemctl > /dev/null && echo 'systemctl reboot' || echo 'shutdown -r now')"
 
 
 # Rebase onto another Immutablue variant, chosen from the registry
+# (only this machine's backend; --force to name a tag of another one)
 [group('rollback')]
-rebase tag="":
+rebase tag="" *FLAGS:
     #!/bin/bash
     set -euo pipefail
 
     image="{{ IMMUTABLUE_IMAGE }}"
     tag="{{ tag }}"
+    force=0
+    for flag in {{ FLAGS }}
+    do
+        case "${flag}" in
+            --force) force=1 ;;
+            *) echo "Unknown flag: ${flag} (only --force)" >&2; exit 1 ;;
+        esac
+    done
+    # 'immutablue rebase --force' with no tag arrives with --force as the tag.
+    if [[ "${tag}" == "--force" ]]
+    then
+        tag=""
+        force=1
+    fi
+
+    # The registry holds every backend's images and the build containers under
+    # one repository; a machine may only move between its own backend's images
+    # (immutablue-rebase-tags documents the naming).
+    tags_helper="/usr/libexec/immutablue/immutablue-rebase-tags"
+    backend="$("${tags_helper}" current)"
 
     # Tags come from the registry rather than a hardcoded list, so a variant
     # added to the build matrix shows up here without this file changing, and a
@@ -86,11 +100,12 @@ rebase tag="":
         fi
 
         echo "Fetching available tags from ${image}..." >&2
-        tags="$(skopeo list-tags "docker://${image}" 2>/dev/null | jq -r '.Tags[]' | sort -rV)"
+        tags="$(skopeo list-tags "docker://${image}" 2>/dev/null | jq -r '.Tags[]' \
+            | "${tags_helper}" filter "${backend}" | sort -rV)"
 
         if [[ -z "${tags}" ]]
         then
-            echo "Could not list tags for ${image}." >&2
+            echo "Could not list ${backend} tags for ${image}." >&2
             exit 1
         fi
 
@@ -121,6 +136,22 @@ rebase tag="":
         exit 0
     fi
 
+    # A tag typed by hand is checked too: a build container is never bootable,
+    # and another backend's image is refused unless --force says it is meant.
+    tag_backend="$("${tags_helper}" backend "${tag}")"
+    if [[ "${tag_backend}" == "none" ]]
+    then
+        echo "${image}:${tag} is not a bootable Immutablue image (a build container, or an unknown tag)." >&2
+        exit 1
+    fi
+    if [[ "${tag_backend}" != "${backend}" ]] && [[ ${force} -eq 0 ]]
+    then
+        echo "${tag} is a ${tag_backend} image; this machine runs ${backend}." >&2
+        echo "Switching an installed system between backends is not supported." >&2
+        echo "Pass --force to try anyway: immutablue rebase ${tag} --force" >&2
+        exit 1
+    fi
+
     echo ""
     echo "About to rebase to: ${image}:${tag}"
     read -r -p "Continue? [y/N] " answer
@@ -133,18 +164,13 @@ rebase tag="":
             ;;
     esac
 
-    # bootc is preferred where present; it is what immutablue-update already
-    # uses, and it handles the signed/unsigned transport consistently with how
-    # the system was installed.
-    if command -v bootc &>/dev/null
-    then
-        sudo bootc switch "${image}:${tag}"
-    else
-        sudo rpm-ostree rebase "ostree-unverified-registry:${image}:${tag}"
-    fi
+    # How a rebase is staged is the backend's business (bootc switch, with an
+    # rpm-ostree fallback, on fedora-bootc).
+    sudo immutablue-backend rebase "${image}:${tag}"
 
     echo ""
-    echo "Rebase staged. Reboot to apply:  systemctl reboot"
+    # systemd backends reboot with systemctl; freebsd-be (rc) has none.
+    echo "Rebase staged. Reboot to apply:  $(command -v systemctl > /dev/null && echo 'systemctl reboot' || echo 'shutdown -r now')"
 
 
 # List the /var snapshots taken before updates

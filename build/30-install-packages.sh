@@ -7,15 +7,14 @@
 # 40-uninstall-packages.sh script.
 #
 # The script performs the following tasks:
-# 1. Install udev rules
-# 2. Install akmods (if enabled)
-# 3. Install NVIDIA drivers (if cyan variant)
-# 4. Install packages from packages.yaml
-# 5. Install the LTS kernel (if enabled)
-# 6. Install ZFS (if enabled or LTS kernel)
-# 7. Install pip packages
-# 8. Install additional tools (hugo, fzf-git, starship)
-# 9. Special handling for the build-a-blue-workshop variant
+# 1. Install packages from packages.yaml through the backend
+# 2. Install pip packages
+# 3. Install additional tools (hugo, fzf-git, starship, just, voxtype)
+# 4. Variant extras: trueblue zerofs, kuberblue tooling, workshop n8n, nix
+#
+# Kernel, ZFS and NVIDIA work happens in the backend's own stages that run
+# around this one (fedora-bootc: stages/29-kernel-zfs-nvidia.sh). A backend
+# can also replace this stage entirely (gnomeos: skip_stages).
 
 set -euxo pipefail
 
@@ -23,302 +22,91 @@ set -euxo pipefail
 if [[ -f "${INSTALL_DIR}/build/99-common.sh" ]]; then source "${INSTALL_DIR}/build/99-common.sh"; fi
 if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 
-# -----------------------------------
-# Distroless builds use GNOME OS base which doesn't have dnf5
-# Skip all package installation for distroless and run the
-# distroless-specific package script instead
-# -----------------------------------
-if [[ "$(is_option_in_build_options distroless)" == "${TRUE}" ]]
-then
-    echo "=== Distroless build detected: skipping dnf5 package installation ==="
-    echo "GNOME OS base does not use rpm-ostree/dnf5 for package management"
-
-    # Run distroless-specific installation if it exists
-    if [[ -f "${INSTALL_DIR}/build/distroless/install-packages.sh" ]]; then
-        echo "Running distroless package installation..."
-        bash "${INSTALL_DIR}/build/distroless/install-packages.sh"
-    fi
-
-    exit 0
-fi
-
 # Get the lists of packages to install from packages.yaml
 # These functions are defined in 99-common.sh
+#
+# Kernel, ZFS, NVIDIA and other release-package work that has to happen first
+# is the backend's (fedora-bootc: stages/29-kernel-zfs-nvidia.sh), as are
+# package files installed afterwards (stages/31-post-urls.sh).
 pkgs=$(get_immutablue_packages)
-pkg_urls=$(get_immutablue_package_urls)
-pkg_post_urls=$(get_immutablue_package_post_urls)
 pip_pkgs=$(get_immutablue_pip_packages)
-
-# Install the uBlue udev rules for hardware support
-# These provide better support for various devices
-dnf5 -y install /mnt-ublue-config/ublue-os-udev-rules*.rpm 
-
-# Install akmods support if enabled
-# This is needed for certain kernel modules like NVIDIA
-if [[ "$DO_INSTALL_AKMODS" == "true" ]]
-then 
-    # Install the akmods system for building kernel modules
-    dnf5 -y install /mnt-ublue-akmods/ublue-os/ublue-os-akmods-addons*.rpm
-    # Install specific kernel modules for hardware support
-    dnf5 -y install /mnt-ublue-akmods/kmods/kmod-{framework,openrazer,xone}-*.rpm
-fi
-
-# Install the LTS kernel if enabled
-# The LTS kernel provides better stability for systems that need it
-if [[ "$DO_INSTALL_LTS" == "true" ]]
-then 
-    # Download the LTS kernel repository configuration
-    immutablue_curl -fLo "/etc/yum.repos.d/kwizart-kernel-longterm-${LTS_VERSION}-fedora-${FEDORA_VERSION}.repo" "${LTS_REPO_URL}"
-    
-    # Remove the standard kernel packages
-    # The protect_running_kernel=false option allows removing the currently running kernel
-    dnf5 -y remove --setopt protect_running_kernel=false kernel{,-core,-modules,-modules-extra}
-    
-    # Install the LTS kernel packages
-    dnf5 -y install kernel-longterm{,-core,-modules,-modules-extra,-devel}
-fi
-
-# -----------------------------------
-# Pin the kernel for the rest of the build.
-#
-# The kernel's final state is settled at this point, and everything after it
-# that builds out-of-tree modules -- the ZFS DKMS build below, and the NVIDIA
-# kmods on cyan -- compiles against whatever `rpm -qa` reports right now. The
-# bulk package install further down is free to pull a newer kernel in as a
-# transitive dependency, which would leave those modules built for a kernel
-# the image no longer ships: a system that boots without ZFS (so, for a ZFS
-# root, does not boot) or without its GPU driver.
-#
-# Locking here makes that failure a visible dependency conflict at build time
-# instead of a broken image. The lock is build-time only; it is removed in
-# 90-post.sh so it cannot interfere with rpm-ostree layering on the installed
-# system.
-# -----------------------------------
-kernel_pkg="kernel"
-if [[ "$DO_INSTALL_LTS" == "true" ]]; then kernel_pkg="kernel-longterm"; fi
-
-# versionlock refuses a package it cannot find, and the distroless path has
-# already exited above, but a variant could still legitimately lack a kernel
-# (a container-only image), so an absent kernel is reported rather than fatal.
-if rpm --quiet -q "${kernel_pkg}"
-then
-    dnf5 -y versionlock add "${kernel_pkg}" "${kernel_pkg}-core" \
-        "${kernel_pkg}-modules" "${kernel_pkg}-modules-extra"
-    dnf5 versionlock list
-else
-    echo "WARNING: '${kernel_pkg}' is not installed; skipping kernel versionlock"
-fi
-
-# kernel override to fix issue introduced in:
-# - 6.12.60
-# - 6.17.10
-# https://github.com/torvalds/linux/commit/cfa0904a35fd0231f4d05da0190f0a22ed881cce
-# if [[ "${MARCH}" == "x86_64" ]]
-# then
-#     KERNEL_VERSION=""
-#
-#     # we need koji 
-#     dnf5 install -y koji
-#
-#     if [[ ${FEDORA_VERSION} -eq 42 ]]
-#     then 
-#         KERNEL_VERSION="kernel-6.17.9-200.fc42"
-#     elif [[ ${FEDORA_VERSION} -eq 43 ]]
-#     then
-#         KERNEL_VERSION="kernel-6.17.9-300.fc43"
-#     fi
-#     
-#     mkdir /tmp/kernel
-#     bash -c "cd /tmp/kernel; koji download-build --arch=x86_64 ${KERNEL_VERSION}"
-#     rpm-ostree override replace /tmp/kernel/*.rpm
-# fi
-
-# ZFS filesystem support
-# ZFS is installed by default with the LTS kernel, or if explicitly enabled
-if [[ "$DO_INSTALL_ZFS" == "true" ]] || [[ "$DO_INSTALL_LTS" == "true" ]]
-then 
-    # Install the ZFS repository
-    dnf5 -y install "${ZFS_RPM_URL}"
-    
-    # Remove the FUSE-based ZFS implementation (if present)
-    # This is replaced by the kernel module version
-    dnf5 -y remove zfs-fuse
-    
-    # Install the ZFS packages
-    # The zfs-dracut package ensures that ZFS support is included in the initramfs
-    dnf5 -y install zfs{,-dracut}
-
-    # Determine the ZFS version
-    ZFS_VERSION=$(dkms status | grep -i zfs | awk '{ printf "%s\n", $1 }' | awk -F/ '{ printf "%s\n", $2 }')
-    
-    # Determine if we should look for the LTS kernel
-    KERNEL_SUFFIX=""
-    if [[ "$DO_INSTALL_LTS" == "true" ]]; then KERNEL_SUFFIX="longterm"; fi
-    
-    # Find the installed kernel version
-    KERNEL_VERSION=$(rpm -qa | grep -P 'kernel-(|'"$KERNEL_SUFFIX"'-)(\d+\.\d+\.\d+)' | sed -E 's/kernel-(|'"$KERNEL_SUFFIX"'-)//')
-
-    # Rebuild and install the ZFS kernel module for the current kernel
-    # This is necessary because we may have changed the kernel
-    dkms build -m zfs -v ${ZFS_VERSION:0:-1} -k ${KERNEL_VERSION} --force
-    dkms install -m zfs -v ${ZFS_VERSION:0:-1} -k ${KERNEL_VERSION} --force
-    
-    # Add ZFS to the list of modules to load at boot
-    echo 'zfs' >> "${MODULES_CONF}"
-fi
-
-# Install RPMs from URLs
-# This is for packages that need to be downloaded directly from URLs
-# rather than from repositories, such as RPMFusion
-if [[ "$pkg_urls" != "" ]]
-then
-    # Convert the list of URLs into a space-separated string for dnf
-    dnf5 -y install $(for pkg in $pkg_urls; do printf '%s ' "$pkg"; done)
-fi
-
-# Install NVIDIA Drivers if this is a cyan variant
-# This must be done after installing RPM URLs because it relies on RPMFusion
-if [[ "$(is_option_in_build_options cyan)" == "${TRUE}" ]]
-then 
-    echo "Installing NVIDIA drivers for cyan variant..."
-    
-    # Fedora 44+ carries both branches in isolated, boot-selectable extensions.
-    if [[ "$FEDORA_VERSION" -ge 44 ]]; then
-        bash "${INSTALL_DIR}/build/75-nvidia.sh" install
-    elif [[ -d "/mnt-cyan-deps/nvidia" ]] && ls /mnt-cyan-deps/nvidia/kmod-nvidia-*.rpm &>/dev/null 2>&1; then
-        echo "Using pre-built NVIDIA kernel modules from cyan-deps..."
-        
-        # Install pre-built kernel modules
-        dnf5 -y install /mnt-cyan-deps/nvidia/kmod-nvidia-*.rpm
-        
-        # Install NVIDIA userspace components from RPM Fusion
-        dnf5 -y install xorg-x11-drv-nvidia xorg-x11-drv-nvidia-cuda xorg-x11-drv-nvidia-cuda-libs
-        
-        # Get kernel version for depmod
-        if [[ "$DO_INSTALL_LTS" == "true" ]]; then
-            KERNEL_VERSION=$(rpm -q kernel-longterm --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | head -n1)
-        else
-            KERNEL_VERSION=$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | head -n1)
-        fi
-        
-        # Update module dependencies
-        depmod -a ${KERNEL_VERSION}
-    else
-        echo "ERROR: Building NVIDIA modules from source in OSTree is not supported."
-        echo "Please build cyan-deps first: make build-cyan-deps push-cyan-deps"
-        exit 1
-    fi
-    
-    # Add NVIDIA modules to load at boot
-    if [[ "$FEDORA_VERSION" -lt 44 ]]; then
-        echo 'nvidia' >> "${MODULES_CONF}"
-        echo 'nvidia_drm' >> "${MODULES_CONF}"
-        echo 'nvidia_modeset' >> "${MODULES_CONF}"
-        echo 'nvidia_uvm' >> "${MODULES_CONF}"
-    fi
-fi
 
 # Install the main packages defined in packages.yaml
 if [[ "$pkgs" != "" ]]
-then 
-    # Convert the list of packages into a space-separated string for dnf
-    dnf5 -y install $(for pkg in $pkgs; do printf '%s ' "$pkg"; done)
-fi
-
-
-# Install RPMs from URLs post pkgs
-# This is for packages that need to be downloaded directly from URLs
-# rather than from repositories, that need to be installed after the 
-# regular pkags above
-if [[ "$pkg_post_urls" != "" ]]
 then
-    # Convert the list of URLs into a space-separated string for dnf
-    dnf5 -y install $(for pkg in $pkg_post_urls; do printf '%s ' "$pkg"; done)
+    # One package per line from get_yaml_array; one transaction for all of them
+    mapfile -t pkg_list <<< "${pkgs}"
+    backend_pkg_install "${pkg_list[@]}"
 fi
 
 
 # Install Python packages via pip
-# This is skipped for nucleus (headless) and build-a-blue-workshop variants
-if [[ "$pip_pkgs" != "" ]] && [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && [[ "$(is_option_in_build_options build_a_blue_workshop)" == "${FALSE}" ]]
+# This is skipped for nucleus (headless) and build-a-blue-workshop variants,
+# and on backends whose system python refuses pip (PEP 668; no 'pip' capability)
+if [[ "$pip_pkgs" != "" ]] && [[ "$(backend_has pip)" == "${TRUE}" ]] && [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && [[ "$(is_option_in_build_options build_a_blue_workshop)" == "${FALSE}" ]]
 then 
     # Install pip packages to the system-wide Python installation
     pip3 install --prefix=/usr "$(for pkg in $pip_pkgs; do printf '%s ' "$pkg"; done)"
 fi
 
 
-# Install a modern build of Hugo for the documentation site
-# Fedora repositories have an older version, so we download a newer release directly
-immutablue_curl -fLo /tmp/hugo.tar.gz "${HUGO_RELEASE_URL}"
-tar -xzf /tmp/hugo.tar.gz -C /usr/bin/ hugo
-rm /tmp/hugo.tar.gz
-# Verify the Hugo installation
-hugo version
+# Upstream Linux release binaries (hugo, starship, just, voxtype). Backends
+# without the linux_binaries capability (FreeBSD) install the same tools as
+# packages through packages.yaml instead.
+if [[ "$(backend_has linux_binaries)" == "${TRUE}" ]]
+then
+    # Install a modern build of Hugo for the documentation site
+    # Fedora repositories have an older version, so we download a newer release directly
+    immutablue_curl -fLo /tmp/hugo.tar.gz "${HUGO_RELEASE_URL}"
+    tar -xzf /tmp/hugo.tar.gz -C /usr/bin/ hugo
+    rm /tmp/hugo.tar.gz
+    # Verify the Hugo installation
+    hugo version
+
+    # Install Starship prompt for a better terminal experience
+    # https://starship.rs/
+    immutablue_curl -fLo "/tmp/install_starship.sh" "${STARSHIP_URL}"
+    sh "/tmp/install_starship.sh" -y -b "/usr/bin/"
+    rm "/tmp/install_starship.sh"
+
+    # Install just command runner
+    # We install this manually as it somehow breaks the iso installer 
+    # if its installed as a system level package
+    # Downloaded to a file rather than piped into tar: immutablue_curl retries by
+    # re-running curl, and a retry part-way through a pipe would hand tar a second
+    # overlapping stream on top of what it already read.
+    mkdir -p /tmp/just
+    immutablue_curl -fLo /tmp/just.tar.gz "${JUST_RELEASE_URL}"
+    tar xzf /tmp/just.tar.gz -C /tmp/just
+    mv /tmp/just/just /usr/bin/just
+    chmod +x /usr/bin/just
+    rm -rf /tmp/just /tmp/just.tar.gz
+
+    # Install voxtype (push-to-talk voice-to-text).
+    #
+    # GUI variants only: it types into a focused window, which a headless image has
+    # no use for. Nucleus and the workshop image are skipped for the same reason
+    # the pip block above skips them.
+    #
+    # The download is checksum-verified rather than taken on trust. Unlike the
+    # other binaries fetched here, this one holds the microphone open and injects
+    # synthetic keystrokes, so a silently substituted build is worth more to an
+    # attacker than a substituted `just` would be.
+    if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && [[ "$(is_option_in_build_options build_a_blue_workshop)" == "${FALSE}" ]]
+    then
+        immutablue_curl -fLo /tmp/voxtype "${VOXTYPE_RELEASE_URL}"
+        echo "${VOXTYPE_SHA256}  /tmp/voxtype" | sha256sum -c -
+        install -D -m 0755 /tmp/voxtype /usr/bin/voxtype
+        rm -f /tmp/voxtype
+        voxtype --version
+    fi
+fi
 
 # Install fzf-git for improved git command-line experience
 # This provides fuzzy finding for git commands
 # https://github.com/junegunn/fzf-git.sh
 immutablue_curl -fLo /usr/bin/fzf-git "${FZF_GIT_URL}"
 chmod a+x /usr/bin/fzf-git
-
-# Install Starship prompt for a better terminal experience
-# https://starship.rs/
-immutablue_curl -fLo "/tmp/install_starship.sh" "${STARSHIP_URL}"
-sh "/tmp/install_starship.sh" -y -b "/usr/bin/"
-rm "/tmp/install_starship.sh"
-
-# Install just command runner
-# We install this manually as it somehow breaks the iso installer 
-# if its installed as a system level package
-# Downloaded to a file rather than piped into tar: immutablue_curl retries by
-# re-running curl, and a retry part-way through a pipe would hand tar a second
-# overlapping stream on top of what it already read.
-mkdir -p /tmp/just
-immutablue_curl -fLo /tmp/just.tar.gz "${JUST_RELEASE_URL}"
-tar xzf /tmp/just.tar.gz -C /tmp/just
-mv /tmp/just/just /usr/bin/just
-chmod +x /usr/bin/just
-rm -rf /tmp/just /tmp/just.tar.gz
-
-# Install voxtype (push-to-talk voice-to-text).
-#
-# GUI variants only: it types into a focused window, which a headless image has
-# no use for. Nucleus and the workshop image are skipped for the same reason
-# the pip block above skips them.
-#
-# The download is checksum-verified rather than taken on trust. Unlike the
-# other binaries fetched here, this one holds the microphone open and injects
-# synthetic keystrokes, so a silently substituted build is worth more to an
-# attacker than a substituted `just` would be.
-if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && [[ "$(is_option_in_build_options build_a_blue_workshop)" == "${FALSE}" ]]
-then
-    immutablue_curl -fLo /tmp/voxtype "${VOXTYPE_RELEASE_URL}"
-    echo "${VOXTYPE_SHA256}  /tmp/voxtype" | sha256sum -c -
-    install -D -m 0755 /tmp/voxtype /usr/bin/voxtype
-    rm -f /tmp/voxtype
-    voxtype --version
-fi
-
-# Verify NVIDIA kernel modules are built if cyan variant
-if [[ "$(is_option_in_build_options cyan)" == "${TRUE}" && "$FEDORA_VERSION" -lt 44 ]]
-then
-    # Check if NVIDIA kernel modules exist for the installed kernel
-    KERNEL_VERSION=$(rpm -qa | grep -P 'kernel-(|longterm-)(\d+\.\d+\.\d+)' | sed -E 's/kernel-(|longterm-)//')
-    NVIDIA_MODULES_FOUND=0
-    
-    # Look for NVIDIA kernel modules in the expected locations
-    if find "/lib/modules/${KERNEL_VERSION}" -name "nvidia*.ko*" 2>/dev/null | grep -q nvidia; then
-        NVIDIA_MODULES_FOUND=1
-        echo "SUCCESS: NVIDIA kernel modules found for kernel ${KERNEL_VERSION}"
-    fi
-    
-    # If modules not found, this is a critical error
-    if [[ $NVIDIA_MODULES_FOUND -eq 0 ]]; then
-        echo "ERROR: NVIDIA kernel modules not found for kernel ${KERNEL_VERSION}"
-        echo "This will cause the system to fall back to nouveau driver"
-        exit 1
-    fi
-fi
-
 
 # Special packages for trueblue builds
 if [[ "$(is_option_in_build_options trueblue)" == "${TRUE}" ]]

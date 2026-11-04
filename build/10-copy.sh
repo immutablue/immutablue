@@ -28,10 +28,25 @@ ls -l "${INSTALL_DIR}"
 
 cp -a /mnt-ctx/artifacts/overrides/. /
 
-echo "${IMMUTABLUE_BUILD_OPTIONS}" > "${INSTALL_DIR}/build_options"
+# Backend overrides land on top of the shared ones and below the per-variant
+# ones, so a backend can replace a shared file (os-release, units for another
+# init system) and a variant can still refine either.
+IMMUTABLUE_BACKEND="${IMMUTABLUE_BACKEND:-fedora-bootc}"
+if [[ -d "/mnt-ctx/backends/${IMMUTABLUE_BACKEND}/overrides" ]]
+then
+    cp -a "/mnt-ctx/backends/${IMMUTABLUE_BACKEND}/overrides/." /
+fi
 
-# things depend on 'yq' heavily for build, so copy it early
-cp /mnt-yq/yq /usr/bin/yq
+echo "${IMMUTABLUE_BUILD_OPTIONS}" > "${INSTALL_DIR}/build_options"
+# Which backend built this image; read by immutablue-backend at runtime.
+echo "${IMMUTABLUE_BACKEND}" > "${INSTALL_DIR}/backend"
+
+# things depend on 'yq' heavily for build, so copy it early (a backend whose
+# Containerfile has no yq mount installs it as a package instead)
+if [[ -x /mnt-yq/yq ]]
+then
+    cp /mnt-yq/yq /usr/bin/yq
+fi
 
 # -----------------------------------
 # Distroless: Copy development tools from devel stage
@@ -52,8 +67,9 @@ if echo "${IMMUTABLUE_BUILD_OPTIONS}" | grep -q "distroless"; then
     IS_DISTROLESS_BUILD="${TRUE}"
 fi
 
-# Nautilus extension (skip for distroless - may not have nautilus)
-if [[ "${IS_DISTROLESS_BUILD}" == "${FALSE}" ]] || [[ -d "/usr/lib64/nautilus" ]]; then
+# Nautilus extension (skip for distroless - may not have nautilus; and for
+# backends whose Containerfile does not mount the Fedora-built extension)
+if [[ -d "/mnt-nautilusopenwithcode" ]] && { [[ "${IS_DISTROLESS_BUILD}" == "${FALSE}" ]] || [[ -d "/usr/lib64/nautilus" ]]; }; then
     mkdir -p /usr/lib64/nautilus/extensions-4
     cp /mnt-nautilusopenwithcode/libnautilus-open-with-code.so /usr/lib64/nautilus/extensions-4/libnautilus-open-with-code.so 2>/dev/null || true
 fi
@@ -69,6 +85,46 @@ if [[ -f "${INSTALL_DIR}/build/99-common.sh" ]]; then source "${INSTALL_DIR}/bui
 if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 
 
+# Refresh the linker cache after installing libraries: backend_ldconfig when
+# the backend has one (FreeBSD's ldconfig replaces the hints unless told to
+# merge), plain ldconfig otherwise.
+refresh_ldconfig() {
+    if declare -F backend_ldconfig > /dev/null
+    then
+        backend_ldconfig
+    else
+        ldconfig
+    fi
+}
+
+
+# Copy a staged usr/ tree into /usr.
+#
+# A plain 'cp -a src/. /usr/' fails when the tree has a real lib64 directory
+# and the image's /usr/lib64 is a symlink (Arch: lib64 -> lib); cp refuses to
+# replace the symlink with a directory. lib64's contents then go through the
+# symlink instead, and everything else is copied as usual. On Fedora, where
+# /usr/lib64 is a real directory, this is exactly the plain copy.
+#
+# param $1: the source usr directory, e.g. /mnt-cmacs/usr
+install_usr_tree() {
+    local src="$1"
+    local entry
+
+    if [[ -L /usr/lib64 ]] && [[ -d "${src}/lib64" ]] && [[ ! -L "${src}/lib64" ]]
+    then
+        cp -a "${src}/lib64/." /usr/lib64/
+        for entry in "${src}"/*
+        do
+            [[ "$(basename "${entry}")" == "lib64" ]] && continue
+            cp -a "${entry}" /usr/
+        done
+    else
+        cp -a "${src}/." /usr/
+    fi
+}
+
+
 # -----------------------------------
 # Custom C projects (yaml-glib, crispy, gst, gowl, mcp-glib, mcp-gdb-glib)
 # Staged with DESTDIR in deps container, layout mirrors target filesystem.
@@ -78,34 +134,34 @@ if [[ -f "./99-common.sh" ]]; then source "./99-common.sh"; fi
 # yaml-glib: GObject YAML library (always install, foundational library)
 if [[ -d "/mnt-build-deps/yaml-glib/usr" ]]; then
     echo "=== Installing yaml-glib from build deps ==="
-    cp -a /mnt-build-deps/yaml-glib/usr/. /usr/
+    install_usr_tree /mnt-build-deps/yaml-glib/usr
 fi
 
 # crispy: C script compiler/runner (always install, CLI-only, depends on glib2)
 if [[ -d "/mnt-build-deps/crispy/usr" ]]; then
     echo "=== Installing crispy from build deps ==="
-    cp -a /mnt-build-deps/crispy/usr/. /usr/
+    install_usr_tree /mnt-build-deps/crispy/usr
 fi
 
 # gst: terminal emulator (skip for nucleus -- no display server)
 if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
    [[ -d "/mnt-build-deps/gst/usr" ]]; then
     echo "=== Installing gst from build deps ==="
-    cp -a /mnt-build-deps/gst/usr/. /usr/
+    install_usr_tree /mnt-build-deps/gst/usr
 fi
 
 # gsurf: WebKit web browser (skip for nucleus -- no display server)
 if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
    [[ -d "/mnt-build-deps/gsurf/usr" ]]; then
     echo "=== Installing gsurf from build deps ==="
-    cp -a /mnt-build-deps/gsurf/usr/. /usr/
+    install_usr_tree /mnt-build-deps/gsurf/usr
 fi
 
 # gowl: wayland compositor (skip for nucleus -- no display server)
 if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
    [[ -d "/mnt-build-deps/gowl/usr" ]]; then
     echo "=== Installing gowl from build deps ==="
-    cp -a /mnt-build-deps/gowl/usr/. /usr/
+    install_usr_tree /mnt-build-deps/gowl/usr
     # gowl installs config to /etc/gowl/
     if [[ -d "/mnt-build-deps/gowl/etc" ]]; then
         cp -a /mnt-build-deps/gowl/etc/. /etc/
@@ -115,19 +171,19 @@ fi
 # mcp-glib: GObject MCP protocol library (always install, foundational library)
 if [[ -d "/mnt-build-deps/mcp-glib/usr" ]]; then
     echo "=== Installing mcp-glib from build deps ==="
-    cp -a /mnt-build-deps/mcp-glib/usr/. /usr/
+    install_usr_tree /mnt-build-deps/mcp-glib/usr
 fi
 
 # mcp-gdb-glib: GDB MCP server (always install, depends on mcp-glib)
 if [[ -d "/mnt-build-deps/mcp-gdb-glib/usr" ]]; then
     echo "=== Installing mcp-gdb-glib from build deps ==="
-    cp -a /mnt-build-deps/mcp-gdb-glib/usr/. /usr/
+    install_usr_tree /mnt-build-deps/mcp-gdb-glib/usr
 fi
 
 # ai-glib: GObject AI provider library (always install)
 if [[ -d "/mnt-build-deps/ai-glib/usr" ]]; then
     echo "=== Installing ai-glib from build deps ==="
-    cp -a /mnt-build-deps/ai-glib/usr/. /usr/
+    install_usr_tree /mnt-build-deps/ai-glib/usr
 fi
 
 # cmacs: GNU Emacs with GLib/GObject/Wayland integration (skip for nucleus -- no GUI)
@@ -135,12 +191,12 @@ fi
 if [[ "$(is_option_in_build_options nucleus)" == "${FALSE}" ]] && \
    [[ -d "/mnt-cmacs/usr" ]]; then
     echo "=== Installing cmacs from cmacs container ==="
-    cp -a /mnt-cmacs/usr/. /usr/
+    install_usr_tree /mnt-cmacs/usr
     # Copy ldconfig snippets (e.g. /etc/ld.so.conf.d/cmacs.conf)
     if [[ -d "/mnt-cmacs/etc" ]]; then
         cp -a /mnt-cmacs/etc/. /etc/
     fi
-    ldconfig
+    refresh_ldconfig
 fi
 
 # podomation: Podman automation DSL engine (always install)
@@ -149,7 +205,7 @@ fi
 # would otherwise overwrite the canonical build-deps version.
 if [[ -d "/mnt-build-deps/podomation/usr" ]]; then
     echo "=== Installing podomation from build deps ==="
-    cp -a /mnt-build-deps/podomation/usr/. /usr/
+    install_usr_tree /mnt-build-deps/podomation/usr
 fi
 
 # bacon: GLib/GObject login shell (always install)
@@ -157,13 +213,13 @@ fi
 # its own bacon build under /usr/lib64/bacon.
 if [[ -d "/mnt-build-deps/bacon/usr" ]]; then
     echo "=== Installing bacon from build deps ==="
-    cp -a /mnt-build-deps/bacon/usr/. /usr/
+    install_usr_tree /mnt-build-deps/bacon/usr
 fi
 
 # nerd-fonts: FiraCode, FiraMono, Hack (always install)
 if [[ -d "/mnt-build-deps/nerd_fonts/usr" ]]; then
     echo "=== Installing nerd-fonts from build deps ==="
-    cp -a /mnt-build-deps/nerd_fonts/usr/. /usr/
+    install_usr_tree /mnt-build-deps/nerd_fonts/usr
 fi
 
 # mcp-kuberblue-glib: MCP server for kuberblue cluster management
@@ -171,11 +227,11 @@ fi
 if [[ "$(is_option_in_build_options kuberblue)" == "${TRUE}" ]] && \
    [[ -d "/mnt-build-deps/mcp-kuberblue-glib/usr" ]]; then
     echo "=== Installing mcp-kuberblue-glib from build deps ==="
-    cp -a /mnt-build-deps/mcp-kuberblue-glib/usr/. /usr/
+    install_usr_tree /mnt-build-deps/mcp-kuberblue-glib/usr
 fi
 
 # Update shared library cache for new .so files
-ldconfig 2>/dev/null || true
+refresh_ldconfig 2>/dev/null || true
 
 
 # Install overrides for all build options
@@ -206,68 +262,89 @@ if [[ "$(is_option_in_build_options kuberblue)" == "${TRUE}" ]] && \
 fi
 
 
-# Put in place the correct `/etc/os-release`
-if [[ -f "/etc/os-release" ]]
-then 
+# Put in place the correct `/etc/os-release`. scripts/os-release.sh writes it
+# to the backend's path (/etc/.os-release-<version> on fedora-bootc) from the
+# base OS's os-release and the build options -- Immutablue or Kuberblue, the
+# release, the variant -- and /etc/os-release links to it.
+# -L as well as -e: FreeBSD's /etc/os-release is a symlink into /var/run,
+# which dangles inside a container and fails a plain -f test.
+os_release_path="$(backend_os_release_path)"
+bash "${INSTALL_DIR}/scripts/os-release.sh" "$(backend_dir)" \
+    "${IMMUTABLUE_BUILD_OPTIONS}" "${os_release_path}"
+
+if [[ -e "/etc/os-release" ]] || [[ -L "/etc/os-release" ]]
+then
     unlink "/etc/os-release"
 fi
 
-ln -s "/etc/.os-release-${FEDORA_VERSION}" "/etc/os-release" 
+ln -s "${os_release_path}" "/etc/os-release"
 
 
 # The linuxbrew container is mounted at /mnt-linuxbrew
 LINUXBREW_MNT="/mnt-linuxbrew"
 
+# Everything linuxbrew-related is skipped without the mount (freebsd-be has
+# none), but the script carries on: the provenance merge below must still run.
 if [[ ! -d "${LINUXBREW_MNT}" ]]; then
-    echo "Warning: linuxbrew mount not found at ${LINUXBREW_MNT}, skipping"
-    exit 0
+    echo "Warning: linuxbrew mount not found at ${LINUXBREW_MNT}, skipping linuxbrew"
 fi
 
-# Copy the compressed homebrew tarball
-if [[ -f "${LINUXBREW_MNT}/usr/share/homebrew.tar.zst" ]]; then
-    mkdir -p /usr/share
-    cp "${LINUXBREW_MNT}/usr/share/homebrew.tar.zst" /usr/share/homebrew.tar.zst
-    echo "Copied homebrew.tar.zst to /usr/share/"
-else
-    echo "Warning: homebrew.tar.zst not found in linuxbrew container"
-fi
+if [[ -d "${LINUXBREW_MNT}" ]]; then
+    # Copy the compressed homebrew tarball
+    if [[ -f "${LINUXBREW_MNT}/usr/share/homebrew.tar.zst" ]]; then
+        mkdir -p /usr/share
+        cp "${LINUXBREW_MNT}/usr/share/homebrew.tar.zst" /usr/share/homebrew.tar.zst
+        echo "Copied homebrew.tar.zst to /usr/share/"
+    else
+        echo "Warning: homebrew.tar.zst not found in linuxbrew container"
+    fi
 
-# Copy systemd services and timers
-if [[ -d "${LINUXBREW_MNT}/usr/lib/systemd/system" ]]; then
-    mkdir -p /usr/lib/systemd/system
-    cp -a "${LINUXBREW_MNT}/usr/lib/systemd/system/"linuxbrew-*.service /usr/lib/systemd/system/ 2>/dev/null || true
-    cp -a "${LINUXBREW_MNT}/usr/lib/systemd/system/"linuxbrew-*.timer /usr/lib/systemd/system/ 2>/dev/null || true
-    echo "Copied linuxbrew systemd services and timers"
-fi
+    # Copy systemd services and timers
+    if [[ -d "${LINUXBREW_MNT}/usr/lib/systemd/system" ]]; then
+        mkdir -p /usr/lib/systemd/system
+        cp -a "${LINUXBREW_MNT}/usr/lib/systemd/system/"linuxbrew-*.service /usr/lib/systemd/system/ 2>/dev/null || true
+        cp -a "${LINUXBREW_MNT}/usr/lib/systemd/system/"linuxbrew-*.timer /usr/lib/systemd/system/ 2>/dev/null || true
+        echo "Copied linuxbrew systemd services and timers"
+    fi
 
-# Copy tmpfiles.d configuration
-if [[ -f "${LINUXBREW_MNT}/usr/lib/tmpfiles.d/homebrew.conf" ]]; then
-    mkdir -p /usr/lib/tmpfiles.d
-    cp "${LINUXBREW_MNT}/usr/lib/tmpfiles.d/homebrew.conf" /usr/lib/tmpfiles.d/
-    echo "Copied homebrew tmpfiles.d configuration"
-fi
+    # Copy tmpfiles.d configuration
+    if [[ -f "${LINUXBREW_MNT}/usr/lib/tmpfiles.d/homebrew.conf" ]]; then
+        mkdir -p /usr/lib/tmpfiles.d
+        cp "${LINUXBREW_MNT}/usr/lib/tmpfiles.d/homebrew.conf" /usr/lib/tmpfiles.d/
+        echo "Copied homebrew tmpfiles.d configuration"
+    fi
 
-# Copy shell integration scripts
-if [[ -d "${LINUXBREW_MNT}/etc/profile.d" ]]; then
-    mkdir -p /etc/profile.d
-    cp -a "${LINUXBREW_MNT}/etc/profile.d/"linuxbrew*.sh /etc/profile.d/ 2>/dev/null || true
-    echo "Copied linuxbrew shell integration scripts"
-fi
+    # Copy shell integration scripts
+    if [[ -d "${LINUXBREW_MNT}/etc/profile.d" ]]; then
+        mkdir -p /etc/profile.d
+        cp -a "${LINUXBREW_MNT}/etc/profile.d/"linuxbrew*.sh /etc/profile.d/ 2>/dev/null || true
+        echo "Copied linuxbrew shell integration scripts"
+    fi
 
-# Copy security limits configuration
-if [[ -f "${LINUXBREW_MNT}/etc/security/limits.d/30-brew-limits.conf" ]]; then
-    mkdir -p /etc/security/limits.d
-    cp "${LINUXBREW_MNT}/etc/security/limits.d/30-brew-limits.conf" /etc/security/limits.d/
-    echo "Copied brew limits configuration"
-fi
+    # Copy security limits configuration
+    if [[ -f "${LINUXBREW_MNT}/etc/security/limits.d/30-brew-limits.conf" ]]; then
+        mkdir -p /etc/security/limits.d
+        cp "${LINUXBREW_MNT}/etc/security/limits.d/30-brew-limits.conf" /etc/security/limits.d/
+        echo "Copied brew limits configuration"
+    fi
 
-echo "Linuxbrew files copied successfully"
+    echo "Linuxbrew files copied successfully"
+fi
 
 # Apply provenance last, after every override. The dependency list comes from
 # the same digest-pinned artifact that supplied /mnt-build-deps, never from
 # submodule pins in the image checkout. Preserve the current image's commit.
 mkdir -p "${INSTALL_DIR}/deps"
-bash /mnt-ctx/scripts/merge-dep-info.sh \
-    /mnt-ctx/.image-source.json \
-    /mnt-build-deps/dep_info.json "${DEPS_IMAGE}" \
-    > "${INSTALL_DIR}/deps/dep_info.json"
+if [[ -f /mnt-build-deps/dep_info.json ]]
+then
+    bash /mnt-ctx/scripts/merge-dep-info.sh \
+        /mnt-ctx/.image-source.json \
+        /mnt-build-deps/dep_info.json "${DEPS_IMAGE}" \
+        > "${INSTALL_DIR}/deps/dep_info.json"
+else
+    # A backend built without a deps image (backend.yaml lacks inhouse_deps)
+    # ships no in-house C projects, so there is no dependency provenance to
+    # merge -- only the image's own.
+    echo "No dependency manifest for backend ${IMMUTABLUE_BACKEND}; recording image provenance only"
+    cp /mnt-ctx/.image-source.json "${INSTALL_DIR}/deps/dep_info.json"
+fi

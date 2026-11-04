@@ -6,10 +6,13 @@ This file provides guidance to AI coding agents (Claude Code, Codex, opencode, g
 
 Immutablue is an easy, modular, and customizable implementation of a base Fedora Silverblue (and other Atomic desktops) image with sane defaults. It uses cloud-native container methodology and a layered build system.
 
+Immutablue is the configuration and packages layered on top of a base OS; the base OS is a **backend** (`backends/<name>/`): `fedora-bootc` (default), `gnomeos` (formerly `DISTROLESS=1`), `arch-bootc`, and `freebsd-be` (FreeBSD 15.1, built on a FreeBSD host or the `backends/freebsd-be/builder-vm.sh` VM). See "Backends" below.
+
 **Key Concepts:**
 - Immutable base OS with transactional updates
 - Container-based image builds (Containerfile/Podman)
 - Layered package management (Flatpak, Distrobox, Homebrew, rpm-ostree)
+- Pluggable OS backends (`BACKEND=fedora-bootc|gnomeos|arch-bootc|freebsd-be`)
 - Modular variant system (Cyan for NVIDIA, Asahi for Apple Silicon, etc.)
 - YAML-based configuration (`settings.yaml`, `packages.yaml`)
 
@@ -62,6 +65,11 @@ make CYAN=1 LTS=1 build       # NVIDIA + LTS kernel
 ### Other Build Options
 
 ```bash
+make BACKEND=arch-bootc NUCLEUS=1 build  # Arch Linux backend -> :arch-nucleus
+make BACKEND=arch-bootc TRUEBLUE=1 build # linux-lts + ZFS from ArchZFS -> :arch-trueblue
+make ARCHLINUX=1 build        # same as BACKEND=arch-bootc (FREEBSD=1 -> freebsd-be)
+make BACKEND=gnomeos build    # GNOME OS backend (same as DISTROLESS=1)
+make backend_check            # Is this BACKEND + variant combination possible?
 make VERSION=42 build         # Build for Fedora 42
 make PLATFORM=linux/arm64 build  # Build for ARM64
 make SET_AS_LATEST=1 build    # Also tag as :latest
@@ -90,6 +98,27 @@ make push_iso                 # Upload ISO to S3
 
 The default `make iso` uses `bootc-image-builder` (same tooling as qcow2), producing an install-to-disk ISO. Use `CLASSIC_ISO=1` for the legacy `build-container-installer` approach which supports flatpak bundling and more Anaconda customization.
 
+`arch-bootc` and `freebsd-be` are not supported by bootc-image-builder, so
+`make iso` runs their own `backends/<backend>/make-iso.sh` instead
+(`make ARCHLINUX=1 iso`, `make FREEBSD=1 iso` — the latter builds in the
+FreeBSD builder VM from Linux). Both boot a live system whose text installer
+lays the image onto a disk; on Arch GNOME's first-login setup creates the
+user, on FreeBSD the installer asks for it and for the login screen (gdm with
+GNOME's lock screen, or LightDM, which also offers gowl and CMacs).
+`ISO_AUTOINSTALL=<disk>` bakes in an unattended install for tests. The
+FreeBSD installer (and `install-disk.sh`) takes several disks as a stripe,
+mirror or raidz1/2/3, with optional GELI full-disk encryption (one passphrase
+at the loader) and swap; `ISO_AUTOINSTALL_LAYOUT`, `_SWAP`, `_PASSPHRASE` and
+`_USER` (with `_USER_PASSWORD`) and `_DISPLAY_MANAGER` drive that unattended. The FreeBSD ISO is a
+hybrid image (GPT with isoboot and the ESP in its system area, as FreeBSD's
+own media), so `dd` to a USB stick boots it under UEFI and BIOS.
+
+On Linux, `make FREEBSD=1 build|test|push|build-deps|push-deps` (and `all`)
+run in that builder VM by themselves (`makefiles/27-backend-vm.mk` →
+`builder-vm.sh delegate`); without a VM they print the
+`builder-vm.sh --libvirt create` command, and pushing needs a one-time
+`sudo podman login quay.io` inside the VM (`builder-vm.sh --libvirt ssh`).
+
 **Important**: Run `make iso-config` before `make iso` to configure user accounts. Without it, no users are created in the ISO.
 
 Output: `./iso/immutablue-<tag>.iso`
@@ -99,10 +128,18 @@ Config: `./iso/config-<tag>.toml`
 
 ```
 immutablue/
-├── Containerfile             # Main container build file
 ├── Makefile                  # Build system (25K+ lines)
 ├── settings.yaml             # Runtime configuration defaults
-├── packages.yaml             # Package definitions by variant/arch
+├── packages.yaml             # Package definitions by variant/arch/backend
+├── backends/
+│   ├── lib/interface.sh      # The backend contract (backend_* functions)
+│   ├── lib/run-stages.sh     # Merges build/NN-*.sh with backend stages
+│   ├── fedora-bootc/         # Containerfile, deps.Containerfile, backend.{yaml,sh},
+│   │                         #   runtime.sh, stages/ (kernel/ZFS/NVIDIA, codecs)
+│   ├── gnomeos/              # Formerly build/distroless/
+│   ├── arch-bootc/
+│   └── freebsd-be/           # + deliver.sh (ZFS boot environment delivery)
+├── variants/                 # <option>.yaml: what a backend must provide
 ├── artifacts/
 │   ├── overrides/            # Files copied to image root
 │   ├── overrides_cyan/       # NVIDIA-specific overrides
@@ -110,7 +147,7 @@ immutablue/
 │   ├── overrides_kuberblue/  # Kubernetes overrides
 │   ├── overrides_trueblue/   # ZFS overrides
 │   └── overrides_nix/        # Nix overrides
-├── build/                    # Build scripts (run in order)
+├── build/                    # Platform-neutral stages (run in order)
 │   ├── 00-pre.sh
 │   ├── 10-copy.sh
 │   ├── 20-add-repos.sh
@@ -118,8 +155,11 @@ immutablue/
 │   ├── 40-uninstall-packages.sh
 │   ├── 50-remove-files.sh
 │   ├── 60-services.sh
+│   ├── 65-crash-capture.sh
+│   ├── 80-initramfs.sh
 │   ├── 90-post.sh
 │   └── 99-common.sh          # Shared functions (sourced)
+├── deps-container/00-build.sh  # Shared deps build (per-backend deps.Containerfile)
 ├── scripts/
 │   ├── common.sh             # Shared script utilities
 │   ├── packages.sh           # Package list generation
@@ -139,21 +179,28 @@ system, this ordering is usually why:
 | Order | Source | Brought in by |
 |-------|--------|---------------|
 | 1 | `artifacts/overrides/` | `cp -a /mnt-ctx/artifacts/overrides/. /` (line ~85) |
+| 1b | `backends/<backend>/overrides/` | same copy step, right after the shared overrides |
+| — | `/etc/os-release` | generated, not copied: `scripts/os-release.sh` from the base OS's os-release (`backend.yaml` `os_release_base`) and the build options; an override file for it is replaced |
 | 2 | in-house C projects (yaml-glib, crispy, gst, **gowl**, mcp-glib, …) | `cp -a /mnt-build-deps/<p>/usr/. /usr/` (line ~172) |
-| 3 | **cmacs** | `cp -a /mnt-cmacs/usr/. /usr/` (line ~202) — **last, so it wins** |
+| 3 | **cmacs** | `install_usr_tree /mnt-cmacs/usr` (a `cp -a` that routes `lib64` through the symlink on Arch) — **last, so it wins** |
+
+On freebsd-be, buildah has no bind mounts, so the Containerfile `COPY`s the
+deps image's `/build` and the cmacs image's root to `/mnt-build-deps` and
+`/mnt-cmacs` and deletes them after the stages (the build is squashed); both
+trees put everything under `usr/local/`.
 
 Consequences worth knowing:
 
 - **The cmacs container is authoritative for anything it ships.** It is built
   out-of-tree by cmacs's own `./build-container` and pulled as
-  `quay.io/zachpodbielniak/cmacs:${FEDORA_VERSION}`. It ships not only
+  `quay.io/zachpodbielniak/cmacs:${FEDORA_VERSION}` (`:arch` for arch-bootc, `:freebsd-15.1` for freebsd-be). It ships not only
   `/usr/share/wayland-sessions/cmacs.desktop` but also
   `/usr/share/xdg-desktop-portal/gowl-portals.conf` and `portals/` — so those
   are fixed by rebuilding and pushing the cmacs image, **not** by an
   `artifacts/overrides/` entry, and an override there would be overwritten
   anyway.
 - **Standalone gowl is a different artifact from the gowl inside cmacs.** It is
-  built here from the `deps/gowl` submodule (`deps-container/Containerfile`
+  built here from the `deps/gowl` submodule (`backends/<backend>/deps.Containerfile`
   copies it to `/build/gowl`). `gowl.desktop` comes from
   it, because the cmacs image does not ship one. Fixing gowl therefore means
   bumping that submodule, and a fix pushed to gowl reaches no image until you do.
@@ -210,16 +257,35 @@ Key sections:
 ### packages.yaml
 
 Package definitions organized by:
-- `immutablue.rpm.all` - Packages for all variants
-- `immutablue.rpm.gui` - GUI-specific packages
-- `immutablue.rpm.silverblue` - GNOME-specific packages
-- `immutablue.rpm_x86_64` / `rpm_aarch64` - Architecture-specific
-- Variant-specific sections (cyan, asahi, kuberblue, trueblue)
+- `immutablue.pkg.all` - Packages for every backend, by logical name. An entry is a plain name, or `{name: fd-find, pacman: fd, freebsd: null}` overriding only the backends where it differs (`null` = not there, a list = several packages)
+- `immutablue.pkg_gui`, `pkg_silverblue`, `pkg_<arch>`, `.<version>` - Same suffix composition as always (`get_yaml_array` in `build/99-common.sh`)
+- `immutablue.rpm*` / `pacman*` / `freebsd*` - Backend-native lists (the key is `pkg_key` in `backend.yaml`); Fedora-only variants (`rpm_kuberblue.<ver>`, `rpm_trueblue`, ...) live here
+- `immutablue.build_deps` - What the deps container installs, same logical schema
+- `immutablue.services_*` - Unit names; entries may map `{name: sshd.service, rc: sshd}` for rc(8) backends
+
+When adding a name override, check it exists in that distribution's repository; `tests/test_pkg_resolve.sh` rejects unknown override fields.
 
 ## Key Scripts & Tools
 
 ### Build-time (in build/)
-Scripts run in alphanumeric order during container build. Always source `99-common.sh` for helpers.
+Scripts run in alphanumeric order during container build, merged by name with the selected backend's `backends/<backend>/stages/` by `backends/lib/run-stages.sh` (build/ first on a tie; `skip_stages` in `backend.yaml` drops neutral stages a backend cannot run). Always source `99-common.sh` for helpers. **Never call dnf5/rpm/pacman/pkg/systemctl/sysrc directly in `build/`** — use `backend_pkg_install`, `backend_svc`, etc. (`backends/lib/interface.sh`), and test capabilities with `backend_has <cap>` rather than the backend's name. OS-only steps belong in that backend's `stages/`.
+
+## Backends
+
+| Backend | Base | Packages | Init | Delivery | Status |
+|---------|------|----------|------|----------|--------|
+| `fedora-bootc` | Fedora Atomic (silverblue, base-atomic, asahi, ...) | dnf5 (`rpm` key) | systemd | bootc/ostree | default |
+| `gnomeos` | GNOME OS nightly | none | systemd | bootc/composefs | as before (DISTROLESS=1) |
+| `arch-bootc` | archlinux:latest + bootc v1.17.1 (no SELinux) | pacman | systemd | bootc/ostree | new; boots in QEMU; ships the in-house C projects (local deps image until `:arch-deps` is published) and cmacs (`cmacs:arch`); `LTS`/`ZFS`/`TRUEBLUE` via `stages/32-kernel-zfs.sh` (linux-lts, ArchZFS repo with its vendored key in `keys/archzfs.asc`); `KUBERBLUE` via `stages/33-kuberblue-k8s.sh` (upstream static Kubernetes/CRI-O at the minor of `rpm_kuberblue.<CURRENT>`) |
+| `freebsd-be` | FreeBSD 15.1 pkgbase OCI | pkg | rc | ZFS boot environment (`deliver.sh`) | early; builds, passes `make test`, delivers and boots on a FreeBSD 15.1 VM (`backends/freebsd-be/builder-vm.sh`); FreeBSD build host only; in-house C projects from its own deps image (`/usr/local`, gmake + gcc via `backend.yaml` `deps_build`) and `cmacs:freebsd-15.1`, both local until published |
+
+A backend is `backend.yaml` (facts and `provides` capabilities), `backend.sh` (the build contract), `runtime.sh` (verbs for `immutablue-backend`), a `Containerfile` and `deps.Containerfile`, and optionally `backend.mk` (Make defaults), `stages/` and `overrides/`. `tests/test_backend_contract.sh` checks every backend against the contract. Variants declare what they need in `variants/<option>.yaml` (`requires:`), enforced by `make backend_check` / `scripts/check-backend.sh`.
+
+freebsd-be can also rebuild FreeBSD packages with Immutablue's patches:
+`backends/freebsd-be/ports/<category>/<port>/patch-*` are built from the
+quarterly ports branch in the deps image (`backend_deps_build_extra`) and
+installed and `pkg lock`ed by `stages/31-freebsd-ports.sh`. ConsoleKit2 is
+patched there so the GNOME lock screen can be unlocked.
 
 ### Runtime (installed to image)
 
@@ -232,6 +298,8 @@ Scripts run in alphanumeric order during container build. Always source `99-comm
 | `immutablue-script-orchestrator` | `/usr/bin/` | Scheduled script runner |
 | `immutablue-libvirt-manager` | `/usr/bin/` | VM management |
 | `immutablue-header.sh` | `/usr/libexec/immutablue/` | Bash utility library |
+| `immutablue-backend` | `/usr/bin/` | OS operations (upgrade, rollback, rebase, kargs, package queries) for the image's backend; runtime code calls this, never rpm-ostree/bootc directly |
+| `immutablue-linux` | `/usr/bin/` (freebsd-be only) | Linux compatibility: a Fedora/Arch userland in `/compat/linux` for the Linuxulator, `brew` inside it, podman Linux `box`es; no Flatpak (needs namespaces) |
 
 ### Justfiles
 
@@ -247,7 +315,13 @@ Located in `/usr/libexec/immutablue/just/`:
 ./tests/test_shellcheck.sh        # Validate shell scripts
 ./tests/test_shellcheck.sh --fix  # Show detailed diagnostics
 ./tests/test_justfile_syntax.sh   # Parse all shipped justfiles
-./tests/test_package_presence.sh  # Assert packages.yaml matches the image
+./tests/test_package_presence.sh  # Assert packages.yaml matches the image (per backend)
+./tests/test_pkg_resolve.sh       # Logical package resolution per backend
+./tests/test_os_release.sh        # Generated os-release per backend and variant
+./tests/test_rebase_tags.sh       # Rebase tags limited to this backend's bootable images
+./tests/test_dconf_overrides.sh   # Backend dconf keyfiles keep the shared keybinding list
+./tests/test_backend_dispatch.sh  # immutablue-backend verbs against stub tools
+./tests/test_backend_contract.sh  # Every backend implements the interface
 ./tests/test_container.sh         # Container validation
 ./tests/test_artifacts.sh         # Artifact validation
 ```
@@ -371,8 +445,8 @@ fi
 ### Adding a Package
 
 1. Edit `packages.yaml`
-2. Add to appropriate section (`rpm.all`, `rpm.gui`, variant-specific, etc.)
-3. Rebuild: `make build`
+2. Add to `pkg.all` / `pkg_gui` / variant-specific `pkg_<option>` — with `pacman:`/`freebsd:` (or `null`) where the name differs — or to a backend-native list (`rpm*`, `pacman*`, `freebsd*`) if it only makes sense there
+3. Rebuild: `make build` (and `make BACKEND=arch-bootc build` if it affects Arch)
 
 ### Adding an Override File
 

@@ -6,10 +6,10 @@
 # prefer usb-storage driver over uas for (buggy) asmedia sata bridges:
 hardware_override_asmedia_prefer_usb_storage_over_uas:
     #!/usr/bin/bash 
-    sudo rpm-ostree kargs --append-if-missing="usb-storage.quirks=174c:55aa:u"
+    sudo immutablue-backend kargs --append-if-missing="usb-storage.quirks=174c:55aa:u"
 
 # use this to undo `hardware_override_asmedia_prefer_usb_storage_over_uas`:
 hardware_override_asmedia_unprefer_usb_storage_over_uas:
     #!/usr/bin/bash 
-    sudo rpm-ostree kargs --delete-if-present="usb-storage.quirks=174c:55aa:u"
+    sudo immutablue-backend kargs --delete-if-present="usb-storage.quirks=174c:55aa:u"
 

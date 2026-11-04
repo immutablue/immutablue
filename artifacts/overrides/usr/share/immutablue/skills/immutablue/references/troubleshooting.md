@@ -50,6 +50,17 @@ before answering from memory. See [`cmacs.md`](cmacs.md).
 | Black screen or no NVIDIA driver on a cyan (Fedora 44+) image | `immutablue nvidia_status`; `journalctl -b -u immutablue-nvidia.service` | [`hardware.md`](hardware.md) |
 | An always-on machine suspended anyway | the sleep targets are not masked | [`hardware.md`](hardware.md) |
 | Image build fails | `make pre_test` first; then the failing build script's output | [`building.md`](building.md) |
+| trueblue: the ZFS ARC is not capped at half of RAM | images before 0d27d9f never ran `zfs-arc-max.service` (wrong path, broken script); `cat /sys/module/zfs/parameters/zfs_arc_max` | update the image; meanwhile `echo <bytes> \| sudo tee` that file — [`updates.md`](updates.md) |
+| `/etc/os-release` says `Silverblue` on a kuberblue/nucleus/trueblue machine | images before d280d3a shipped one generic file per release | `image-info.json` has the real tag; update the image |
+| Arch `ZFS=1`/`TRUEBLUE=1` build stops in `32-kernel-zfs.sh` after "building zfs-dkms" | ArchZFS has not rebuilt for the kernel Arch just shipped, and OpenZFS does not support it yet | wait for ArchZFS, or build `TRUEBLUE=1` (linux-lts) — [`building.md`](building.md) |
+| Arch kuberblue build: "names no kubernetes<major>.<minor> package" | `rpm_kuberblue.<CURRENT>` in `packages.yaml` lacks the `kubernetes1.NN` entry for the current Fedora release | add it with the Fedora list — [`building.md`](building.md) |
+| `immutablue rebase` offers tags of another OS, or `-deps` tags | the image predates `immutablue-rebase-tags` and lists the whole registry | pick a bootable tag of `cat /usr/immutablue/backend`'s family — [`updates.md`](updates.md) |
+| `immutablue rebase <tag>`: "is a <backend> image; this machine runs <backend>" | the tag belongs to another backend | pick one of this backend's; `--force` only if the user insists — [`updates.md`](updates.md) |
+| freebsd-be: every `podman` command fails with `cannot open '<pool>/ROOT/<BE>/<layer>': dataset does not exist` after an update | podman storage is inside the boot environment; `zfs list <pool>/containers` | [`updates.md`](updates.md), *Podman storage across updates* |
+| freebsd-be: `immutablue-backend upgrade` finishes but nothing changed | the image predates 72326fd and re-delivered its stale local copy (or the log says "pull failed; using the local copy" — offline) | [`updates.md`](updates.md) |
+| freebsd-be: `podman run` fails with "The pf kernel module must be loaded to support ipMasq networks" | image predates 26218c4 — update; or `/etc/pf.conf` lacks the marker line and needs podman's nat rules | [`updates.md`](updates.md) |
+| Building freebsd-be from Linux: make stops with "less than N GB free in the builder VM" | `builder-vm.sh ssh 'sudo podman rmi …'`, or lower `FREEBSD_VM_MIN_FREE_GB` | [`building.md`](building.md) |
+| `make FREEBSD=1 push`: "the builder VM is not logged in to quay.io" | `builder-vm.sh --libvirt ssh`, then `sudo podman login quay.io` | [`building.md`](building.md) |
 
 ## Desktop and applications
 
@@ -78,12 +89,29 @@ before answering from memory. See [`cmacs.md`](cmacs.md).
 | gowl keybinds and rules vanished after a reload in cmacs | `(gowl-reload-config)` with no argument resets to defaults; pass the YAML path | [`cmacs.md`](cmacs.md) |
 | `ai` uses the wrong provider or model | `immutablue ai_defaults` shows what resolved and from where | [`configuration.md`](configuration.md) |
 | Image build fails installing a 45Drives URL on trueblue | the pinned `rpm_post_url_trueblue` URL is dead or wrong | edit `packages.yaml` — [`building.md`](building.md) |
-| A dep's GUI or voice feature is missing after a submodule bump | its `-devel` package is not in `deps-container/00-build.sh`; optional parts are dropped silently | add it and rebuild the deps container — [`building.md`](building.md) |
+| A dep's GUI or voice feature is missing after a submodule bump | its `-devel` package is not in `packages.yaml` `build_deps`; optional parts are dropped silently | add it and rebuild the deps container — [`building.md`](building.md) |
 | Super+Alt+r / Super+Alt+m / Super+g / floatdesk keys do nothing | the module behind them is not enabled | [`gowl.md`](gowl.md), [`gowl-macros.md`](gowl-macros.md) |
 | `emacs --lrg=3dvr` opens a desktop 3D frame, or controllers do nothing | stderr; `M-x cmacs-lrg-vr-describe`; SteamVR dashboard must be closed | [`cmacs.md`](cmacs.md) |
 | `ai-call` fails at join or has no audio | STT/TTS/LiveKit endpoints; `gst-inspect-1.0 livekitwebrtcsrc`; try `--local` | [`automation.md`](automation.md) |
 | `cmacs-mcp` finds no socket | `emacsctl eval '(cmacs-mcp-socket-path)'`, then pass `--socket` | [`cmacs.md`](cmacs.md) |
 | The agent does not know about this system | `immutablue install_immutablue_skill`; `ls -l ~/.agents/skills/immutablue` | this skill |
+| freebsd-be: CMacs missing from LightDM's sessions | `cmacs:freebsd-15.1` built before cmacs 521d142 ships no session file — update the image | [`desktop.md`](desktop.md) |
+| freebsd-be: gowl / CMacs not offered at login | the login screen is gdm (X11-only on FreeBSD) — `immutablue display_manager lightdm`, or start them from a text console | [`desktop.md`](desktop.md) |
+| freebsd-be: GNOME says "Screen Locking requires the GNOME display manager" | expected under LightDM: GNOME cannot lock there (Super+L only notifies); for a lockable GNOME, `immutablue display_manager gdm` and reboot | [`desktop.md`](desktop.md) |
+| freebsd-be: choosing gowl or CMacs at login returns to the greeter | `~/.xsession-errors`: "Found 0 GPUs" means no DRM driver (`kldstat`; VM or NVIDIA); "Unterminated quoted string" means an image before the LightDM wrapper fix — update | [`desktop.md`](desktop.md) |
+| freebsd-be: clock off by seconds or more | images before ntpd was enabled ran without it: `sudo sysrc ntpd_enable=YES ntpd_sync_on_start=YES && sudo service ntpd start` (or update) | [`building.md`](building.md) |
+| freebsd-be: no Wi-Fi panel in GNOME Settings, or no `wlan0` | expected (no NetworkManager on FreeBSD): `networkmgr`/`wifimgr`; `ifconfig wlan0` — `immutablue_wlan_enable`, firmware in the image; images before the devd rule (`/usr/local/etc/devd/immutablue-wlan.conf`) gave a late-attaching card (iwlwifi, rtw88/rtw89) no `wlan0` until `sudo service immutablue_wlan start` and a reboot | [`desktop.md`](desktop.md) |
+| freebsd-be ISO under Ventoy stops at `mountroot>` | Ventoy older than 1.1.08 has no FreeBSD 15 module — update Ventoy, or `dd` the (hybrid) ISO to the stick | [`building.md`](building.md) |
+| freebsd-be: the GNOME lock screen rejects the correct password | image predates b5341b3 (ConsoleKit2 patch, devfs `tty0` link) — update the image | [`desktop.md`](desktop.md) |
+| freebsd-be: gst exits at X11 start with `BadRequest (major opcode 0)` | gst older than 118d542 — update; `--wayland` meanwhile | [`gst.md`](gst.md) |
+| freebsd-be: gsurf shows a blank window, GTK criticals, or crashes | `GSURF_GVFS=1` or a non-`local` `GIO_USE_VFS` in the environment, or gsurf older than 268fb30 | [`gsurf.md`](gsurf.md) |
+| `;today` or snippets do not expand under standalone gowl | the `gabbrev` module is opt-in | [`gowl-gabbrev.md`](gowl-gabbrev.md) |
+| A `hotkey:` section does nothing | the `hotkey` module is opt-in; `gowl-msg hotkey-problems` | [`gowl-hotkey.md`](gowl-hotkey.md) |
+| Workspace switch cuts instead of animating | no transition module loaded (standalone gowl loads none) | [`gowl.md`](gowl.md) |
+| Screen share black or frozen | image's gowl predates 8512361 — update | [`gowl.md`](gowl.md) |
+| Clipboard history empty under standalone gowl | image's gowl predates 720b394 — update | [`gowl.md`](gowl.md) |
+| `emacs --gowl` dies with SIGSEGV in `pixman_region32_copy` | cmacs before 46c2bf7 — update the image | [`cmacs.md`](cmacs.md) |
+| A podomation `fs_mount` rule never fires on freebsd-be | the event source is Linux-only (podomation #1) | [`automation.md`](automation.md) |
 
 ## Troubleshooting docs already on the machine
 

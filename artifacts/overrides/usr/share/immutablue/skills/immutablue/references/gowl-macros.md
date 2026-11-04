@@ -11,6 +11,11 @@ Neither is in any default module list. With the module off, its YAML section
 and its IPC words do nothing — check that first when "nothing happens". Under
 cmacs both are loaded by Elisp on first use instead: see [Under cmacs](#under-cmacs).
 
+For a key, button or chord on the *normal* keyboard that runs actions, remaps
+conditionally or acts as a layer (AutoHotkey-style), use the `hotkey` module
+instead — [`gowl-hotkey.md`](gowl-hotkey.md). For typed text that expands, use
+`gabbrev` — [`gowl-gabbrev.md`](gowl-gabbrev.md). Both can run a macro.
+
 Everything below is driven through `gowl-msg` (the IPC client, see
 [`gowl.md`](gowl.md)); MCP (`macro_*`, `input_remap_*` tools) and D-Bus wrap the
 same words. The installed references are `deps/gowl/macros.org` and
@@ -101,7 +106,8 @@ where it is.
 `gowl_macro_call_on_compositor` (required for raw API calls from a threaded macro).
 
 **Context** — `gowl_macro_get_arg/argc/argv`, `gowl_macro_get_trigger`
-(`API`, `IPC`, `DBUS`, `EVENT`, `TIMER`, `REMAP`, `VOICE`), `gowl_macro_get_trigger_detail`,
+(`API`, `IPC`, `DBUS`, `EVENT`, `TIMER`, `REMAP`, `VOICE`, `HOTKEY`), `gowl_macro_get_trigger_detail`
+(the IPC line, event, remap input, what was said, the hotkey id; `gabbrev:TYPED` for a text expansion),
 `gowl_macro_set_result` (the `macro-run` reply), `gowl_macro_log`,
 `gowl_macro_notify` (a toast), `gowl_macro_set_timeout`, `gowl_macro_is_cancelled`.
 
@@ -137,7 +143,10 @@ keybinds:
 - **Filters** (the `[...]`) are judged during the emission: `and`/`or`/`not`/parentheses; `field=glob`, `field!=glob`, `field~regex`, `<` `<=` `>` `>=`. Fields: `event`, `app-id`, `title`, `floating`, `fullscreen`, `urgent`, `xwayland`, `focused-app-id`, `focused-title`, `monitor`, `layout`, `tags`, `tag`, `clients`, `arg`, `time`, `hour`, `weekday`. A bad filter refuses that one trigger only.
 - **Test a filter before trusting it:** `gowl-msg macro-filter-test --event=focus-changed 'app-id=firefox* and clients>2'`, and `gowl-msg macro-triggers` shows every trigger as parsed with fired/skipped counts.
 - **No file at all:** `gowl-msg macro-define web action focus-client app-id:librewolf` (also `command …` and `custom …`).
-- **From C** (`config.c` or a module): `gowl_macro_register_func("tidy", fn, data, NULL)` makes a C function runnable by name; `gowl_macro_run_by_name(compositor, name, argv)` runs one.
+- **A hotkey** (`hotkey` module): `{key: "#F1", do: {macro: term-make, args: ["make -j8"], wait: true}}` — trigger `HOTKEY`, detail the hotkey id ([`gowl-hotkey.md`](gowl-hotkey.md)).
+- **A text expansion** (`gabbrev` module): a `type: macro` variable runs the macro and types what it passed to `gowl_macro_set_result()`; a timeline or threaded macro is waited for. `wait: false` just starts it ([`gowl-gabbrev.md`](gowl-gabbrev.md)). The other way round, `gowl_macro_command(ctx, "gabbrev-insert TEXT")` types through gabbrev.
+- **The first run compiles** (gcc, a few hundred ms to over a second), so a timer's first tick or an event's first run is that late; `gowl-msg macro-compile NAME` warms the cache ahead of time.
+- **From C** (`config.c` or a module): `gowl_macro_register_func("tidy", fn, data, NULL)` makes a C function runnable by name; `gowl_macro_run_by_name(compositor, name, argv)` runs one (a timeline/threaded macro replies `OK started NAME id=N`), and `gowl_macro_add_finished_listener(fn, data, destroy)` is told on the compositor thread when any run ends — id, name, result, and an error if it was stopped, crashed or timed out.
 - **D-Bus:** `dbus: true` owns `org.gowl.Macro1` (`Run`, `Stop`, `List`, `Status`; `Started`/`Finished`/`Faulted` signals).
 
 ### When a macro misbehaves

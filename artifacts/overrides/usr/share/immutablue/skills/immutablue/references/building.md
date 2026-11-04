@@ -32,6 +32,78 @@ make PLATFORM=linux/arm64 build
 `NUCLEUS=1` (headless), `KINOITE=1`/`SERICEA=1` (other desktops), `ASAHI=1`
 (Apple Silicon), `NIX=1`, `ZFS=1`, `LTS=1` are the rest.
 
+### Backends: the OS underneath
+
+Immutablue is the configuration and packages on top; the operating system
+underneath is a **backend** under `backends/<name>/`, chosen with `BACKEND=`.
+This machine's is in `/usr/immutablue/backend` (or `immutablue-backend name`).
+
+| Backend | Base | Packages | Init | Delivered as | Status |
+|---------|------|----------|------|--------------|--------|
+| `fedora-bootc` | Fedora Atomic | dnf5 | systemd | bootc/ostree | default |
+| `gnomeos` | GNOME OS nightly | none | systemd | bootc/composefs | `DISTROLESS=1` is the same build |
+| `arch-bootc` | Arch Linux + bootc v1.17.1 | pacman | systemd | bootc/ostree | in-house projects and cmacs (`cmacs:arch`) ship; `make BACKEND=arch-bootc build-deps` first; `LTS`/`ZFS`/`TRUEBLUE` (ArchZFS) and `KUBERBLUE` build too |
+| `freebsd-be` | FreeBSD 15.1 pkgbase | pkg | rc | ZFS boot environment | early; builds only on FreeBSD — on Linux `make` hands the work to a builder VM (below); in-house projects and cmacs (`cmacs:freebsd-15.1`) ship under `/usr/local`; `make FREEBSD=1 build-deps` first (neither image is published yet) |
+
+```bash
+make BACKEND=arch-bootc NUCLEUS=1 build   # -> :arch-nucleus
+make BACKEND=arch-bootc backend_check     # can this backend do these variants?
+make FREEBSD=1 NUCLEUS=1 build            # same as BACKEND=freebsd-be; ARCHLINUX=1 is arch-bootc
+```
+
+`make backend_check` (run by `build`) refuses impossible combinations before
+podman starts: each `variants/<option>.yaml` lists what it `requires` of the
+backend (cyan, asahi and the Fedora desktop bases need `pkg_key: rpm`;
+trueblue, LTS, ZFS and kuberblue also build on arch-bootc, `pkg_key: [rpm,
+pacman]`). Arch kuberblue installs upstream's static Kubernetes and CRI-O at
+the minor Fedora's current release pins (`rpm_kuberblue.<CURRENT>`, passed as
+`FEDORA_CURRENT`; `stages/33-kuberblue-k8s.sh`). A backend is
+`backend.yaml` (facts and `provides` capabilities), `backend.sh` (the build
+contract in `backends/lib/interface.sh`), `runtime.sh`, a `Containerfile`, a
+`deps.Containerfile`, and optionally `backend.mk`, `stages/` and `overrides/`;
+`tests/test_backend_contract.sh` checks each one.
+
+### freebsd-be from a Linux workstation: the builder VM
+
+freebsd-be images are built by podman + ocijail on FreeBSD 15.1.
+`backends/freebsd-be/builder-vm.sh` runs one under QEMU/KVM (or, with
+`--libvirt`, as the libvirt domain `immutablue-freebsd-builder`). On any host
+where `uname -s` is not FreeBSD, `backend.mk` sets `BACKEND_VM` and
+`makefiles/27-backend-vm.mk` turns `build`, `build-deps`, `test` (and the single
+suites), `push` and `push-deps` into `builder-vm.sh delegate`, which syncs the
+checkout and runs the same `gmake` with the same command-line variables inside
+the VM. Other targets still run on the host; `iso` hands itself over through
+`make-iso.sh`.
+
+```bash
+backends/freebsd-be/builder-vm.sh --libvirt create   # once: ~1 GB download, 120G disk
+make FREEBSD=1 build-deps                            # in-house deps image, in the VM
+make FREEBSD=1 NUCLEUS=1 build test                  # delegated to the VM
+backends/freebsd-be/builder-vm.sh --libvirt ssh      # once, before the first push:
+sudo podman login quay.io                            #   root in the VM pushes
+```
+
+| Behaviour | Detail |
+|-----------|--------|
+| no VM exists | `delegate` creates nothing; it prints the two `create` commands and stops |
+| which VM | the libvirt domain if defined, else `images/freebsd-vm/builder.qcow2`; `--libvirt` / `FREEBSD_VM_LIBVIRT=1` override; a stopped VM is started |
+| push targets | refuse unless root in the VM is logged in to the image's registry (`podman login --get-login`); the workstation's login does not reach the VM |
+| disk space | every non-push `make` in the VM first removes stopped and buildah working containers, dated tags no longer the undated tag's image, and untagged images, then stops (listing what is left) when less than `FREEBSD_VM_MIN_FREE_GB` (default 70) is free |
+| deps manifest | `deps/` is synced as tracked files only, so `deps-container/dep_info.json` is generated on the workstation and the VM's make runs with `DEPS_MANIFEST_PREBUILT=1` |
+| delivery test | `builder-vm.sh deliver` stages the VM's own build as a boot environment (`deliver.sh --local`) |
+
+The FreeBSD-specific stages are `11-freebsd-system.sh` (bash links, read-only
+`/usr`, `pf` + `immutablue_podman_pf` for podman NAT, `immutablue_procfs`,
+`immutablue_containers`, the devfs `ttyv0 -> tty0` link ConsoleKit2 needs, and
+`/usr/local/libdata/pkgconfig` links for the in-house projects' `.pc` files),
+`31-freebsd-ports.sh` and `61-freebsd-desktop.sh`. **Patched ports:**
+`backends/freebsd-be/ports/<category>/<port>/` holds extra patches (today
+`sysutils/consolekit2`, without which the GNOME lock screen never unlocks); the
+deps image's `backend_deps_build_extra` builds those ports into `/build/ports`,
+and stage 31 installs them over the stock packages with `pkg add -f` and
+`pkg lock`s them, so a `pkg upgrade` cannot put the unpatched one back. A patched
+port reaches an image only after `make FREEBSD=1 build-deps`.
+
 ### Cyan (NVIDIA) on Fedora 44+
 
 The image consumes a separate **cyan-deps** container holding two prebuilt
@@ -53,8 +125,9 @@ make VERSION=44 CYAN=1 TRUEBLUE=1 build
 `deps-container/cyan/` builds each branch in its own stage (`build-stack.sh`), turns
 the RPM payload into a sysext tree (`export-stack.sh`) and records
 `manifest.json`, `supported-gpus.json` (filtered by `supported-gpus.jq`) and
-`requirements.txt`. In the image, `30-install-packages.sh` calls
-`75-nvidia.sh install` (copies stacks to `/usr/lib/immutablue/nvidia/`, installs
+`requirements.txt`. In the image, the fedora-bootc stage
+`backends/fedora-bootc/stages/29-kernel-zfs-nvidia.sh` calls
+`75-nvidia.sh install` (same directory) (copies stacks to `/usr/lib/immutablue/nvidia/`, installs
 their non-NVIDIA requirements, writes the nouveau/nova/nvidia blacklist and
 dracut omit, enables `immutablue-nvidia.service`); `75-nvidia.sh` then finalizes
 each stack into a SELinux-labelled squashfs `immutablue-nvidia.raw`, and
@@ -71,9 +144,14 @@ is in [`hardware.md`](hardware.md).
 Fedora 42/43 cyan keeps the old path: one akmod-built `kmod-nvidia` from cyan-deps
 installed as RPMs.
 
-Which optional pieces of a component get built is decided by the build packages in
-`deps-container/00-build.sh`, and a missing one is dropped quietly rather than
-failing. ai-glib needs `gtk4-devel` and `libadwaita-devel` or its `ai-gui` client
+Which optional pieces of a component get built is decided by the build packages
+in `packages.yaml` under `build_deps` (resolved per backend by
+`deps-container/00-build.sh`), and a missing one is dropped quietly rather than
+failing. How the projects are compiled is per backend: `backend.yaml`
+`deps_build` sets `prefix` (`/usr/local` on freebsd-be, `/usr` elsewhere),
+`make` (`gmake`), `cc` (`gcc`), `skip` (freebsd-be skips `zapper`, which needs
+Linux `ptrace`) and `graylib_cflags`, and an optional `backend_ldconfig` refreshes
+the linker cache. ai-glib needs `gtk4-devel` and `libadwaita-devel` or its `ai-gui` client
 and the `org.copyleft.AiGlib.Gui.desktop` launcher are not built, and (0.6.0+, voice)
 `gstreamer1-devel` and `gstreamer1-plugins-base-devel`, since a missing
 gstreamer `.pc` makes ai-glib's whole `pkg-config --cflags` call fail. podomation
@@ -84,7 +162,7 @@ Run `git submodule update --init --recursive` after cloning or pulling. The
 components under `deps/` are submodules, and a stale checkout silently builds the
 wrong source.
 
-`deps/` is compiled into the **deps container** (`deps-container/Containerfile`, `make build-deps`) and excluded from the main image's build context. A submodule bump reaches the image only after that dependency container is rebuilt and published. `make build` runs prechecks but does not automatically run the post-build suite; run `make test` separately.
+`deps/` is compiled into the **deps container** (`backends/<backend>/deps.Containerfile`, `make build-deps`; `make BACKEND=arch-bootc build-deps` for Arch, `make FREEBSD=1 build-deps` for FreeBSD) and excluded from the main image's build context. A submodule bump reaches the image only after that dependency container is rebuilt and published. `make build` runs prechecks but does not automatically run the post-build suite; run `make test` separately.
 
 ### Artifact provenance
 
@@ -107,20 +185,39 @@ make test
 
 Fedora host tools for this workflow and its host checks: `bash`, `git`, `jq`, `yq`, `skopeo`, `make`, `ShellCheck`, and `just`, alongside the existing container build tools.
 
-The dependency list includes components a final variant may omit. It does not cover independently supplied cmacs, its bundled libraries, Linuxbrew, RPMs, or external downloads. If cmacs overwrites a dependency file, that file needs cmacs provenance. A dirty checkout cannot be reconstructed from its commit alone; avoid editing source between manifest capture and build-context capture. For older installed manifests without `dependency_image`, verify the binary's originating artifact before trusting local-pin-derived metadata for crash analysis.
+The dependency list includes components a final variant may omit. It does not cover independently supplied cmacs, its bundled libraries, Linuxbrew, RPMs, or external downloads. If cmacs overwrites a dependency file, that file needs cmacs provenance. To build with a cmacs image you built yourself, pass `CMACS_IMAGE=localhost/cmacs:<tag>` to `make` (it reaches the Containerfile's `ARG CMACS_IMAGE` on every backend that has one); tag it under `localhost/`, because buildah re-pulls a `quay.io` reference whose registry digest differs from the local one. A dirty checkout cannot be reconstructed from its commit alone; avoid editing source between manifest capture and build-context capture. For older installed manifests without `dependency_image`, verify the binary's originating artifact before trusting local-pin-derived metadata for crash analysis.
 
 ## Adding a package
 
-Edit `packages.yaml` and rebuild. Pick the section by who should get it:
+Edit `packages.yaml` and rebuild. Packages are listed by **logical name** under
+`pkg*` and resolved per backend: a plain entry is used as-is everywhere, a map
+overrides the name only where it differs, `null` means "not on that backend",
+and a list installs several packages:
+
+```yaml
+pkg:
+  all:
+  - tmux
+  - {name: fuse-sshfs, pacman: sshfs, freebsd: fusefs-sshfs}
+  - {name: perf, freebsd: null}
+```
+
+Check that an override name exists in that distribution's repository;
+`tests/test_pkg_resolve.sh` rejects unknown fields (a typo would silently fall
+back to `name`). Pick the section by who should get it:
 
 | Section | Who gets it |
 |---------|-------------|
-| `rpm.all` | every variant |
-| `rpm_gui` | every graphical variant |
-| `rpm_silverblue`, `rpm_kinoite`, `rpm_sericea`, … | one desktop base |
-| `rpm_nucleus`, `rpm_kuberblue`, `rpm_trueblue`, … | one specialised variant |
-| `rpm_x86_64`, `rpm_aarch64`, `rpm_<variant>_<arch>` | one architecture |
-| `rpm_rm*` | removed from the base image |
+| `pkg.all` | every variant, every backend |
+| `pkg_gui` | every graphical variant |
+| `pkg_silverblue` (the GNOME desktop on any backend), … | one desktop |
+| `pkg_kuberblue`, … | one specialised variant |
+| `pkg_x86_64`, `pkg_aarch64`, `pkg_<variant>_<arch>` | one architecture |
+| `rpm*` / `pacman*` / `freebsd*` | one backend only (its `pkg_key`), with the same suffixes; Fedora-only variants (`rpm_kuberblue.<ver>`, workshop, trueblue's `znapzend`) live here |
+| `pkg_rm*`, `rpm_rm*`, … | removed from the base image |
+
+Service lists take the same shape, keyed by init system:
+`{name: sshd.service, rc: sshd}`.
 
 Packages that are not in Fedora's repositories have two more routes, keyed the
 same way (`rpm_url_<variant>`, `rpm_post_url_<variant>`, `repo_urls_<variant>`):
@@ -155,6 +252,12 @@ artifacts/overrides/usr/libexec/immutablue/…   -> /usr/libexec/immutablue/…
 Variant-specific trees exist alongside it: `overrides_cyan/`, `overrides_asahi/`,
 `overrides_kuberblue/`, `overrides_trueblue/`, `overrides_nix/`.
 
+`/etc/os-release` is not an override: `scripts/os-release.sh` writes it during
+`10-copy.sh` from the base OS's os-release (`backend.yaml` `os_release_base`)
+and the build options -- `Kuberblue 44 (Nucleus)`, `Immutablue 44 (Silverblue,
+Trueblue)`, `Immutablue Arch (GNOME)` -- so the release is never hard-coded and
+an os-release file dropped into `artifacts/overrides*/etc/` is replaced.
+
 This is how scripts, systemd units, justfiles, dconf keyfiles and skills get into
 the image. A file placed here is read-only at runtime — which is the point.
 
@@ -173,23 +276,36 @@ logic — the justfile is the interface, not the place for a hundred lines of ba
 
 ## Build scripts
 
-`build/*.sh` runs in alphanumeric order inside the container, each fed to `bash`
-on stdin (so no arguments):
+`build/*.sh` are the platform-neutral stages. `backends/lib/run-stages.sh`
+merges them by file name with the selected backend's `backends/<backend>/stages/*.sh`
+(`build/` first on a tie), drops any listed under `skip_stages` in its
+`backend.yaml`, runs each fed to `bash` on stdin (so no arguments), then calls
+the backend's `backend_finalize` (fedora-bootc: `ostree container commit`).
+Stages never call dnf5, rpm, pacman, pkg, systemctl or sysrc themselves: they
+call `backend_pkg_install`, `backend_svc` and the rest, and test
+`backend_has <capability>` rather than a backend's name.
 
 | Script | Stage |
 |--------|-------|
 | `00-pre.sh` | before anything |
 | `10-copy.sh` | overrides and prebuilt deps into the image |
 | `20-add-repos.sh` | third-party repos (set to priority 200, below Fedora's 99) |
+| `29-kernel-zfs-nvidia.sh` *(fedora-bootc)* | udev rules, akmods, LTS kernel, kernel versionlock, ZFS DKMS, `rpm_url`, cyan NVIDIA |
 | `30-install-packages.sh` | package installation, and binaries fetched from releases |
-| `35-mesa-freeworld.sh`, `36-ffmpeg-freeworld.sh` | swap in RPM Fusion's full codecs |
+| `31-post-urls.sh` *(fedora-bootc)* | `rpm_post_url` |
+| `32-kernel-zfs.sh` *(arch-bootc)* | the kernel — `linux`, or `linux-lts` for `LTS`/`TRUEBLUE` (no `packages.yaml` list names one); `ZFS`/`LTS`: ArchZFS repo (vendored key, `SigLevel = Required TrustAll`), prebuilt `zfs-<kernel>` else `zfs-dkms`, ZFS units enabled — a kernel ArchZFS/OpenZFS doesn't support yet fails the build here |
+| `33-kuberblue-k8s.sh` *(arch-bootc)* | `KUBERBLUE`: upstream static kubeadm/kubelet/kubectl, the CRI-O bundle and cri-tools' crictl at the minor of `rpm_kuberblue.<CURRENT>` (the current Fedora release's), checksum-verified, under `/usr`; records it in `/usr/immutablue/kuberblue-k8s-minor` |
+| `35-mesa-freeworld.sh`, `36-ffmpeg-freeworld.sh` *(fedora-bootc)* | swap in RPM Fusion's full codecs |
 | `40-uninstall-packages.sh` | removals |
-| `50-remove-files.sh` | file removals |
-| `60-services.sh` | enable/disable/mask units |
-| `65-crash-capture.sh` | unattended-tier kernel crash policy — [`crash-capture.md`](crash-capture.md) |
-| `75-nvidia.sh` | cyan 44+: finalize the NVIDIA sysext images (its `install` phase is called from `30-`) |
+| `50-remove-files.sh` | file removals; a path the container runtime mounts into the build (`/etc/resolv.conf` on Arch) is skipped |
+| `60-services.sh` | enable/disable/mask units; disabling a unit that is not installed is skipped (variant lists are shared across backends) |
+| `65-crash-capture.sh` | unattended-tier kernel crash policy — [`crash-capture.md`](crash-capture.md); skipped on freebsd-be (`skip_stages`), as is `80-initramfs.sh` |
+| `11-freebsd-system.sh`, `31-freebsd-ports.sh`, `61-freebsd-desktop.sh` *(freebsd-be)* | rc.d services, pf, procfs, podman dataset, pkgconfig links; patched ports; dbus/gdm — see above |
+| `61-arch-system.sh` *(arch-bootc)* | networking, resolved, timesyncd, GDM: what Fedora presets and Arch does not |
+| `75-nvidia.sh` *(fedora-bootc)* | cyan 44+: finalize the NVIDIA sysext images (its `install` phase is called from `29-`) |
 | `80-initramfs.sh` | regenerate and verify the initramfs; `SKIP=initramfs` skips it |
 | `90-post.sh` | variant justfile imports, image-info.json, dconf update, cleanup |
+| `91-fedora-post.sh` *(fedora-bootc)* | release the kernel versionlock |
 | `99-common.sh` | shared helpers — **sourced**, not run |
 
 Always source `99-common.sh`, and use `set -euxo pipefail`. That last point has
@@ -212,12 +328,39 @@ every one of these refuses on `DISTROLESS=1`:
 
 | Target | Produces |
 |--------|----------|
-| `make iso` / `make iso-config` | an installer ISO; `anaconda-iso` for the Anaconda flavour |
+| `make iso` / `make iso-config` | an installer ISO; `anaconda-iso` for the Anaconda flavour. On `arch-bootc` / `freebsd-be` it runs `backends/<b>/make-iso.sh` instead: a live ISO whose text installer lays the image onto disk (`bootc install to-disk` from an OCI layout on the ISO / `install-disk.sh --source-root /`); `ISO_AUTOINSTALL=<disk>` makes it unattended. The freebsd-be installer (below) takes several disks |
 | `make qcow2` / `make qcow2-config` | a VM disk; `qcow2-config` prompts for user, password, wheel, SSH key |
 | `make raw` / `make vhd` / `make vmdk` | disk images for bare metal, Hyper-V, VMware |
 | `make ami` / `make gce` | cloud images, with `push_ami` / `push_gce` to upload |
 | `make LIMA=1 qcow2 && make lima` | a Lima VM definition; then `lima-start`, `lima-shell`, `lima-stop`, `lima-delete` |
 | `make run_qcow2` / `run_iso_qemu` / `run_raw_qemu` | boot the artefact in QEMU locally |
+
+**The freebsd-be installer.** `make FREEBSD=1 iso` builds in the builder VM and
+copies `iso/immutablue-<tag>.iso` back. The live ISO runs a `bsddialog`
+installer on the screen (`ttyv0`, even when a serial port is the kernel's primary
+console): a disk checklist, a layout menu limited to what that many disks allow,
+optional GELI encryption (passphrase typed twice), swap per disk, hostname, and a
+summary before anything is erased. Underneath is `install-disk.sh`, usable
+directly on a FreeBSD host with the image in podman storage:
+
+```bash
+install-disk.sh [--layout stripe|mirror|raidz1|raidz2|raidz3] [--encrypt --passphrase-file F] \
+    [--swap 2g] [--pool zimmutablue] [--hostname H] [--ssh-key F] \
+    [--user NAME --user-password-file F [--user-fullname TEXT]] [--yes] <image:tag> <disk>...
+```
+
+Default layout is `stripe` for one disk, `mirror` for several; every disk gets the
+ESP, loader and `gptzfsboot`, so a mirror boots with any disk gone. `--encrypt`
+is GELI under ZFS (the loader asks once), swap is one-time-keyed, and GELI
+metadata backups land in `/var/backups/zfs<i>.eli`. Podman storage gets its own
+dataset, `<pool>/containers`. `--user` creates the first user (wheel,
+operator, video) and `--display-manager gdm|lightdm` the login screen (written
+to `/etc/immutablue/settings.yaml`); the ISO's installer asks for both. For automated tests, `ISO_AUTOINSTALL="vtbd0 vtbd1"` with
+`ISO_AUTOINSTALL_LAYOUT`, `_SWAP`, `_PASSPHRASE`, `_USER`/`_USER_PASSWORD` and `_DISPLAY_MANAGER`
+(stored readable on the ISO — tests only) installs without asking and powers off.
+The ISO is a hybrid image: `dd` it to a USB stick and it boots under UEFI and
+BIOS; under Ventoy it needs Ventoy 1.1.08 or later (FreeBSD 15 support), or the
+kernel stops at `mountroot>`.
 
 Lima is the quickest way to boot what you just built on the same machine. Output
 paths come from `immutablue.gen.*` in `settings.yaml`.
@@ -236,8 +379,14 @@ make test_regressions              # host-safe checks, no image or root needed
 bash tests/run_tests.sh --suite regressions
 ./tests/test_shellcheck.sh          # strict, per .shellcheckrc
 ./tests/test_justfile_syntax.sh     # every shipped justfile parses
-./tests/test_package_presence.sh    # packages.yaml matches the built image
-./tests/test_artifacts.sh           # every override file reached the image intact
+./tests/test_package_presence.sh    # packages.yaml matches the built image (per backend)
+./tests/test_pkg_resolve.sh         # logical package resolution per backend
+./tests/test_os_release.sh          # generated os-release per backend and variant
+./tests/test_rebase_tags.sh         # rebase offers only this backend's bootable tags
+./tests/test_dconf_overrides.sh     # backend dconf keyfiles keep the shared keybinding list
+./tests/test_backend_contract.sh    # every backend implements the interface
+./tests/test_backend_dispatch.sh    # immutablue-backend verbs against stub tools
+./tests/test_artifacts.sh           # every override file reached the image intact (minus the backend's drops_overrides)
 ./tests/test_container.sh
 ```
 
@@ -279,3 +428,16 @@ Immutablue is designed to be built on. `immutablue-custom` is the fork point for
 personal variant; Hyacinth Macaw, Trueblue and Kuberblue are examples of the
 pattern. If a change is genuinely personal rather than general, it belongs in a
 derivative image rather than in Immutablue itself.
+
+A derived build ends with the base backend's `backend_finalize_derived`, not
+`backend_finalize` (immutablue-custom's `immutablue_custom_finalize` calls it):
+Fedora commits the ostree container, Arch drops pacman's cache and runs
+`bootc container lint` (its `backend_finalize` deletes `/var` and `/usr/local`
+and cannot run twice), FreeBSD re-records the stock `/etc` and modes. To brand
+os-release, call the base's generator from the derived `build/10-copy.sh`:
+
+```bash
+OS_RELEASE_NAME="Hyacinth Macaw" OS_RELEASE_URL="https://…" OS_RELEASE_HOSTNAME=hyacinth-macaw \
+    bash /usr/immutablue/scripts/os-release.sh "$(backend_dir)" \
+        "$(head -n 1 /usr/immutablue/build_options)" "$(backend_os_release_path)"
+```

@@ -85,6 +85,36 @@ immutablue:
     ulimit_nofile: 524288
 
 
+  # Linux binary compatibility (freebsd-be only; ignored elsewhere): the
+  # Linuxulator plus a Linux userland in /compat/linux, which brew and
+  # 'immutablue-linux box' use. See immutablue-linux --help.
+  linux_compat:
+    # Create the userland on first boot (in the background; log:
+    # /var/log/immutablue-linux-setup.log). false: run
+    # 'sudo immutablue-linux setup' yourself.
+    auto_setup: true
+
+    # fedora or arch -- which distribution's container image the userland
+    # (and new boxes) start from
+    distro: fedora
+
+    # A specific image instead of the distro's default, e.g.
+    # registry.fedoraproject.org/fedora:44
+    image: ""
+
+  # FreeBSD desktop (freebsd-be only; ignored elsewhere).
+  freebsd:
+    # The login screen, chosen at each boot by rc.d/immutablue_dm:
+    #   gdm     -- GNOME's; the GNOME lock screen works, but FreeBSD's gdm is
+    #              X11-only, so gowl and CMacs are not offered at login
+    #              (start them from a text console instead)
+    #   lightdm -- offers GNOME (X11) and the Wayland sessions gowl and CMacs,
+    #              but GNOME sessions cannot lock: GNOME Shell's lock screen
+    #              needs gdm, and its input grab keeps X lockers out (gowl and
+    #              CMacs lock with gowl-lock)
+    # The installer asks; 'immutablue display_manager <gdm|lightdm>' switches.
+    display_manager: gdm
+
 services:
   syncthing:
     # Tailscale mode:

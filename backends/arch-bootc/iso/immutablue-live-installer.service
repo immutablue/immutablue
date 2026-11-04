@@ -1,0 +1,19 @@
+# The installer on tty1 of the Immutablue Arch live ISO (make-iso.sh), pulled
+# in by systemd.wants= on the ISO's kernel command line.
+[Unit]
+Description=Immutablue installer
+ConditionKernelCommandLine=immutablue.live
+After=systemd-user-sessions.service plymouth-quit-wait.service
+Conflicts=getty@tty1.service
+Before=getty@tty1.service
+
+[Service]
+Type=idle
+ExecStart=/usr/bin/immutablue-live-installer
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+Environment=TERM=linux

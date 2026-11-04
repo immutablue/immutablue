@@ -1,0 +1,8 @@
+# kuberblue: kubelet + CRI-O with systemd units. fedora-bootc: Fedora's
+# versioned kubernetes RPMs (rpm_kuberblue.<version>); arch-bootc: upstream
+# release binaries at the same minor as the current Fedora release
+# (stages/33-kuberblue-k8s.sh).
+requires:
+  kernel: linux
+  init: systemd
+  pkg_key: [rpm, pacman]

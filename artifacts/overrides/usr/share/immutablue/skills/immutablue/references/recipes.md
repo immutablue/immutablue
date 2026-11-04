@@ -23,7 +23,7 @@ twice unless the comment says so.
 | `install` | post-install: distrobox, flatpaks, brew, services; the pieces are `install_distrobox`, `install_flatpak`, `install_brew`, `install_services`, `post_install`, `post_install_notes` |
 | `update` | `immutablue-update`: bootc, distrobox, flatpak, brew per `settings.yaml`; `REBOOT=1` reboots after |
 | `initial_setup` | re-run the first-boot wizard (GUI when `$DISPLAY` is set, TUI otherwise) without rebooting |
-| `clean_system` | `podman image prune -af`, `podman volume prune -f`, `flatpak uninstall --unused`, `rpm-ostree cleanup -bm` |
+| `clean_system` | `podman image prune -af`, `podman volume prune -f`, `flatpak uninstall --unused`, `sudo immutablue-backend cleanup` (rpm-ostree/bootc cleanup; `pkg clean` + `pkg autoremove` on freebsd-be, which never prunes boot environments) |
 | `toggle_firewall` | stop or start `firewalld` — for isolating a connectivity problem, not for leaving off |
 | `enable_tailscale` / `disable_tailscale` | Tailscale is on by default |
 | `enable_syncthing` / `disable_syncthing` | Syncthing is on by default, exposed over the Tailscale IP when `services.syncthing.tailscale_mode` is true |
@@ -75,7 +75,11 @@ Details and the reasoning behind the two tiers: [`crash-capture.md`](crash-captu
 ## 08-rollback `[group('rollback')]`
 
 `deployments`, `rollback`, `rebase tag=""`, `snapshots`, `snapshot`,
-`restore_snapshot name=""`. Covered in [`updates.md`](updates.md).
+`restore_snapshot name=""`. Covered in [`updates.md`](updates.md). They call
+`immutablue-backend`, so `deployments`, `rollback` and `rebase` also work on
+freebsd-be (boot environments); there the closing "systemctl reboot" hint means
+`sudo shutdown -r now`, and the snapshot recipes have nothing to work with
+(btrfs only).
 
 ## 09-dictation `[group('dictation')]`
 
@@ -97,6 +101,7 @@ These exist only on the variant that ships them:
 | Variant | Recipes |
 |---------|---------|
 | cyan (`10-cyan`) | `nvidia_status` (saved driver choice, no root), `nvidia_setup *args` (re-detect and save, or `--driver open\|580\|none`; reboot to apply), `enable_nvidia_kmod` (44+: re-detect; all: append kargs; reboot), `disable_nvidia_kmod` (44+: save `none`; remove kargs — before rebasing off `-cyan`). See [`hardware.md`](hardware.md) |
+| freebsd-be (`12-freebsd`) | `display_manager [gdm\|lightdm]` — show or choose the login screen (gdm: GNOME's lock screen; lightdm: also gowl and CMacs, but GNOME cannot lock). See [`desktop.md`](desktop.md) |
 | asahi (`25-asahi`) | `asahi_enable_notch_render` / `asahi_disable_notch_render` |
 | kuberblue (`30-kuberblue`) | `kube_init`, `kube_join *ARGS`, `kube_reset *FLAGS`, `kube_status`, `kube_doctor`, `kube_get_config`, `deploy file_path`, `deploy_all`, `kube_override file`, `kube_sops_setup`, `kube_encrypt` / `kube_decrypt *FILES`, `kube_refresh_token *FLAGS`, `kube_upgrade *ARGS`, `kube_untaint_master`, `kube_post_install`, `kube_add_kuberblue_user`, `kube_mcp_serve`, plus the boot hooks `on_boot`, `on_shutdown`, `first_boot`, `systemd_settings`, `run_post_install` |
 

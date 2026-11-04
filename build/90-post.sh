@@ -31,26 +31,6 @@ fi
 if [[ "$(is_option_in_build_options kuberblue)" == "${TRUE}" ]]
 then
     echo -e 'import "./30-kuberblue.justfile"\n' >> /usr/libexec/immutablue/just/Justfile
-
-    # BIB (bootc-image-builder) reads /usr/lib/os-release and detects distro as
-    # kuberblue-42 (the base Silverblue layer). It then resolves $releasever=42 for
-    # repo GPG key lookups. The rpmfusion package was installed in the Fedora 43
-    # context so only RPM-GPG-KEY-rpmfusion-free-fedora-43 exists. Symlink the 2020
-    # key (used for F33-F42) as the fedora-42 entry so BIB can depsolve the installer.
-    #
-    # Scope: kuberblue-only is correct. Other variants use ID=fedora (not ID=kuberblue)
-    # in os-release, so BIB uses its built-in fedora-42 distro def which already has
-    # correct GPG key paths. Only kuberblue overrides ID to trigger the custom def.
-    if [[ -f /etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora-2020 ]] && \
-       [[ ! -f /etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora-42 ]]; then
-        ln -s RPM-GPG-KEY-rpmfusion-free-fedora-2020 \
-              /etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora-42
-    fi
-    if [[ -f /etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020 ]] && \
-       [[ ! -f /etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-nonfree-fedora-42 ]]; then
-        ln -s RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020 \
-              /etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-nonfree-fedora-42
-    fi
 fi
 
 
@@ -98,7 +78,13 @@ fi
 # initramfs -- ignoring every /usr and /etc override this build makes -- for
 # about two years. 80-initramfs.sh rebuilds it during the build for that
 # reason, and must run before this point.
-find /boot -mindepth 1 -delete 2>/dev/null || true
+#
+# Only for backends delivered as bootc/ostree images: on FreeBSD (delivered as
+# a boot environment) /boot holds the kernel and loader the system boots from.
+if [[ "$(backend_get delivery)" != "boot-environment" ]]
+then
+    find /boot -mindepth 1 -delete 2>/dev/null || true
+fi
 
 # -----------------------------------
 # Record the image's identity for the installed system.
@@ -148,6 +134,7 @@ cat > "${IMAGE_INFO_FILE}" <<EOF
   "image": "${image_info_base}",
   "tag": "${image_info_tag}",
   "version": "${FEDORA_VERSION}",
+  "backend": "${IMMUTABLUE_BACKEND}",
   "base_image": "${BASE_IMAGE:-}",
   "variants": [${image_info_variants}],
   "source_commit": "${image_info_commit}",
@@ -170,30 +157,33 @@ cat "${IMAGE_INFO_FILE}"
 # These are defaults rather than enforced settings: user-db is consulted first,
 # so anything the user changes in the GUI continues to win.
 # -----------------------------------
-if [[ -d /etc/dconf/db/local.d ]] && command -v dconf >/dev/null 2>&1
+# dconf's system databases live under its sysconfdir: /etc/dconf on Linux,
+# /usr/local/etc/dconf on FreeBSD (backend.yaml 'dconf_dir'). The shared
+# keyfiles ship in /etc/dconf/db/local.d and are copied there when it differs,
+# with a profile that reads the 'local' database if the platform has none.
+dconf_dir="$(backend_get dconf_dir)"
+dconf_dir="${dconf_dir:-/etc/dconf}"
+if [[ "${dconf_dir}" != "/etc/dconf" ]] && [[ -d /etc/dconf/db/local.d ]]
+then
+    mkdir -p "${dconf_dir}/db/local.d" "${dconf_dir}/profile"
+    cp -a /etc/dconf/db/local.d/. "${dconf_dir}/db/local.d/"
+    if [[ ! -f "${dconf_dir}/profile/user" ]]
+    then
+        printf 'user-db:user\nsystem-db:local\n' > "${dconf_dir}/profile/user"
+    fi
+fi
+
+if [[ -d "${dconf_dir}/db/local.d" ]] && command -v dconf >/dev/null 2>&1
 then
     dconf update
-    if [[ -f /etc/dconf/db/local ]]
+    if [[ -f "${dconf_dir}/db/local" ]]
     then
-        echo "Compiled dconf defaults: $(stat -c%s /etc/dconf/db/local) bytes"
+        echo "Compiled dconf defaults: $(wc -c < "${dconf_dir}/db/local") bytes"
     else
-        echo "ERROR: dconf update produced no /etc/dconf/db/local" >&2
+        echo "ERROR: dconf update produced no ${dconf_dir}/db/local" >&2
         exit 1
     fi
 fi
 
 # rebuild font cache (picks up nerd-fonts and any other new fonts)
 fc-cache -fv
-
-# Release the build-time kernel versionlock set in 30-install-packages.sh.
-#
-# The lock exists only to stop a later dnf5 transaction from pulling a kernel
-# newer than the one the ZFS DKMS and NVIDIA kmod builds compiled against. It
-# must not ship: on the installed system it would silently constrain
-# rpm-ostree layering. 'clear' leaves an empty stanza behind, so the file
-# itself is removed.
-if command -v dnf5 >/dev/null 2>&1
-then
-    dnf5 -y versionlock clear || true
-    rm -f /etc/dnf/versionlock.toml
-fi
