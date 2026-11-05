@@ -415,6 +415,12 @@ immutablue:
     - {name: gnutls-devel, pacman: gnutls, freebsd: gnutls}
     - {name: gtk3-devel, pacman: gtk3, freebsd: gtk3}
     - {name: gtk4-devel, pacman: gtk4, freebsd: gtk4}
+    # gsurf: WebKitGTK 6.0 / GTK4 browser backend (make GTK_BACKEND=gtk4).
+    # Arch's webkitgtk-6.0 and FreeBSD's webkit2-gtk_60 (the "60" flavor,
+    # GTK4 + libsoup3) ship the headers, .pc files and JavaScriptCore 6.0
+    # in the one package, so javascriptcoregtk has no separate name there.
+    - {name: webkitgtk6.0-devel, pacman: webkitgtk-6.0, freebsd: webkit2-gtk_60}
+    - {name: javascriptcoregtk6.0-devel, pacman: null, freebsd: null}
     - {name: libgccjit, freebsd: null}  # runtime dep for cmacs native compilation
     - {name: libgccjit-devel, pacman: libgccjit, freebsd: null}
     - libotf  # runtime dep for cmacs OpenType font handling
