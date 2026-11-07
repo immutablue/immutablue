@@ -13,7 +13,8 @@ immutablue:
     44: "https://github.com/zfsonlinux/zfsonlinux.github.com/raw/refs/heads/master/fedora/zfs-release-3-1.fc44.noarch.rpm"
     # 45: not published yet -- OpenZFS has no zfs-release fc45 RPM and no
     # download.zfsonlinux.org/fedora/45 repo, so ZFS/TRUEBLUE builds on 45
-    # fail until it lands. Add it here when upstream publishes it.
+    # fail until it lands, and LTS builds (which add ZFS when they can) are
+    # built without it. Add it here when upstream publishes it.
 
   # Repo URLs to add in the build (they are curled)
   repo_urls:

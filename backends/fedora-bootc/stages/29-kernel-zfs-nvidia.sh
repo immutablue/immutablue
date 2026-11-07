@@ -99,9 +99,30 @@ fi
 # fi
 
 # ZFS filesystem support
-# ZFS is installed by default with the LTS kernel, or if explicitly enabled
-if [[ "$DO_INSTALL_ZFS" == "true" ]] || [[ "$DO_INSTALL_LTS" == "true" ]]
-then 
+# ZFS is installed by default with the LTS kernel, or if explicitly enabled.
+#
+# OpenZFS publishes its zfs-release RPM per Fedora release, usually some time
+# after that release ships, and packages.yaml has no zfs_rpm_url entry until it
+# does (yq then prints "null"). An LTS build only gets ZFS as a bonus, so it
+# goes ahead without it; an explicit ZFS=1/TRUEBLUE=1 build asked for ZFS and
+# fails with the reason rather than as `dnf5 install null`.
+DO_ZFS="false"
+if [[ "$DO_INSTALL_ZFS" == "true" ]] || [[ "$DO_INSTALL_LTS" == "true" ]]; then DO_ZFS="true"; fi
+
+if [[ "$DO_ZFS" == "true" ]] && { [[ -z "${ZFS_RPM_URL}" ]] || [[ "${ZFS_RPM_URL}" == "null" ]]; }
+then
+    if [[ "$DO_INSTALL_ZFS" == "true" ]]
+    then
+        echo "ERROR: ZFS requested but packages.yaml has no zfs_rpm_url for Fedora ${VERSION}" >&2
+        echo "ERROR: OpenZFS has not published a zfs-release RPM for it yet; build ZFS/TRUEBLUE on an older VERSION" >&2
+        exit 1
+    fi
+    echo "WARNING: no zfs_rpm_url for Fedora ${VERSION}; building the LTS kernel without ZFS"
+    DO_ZFS="false"
+fi
+
+if [[ "$DO_ZFS" == "true" ]]
+then
     # Install the ZFS repository
     dnf5 -y install "${ZFS_RPM_URL}"
     
