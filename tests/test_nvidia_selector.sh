@@ -63,16 +63,35 @@ for args in '--activate --driver open' '--status --driver none' '--status --garb
 done
 trace="$fixture/trace"
 systemd-sysext() { echo "sysext $*" >> "$trace"; return "${MERGE_STATUS:-0}"; }
-ldconfig() { echo "ldconfig $*" >> "$trace"; }
+# LDCONFIG_FAILS=N makes the first N cache rebuilds fail, as when the refresh
+# starts ldconfig.service and both rename /etc/ld.so.cache~ at once.
+ldconfig() {
+    echo "ldconfig $*" >> "$trace"
+    local count
+    count=$(grep -c '^ldconfig' "$trace")
+    ((count > ${LDCONFIG_FAILS:-0}))
+}
 modprobe() { echo "modprobe $*" >> "$trace"; }
+sleep() { :; }
 # Launch each activation in a fresh shell so caller conditionals cannot disable
 # the executable's errexit behavior. Only the fixture paths/functions are exported.
 export STACKS CONFIG EXTENSIONS PCI_DEVICES trace
-export -f activate pick gpu_ids ids_supported save fail systemd-sysext ldconfig modprobe jq
+export LDCONFIG_FAILS=0
+export -f activate pick gpu_ids ids_supported save fail systemd-sysext ldconfig modprobe sleep jq
 bash -euo pipefail -c activate
 [[ $(readlink "$EXTENSIONS/immutablue-nvidia.raw") == "$STACKS/open/immutablue-nvidia.raw" ]]
-printf 'sysext refresh\nldconfig -X\nmodprobe nvidia_drm\nmodprobe nvidia_uvm\n' > "$fixture/expected"
+printf 'sysext refresh\nmodprobe nvidia_drm\nmodprobe nvidia_uvm\nldconfig -X\n' > "$fixture/expected"
 cmp "$trace" "$fixture/expected"
+# A rebuild that collides with ldconfig.service must not stop the display
+# driver loading, and a later rebuild must still succeed.
+: > "$trace"
+LDCONFIG_FAILS=2 bash -euo pipefail -c activate
+printf 'sysext refresh\nmodprobe nvidia_drm\nmodprobe nvidia_uvm\nldconfig -X\nldconfig -X\nldconfig -X\n' > "$fixture/expected"
+cmp "$trace" "$fixture/expected"
+# A cache that never rebuilds still fails the unit, after the drivers loaded.
+: > "$trace"
+if LDCONFIG_FAILS=99 bash -euo pipefail -c activate 2>/dev/null; then echo 'FAIL: ldconfig failure ignored'; exit 1; fi
+[[ $(grep -c '^modprobe' "$trace") == 2 && $(grep -c '^ldconfig' "$trace") == 5 ]]
 : > "$trace"
 if MERGE_STATUS=9 bash -euo pipefail -c activate; then echo 'FAIL: merge failure ignored'; exit 1; fi
 [[ $(cat "$trace") == 'sysext refresh' ]]
