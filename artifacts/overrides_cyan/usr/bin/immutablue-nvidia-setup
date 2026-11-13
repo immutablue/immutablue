@@ -70,9 +70,17 @@ activate() {
     mkdir -p "$EXTENSIONS"
     ln -sfn "$image" "$EXTENSIONS/immutablue-nvidia.raw"
     systemd-sysext refresh
-    ldconfig -X
+    # The refresh can start ldconfig.service, whose rebuild races ours on
+    # /etc/ld.so.cache~. Load the drivers first, since they do not need the
+    # cache, so a lost race cannot leave the display on simpledrm; then retry.
     modprobe nvidia_drm
     modprobe nvidia_uvm
+    local try
+    for try in 1 2 3 4 5; do
+        ldconfig -X && return 0
+        sleep 1
+    done
+    fail "ldconfig failed $try times"
 }
 
 main() {
