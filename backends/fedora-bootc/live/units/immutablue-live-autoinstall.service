@@ -1,0 +1,16 @@
+# Unattended install from the Immutablue live ISO, for automated tests.
+# Runs only when the kernel command line carries immutablue.autoinstall=<disk>
+# (make LIVE=1 ISO_AUTOINSTALL=/dev/vda iso bakes that into the boot menu,
+# together with systemd.wants= for this unit).
+[Unit]
+Description=Immutablue unattended install (live ISO)
+ConditionKernelCommandLine=immutablue.autoinstall
+After=multi-user.target var-tmp.mount network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/immutablue-live/autoinstall
+StandardOutput=journal+console
+StandardError=journal+console
+

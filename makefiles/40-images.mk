@@ -28,8 +28,23 @@ endif
 # ISO_AUTOINSTALL_LAYOUT / _SWAP / _PASSPHRASE / _USER (with _USER_PASSWORD) /
 # _DISPLAY_MANAGER choose the layout, swap, GELI encryption, first user and
 # login screen of that install.
+#
+# LIVE=1 builds a live installer ISO instead, as Bazzite's: the image boots
+# as a live desktop with Anaconda, which installs the image carried on the
+# ISO (backends/<b>/make-live-iso.sh). arch-bootc and freebsd-be ISOs are
+# live systems already, so LIVE=1 changes nothing there.
 iso: _check_not_distroless
-ifneq ($(wildcard backends/$(BACKEND)/make-iso.sh),)
+ifeq ($(LIVE)$(wildcard backends/$(BACKEND)/make-live-iso.sh),1backends/$(BACKEND)/make-live-iso.sh)
+	@if echo "$(BUILD_OPTIONS)" | grep -qw nucleus; then \
+		echo "ERROR: LIVE=1 needs a desktop image; $(TAG) has none (use 'make iso')"; \
+		exit 1; \
+	fi
+	@mkdir -p $(ISO_DIR)
+	bash backends/$(BACKEND)/make-live-iso.sh $(if $(ISO_AUTOINSTALL),--autoinstall "$(ISO_AUTOINSTALL)") \
+		$(IMAGE):$(TAG) $(ISO_DIR)/immutablue-$(TAG)-live.iso
+	cd $(ISO_DIR) && sha256sum immutablue-$(TAG)-live.iso > immutablue-$(TAG)-live.iso.CHECKSUM
+	@echo "Live ISO built: $(ISO_DIR)/immutablue-$(TAG)-live.iso"
+else ifneq ($(wildcard backends/$(BACKEND)/make-iso.sh),)
 	@mkdir -p $(ISO_DIR)
 	bash backends/$(BACKEND)/make-iso.sh $(if $(ISO_AUTOINSTALL),--autoinstall "$(ISO_AUTOINSTALL)") \
 		$(if $(ISO_AUTOINSTALL_LAYOUT),--autoinstall-layout $(ISO_AUTOINSTALL_LAYOUT)) \

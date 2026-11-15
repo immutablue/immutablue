@@ -90,6 +90,7 @@ make qcow2                    # Generate qcow2 image
 make iso-config               # Interactive: configure users/SSH keys
 make iso                      # Default: bootc-image-builder ISO
 make CLASSIC_ISO=1 iso        # Classic: build-container-installer ISO
+make LIVE=1 iso               # Live desktop + Anaconda installer (fedora-bootc)
 make TRUEBLUE=1 iso-config    # Configure for variant
 make TRUEBLUE=1 iso           # Variant build with bootc-image-builder
 make run_iso                  # Test ISO in QEMU
@@ -97,6 +98,14 @@ make push_iso                 # Upload ISO to S3
 ```
 
 The default `make iso` uses `bootc-image-builder` (same tooling as qcow2), producing an install-to-disk ISO. Use `CLASSIC_ISO=1` for the legacy `build-container-installer` approach which supports flatpak bundling and more Anaconda customization.
+
+`LIVE=1` (fedora-bootc, desktop images) builds `./iso/immutablue-<tag>-live.iso`
+with `backends/fedora-bootc/make-live-iso.sh`: the image plus `live/Containerfile`
+(livesys, anaconda-live/WebUI, dracut-live) boots as a live GNOME session, and
+Anaconda installs the image carried on the ISO as an OCI layout
+(`ostreecontainer --transport=oci`), then `bootc switch`es to its registry ref.
+Shim + `gcdx64.efi` for UEFI/Secure Boot, `i386-pc-eltorito` GRUB for BIOS, one
+hybrid ISO. `ISO_AUTOINSTALL=/dev/vda` installs unattended for tests.
 
 `arch-bootc` and `freebsd-be` are not supported by bootc-image-builder, so
 `make iso` runs their own `backends/<backend>/make-iso.sh` instead

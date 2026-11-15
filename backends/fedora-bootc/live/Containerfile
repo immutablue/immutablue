@@ -1,0 +1,23 @@
+# Containerfile - The live system of the fedora-bootc live ISO
+#
+# Built by backends/fedora-bootc/make-live-iso.sh on top of the image the ISO
+# installs: the same image, plus a live session (livesys-scripts), the
+# Anaconda installer (anaconda-live, WebUI) and the CD boot loader. The ISO
+# boots this as its root (LiveOS/squashfs.img) and installs BASE_IMAGE, which
+# rides along on the ISO as an OCI image layout.
+#
+#   podman build --build-arg BASE_IMAGE=quay.io/immutablue/immutablue:44 \
+#       -t localhost/immutablue-live:44 backends/fedora-bootc/live
+
+ARG BASE_IMAGE=quay.io/immutablue/immutablue:44
+
+FROM ${BASE_IMAGE}
+
+ARG BASE_IMAGE
+ARG LIVE_SESSION=gnome
+
+COPY . /tmp/live-src
+
+RUN BASE_IMAGE="${BASE_IMAGE}" LIVE_SESSION="${LIVE_SESSION}" \
+        bash /tmp/live-src/build-live.sh \
+    && rm -rf /tmp/live-src

@@ -1,0 +1,14 @@
+# A large /var/tmp for the Immutablue live ISO. In a live boot / is an
+# overlay whose upper layer is under /run, a small tmpfs, and ostree stages
+# container layers in /var/tmp while Anaconda installs the image.
+[Unit]
+Description=Larger tmpfs for /var/tmp on the live system
+
+[Mount]
+What=tmpfs
+Where=/var/tmp
+Type=tmpfs
+Options=mode=1777,size=50%%,nr_inodes=1m
+
+[Install]
+WantedBy=local-fs.target

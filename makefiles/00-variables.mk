@@ -94,6 +94,11 @@ ifndef CLASSIC_ISO
     CLASSIC_ISO := 0
 endif
 
+# LIVE=1: 'make iso' builds a live installer ISO (backends/<b>/make-live-iso.sh)
+ifndef LIVE
+    LIVE := 0
+endif
+
 # ------------------------------------------------------------------------------
 # Feature Flags (Defaults)
 # ------------------------------------------------------------------------------
