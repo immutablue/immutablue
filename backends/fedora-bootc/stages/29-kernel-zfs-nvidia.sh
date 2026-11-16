@@ -151,6 +151,28 @@ then
     
     # Add ZFS to the list of modules to load at boot
     echo 'zfs' >> "${MODULES_CONF}"
+
+    # mount.zfs rejects options it does not know, and a remount hands it the
+    # current ones -- including SELinux's 'seclabel'. bootc remounts /sysroot
+    # read-write with mount(8) before every update, so on a root-on-ZFS
+    # install (immutablue-zfs-install) 'bootc update' / 'immutablue update'
+    # failed with "invalid option 'seclabel'". -s makes mount.zfs ignore
+    # unknown options, as other filesystems' helpers do.
+    MOUNT_ZFS="$(readlink -f /usr/sbin/mount.zfs)"
+    install -Dm0755 "${MOUNT_ZFS}" /usr/libexec/immutablue/zfs/mount.zfs
+    cat > "${MOUNT_ZFS}" <<'EOF'
+#!/bin/sh
+# Immutablue: mount.zfs with -s (ignore unknown options such as 'seclabel'),
+# so remounting a ZFS root works (backends/fedora-bootc/stages/29-kernel-zfs-nvidia.sh)
+exec /usr/libexec/immutablue/zfs/mount.zfs -s "$@"
+EOF
+    chmod 0755 "${MOUNT_ZFS}"
+    # The zfs dracut module copies mount.zfs -- now the wrapper -- into the
+    # initramfs, which mounts a ZFS root with it: the real helper must go in
+    # too, or root-on-ZFS installs cannot mount / (80-initramfs.sh runs later)
+    mkdir -p /usr/lib/dracut/dracut.conf.d
+    echo 'install_items+=" /usr/libexec/immutablue/zfs/mount.zfs "' \
+        > /usr/lib/dracut/dracut.conf.d/90-immutablue-zfs-mount.conf
 fi
 
 # Install RPMs from URLs

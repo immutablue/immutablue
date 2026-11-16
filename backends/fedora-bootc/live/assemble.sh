@@ -16,7 +16,10 @@
 #   /out/boot_hybrid.img             MBR boot code for BIOS USB boot (x86_64)
 #
 # Usage:
-#   podman export <cid> | podman run -i ... <live-image> bash assemble.sh <label> <title> [autoinstall-disk]
+#   podman export <cid> | podman run -i ... <live-image> bash assemble.sh <label> <title> [autoinstall-kargs]
+#
+#   autoinstall-kargs: immutablue.autoinstall=... (and _layout=, _passphrase=)
+#   for an unattended test install; empty for an interactive ISO
 #
 # Options:
 #   -h, --help     Show this help message
@@ -37,7 +40,7 @@ esac
 if [[ $# -lt 2 ]]
 then
     echo 'assemble.sh requires 2 positional arguments' >&2
-    echo 'assemble.sh <label> <title> [autoinstall-disk]' >&2
+    echo 'assemble.sh <label> <title> [autoinstall-kargs]' >&2
     exit 1
 fi
 
@@ -53,7 +56,7 @@ arch="$(uname -m)"
 cmdline="root=live:CDLABEL=${label} rd.live.image rd.live.overlay.overlayfs=1 enforcing=0"
 if [[ -n "${autoinstall}" ]]
 then
-    cmdline="${cmdline} immutablue.autoinstall=${autoinstall} systemd.unit=multi-user.target systemd.wants=immutablue-live-autoinstall.service console=tty0 console=ttyS0"
+    cmdline="${cmdline} ${autoinstall} systemd.unit=multi-user.target systemd.wants=immutablue-live-autoinstall.service console=tty0 console=ttyS0"
 else
     cmdline="${cmdline} quiet rhgb"
 fi

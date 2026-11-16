@@ -106,6 +106,17 @@ Anaconda installs the image carried on the ISO as an OCI layout
 (`ostreecontainer --transport=oci`), then `bootc switch`es to its registry ref.
 Shim + `gcdx64.efi` for UEFI/Secure Boot, `i386-pc-eltorito` GRUB for BIOS, one
 hybrid ISO. `ISO_AUTOINSTALL=/dev/vda` installs unattended for tests.
+On ZFS images the live ISO also ships `immutablue-zfs-install` (+ a zenity
+launcher): root on a ZFS pool (stripe/mirror/raidz, native encryption) via
+`ostree container image deploy` + `bootupctl backend install`, since
+`bootc install to-filesystem` rejects ZFS. It pins a per-machine hostid
+(`spl_hostid=` karg + `/etc/hostid`) because the image's initramfs carries
+the build host's. `ISO_AUTOINSTALL="/dev/vda /dev/vdb" ISO_AUTOINSTALL_LAYOUT=mirror`
+tests it; such ISOs are named `*.autoinstall-test.iso`.
+ZFS images wrap `mount.zfs` (real binary in `/usr/libexec/immutablue/zfs/`,
+added to the initramfs by `dracut.conf.d/90-immutablue-zfs-mount.conf`) so it
+always passes `-s`: bootc remounts `/sysroot` with mount(8), which hands the
+helper `seclabel`, and without `-s` `bootc update` fails on a ZFS root.
 
 `arch-bootc` and `freebsd-be` are not supported by bootc-image-builder, so
 `make iso` runs their own `backends/<backend>/make-iso.sh` instead

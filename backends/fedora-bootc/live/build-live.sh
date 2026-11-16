@@ -10,6 +10,7 @@
 #     install BASE_IMAGE from the OCI image layout on the ISO and then track
 #     BASE_IMAGE's registry reference (so 'immutablue update' pulls from there)
 #   - dracut-live and the CD boot loaders, used by assemble.sh
+#   - immutablue-zfs-install and its launcher, when the image ships ZFS
 #   - live-only tweaks: no update/first-boot services, a large /var/tmp
 #
 # Modelled on Bazzite's installer/ (ublue-os/bazzite, Apache-2.0), which does
@@ -165,6 +166,31 @@ configure_live_units () {
 
 
 # -----------------------------------
+# Root on ZFS (images with ZFS only): the installer, its desktop front end
+# and launcher, pinned to the dash next to Anaconda's. Anaconda cannot
+# create ZFS pools, so this is a separate path.
+# -----------------------------------
+configure_zfs_installer () {
+    if ! command -v zpool > /dev/null
+    then
+        return 0
+    fi
+    install -Dm0755 "${SRC}/immutablue-zfs-install.sh" /usr/bin/immutablue-zfs-install
+    install -Dm0755 "${SRC}/immutablue-zfs-install-gui.sh" /usr/bin/immutablue-zfs-install-gui
+    install -Dm0644 "${SRC}/units/immutablue-zfs-install.desktop" \
+        /usr/share/applications/immutablue-zfs-install.desktop
+
+    # The launcher runs the installer with 'sudo -n' as liveuser (who has no
+    # password); allow exactly that, rather than relying on the image's wheel
+    # policy
+    echo 'liveuser ALL=(root) NOPASSWD: /usr/bin/immutablue-zfs-install' \
+        > /etc/sudoers.d/90-immutablue-live-zfs-install
+    chmod 0440 /etc/sudoers.d/90-immutablue-live-zfs-install
+    visudo -cf /etc/sudoers.d/90-immutablue-live-zfs-install
+}
+
+
+# -----------------------------------
 # Services that make sense on an installed system only: updates, first-boot
 # provisioning, scheduled scripts. Disabled for the live session; the
 # installed system gets the image's own presets.
@@ -216,6 +242,7 @@ main () {
     configure_livesys
     configure_anaconda
     configure_live_units
+    configure_zfs_installer
     disable_installed_only_services
 
     # The live session runs in UTC until the installer sets a timezone

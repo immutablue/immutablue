@@ -8,6 +8,11 @@
 # For automated tests: there are no questions and no first user (GNOME's
 # first-login setup creates one).
 #
+# With immutablue.autoinstall_layout=<stripe|mirror|raidz1|raidz2|raidz3>
+# (ZFS images) it installs with root on ZFS instead (immutablue-zfs-install),
+# onto immutablue.autoinstall=<disk>[,<disk>...];
+# immutablue.autoinstall_passphrase=<text> encrypts the pool.
+#
 # Usage:
 #   immutablue-live-autoinstall
 #
@@ -17,6 +22,7 @@
 #
 # Examples:
 #   Boot the ISO with: immutablue.autoinstall=/dev/vda systemd.wants=immutablue-live-autoinstall.service
+#   ZFS mirror:        immutablue.autoinstall=/dev/vda,/dev/vdb immutablue.autoinstall_layout=mirror ...
 #
 # Exit codes:
 #   0 - Installed (the machine is powering off)
@@ -50,8 +56,38 @@ karg () {
 }
 
 
+# Root on ZFS: the same installer the desktop launcher runs, unattended.
+#
+# param $1: comma-separated disks
+# param $2: layout
+install_zfs () {
+    local disks=()
+    local passphrase
+    local enc=()
+
+    IFS=',' read -r -a disks <<< "$1"
+    passphrase="$(karg immutablue.autoinstall_passphrase)"
+    if [[ -n "${passphrase}" ]]
+    then
+        printf '%s' "${passphrase}" > /run/immutablue-autoinstall.pass
+        enc=(--encrypt --passphrase-file /run/immutablue-autoinstall.pass)
+    fi
+    echo "immutablue-live-autoinstall: installing to ${disks[*]} (ZFS $2)"
+    immutablue-zfs-install --yes --layout "$2" "${enc[@]}" "${disks[@]}"
+    systemctl poweroff
+}
+
+
 main () {
     local disk
+    local layout
+
+    layout="$(karg immutablue.autoinstall_layout)"
+    if [[ -n "${layout}" ]]
+    then
+        install_zfs "$(karg immutablue.autoinstall)" "${layout}"
+        return 0
+    fi
 
     disk="$(karg immutablue.autoinstall)"
     if [[ -z "${disk}" ]] || [[ ! -b "${disk}" ]]

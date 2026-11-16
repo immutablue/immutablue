@@ -24,7 +24,14 @@
 #
 # Options:
 #   --autoinstall DISK  Install to DISK (e.g. /dev/vda) unattended at boot and
-#                       power off (for automated tests; wipes DISK)
+#                       power off (for automated tests; wipes DISK). Several
+#                       disks ("/dev/vda /dev/vdb") with --autoinstall-layout
+#   --autoinstall-layout LAYOUT
+#                       ZFS images: install with root on ZFS instead of
+#                       Anaconda (stripe, mirror, raidz1, raidz2, raidz3)
+#   --autoinstall-passphrase TEXT
+#                       with --autoinstall-layout: encrypt the pool (the
+#                       passphrase is on the ISO's kernel command line: tests only)
 #   --session NAME      livesys session (default: gnome)
 #   --keep-live-image   Keep the intermediate live image (localhost/immutablue-live)
 #   -h, --help          Show this help message
@@ -35,6 +42,7 @@
 #   make LIVE=1 iso
 #   make LIVE=1 TRUEBLUE=1 VERSION=44 iso
 #   make LIVE=1 ISO_AUTOINSTALL=/dev/vda iso
+#   make LIVE=1 TRUEBLUE=1 VERSION=44 ISO_AUTOINSTALL="/dev/vda /dev/vdb" ISO_AUTOINSTALL_LAYOUT=mirror iso
 #
 # Exit codes:
 #   0 - ISO written
@@ -92,6 +100,9 @@ iso_label () {
 
 main () {
     local autoinstall=""
+    local autoinstall_layout=""
+    local autoinstall_passphrase=""
+    local autoinstall_kargs=""
     local session="gnome"
     local args=()
     local image
@@ -107,6 +118,8 @@ main () {
             -h|--help) show_help; return 0 ;;
             --license) echo 'make-live-iso.sh - part of Immutablue. AGPL-3.0-or-later.'; return 0 ;;
             --autoinstall) autoinstall="$2"; shift ;;
+            --autoinstall-layout) autoinstall_layout="$2"; shift ;;
+            --autoinstall-passphrase) autoinstall_passphrase="$2"; shift ;;
             --session) session="$2"; shift ;;
             --keep-live-image) KEEP_LIVE_IMAGE="true" ;;
             -*) log "unknown option $1"; return 2 ;;
@@ -122,6 +135,21 @@ main () {
     image="${args[0]}"
     out="$(realpath -m "${args[1]}")"
     tag="${image##*:}"
+
+    # Unattended test install: kernel arguments for immutablue-live-autoinstall
+    if [[ -n "${autoinstall}" ]]
+    then
+        autoinstall_kargs="immutablue.autoinstall=$(echo "${autoinstall}" | xargs | tr ' ' ',')"
+        if [[ -n "${autoinstall_layout}" ]]
+        then
+            autoinstall_kargs="${autoinstall_kargs} immutablue.autoinstall_layout=${autoinstall_layout}"
+        fi
+        if [[ -n "${autoinstall_passphrase}" ]]
+        then
+            [[ "${autoinstall_passphrase}" =~ ^[^[:space:]\'\"]+$ ]] || { log "--autoinstall-passphrase may not contain spaces or quotes"; return 2; }
+            autoinstall_kargs="${autoinstall_kargs} immutablue.autoinstall_passphrase=${autoinstall_passphrase}"
+        fi
+    fi
     label="$(iso_label "${tag}")"
     title="Immutablue ${tag}"
     LIVE_IMAGE="localhost/immutablue-live:${tag}"
@@ -154,7 +182,7 @@ main () {
     CID="$(podman create "${LIVE_IMAGE}" /bin/true)"
     podman export "${CID}" | podman run --rm -i --security-opt label=disable \
         -v "${WORK}:/out" -v "${HERE}/live:/live-src:ro" \
-        "${LIVE_IMAGE}" bash /live-src/assemble.sh "${label}" "${title}" "${autoinstall}"
+        "${LIVE_IMAGE}" bash /live-src/assemble.sh "${label}" "${title}" "${autoinstall_kargs}"
     podman rm -f "${CID}" > /dev/null
     CID=""
 
