@@ -192,8 +192,10 @@ configure_zfs_installer () {
 
 # -----------------------------------
 # Services that make sense on an installed system only: updates, first-boot
-# provisioning, scheduled scripts. Disabled for the live session; the
-# installed system gets the image's own presets.
+# provisioning, scheduled scripts, and ZFS pool import/mount (the live
+# session must not claim a machine's pools; immutablue-zfs-install creates
+# and imports its own). Disabled for the live session; the installed system
+# gets the image's own presets.
 # -----------------------------------
 disable_installed_only_services () {
     local unit
@@ -211,7 +213,13 @@ disable_installed_only_services () {
         bootc-fetch-apply-updates.timer \
         flatpak-add-fedora-repos.service \
         greenboot-healthcheck.service \
-        greenboot-set-rollback-trigger.service
+        greenboot-set-rollback-trigger.service \
+        zfs-import-cache.service \
+        zfs-import-scan.service \
+        zfs-mount.service \
+        zfs-share.service \
+        zfs-zed.service \
+        zfs-load-keys.service
     do
         if systemctl list-unit-files "${unit}" > /dev/null 2>&1
         then

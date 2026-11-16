@@ -72,16 +72,26 @@ mksquashfs - /out/iso/LiveOS/squashfs.img -tar -comp zstd -Xcompression-level 15
 
 # -----------------------------------
 # The live initramfs: generic, with dmsquash-live, without the ostree hook an
-# installed system boots through. The image's /var is empty -- bootc
-# populates it at install -- so dracut gets /tmp for its scratch space.
+# installed system boots through, and without ZFS: on a ZFS image the zfs
+# module imports every pool it finds, under the hostid of the machine that
+# built the image, and never exports it -- so booting the ISO on a machine
+# with ZFS pools (or once more after installing onto one) leaves them "in
+# use from another system" and that machine's own initramfs refuses to
+# import them. The installer loads ZFS itself. The image's /var is empty --
+# bootc populates it at install -- so dracut gets /tmp for its scratch space.
 # -----------------------------------
 cp "/usr/lib/modules/${kver}/vmlinuz" /out/iso/images/pxeboot/vmlinuz
 if ! DRACUT_NO_XATTR=1 dracut --no-hostonly --force --reproducible --tmpdir /tmp \
     --kver "${kver}" --add "dmsquash-live dmsquash-live-autooverlay" \
-    --omit "ostree bootc plymouth" \
+    --omit "ostree bootc plymouth zfs" \
     /out/iso/images/pxeboot/initrd.img > /tmp/dracut.log 2>&1
 then
     cat /tmp/dracut.log >&2
+    exit 1
+fi
+if lsinitrd -m /out/iso/images/pxeboot/initrd.img 2> /dev/null | grep -qx zfs
+then
+    echo "assemble.sh: the live initramfs still contains the zfs module" >&2
     exit 1
 fi
 
