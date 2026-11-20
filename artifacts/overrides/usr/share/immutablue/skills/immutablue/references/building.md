@@ -154,7 +154,11 @@ Linux `ptrace`) and `graylib_cflags`, and an optional `backend_ldconfig` refresh
 the linker cache. ai-glib needs `gtk4-devel` and `libadwaita-devel` or its `ai-gui` client
 and the `org.copyleft.AiGlib.Gui.desktop` launcher are not built, and (0.6.0+, voice)
 `gstreamer1-devel` and `gstreamer1-plugins-base-devel`, since a missing
-gstreamer `.pc` makes ai-glib's whole `pkg-config --cflags` call fail. podomation
+gstreamer `.pc` makes ai-glib's whole `pkg-config --cflags` call fail; and
+(0.13.0+) `onnxruntime-devel` (Arch `onnxruntime-cpu`, FreeBSD `onnxruntime`)
+for in-process speaker voiceprints and `ai-voiceprint-server` — without it both
+are skipped with only a `Note:` line. libai-glib then links onnxruntime, so the
+runtime `onnxruntime` is in `pkg.all`. podomation
 and bacon build ai-glib statically and need the same. When a component's new
 feature is absent from the image although its pin moved, look there first.
 

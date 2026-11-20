@@ -98,6 +98,13 @@ immutablue:
     - {name: gstreamer1-devel, pacman: gstreamer, freebsd: gstreamer1}
     - {name: gstreamer1-plugins-base-devel, pacman: gst-plugins-base, freebsd: gstreamer1-plugins}
 
+    # ai-glib: in-process speaker voiceprints (0.13.0+, AiOnnxSpeakerEmbedder)
+    # and ai-voiceprint-server. Optional in ai-glib: without libonnxruntime.pc
+    # both are skipped with a note, so a missing package here silently costs
+    # the feature. Arch's onnxruntime-cpu and FreeBSD's onnxruntime ship the
+    # headers and libonnxruntime.pc in the library package.
+    - {name: onnxruntime-devel, pacman: onnxruntime-cpu, freebsd: onnxruntime}
+
     # yaml-glib + gst: YAML + JSON
     - {name: libyaml-devel, pacman: libyaml, freebsd: libyaml}
     - {name: json-glib-devel, pacman: json-glib, freebsd: json-glib}
@@ -211,6 +218,10 @@ immutablue:
     - {name: bluez, freebsd: null}
     - {name: bpftrace, freebsd: null}
     - buildah
+    # libai-glib (and ai-call, ai-voiceprint-server) link ONNX Runtime when the
+    # deps container built them with it (build_deps: onnxruntime-devel), so the
+    # library must be in every image that gets ai-glib, headless ones too.
+    - {name: onnxruntime, pacman: onnxruntime-cpu}
     - {name: buildstream, pacman: null, freebsd: null}
     # libre-query-language (lql): compressed inputs. Arch's bzip2 and
     # FreeBSD's base system carry the headers; FreeBSD has no bzip2 port.
