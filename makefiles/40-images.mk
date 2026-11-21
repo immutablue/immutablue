@@ -33,6 +33,8 @@ endif
 # as a live desktop with Anaconda, which installs the image carried on the
 # ISO (backends/<b>/make-live-iso.sh). arch-bootc and freebsd-be ISOs are
 # live systems already, so LIVE=1 changes nothing there.
+# LIVE_NAME="<name>" brands the live ISO (volume label, boot menu, Anaconda,
+# the ZFS installer); it defaults to Immutablue.
 # An ISO with ISO_AUTOINSTALL wipes a disk at boot without asking: never name
 # it like the installer people download.
 LIVE_ISO_NAME = immutablue-$(TAG)-live$(if $(ISO_AUTOINSTALL),.autoinstall-test).iso
@@ -47,6 +49,7 @@ ifeq ($(LIVE)$(wildcard backends/$(BACKEND)/make-live-iso.sh),1backends/$(BACKEN
 	bash backends/$(BACKEND)/make-live-iso.sh $(if $(ISO_AUTOINSTALL),--autoinstall "$(ISO_AUTOINSTALL)") \
 		$(if $(ISO_AUTOINSTALL_LAYOUT),--autoinstall-layout $(ISO_AUTOINSTALL_LAYOUT)) \
 		$(if $(ISO_AUTOINSTALL_PASSPHRASE),--autoinstall-passphrase "$(ISO_AUTOINSTALL_PASSPHRASE)") \
+		$(if $(LIVE_NAME),--name "$(LIVE_NAME)") \
 		$(IMAGE):$(TAG) $(ISO_DIR)/$(LIVE_ISO_NAME)
 	cd $(ISO_DIR) && sha256sum $(LIVE_ISO_NAME) > $(LIVE_ISO_NAME).CHECKSUM
 	@echo "Live ISO built: $(ISO_DIR)/$(LIVE_ISO_NAME)"

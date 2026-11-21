@@ -106,6 +106,8 @@ Anaconda installs the image carried on the ISO as an OCI layout
 (`ostreecontainer --transport=oci`), then `bootc switch`es to its registry ref.
 Shim + `gcdx64.efi` for UEFI/Secure Boot, `i386-pc-eltorito` GRUB for BIOS, one
 hybrid ISO. `ISO_AUTOINSTALL=/dev/vda` installs unattended for tests.
+`LIVE_NAME="<name>"` (`--name`) brands the volume label, boot menu, Anaconda
+product and ZFS launcher (default Immutablue); immutablue-custom passes it.
 On ZFS images the live ISO also ships `immutablue-zfs-install` (+ a zenity
 launcher): root on a ZFS pool (stripe/mirror/raidz, native encryption) via
 `ostree container image deploy` + `bootupctl backend install`, since

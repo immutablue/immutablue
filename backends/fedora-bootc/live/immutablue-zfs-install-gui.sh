@@ -20,7 +20,10 @@
 
 set -uo pipefail
 
-TITLE="Install Immutablue on ZFS"
+# The product name shown in the dialogs; build-live.sh sets it to the ISO's
+# --name (make-live-iso.sh)
+PRODUCT="Immutablue"
+TITLE="Install ${PRODUCT} on ZFS"
 LOG="/tmp/immutablue-zfs-install.log"
 
 case "${1:-}" in
@@ -159,7 +162,7 @@ main () {
     sudo -n immutablue-zfs-install --yes --layout "${layout}" "${encrypt[@]}" "${disks[@]}" > "${LOG}" 2>&1 &
     local pid=$!
     zenity --progress --pulsate --no-cancel --auto-close --title="${TITLE}" --width=420 \
-        --text="Installing Immutablue on ZFS. This takes a few minutes." < <(while kill -0 "${pid}" 2> /dev/null; do echo "#"; sleep 1; done)
+        --text="Installing ${PRODUCT} on ZFS. This takes a few minutes." < <(while kill -0 "${pid}" 2> /dev/null; do echo "#"; sleep 1; done)
     wait "${pid}"
     rc=$?
     [[ -n "${passfile}" ]] && rm -f "${passfile}"
@@ -167,7 +170,7 @@ main () {
     if [[ ${rc} -eq 0 ]]
     then
         zenity --info --title="${TITLE}" --width=420 \
-            --text="Immutablue is installed. Remove the installation media and restart."
+            --text="${PRODUCT} is installed. Remove the installation media and restart."
     else
         zenity --text-info --title="${TITLE}: installation failed" --width=760 --height=480 --filename="${LOG}"
     fi

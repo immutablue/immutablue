@@ -32,6 +32,9 @@
 #   --autoinstall-passphrase TEXT
 #                       with --autoinstall-layout: encrypt the pool (the
 #                       passphrase is on the ISO's kernel command line: tests only)
+#   --name NAME         Product name on the ISO: volume label, boot menu,
+#                       Anaconda and the ZFS installer (default: Immutablue;
+#                       letters, digits, spaces and ._+- only)
 #   --session NAME      livesys session (default: gnome)
 #   --keep-live-image   Keep the intermediate live image (localhost/immutablue-live)
 #   -h, --help          Show this help message
@@ -41,6 +44,8 @@
 #   backends/fedora-bootc/make-live-iso.sh quay.io/immutablue/immutablue:44 iso/immutablue-44-live.iso
 #   make LIVE=1 iso
 #   make LIVE=1 TRUEBLUE=1 VERSION=44 iso
+#   backends/fedora-bootc/make-live-iso.sh --name "Hyacinth Macaw" quay.io/immutablue/hyacinth-macaw:45 iso/hyacinth-macaw-45-live.iso
+#   make LIVE=1 LIVE_NAME="Hyacinth Macaw" iso
 #   make LIVE=1 ISO_AUTOINSTALL=/dev/vda iso
 #   make LIVE=1 TRUEBLUE=1 VERSION=44 ISO_AUTOINSTALL="/dev/vda /dev/vdb" ISO_AUTOINSTALL_LAYOUT=mirror iso
 #
@@ -85,14 +90,16 @@ cleanup () {
 }
 
 
-# ISO 9660 volume label from the image tag: upper case, at most 32
-# characters of A-Z 0-9 _ - (the kernel argument root=live:CDLABEL= uses it).
+# ISO 9660 volume label from the product name and image tag: upper case, at
+# most 32 characters of A-Z 0-9 _ - (the kernel argument root=live:CDLABEL=
+# uses it).
 #
-# param $1: image tag
+# param $1: product name
+# param $2: image tag
 iso_label () {
     local label
 
-    label="IMMUTABLUE-${1^^}"
+    label="${1^^}-${2^^}"
     label="${label//[^A-Z0-9_-]/_}"
     echo "${label:0:32}"
 }
@@ -104,6 +111,7 @@ main () {
     local autoinstall_passphrase=""
     local autoinstall_kargs=""
     local session="gnome"
+    local name="Immutablue"
     local args=()
     local image
     local out
@@ -120,6 +128,7 @@ main () {
             --autoinstall) autoinstall="$2"; shift ;;
             --autoinstall-layout) autoinstall_layout="$2"; shift ;;
             --autoinstall-passphrase) autoinstall_passphrase="$2"; shift ;;
+            --name) name="$2"; shift ;;
             --session) session="$2"; shift ;;
             --keep-live-image) KEEP_LIVE_IMAGE="true" ;;
             -*) log "unknown option $1"; return 2 ;;
@@ -136,6 +145,13 @@ main () {
     out="$(realpath -m "${args[1]}")"
     tag="${image##*:}"
 
+    # The name is quoted into GRUB's menu, a .desktop file and sed replacements
+    if [[ ! "${name}" =~ ^[A-Za-z0-9][A-Za-z0-9\ ._+-]*$ ]]
+    then
+        log "--name may hold letters, digits, spaces and ._+- only"
+        return 2
+    fi
+
     # Unattended test install: kernel arguments for immutablue-live-autoinstall
     if [[ -n "${autoinstall}" ]]
     then
@@ -150,8 +166,8 @@ main () {
             autoinstall_kargs="${autoinstall_kargs} immutablue.autoinstall_passphrase=${autoinstall_passphrase}"
         fi
     fi
-    label="$(iso_label "${tag}")"
-    title="Immutablue ${tag}"
+    label="$(iso_label "${name}" "${tag}")"
+    title="${name} ${tag}"
     LIVE_IMAGE="localhost/immutablue-live:${tag}"
 
     if ! podman image exists "${image}"
@@ -172,6 +188,7 @@ main () {
     podman build --pull=never \
         --build-arg BASE_IMAGE="${image}" \
         --build-arg LIVE_SESSION="${session}" \
+        --build-arg LIVE_NAME="${name}" \
         -t "${LIVE_IMAGE}" "${HERE}/live"
 
     # -----------------------------------

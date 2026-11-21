@@ -19,6 +19,8 @@
 # Environment:
 #   BASE_IMAGE     the image reference the installed system tracks (required)
 #   LIVE_SESSION   livesys session (gnome, kde, sway, ...; default gnome)
+#   LIVE_NAME      product name shown by Anaconda and the ZFS installer
+#                  (default Immutablue)
 #
 # Usage:
 #   BASE_IMAGE=quay.io/immutablue/immutablue:44 bash build-live.sh
@@ -44,6 +46,14 @@ esac
 
 : "${BASE_IMAGE:?BASE_IMAGE must name the image the live ISO installs}"
 LIVE_SESSION="${LIVE_SESSION:-gnome}"
+LIVE_NAME="${LIVE_NAME:-Immutablue}"
+
+# It ends up in sed replacements, a .desktop file and a shell assignment
+if [[ ! "${LIVE_NAME}" =~ ^[A-Za-z0-9][A-Za-z0-9\ ._+-]*$ ]]
+then
+    echo "build-live.sh: LIVE_NAME may hold letters, digits, spaces and ._+- only" >&2
+    exit 1
+fi
 
 
 # -----------------------------------
@@ -130,7 +140,7 @@ configure_anaconda () {
     version_id="$(. /etc/os-release && echo "${VERSION_ID}")"
     {
         echo "[Main]"
-        echo "Product=Immutablue"
+        echo "Product=${LIVE_NAME}"
         echo "Version=${version_id}"
         echo "BugURL=https://gitlab.com/immutablue/immutablue/-/issues"
         echo "IsFinal=True"
@@ -178,6 +188,12 @@ configure_zfs_installer () {
     install -Dm0755 "${SRC}/immutablue-zfs-install.sh" /usr/bin/immutablue-zfs-install
     install -Dm0755 "${SRC}/immutablue-zfs-install-gui.sh" /usr/bin/immutablue-zfs-install-gui
     install -Dm0644 "${SRC}/units/immutablue-zfs-install.desktop" \
+        /usr/share/applications/immutablue-zfs-install.desktop
+
+    # Branding: the launcher and the dialogs name the product being installed
+    sed -i "s|^PRODUCT=.*|PRODUCT=\"${LIVE_NAME}\"|" /usr/bin/immutablue-zfs-install-gui
+    sed -i -e "s|^Name=.*|Name=Install ${LIVE_NAME} on ZFS|" \
+        -e "s|^Comment=Install Immutablue |Comment=Install ${LIVE_NAME} |" \
         /usr/share/applications/immutablue-zfs-install.desktop
 
     # The launcher runs the installer with 'sudo -n' as liveuser (who has no

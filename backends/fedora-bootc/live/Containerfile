@@ -15,9 +15,10 @@ FROM ${BASE_IMAGE}
 
 ARG BASE_IMAGE
 ARG LIVE_SESSION=gnome
+ARG LIVE_NAME=Immutablue
 
 COPY . /tmp/live-src
 
-RUN BASE_IMAGE="${BASE_IMAGE}" LIVE_SESSION="${LIVE_SESSION}" \
+RUN BASE_IMAGE="${BASE_IMAGE}" LIVE_SESSION="${LIVE_SESSION}" LIVE_NAME="${LIVE_NAME}" \
         bash /tmp/live-src/build-live.sh \
     && rm -rf /tmp/live-src
